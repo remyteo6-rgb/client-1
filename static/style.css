@@ -1,5 +1,4 @@
 :root {
-    :root {
     /* Palette neutre (générique, sans identité de club) : bleu ardoise / gris acier.
        Remplace ici + CLUB_NAME/CLUB_FULL_NAME/static/logo.png pour personnaliser un client. */
     --bg-primary: transparent;
@@ -182,15 +181,12 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
 }
 .stat-table tbody td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.14); color: var(--text-primary); }
 .stat-table tbody tr:hover { background: rgba(255,255,255,0.08); }
+
 /* Lignes alternées (zébrées) pour les longs tableaux de l'onglet Joueurs */
 .zebra-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.045); }
 .zebra-table tbody tr:nth-child(even):hover { background: rgba(255,255,255,0.1); }
 .stat-own { color: var(--own-color); font-weight: 600; }
 .stat-adverse { color: var(--adverse-color); font-weight: 600; }
-.stat-table thead th.stat-own { color: var(--own-color); }
-.stat-table thead th.stat-adverse { color: var(--adverse-color); }
-.stat-table tbody td.stat-own { color: var(--own-color); }
-.stat-table tbody td.stat-adverse { color: var(--adverse-color); }
 .kpi-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-weight: 700; font-size: 12.5px; border: 1px solid transparent; white-space: nowrap; }
 .kpi-badge-good { background: rgba(111,207,122,0.2); border-color: var(--positive); color: var(--positive); }
 .kpi-badge-bad { background: rgba(255,59,48,0.2); border-color: #ff3b30; color: #ff3b30; }
@@ -365,7 +361,7 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
     font-weight: 700;
     border: 1px solid;
 }
-team-badge-own { background: rgba(91,143,176,0.18); border-color: var(--own-color); color: var(--own-color); }
+.team-badge-own { background: rgba(91,143,176,0.18); border-color: var(--own-color); color: var(--own-color); }
 .team-badge-adverse { background: rgba(195,208,214,0.18); border-color: var(--adverse-color); color: var(--adverse-color); }
 .scoreboard-hero-score { font-size: 46px; font-weight: 800; line-height: 1; }
 .scoreboard-hero-score.own { color: var(--own-color); }
@@ -672,6 +668,7 @@ team-badge-own { background: rgba(91,143,176,0.18); border-color: var(--own-colo
 }
 .landing-menu a:only-child { grid-column: span 2; }
 .landing-link { padding: 14px 10px; font-size: 13px; }
+
 /* Page d'accueil simplifiée : 2 gros boutons de choix (Match vs Saison),
    même style que les gros boutons pleine largeur type "SITE OFFICIEL". */
 .landing-choice-row {
@@ -698,17 +695,18 @@ team-badge-own { background: rgba(91,143,176,0.18); border-color: var(--own-colo
     background: rgba(255,255,255,0.16);
     border-color: #fff;
 }
+
 /* Page Composition : 23 listes déroulantes numérotées (n°1 à n°23) */
 .composition-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
     gap: 10px;
     margin-top: 12px;
 }
 .composition-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.15);
     border-radius: 6px;
@@ -723,9 +721,8 @@ team-badge-own { background: rgba(91,143,176,0.18); border-color: var(--own-colo
     flex-shrink: 0;
 }
 .composition-row select {
-    flex: 1 1 150px;
-    min-width: 150px;
-    max-width: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
     background: rgba(0,0,0,0.3);
     color: #fff;
     border: 1px solid rgba(255,255,255,0.3);
@@ -737,6 +734,18 @@ team-badge-own { background: rgba(91,143,176,0.18); border-color: var(--own-colo
     white-space: nowrap;
 }
 .composition-row select:disabled { opacity: 0.6; }
+.composition-row input[type="number"] {
+    flex-shrink: 0;
+    background: rgba(0,0,0,0.3);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 4px;
+    padding: 6px 4px;
+    font-size: 13px;
+    text-align: center;
+}
+.composition-row input[type="number"]:disabled { opacity: 0.6; }
+
 /* Page Entraînement : grille de cases à cocher (thèmes travaillés à la séance) */
 .training-subcat-title {
     font-size: 13px;
@@ -787,3 +796,23 @@ team-badge-own { background: rgba(91,143,176,0.18); border-color: var(--own-colo
     border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 .training-session-card:last-child { border-bottom: none; }
+
+/* Page Data Analyse : comparaison victoire/défaite par indicateur */
+.kpi-compare-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.kpi-compare-row:last-child { border-bottom: none; }
+.kpi-compare-label { font-size: 13px; font-weight: 600; }
+.kpi-compare-bar {
+    width: 100%;
+    height: 8px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.kpi-compare-fill { height: 100%; border-radius: 4px; }
+.kpi-compare-values { font-size: 12px; color: var(--text-secondary); }
