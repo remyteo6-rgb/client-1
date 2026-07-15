@@ -1,5 +1,7 @@
 :root {
-    /* Palette Nissa Rugby : rouge vif, noir, blanc (couleurs du blason) */
+    :root {
+    /* Palette neutre (générique, sans identité de club) : bleu ardoise / gris acier.
+       Remplace ici + CLUB_NAME/CLUB_FULL_NAME/static/logo.png pour personnaliser un client. */
     --bg-primary: transparent;
     --bg-card: rgba(255,255,255,0.11);
     --bg-card-border: rgba(255,255,255,0.28);
@@ -7,11 +9,11 @@
     --text-primary: #ffffff;
     --text-secondary: rgba(255,255,255,0.8);
     --text-on-dark: #ffffff;
-    --accent-gold: #e0b94a;
-    --own-color: #ff6b7d;
+    --accent-gold: #9fb3c8;
+    --own-color: #5b8fb0;
     --adverse-color: #ffffff;
     --positive: #6fcf7a;
-    --negative: #ff6b7d;
+    --negative: #ff5c5c;
     --radius: 8px;
     --gap: 16px;
 }
