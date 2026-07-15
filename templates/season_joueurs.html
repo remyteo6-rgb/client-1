@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Effectif — Joueurs par poste{% endblock %}
+{% block content %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>👥 Effectif — Joueurs par poste</h1>
+        <p class="subtitle">Tout l'effectif, groupé par poste, statistiques cumulées sur {{ selected_count }} match{{ 's' if selected_count != 1 else '' }} sélectionné{{ 's' if selected_count != 1 else '' }}. Un joueur sans stat sur la sélection affiche une ligne à zéro.</p>
+
+{% for g in groups %}
+<details class="card section-block" open>
+    <summary>
+        <span class="section-title">{{ g.position }}</span>
+        <span class="section-help">{{ g.attack_rows|length }} joueur{{ 's' if g.attack_rows|length != 1 else '' }}</span>
+    </summary>
+    <div class="section-body">
+
+        <h3 style="font-size:13px; margin-bottom:8px; color:var(--text-secondary);">📋 Suivi (minutes / cartons)</h3>
+<table class="stat-table zebra-table">
+    <thead>
+        <tr><th>Joueur</th><th>Minutes</th><th>Matchs joués</th><th>🟨</th><th>🟥</th><th>Matchs de suite</th></tr>
+    </thead>
+    <tbody>
+    {% for r in g.tracking_rows %}
+        <tr>
+            <td>{{ r.name }}</td>
+            <td class="stat-own">{{ r.minutes }}</td>
+            <td>{{ r.matches_played }}</td>
+            <td>{{ r.yellow }}</td>
+            <td class="stat-adverse">{{ r.red }}</td>
+            <td class="stat-own">{{ r.streak }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<h3 style="font-size:13px; margin-bottom:8px; color:var(--text-secondary);">⚔️ Attaque</h3>
+        <table class="stat-table zebra-table">
+            <thead>
+                <tr>
+                    <th>Joueur</th><th>Contact +/-</th><th>Total / %</th>
+                    <th>Duel +/-</th><th>Total / %</th>
+                    <th>Passes +/-</th><th>Total / %</th>
+                    <th>Offload +/-</th><th>Total / %</th>
+                    <th>PDB</th><th>Déf. battus</th><th>Break</th><th>Indice</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in g.attack_rows %}
+                <tr>
+                    <td>{{ r.name }}</td>
+                    <td>{{ r.contact_plus }} / {{ r.contact_minus }}</td><td>{{ r.contact_total }}{% if r.contact_pct is not none %} ({{ r.contact_pct }}%){% endif %}</td>
+                    <td>{{ r.duel_plus }} / {{ r.duel_minus }}</td><td>{{ r.duel_total }}{% if r.duel_pct is not none %} ({{ r.duel_pct }}%){% endif %}</td>
+                    <td>{{ r.passe_plus }} / {{ r.passe_minus }}</td><td>{{ r.passe_total }}{% if r.passe_pct is not none %} ({{ r.passe_pct }}%){% endif %}</td>
+                    <td>{{ r.offload_plus }} / {{ r.offload_minus }}</td><td>{{ r.offload_total }}{% if r.offload_pct is not none %} ({{ r.offload_pct }}%){% endif %}</td>
+                    <td>{{ r.pdb }}</td><td>{{ r.def_battu }}</td><td>{{ r.break }}</td>
+                    <td class="stat-own">{{ r.points }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+
+        <h3 style="font-size:13px; margin:16px 0 8px; color:var(--text-secondary);">🛡️ Défense</h3>
+        <table class="stat-table zebra-table">
+            <thead>
+                <tr>
+                    <th>Joueur</th><th>Dominant (+)</th><th>Neutre (=)</th><th>Passif (-)</th><th>Raté</th>
+                    <th>Total / %</th><th>Assist +/-</th><th>Discipline</th><th>Indice</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in g.defense_rows %}
+                <tr>
+                    <td>{{ r.name }}</td>
+                    <td class="stat-own">{{ r.plaquage_dominant }}</td>
+                    <td>{{ r.plaquage_neutre }}</td>
+                    <td>{{ r.plaquage_passif }}</td>
+                    <td class="stat-adverse">{{ r.plaquage_rate }}</td>
+                    <td>{{ r.tackle_total }}{% if r.tackle_pct is not none %} ({{ r.tackle_pct }}%){% endif %}</td>
+                    <td>{{ r.assist_plus }} / {{ r.assist_minus }}</td>
+                    <td>{{ r.discipline }}</td>
+                    <td class="stat-own">{{ r.points }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+
+        <h3 style="font-size:13px; margin:16px 0 8px; color:var(--text-secondary);">🤝 Ruck</h3>
+        <table class="stat-table zebra-table">
+            <thead>
+                <tr>
+                    <th>Joueur</th><th>1er homme +/-</th><th>2e homme +/-</th>
+                    <th>Ancreur +/-</th><th>Raseur +/-</th>
+                    <th>Gratteur +/- (%)</th><th>Contre-ruck +/- (%)</th><th>Indice</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in g.ruck_rows %}
+                <tr>
+                    <td>{{ r.name }}</td>
+                    <td>{{ r.arr1_plus }} / {{ r.arr1_minus }}</td>
+                    <td>{{ r.arr2_plus }} / {{ r.arr2_minus }}</td>
+                    <td>{{ r.ancreur_plus }} / {{ r.ancreur_minus }}</td>
+                    <td>{{ r.raseur_plus }} / {{ r.raseur_minus }}</td>
+                    <td>{{ r.gratteur_plus }} / {{ r.gratteur_minus }}{% if r.gratteur_pct is not none %} ({{ r.gratteur_pct }}%){% endif %}</td>
+                    <td>{{ r.contre_ruck_plus }} / {{ r.contre_ruck_minus }}{% if r.contre_ruck_pct is not none %} ({{ r.contre_ruck_pct }}%){% endif %}</td>
+                    <td class="stat-own">{{ r.points }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+
+    </div>
+</details>
+{% endfor %}
+
+<script>
+function preparePrint() {
+    document.querySelectorAll('details.section-block').forEach(d => d.open = true);
+    setTimeout(() => window.print(), 100);
+}
+</script>
+{% endblock %}

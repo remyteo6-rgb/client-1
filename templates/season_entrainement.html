@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% block title %}Entraînement — Saison{% endblock %}
+
+{% macro period_card(period, prefix, idx) %}
+<details class="card section-block">
+    <summary>
+        <span class="section-title">{{ period.label }}</span>
+        <span class="section-help">{{ period.session_count }} séance{{ 's' if period.session_count != 1 else '' }}</span>
+    </summary>
+    <div class="section-body">
+        {% if period.breakdown.labels %}
+        <div class="two-col" style="align-items:center; margin-bottom:16px;">
+            <div style="position:relative; height:220px;">
+                <canvas id="{{ prefix }}Chart{{ idx }}" data-chart='{{ period.breakdown | tojson }}'></canvas>
+            </div>
+            <div>
+                <h3 class="training-subcat-title">Répartition par sous-catégorie</h3>
+                <p class="subtitle">{{ 'Minutes' if period.breakdown.metric == 'minutes' else 'Nombre de séances' }} passées sur chaque sous-catégorie travaillée cette période — pour voir d'un coup d'œil ce qui a dominé la semaine.</p>
+            </div>
+        </div>
+        {% endif %}
+        {% set any_cat = false %}
+        {% for cat in period.volume.categories %}
+        {% if cat.session_count %}
+        {% set any_cat = true %}
+        <h3 class="training-subcat-title">{{ cat.name }} — {{ cat.session_count }} séance{{ 's' if cat.session_count != 1 else '' }}{% if cat.minutes is not none %} · {{ cat.minutes }} min{% endif %}</h3>
+        <table class="stat-table zebra-table">
+            <thead><tr><th>Sous-catégorie</th><th>Séances</th><th>Minutes</th></tr></thead>
+            <tbody>
+            {% for sub in cat.subcategories %}
+                {% if sub.session_count %}
+                <tr>
+                    <td>{{ sub.name }}</td>
+                    <td class="stat-own">{{ sub.session_count }}</td>
+                    <td>{{ sub.minutes if sub.minutes is not none else '—' }}</td>
+                </tr>
+                {% for el in sub.elements %}
+                    {% if el.session_count %}
+                    <tr class="training-element-detail-row">
+                        <td>↳ {{ el.name }}</td>
+                        <td>{{ el.session_count }}</td>
+                        <td>{{ el.minutes if el.minutes is not none else '—' }}</td>
+                    </tr>
+                    {% endif %}
+                {% endfor %}
+                {% endif %}
+            {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+        {% endfor %}
+    </div>
+</details>
+{% endmacro %}
+
+{% block content %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>🏋️ Entraînement — Saison</h1>
+        <p class="subtitle">Rapport du temps passé par thème, semaine par semaine ou mois par mois.</p>
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+</div>
+
+<div class="chart-row no-print" style="margin-bottom:12px; gap:8px;">
+    <button class="btn" id="btnWeek" onclick="showPeriodView('week')">📅 Par semaine</button>
+    <button class="btn btn-secondary" id="btnMonth" onclick="showPeriodView('month')">🗓️ Par mois</button>
+</div>
+
+<div id="weekView">
+    {% if not weeks %}
+    <div class="card empty-state"><p>Aucune séance enregistrée pour le moment.</p></div>
+    {% else %}
+    {% for period in weeks %}{{ period_card(period, 'week', loop.index) }}{% endfor %}
+    {% endif %}
+</div>
+
+<div id="monthView" style="display:none;">
+    {% if not months %}
+    <div class="card empty-state"><p>Aucune séance enregistrée pour le moment.</p></div>
+    {% else %}
+    {% for period in months %}{{ period_card(period, 'month', loop.index) }}{% endfor %}
+    {% endif %}
+</div>
+
+{% if is_admin %}
+<details class="card section-block no-print">
+    <summary>
+        <span class="section-title">➕ Enregistrer une nouvelle séance</span>
+        <span class="section-help">Coche les éléments travaillés, avec la durée si tu veux.</span>
+    </summary>
+    <div class="section-body">
+        <form method="post" action="{{ url_for('season_entrainement') }}">
+            <div class="form-group" style="max-width:220px; margin-bottom:16px;">
+                <label>Date de la séance</label>
+                <input type="date" name="session_date" value="{{ today }}" required>
+            </div>
+
+            {% for cat_name, subcats in taxonomy.items() %}
+            <details class="card section-block" style="margin-bottom:12px;">
+                <summary>
+                    <span class="section-title">{{ cat_name }}</span>
+                </summary>
+                <div class="section-body">
+                    {% for subcat_name, elements in subcats.items() %}
+                    <h4 class="training-subcat-title">{{ subcat_name }}</h4>
+                    <div class="training-element-grid">
+                        {% for element in elements %}
+                        <div class="training-element-row">
+                            <input type="checkbox" id="chk::{{ cat_name }}::{{ subcat_name }}::{{ element }}"
+                                   name="item::{{ cat_name }}::{{ subcat_name }}::{{ element }}">
+                            <label for="chk::{{ cat_name }}::{{ subcat_name }}::{{ element }}">{{ element }}</label>
+                            <input type="number" min="0" placeholder="min"
+                                   name="minutes::{{ cat_name }}::{{ subcat_name }}::{{ element }}">
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endfor %}
+
+            <button type="submit" class="btn" style="margin-top:12px;">✅ Enregistrer la séance</button>
+        </form>
+    </div>
+</details>
+{% endif %}
+
+<div class="card">
+    <h2>🗓️ Historique des séances</h2>
+    {% if not sessions %}
+    <p class="subtitle">Aucune séance enregistrée pour le moment.</p>
+    {% else %}
+    {% for s in sessions %}
+    <div class="training-session-card">
+        <div>
+            <strong>{{ s.session_date }}</strong>
+            <div class="breakdown-chips">
+                {% for item in s['items'] %}
+                <span class="chip">{{ item.element }}{% if item.minutes is not none %} · {{ item.minutes }} min{% endif %}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% if is_admin %}
+        <form method="post" action="{{ url_for('delete_training_session', session_id=s.id) }}" class="no-print"
+              onsubmit="return confirm('Supprimer cette séance ?');">
+            <button type="submit" class="btn btn-secondary" style="font-size:12px; padding:4px 10px;">🗑️</button>
+        </form>
+        {% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>
+
+<script>
+function showPeriodView(mode) {
+    document.getElementById('weekView').style.display = mode === 'week' ? '' : 'none';
+    document.getElementById('monthView').style.display = mode === 'month' ? '' : 'none';
+    document.getElementById('btnWeek').className = mode === 'week' ? 'btn' : 'btn btn-secondary';
+    document.getElementById('btnMonth').className = mode === 'month' ? 'btn' : 'btn btn-secondary';
+}
+
+function preparePrint() {
+    document.querySelectorAll('details.section-block').forEach(d => d.open = true);
+    setTimeout(() => window.print(), 100);
+}
+
+// Les camemberts ne s'initialisent qu'à l'ouverture de leur période (le "détails" est
+// fermé par défaut) : un canvas caché a une taille nulle, Chart.js le dessinerait cassé
+// s'il était créé avant que la section soit dépliée.
+const TRAINING_PALETTE = ['#ff6b7d', '#6fcf7a', '#ffc857', '#56a3d9', '#b478d9', '#e0e0e0', '#f2994a', '#4bd6c8', '#90a4ae', '#c47ad9'];
+
+function initTrainingChart(canvas) {
+    if (!canvas || canvas.dataset.chartReady) return;
+    const cfg = JSON.parse(canvas.dataset.chart);
+    if (!cfg.labels || !cfg.labels.length) return;
+    new Chart(canvas.getContext('2d'), {
+        type: 'pie',
+        data: {
+            labels: cfg.labels,
+            datasets: [{
+                data: cfg.values,
+                backgroundColor: cfg.labels.map((_, i) => TRAINING_PALETTE[i % TRAINING_PALETTE.length]),
+                borderColor: '#1a1f24',
+                borderWidth: 1,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 }, color: '#e8edf0' } },
+                datalabels: {
+                    color: '#12161a', font: { weight: 'bold', size: 11 },
+                    formatter: (v, ctx) => {
+                        const total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                        const pct = total ? Math.round(v / total * 100) : 0;
+                        return pct >= 8 ? pct + '%' : '';
+                    },
+                },
+                tooltip: {
+                    callbacks: { label: (ctx) => `${ctx.label} : ${ctx.parsed} ${cfg.metric}` }
+                }
+            }
+        }
+    });
+    canvas.dataset.chartReady = '1';
+}
+
+document.querySelectorAll('details.section-block').forEach(function (d) {
+    const canvas = d.querySelector('canvas[data-chart]');
+    if (!canvas) return;
+    if (d.open) initTrainingChart(canvas);
+    d.addEventListener('toggle', function () {
+        if (this.open) initTrainingChart(canvas);
+    });
+});
+</script>
+{% endblock %}

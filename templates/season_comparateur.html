@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block title %}Comparateur — Saison{% endblock %}
+{% block content %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>⚖️ Comparateur de joueurs — Saison</h1>
+        <p class="subtitle">Statistiques cumulées sur {{ selected_count }} match{{ 's' if selected_count != 1 else '' }} sélectionné{{ 's' if selected_count != 1 else '' }}.</p>
+    </div>
+    {% if data %}
+    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+    {% endif %}
+</div>
+
+<div class="card no-print">
+    <form method="get" action="{{ url_for('season_comparateur') }}" style="display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap;">
+        {% for id in selected_ids %}
+        <input type="hidden" name="m" value="{{ id }}">
+        {% endfor %}
+        <div class="form-group">
+            <label>Joueur A</label>
+            <select name="a" required>
+                <option value="">-- Choisir --</option>
+                {% for group in all_players %}
+                <optgroup label="{{ group.position }}">
+                    {% for p in group.players %}
+                    <option value="{{ p }}" {{ 'selected' if p == player_a else '' }}>{{ p }}</option>
+                    {% endfor %}
+                </optgroup>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Joueur B</label>
+            <select name="b" required>
+                <option value="">-- Choisir --</option>
+                {% for group in all_players %}
+                <optgroup label="{{ group.position }}">
+                    {% for p in group.players %}
+                    <option value="{{ p }}" {{ 'selected' if p == player_b else '' }}>{{ p }}</option>
+                    {% endfor %}
+                </optgroup>
+                {% endfor %}
+            </select>
+        </div>
+        <button class="btn" type="submit">Comparer</button>
+    </form>
+</div>
+
+{% if not data %}
+<div class="card empty-state">
+    <p>Choisis 2 joueurs ci-dessus pour lancer la comparaison.</p>
+</div>
+{% else %}
+
+<details class="card section-block" open>
+    <summary>
+        <span class="section-title">⚔️ Attaque</span>
+        <span class="section-help">Contacts, duels, passes, offloads, ballons portés, défenseurs battus, breaks.</span>
+    </summary>
+    <div class="section-body">
+        <div class="card chart-container">
+            <canvas id="attackRadar"></canvas>
+        </div>
+        <table class="stat-table zebra-table">
+            <thead>
+                <tr>
+                    <th>Joueur</th><th>Contact +/-</th><th>Total / %</th>
+                    <th>Duel +/-</th><th>Total / %</th>
+                    <th>Passes +/-</th><th>Total / %</th>
+                    <th>Offload +/-</th><th>Total / %</th>
+                    <th>PDB</th><th>Déf. battus</th><th>Break</th><th>Indice</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in data.attack_rows %}
+                <tr>
+                    <td>{{ r.name }}</td>
+                    <td>{{ r.contact_plus }} / {{ r.contact_minus }}</td><td>{{ r.contact_total }}{% if r.contact_pct is not none %} ({{ r.contact_pct }}%){% endif %}</td>
+                    <td>{{ r.duel_plus }} / {{ r.duel_minus }}</td><td>{{ r.duel_total }}{% if r.duel_pct is not none %} ({{ r.duel_pct }}%){% endif %}</td>
+                    <td>{{ r.passe_plus }} / {{ r.passe_minus }}</td><td>{{ r.passe_total }}{% if r.passe_pct is not none %} ({{ r.passe_pct }}%){% endif %}</td>
+                    <td>{{ r.offload_plus }} / {{ r.offload_minus }}</td><td>{{ r.offload_total }}{% if r.offload_pct is not none %} ({{ r.offload_pct }}%){% endif %}</td>
+                    <td>{{ r.pdb }}</td><td>{{ r.def_battu }}</td><td>{{ r.break }}</td>
+                    <td class="stat-own">{{ r.points }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</details>
+
+<details class="card section-block" open>
+    <summary>
+        <span class="section-title">🛡️ Défense</span>
+        <span class="section-help">Plaquages par qualité (dominant / neutre / passif / raté), assists, discipline.</span>
+    </summary>
+    <div class="section-body">
+        <div class="card chart-container">
+            <canvas id="defenseRadar"></canvas>
+        </div>
+        <table class="stat-table zebra-table">
+            <thead>
+                <tr>
+                    <th>Joueur</th><th>Dominant (+)</th><th>Neutre (=)</th><th>Passif (-)</th><th>Raté</th>
+                    <th>Total / %</th><th>Assist +/-</th><th>Discipline</th><th>Indice</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in data.defense_rows %}
+                <tr>
+                    <td>{{ r.name }}</td>
+                    <td class="stat-own">{{ r.plaquage_dominant }}</td>
+                    <td>{{ r.plaquage_neutre }}</td>
+                    <td>{{ r.plaquage_passif }}</td>
+                    <td class="stat-adverse">{{ r.plaquage_rate }}</td>
+                    <td>{{ r.tackle_total }}{% if r.tackle_pct is not none %} ({{ r.tackle_pct }}%){% endif %}</td>
+                    <td>{{ r.assist_plus }} / {{ r.assist_minus }}</td>
+                    <td>{{ r.discipline }}</td>
+                    <td class="stat-own">{{ r.points }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</details>
+
+<details class="card section-block" open>
+    <summary>
+        <span class="section-title">🤝 Ruck</span>
+        <span class="section-help">Ruck offensif (arrivée 1er/2e homme, ancreur, raseur) et ruck défensif (gratteur, contre-ruck).</span>
+    </summary>
+    <div class="section-body">
+        <div class="card chart-container">
+            <canvas id="ruckRadar"></canvas>
+        </div>
+        <table class="stat-table zebra-table">
+            <thead>
+                <tr>
+                    <th>Joueur</th><th>1er homme +/-</th><th>2e homme +/-</th>
+                    <th>Ancreur +/-</th><th>Raseur +/-</th>
+                    <th>Gratteur +/- (%)</th><th>Contre-ruck +/- (%)</th><th>Indice</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in data.ruck_rows %}
+                <tr>
+                    <td>{{ r.name }}</td>
+                    <td>{{ r.arr1_plus }} / {{ r.arr1_minus }}</td>
+                    <td>{{ r.arr2_plus }} / {{ r.arr2_minus }}</td>
+                    <td>{{ r.ancreur_plus }} / {{ r.ancreur_minus }}</td>
+                    <td>{{ r.raseur_plus }} / {{ r.raseur_minus }}</td>
+                    <td>{{ r.gratteur_plus }} / {{ r.gratteur_minus }}{% if r.gratteur_pct is not none %} ({{ r.gratteur_pct }}%){% endif %}</td>
+                    <td>{{ r.contre_ruck_plus }} / {{ r.contre_ruck_minus }}{% if r.contre_ruck_pct is not none %} ({{ r.contre_ruck_pct }}%){% endif %}</td>
+                    <td class="stat-own">{{ r.points }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</details>
+
+<script>
+const RADARS = {{ radars | tojson }};
+
+function buildRadar(canvasId, radarData, labelA, labelB) {
+    new Chart(document.getElementById(canvasId).getContext('2d'), {
+        type: 'radar',
+        data: {
+            labels: radarData.labels,
+            datasets: [
+                { label: labelA, data: radarData.a, backgroundColor: '#ff6b7d33', borderColor: '#ff6b7d', pointBackgroundColor: '#ff6b7d', borderWidth: 2 },
+                { label: labelB, data: radarData.b, backgroundColor: '#37474F33', borderColor: '#90a4ae', pointBackgroundColor: '#90a4ae', borderWidth: 2 }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'top' } },
+            scales: { r: { min: 0, max: 100, ticks: { stepSize: 25 } } }
+        }
+    });
+}
+
+buildRadar('attackRadar', RADARS.attack, {{ player_a | tojson }}, {{ player_b | tojson }});
+buildRadar('defenseRadar', RADARS.defense, {{ player_a | tojson }}, {{ player_b | tojson }});
+buildRadar('ruckRadar', RADARS.ruck, {{ player_a | tojson }}, {{ player_b | tojson }});
+
+function preparePrint() {
+    document.querySelectorAll('details.section-block').forEach(d => d.open = true);
+    setTimeout(() => window.print(), 100);
+}
+</script>
+{% endif %}
+{% endblock %}

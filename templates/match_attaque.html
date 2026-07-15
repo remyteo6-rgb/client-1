@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+{% block title %}Attaque — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
+{% set active = 'attaque' %}
+{% block content %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>⚔️ Attaque — {{ match['own_team'] }}</h1>
+        <p class="subtitle">Ce que {{ match['own_team'] }} a fait quand elle avait le ballon.</p>
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+</div>
+
+<div class="chart-row">
+    <div class="card">
+        <h2>🏆 Origine des essais</h2>
+        {% if data.try_origin.origin %}
+        <table class="stat-table">
+            <thead><tr><th>Origine</th><th>Nb</th></tr></thead>
+            <tbody>
+            {% for name, n in data.try_origin.origin.items() %}
+                <tr><td>{{ name }}</td><td class="stat-own">{{ n }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="subtitle">Pas d'essai marqué (ou origine non renseignée) ce match.</p>
+        {% endif %}
+    </div>
+    <div class="card chart-container">
+        <h2>⏱️ Essais par tranche de jeu</h2>
+        {% if data.try_timing %}
+        <canvas id="tryTimingChart"></canvas>
+        {% else %}
+        <p class="subtitle">Coupure de mi-temps non détectée sur ce match — impossible de répartir par tranche.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="chart-row">
+    <div class="card">
+        <h2>💥 Origine des franchissements</h2>
+        {% if data.break_origin %}
+        <table class="stat-table">
+            <thead><tr><th>Origine</th><th>Nb</th></tr></thead>
+            <tbody>
+            {% for name, n in data.break_origin.items() %}
+                <tr><td>{{ name }}</td><td class="stat-own">{{ n }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="subtitle">Pas de franchissement (ou origine non renseignée) ce match.</p>
+        {% endif %}
+    </div>
+    <div class="card chart-container">
+        <h2>⏱️ Franchissements par tranche de jeu</h2>
+        {% if data.break_timing %}
+        <canvas id="breakTimingChart"></canvas>
+        {% else %}
+        <p class="subtitle">Coupure de mi-temps non détectée sur ce match — impossible de répartir par tranche.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="chart-row">
+    <div class="card chart-container">
+        <h2>🎽 Back 3 — ballons touchés</h2>
+        <p class="subtitle">{{ data.back3.total if data.back3 else 0 }} ballon{{ 's' if data.back3 and data.back3.total != 1 else '' }} touché{{ 's' if data.back3 and data.back3.total != 1 else '' }} par le triangle arrière (ailiers n°11/14, arrière n°15).</p>
+        {% if data.back3 and data.back3.by_number %}
+        <canvas id="back3Chart"></canvas>
+        {% else %}
+        <p class="subtitle">Aucun ballon codé "BACK 3" sur ce match.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="kpi-row">
+    <div class="kpi-card">
+        <div class="kpi-label">Points par entrée en zone d'attaque</div>
+        <div class="kpi-value kpi-own">{{ data.points_per_entry if data.points_per_entry is not none else '—' }}</div>
+        <div class="kpi-help">{{ data.entries }} entrée{{ 's' if data.entries != 1 else '' }} en zone d'attaque (22m adverse) pour {{ data.score }} points marqués.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Nb de phases moyen</div>
+        <div class="kpi-value kpi-own">{{ data.phases_moyenne if data.phases_moyenne is not none else '—' }}</div>
+        <div class="kpi-help">Total du descripteur "phases de jeu" codé sur chaque possession, divisé par le nombre de possessions.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Mètres gagnés</div>
+        <div class="kpi-value kpi-own">{{ data.meters_gained if data.meters_gained is not none else '—' }}</div>
+        <div class="kpi-help">Pas encore codé sur ce match.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">% gain ligne d'avantage</div>
+        <div class="kpi-value kpi-own">{{ data.gain_line.pct if data.gain_line and data.gain_line.pct is not none else '—' }}{{ '%' if data.gain_line and data.gain_line.pct is not none }}</div>
+        <div class="kpi-help">{% if data.gain_line and data.gain_line.total %}{{ data.gain_line.plus }} duels de contact gagnés sur {{ data.gain_line.total }}.{% else %}Pas encore codé sur ce match.{% endif %}</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Défenseurs battus</div>
+        <div class="kpi-value kpi-own">{{ data.defenders_beaten if data.defenders_beaten is not none else '—' }}</div>
+        <div class="kpi-help">Nombre de défenseurs évités ou dominés balle en main.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Offloads</div>
+        <div class="kpi-value kpi-own">{{ data.offloads }}</div>
+        <div class="kpi-help">Passes après contact.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Breaks</div>
+        <div class="kpi-value kpi-own">{{ data.breaks }}</div>
+        <div class="kpi-help">Franchissements de ligne.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Pertes de balle</div>
+        <div class="kpi-value kpi-adverse">{{ data.lost_balls }}</div>
+        <div class="kpi-help">Pertes de balle en possession, hors touches et mêlées (comptées à part sur leurs pages dédiées).</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Duels aériens off gagnés</div>
+        <div class="kpi-value kpi-own">{{ data.duels_aeriens.plus }} / {{ data.duels_aeriens.total }}</div>
+        <div class="kpi-help">{{ data.duels_aeriens.pct if data.duels_aeriens.pct is not none else '—' }}% de réussite. Offensif et défensif pas encore distingués dans le codage actuel.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Ratio passe/ruck</div>
+        <div class="kpi-value kpi-own">{{ data.passe_ruck_ratio if data.passe_ruck_ratio is not none else '—' }}</div>
+        <div class="kpi-help">Pas encore codé sur ce match.</div>
+    </div>
+</div>
+
+<div class="chart-row">
+    <div class="card">
+        <h2>🎯 Lancements de jeu (relance tout terrain)</h2>
+        <p class="subtitle">Répartition des portées de balle par plan de jeu codé.</p>
+        {% if data.relance.total %}
+        <table class="stat-table">
+            <thead><tr><th>Plan de jeu</th><th>Nb</th><th>%</th></tr></thead>
+            <tbody>
+            {% for name, v in data.relance.total.items() %}
+                <tr><td>{{ name }}</td><td class="stat-own">{{ v.count }}</td><td>{{ v.pct }}%</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="subtitle">Aucun plan de jeu nommé codé sur ce match.</p>
+        {% endif %}
+    </div>
+    <div class="card">
+        <h2>⏱️ Vitesse de ruck</h2>
+        <p class="subtitle">Temps moyen : {{ data.ruck_speed.avg if data.ruck_speed.avg is not none else '—' }}s sur {{ data.ruck_speed.total }} rucks.</p>
+        <table class="stat-table">
+            <thead><tr><th>Vitesse</th><th>Nb</th><th>%</th></tr></thead>
+            <tbody>
+            {% for label, v in data.ruck_speed.buckets.items() %}
+                <tr><td>{{ label }}</td><td class="stat-own">{{ v.count }}</td><td>{{ v.pct }}%</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        <p class="subtitle">Répartition par zone de ruck à venir une fois les zones codées dans le XML.</p>
+    </div>
+</div>
+
+{% if data.relance.by_phase.get('RAID') %}
+<div class="card">
+    <h2>🏃 Lancements de jeu en zone RAID</h2>
+    <table class="stat-table">
+        <thead><tr><th>Plan de jeu</th><th>Nb</th></tr></thead>
+        <tbody>
+        {% for name, n in data.relance.by_phase.get('RAID').items() %}
+            <tr><td>{{ name }}</td><td class="stat-own">{{ n }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<div class="card">
+    <h2>⚠️ Discipline offensive</h2>
+    <p class="subtitle">Type de fautes concédées quand {{ match['own_team'] }} avait le ballon.</p>
+    {% if data.discipline %}
+    <div class="breakdown-chips">
+        {% for name, n in data.discipline.items() %}<span class="chip">{{ name }} · {{ n }}</span>{% endfor %}
+    </div>
+    {% else %}
+    <p class="subtitle">Aucune faute offensive détaillée codée.</p>
+    {% endif %}
+</div>
+
+{% if data.possession_sequences and data.possession_sequences.total %}
+<div class="card">
+    <h2>⏱️ Séquences de possession par durée</h2>
+    <p class="subtitle">Répartition des {{ data.possession_sequences.total }} séquence{{ 's' if data.possession_sequences.total != 1 else '' }} de possession de {{ match['own_team'] }} selon leur durée.</p>
+    <table class="stat-table">
+        <thead><tr><th>Durée</th><th>Nb de séquences</th><th>%</th></tr></thead>
+        <tbody>
+        {% for label, v in data.possession_sequences.buckets.items() %}
+            <tr><td>{{ label }}</td><td class="stat-own">{{ v.count }}</td><td>{{ v.pct }}%</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<script>
+const OWN_COLOR = '#ff6b7d';
+const TRY_TIMING = {{ data.try_timing | tojson if data.try_timing else 'null' }};
+const BREAK_TIMING = {{ data.break_timing | tojson if data.break_timing else 'null' }};
+const BACK3 = {{ data.back3 | tojson if data.back3 else 'null' }};
+
+function pctBarOptions() {
+    return {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            datalabels: { color: '#ffffff', font: { weight: 'bold', size: 12 }, anchor: 'center', align: 'center' }
+        },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    };
+}
+
+if (TRY_TIMING) {
+    const labels = Object.keys(TRY_TIMING);
+    new Chart(document.getElementById('tryTimingChart').getContext('2d'), {
+        type: 'bar',
+        data: { labels: labels, datasets: [{ data: labels.map(l => TRY_TIMING[l]), backgroundColor: OWN_COLOR, borderRadius: 4 }] },
+        plugins: [ChartDataLabels],
+        options: pctBarOptions()
+    });
+}
+
+if (BREAK_TIMING) {
+    const labels2 = Object.keys(BREAK_TIMING);
+    new Chart(document.getElementById('breakTimingChart').getContext('2d'), {
+        type: 'bar',
+        data: { labels: labels2, datasets: [{ data: labels2.map(l => BREAK_TIMING[l]), backgroundColor: OWN_COLOR, borderRadius: 4 }] },
+        plugins: [ChartDataLabels],
+        options: pctBarOptions()
+    });
+}
+
+if (BACK3 && BACK3.by_number) {
+    const numbers = Object.keys(BACK3.by_number);
+    new Chart(document.getElementById('back3Chart').getContext('2d'), {
+        type: 'bar',
+        data: { labels: numbers.map(n => 'n°' + n), datasets: [{ data: numbers.map(n => BACK3.by_number[n]), backgroundColor: OWN_COLOR, borderRadius: 4 }] },
+        plugins: [ChartDataLabels],
+        options: pctBarOptions()
+    });
+}
+
+function preparePrint() { setTimeout(() => window.print(), 100); }
+</script>
+{% endblock %}

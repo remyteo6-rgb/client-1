@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Connexion{% endblock %}
+{% block content %}
+<h1>Connexion</h1>
+<p class="subtitle">La consultation du site reste libre pour tout le monde. Connecte-toi uniquement pour importer ou supprimer un match.</p>
+
+<div class="card" style="max-width:420px;">
+    <form class="upload-form" method="post" action="{{ url_for('login') }}">
+        <input type="hidden" name="next" value="{{ next_url }}">
+        <div class="form-group">
+            <label>Email *</label>
+            <input type="email" name="email" required autofocus>
+        </div>
+        <div class="form-group">
+            <label>Mot de passe *</label>
+            <input type="password" name="password" required>
+        </div>
+        <button class="btn" type="submit">Se connecter</button>
+    </form>
+</div>
+{% endblock %}

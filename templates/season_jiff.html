@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}JIFF — Saison{% endblock %}
+{% block content %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>🪪 JIFF — Saison</h1>
+        <p class="subtitle">Écart au quota LNR ({{ data.quota }} JIFF en moyenne par feuille de match), sur les matchs dont la composition a été validée parmi les {{ selected_count }} match{{ 's' if selected_count != 1 else '' }} sélectionné{{ 's' if selected_count != 1 else '' }}.</p>
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+</div>
+
+{% if not data.rows %}
+<div class="card empty-state">
+    <p>Aucune composition validée sur les matchs sélectionnés.</p>
+    <p class="subtitle">Valide la composition (23 joueurs) sur chaque page match, onglet "Composition", pour alimenter ce graphique.</p>
+</div>
+{% else %}
+
+<div class="kpi-row">
+    <div class="kpi-card">
+        <div class="kpi-label">Moyenne JIFF / feuille de match</div>
+        <div class="kpi-value {{ 'kpi-own' if data.respecte_saison else 'kpi-adverse' }}">{{ data.avg_jiff }}</div>
+        <div class="kpi-help">Quota LNR : {{ data.quota }} minimum. {{ 'Quota respecté ✅' if data.respecte_saison else 'Quota non respecté ⚠️' }} ({{ data.avg_diff }} d'écart).</div>
+    </div>
+<div class="kpi-card">
+        <div class="kpi-label">Matchs avec composition validée</div>
+        <div class="kpi-value">{{ data.rows|length }}</div>
+        <div class="kpi-help">Sur {{ selected_count }} match{{ 's' if selected_count != 1 else '' }} sélectionné{{ 's' if selected_count != 1 else '' }}.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Écart cumulé sur la saison</div>
+        <div class="kpi-value {{ 'kpi-own' if data.total_diff >= 0 else 'kpi-adverse' }}">{{ '+' if data.total_diff > 0 else '' }}{{ data.total_diff }}</div>
+        <div class="kpi-help">{{ data.total_jiff }} JIFF alignés au total, pour {{ data.total_required }} requis ({{ data.quota }} × {{ data.rows|length }} match{{ 's' if data.rows|length != 1 else '' }}).</div>
+    </div>
+</div>
+
+<div class="card chart-container">
+    <h2>📊 Écart JIFF par match (quota {{ data.quota }})</h2>
+    <p class="subtitle">Ligne pointillée = quota (0). Au-dessus = surplus de JIFF, en dessous = déficit, match par match.</p>
+    <canvas id="jiffChart"></canvas>
+</div>
+
+<div class="card">
+    <h2>Détail par match</h2>
+    <table class="stat-table">
+        <thead><tr><th>Match</th><th>JIFF alignés</th><th>Non-JIFF</th><th>Écart / quota</th></tr></thead>
+        <tbody>
+        {% for row in data.rows %}
+            <tr>
+                <td>{{ row.label }}</td>
+                <td class="stat-own">{{ row.jiff_count }} / {{ row.total }}</td>
+                <td class="stat-adverse">{{ row.non_jiff_count }}</td>
+                <td class="{{ 'stat-own' if row.respecte else 'stat-adverse' }}">{{ '+' if row.diff > 0 else '' }}{{ row.diff }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+const LABELS = {{ data.rows | map(attribute='label') | list | tojson }};
+const DIFFS = {{ data.rows | map(attribute='diff') | list | tojson }};
+const COLORS = DIFFS.map(d => d >= 0 ? '#4ade80' : '#ff6b7d');
+
+new Chart(document.getElementById('jiffChart').getContext('2d'), {
+    type: 'line',
+    data: {
+        labels: LABELS,
+        datasets: [
+            {
+                label: 'Écart JIFF',
+                data: DIFFS,
+                borderColor: '#ff6b7d',
+                backgroundColor: '#ff6b7d22',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                pointBackgroundColor: COLORS,
+                pointBorderColor: '#ffffff',
+                borderWidth: 2
+            },
+            {
+                label: 'Quota',
+                data: DIFFS.map(() => 0),
+                borderColor: '#90a4ae',
+                borderDash: [6, 6],
+                borderWidth: 1,
+                pointRadius: 0,
+                fill: false,
+                datalabels: { display: false }
+            }
+        ]
+    },
+    plugins: [ChartDataLabels],
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: [ChartDataLabels],
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        layout: { padding: { top: 26, bottom: 26 } },
+        plugins: {
+            legend: { display: false },
+            datalabels: {
+                color: (ctx) => ctx.dataset.data[ctx.dataIndex] >= 0 ? '#4ade80' : '#ff6b7d',
+                font: { weight: 'bold', size: 12 },
+                align: (ctx) => ctx.dataset.data[ctx.dataIndex] >= 0 ? 'top' : 'bottom',
+                anchor: (ctx) => ctx.dataset.data[ctx.dataIndex] >= 0 ? 'end' : 'start',
+                clamp: true,
+                formatter: (value) => (value > 0 ? '+' + value : value)
+            }
+        },
+        scales: {
+            y: {
+                ticks: { precision: 0 },
+                suggestedMax: Math.max(...DIFFS, 0) * 1.2 || 5,
+                suggestedMin: Math.min(...DIFFS, 0) * 1.2 || -5,
+            }
+        }
+    }
+});
+
+function preparePrint() { setTimeout(() => window.print(), 100); }
+</script>
+{% endif %}
+{% endblock %}

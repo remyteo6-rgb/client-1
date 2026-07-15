@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Matchs — Rugby Analytics{% endblock %}
+{% block content %}
+<h1>Historique des matchs</h1>
+<p class="subtitle">Importe tes exports Sportscode (XML) pour suivre tes stats de saison et celles de tes adversaires.</p>
+
+{% if matches %}
+<div class="match-list">
+    {% for m in matches %}
+    <a class="match-row" href="{{ url_for('match_detail', match_id=m['id']) }}">
+        <div class="match-main">
+            <div class="match-title">{{ m['own_team'] or m['own_team_tag'] }} vs {{ m['opponent'] }}</div>
+            <div class="match-meta">
+                {{ m['match_date'] or 'Date non renseignée' }}
+                {% if m['venue'] %} · {{ m['venue'] }}{% endif %}
+                · {{ m['total_instances'] }} événements codés
+            </div>
+        </div>
+        <div class="match-actions">
+            {% if m['competition'] %}<span class="badge badge-comp">{{ m['competition'] }}</span>{% endif %}
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card empty-state">
+    <p>Aucun match importé pour l'instant.</p>
+    {% if is_admin %}
+    <p><a href="{{ url_for('upload') }}">Importer ton premier export Sportscode →</a></p>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Mêlée — Saison{% endblock %}
+{% block content %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>🔒 Mêlée — Saison</h1>
+        <p class="subtitle">Progression et fiabilité en mêlée fermée, pour les deux équipes, cumulé sur {{ selected_count }} match{{ 's' if selected_count != 1 else '' }} sélectionné{{ 's' if selected_count != 1 else '' }}.</p>
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+</div>
+
+{% if not data %}
+<div class="card empty-state">
+    <p>Aucun match sélectionné avec données détaillées.</p>
+    <p><a href="{{ url_for('season') }}">Retour au Bilan de saison →</a></p>
+</div>
+{% else %}
+
+<div class="chart-row">
+    <div class="card">
+        <h2>{{ club_name }} — notre introduction</h2>
+        <div class="kpi-row" style="margin-bottom:10px;">
+            <div class="kpi-card">
+                <div class="kpi-label">Mêlées jouées</div>
+                <div class="kpi-value kpi-own">{{ data.own.total }}</div>
+                <div class="kpi-help">{{ data.own.won }} gagnées / {{ data.own.lost }} perdues{% if data.own.won_pct is not none %} ({{ data.own.won_pct }}%){% endif %}, cumulé.</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Progression</div>
+                <div class="kpi-value">{{ data.own.avance }} / {{ data.own.stable }}</div>
+                <div class="kpi-help">Avance{% if data.own.avance_pct is not none %} ({{ data.own.avance_pct }}%){% endif %} vs stable{% if data.own.stable_pct is not none %} ({{ data.own.stable_pct }}%){% endif %}.</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Mêlées rejouées</div>
+                <div class="kpi-value kpi-adverse">{{ data.own.rejoue }}</div>
+                <div class="kpi-help">Mêlées à refaire suite à un problème (effondrement, faute...), cumulé.</div>
+            </div>
+        </div>
+    </div>
+    <div class="card">
+        <h2>Adversaires cumulés — leur introduction</h2>
+        <div class="kpi-row" style="margin-bottom:10px;">
+            <div class="kpi-card">
+                <div class="kpi-label">Mêlées jouées</div>
+                <div class="kpi-value kpi-adverse">{{ data.adverse.total }}</div>
+                <div class="kpi-help">{{ data.adverse.won }} gagnées / {{ data.adverse.lost }} perdues{% if data.adverse.won_pct is not none %} ({{ data.adverse.won_pct }}%){% endif %}, cumulé.</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Progression</div>
+                <div class="kpi-value">{{ data.adverse.avance }} / {{ data.adverse.stable }}</div>
+                <div class="kpi-help">Avance{% if data.adverse.avance_pct is not none %} ({{ data.adverse.avance_pct }}%){% endif %} vs stable{% if data.adverse.stable_pct is not none %} ({{ data.adverse.stable_pct }}%){% endif %}.</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Mêlées rejouées</div>
+                <div class="kpi-value kpi-own">{{ data.adverse.rejoue }}</div>
+                <div class="kpi-help">Mêlées adverses à refaire, cumulé.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Zone de jeu au moment de la mêlée</h2>
+    <p class="subtitle">Répartition des mêlées de chaque équipe par zone de phase (Exit / Pression / Action / Raid), cumulé.</p>
+    <table class="stat-table">
+        <thead><tr><th>Zone</th><th>{{ club_name }} (nb / gagnées)</th><th>Adversaires (nb / gagnées)</th></tr></thead>
+        <tbody>
+        {% for tag in ["EXIT", "PRESSION", "ACTION", "RAID"] %}
+            <tr>
+                <td>{{ phase_icons.get(tag, '') }} {{ tag|title }}</td>
+                <td class="stat-own">{{ data.own.zone_grid[tag].count }} / {{ data.own.zone_grid[tag].gagne }}</td>
+                <td class="stat-adverse">{{ data.adverse.zone_grid[tag].count }} / {{ data.adverse.zone_grid[tag].gagne }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function preparePrint() { setTimeout(() => window.print(), 100); }
+</script>
+{% endif %}
+{% endblock %}

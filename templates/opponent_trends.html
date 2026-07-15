@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Tendances — Pro D2{% endblock %}
+{% block content %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>📈 Tendances — Pro D2</h1>
+        <p class="subtitle">Pour chaque équipe, les indicateurs où elle fait partie des 2 meilleures ou des 2 moins bonnes équipes de la Pro D2 (sur une sélection d'indicateurs clés), à partir du dernier rapport importé.</p>
+    </div>
+</div>
+
+<div class="card no-print">
+   <p class="subtitle">Pour chaque équipe, les indicateurs où elle fait partie des 2 meilleures ou des 2 moins bonnes équipes de la Pro D2 (sur une sélection d'indicateurs clés) — {{ report_label }}.</p>
+</div>
+
+{% for team in teams %}
+{% set t = trends[team] %}
+<details class="card section-block">
+    <summary>
+        <span class="section-title">{{ team }}</span>
+        <span class="section-help">{{ t.strengths|length }} point{{ 's' if t.strengths|length != 1 else '' }} fort{{ 's' if t.strengths|length != 1 else '' }} · {{ t.weaknesses|length }} point{{ 's' if t.weaknesses|length != 1 else '' }} faible{{ 's' if t.weaknesses|length != 1 else '' }}</span>
+    </summary>
+    <div class="section-body">
+        <div class="two-col">
+            <div>
+                <h3 class="training-subcat-title">💪 Points forts</h3>
+                {% if not t.strengths %}
+                <p class="subtitle">Aucun indicateur ne se distingue nettement.</p>
+                {% else %}
+                <div class="breakdown-chips">
+                    {% for s in t.strengths %}<span class="chip">{{ s.label }} — {{ s.value }} (n°{{ s.rank }}/{{ s.n_teams }})</span>{% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            <div>
+                <h3 class="training-subcat-title">⚠️ Points faibles</h3>
+                {% if not t.weaknesses %}
+                <p class="subtitle">Aucun indicateur ne se distingue nettement.</p>
+                {% else %}
+                <div class="breakdown-chips">
+                    {% for w in t.weaknesses %}<span class="chip">{{ w.label }} — {{ w.value }} (n°{{ w.rank }}/{{ w.n_teams }})</span>{% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        <p class="subtitle" style="margin-top:12px;"><a href="{{ url_for('opponent_detail', team=team) }}">Voir la fiche complète →</a></p>
+    </div>
+</details>
+{% endfor %}
+{% endblock %}

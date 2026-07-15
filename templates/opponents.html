@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Adversaires — Pro D2{% endblock %}
+{% block content %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>🆚 Adversaires — Pro D2</h1>
+        <p class="subtitle">Classement et statistiques de toutes les équipes de Pro D2 — {{ report_label }}.</p>
+    </div>
+    {% if has_report %}
+    <a class="btn btn-secondary" href="{{ url_for('opponents_trends') }}">📈 Voir les tendances</a>
+    {% endif %}
+</div>
+
+{% if has_report %}
+<div class="card">
+    <table class="stat-table zebra-table">
+        <thead>
+            <tr>
+                <th>#</th><th>Équipe</th><th>Pts</th><th>MJ</th><th>V</th><th>N</th><th>D</th>
+                <th>Pts marqués</th><th>Pts encaissés</th><th>Essais M.</th><th>Essais E.</th>
+                <th>🟨</th><th>🟧</th><th>🟥</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for r in classement %}
+            {% set team_name = r["Nom de l'équipe"] %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td><a href="{{ url_for('opponent_detail', team=team_name) }}">{{ team_name }}</a></td>
+                <td class="stat-own">{{ r.Points }}</td>
+                <td>{{ r['Matchs joués'] }}</td>
+                <td>{{ r.Victoires }}</td>
+                <td>{{ r.Nuls }}</td>
+                <td>{{ r.Perdus }}</td>
+                <td>{{ r['Points Marqués'] }}</td>
+                <td>{{ r['Points Encaissés'] }}</td>
+                <td>{{ r['Essais Marqués'] }}</td>
+                <td>{{ r['Essais Encaissés'] }}</td>
+                <td>{{ r['Cartons jaunes'] }}</td>
+                <td>{{ r['Cartons oranges'] }}</td>
+                <td>{{ r['Cartons Rouges'] }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card empty-state">
+    <p>Aucun rapport Pro D2 importé pour l'instant.</p>
+    {% if is_admin %}
+    <p><a href="{{ url_for('prod2_import') }}">Importer le rapport Pro D2 (Excel) →</a></p>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

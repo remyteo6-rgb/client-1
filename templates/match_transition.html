@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Transition — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
+{% set active = 'transition' %}
+{% block content %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>🔄 Transition — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
+        <p class="subtitle">Contre-attaques et turnovers, nous vs {{ match['opponent'] }}.</p>
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+</div>
+
+{% set transition_coded = (data.contre_attaque.own.count is not none) or (data.turnover.own.count is not none)
+    or (data.contre_attaque.adverse.count is not none) or (data.turnover.adverse.count is not none) %}
+{% if not transition_coded %}
+<div class="card empty-state">
+    <p>🔄 Transition pas encore codée dans le XML pour ce match.</p>
+    <p class="subtitle">Cette section s'activera automatiquement dès que le codage des contre-attaques et turnovers sera en place.</p>
+</div>
+{% else %}
+{% for key, label, icon in [("contre_attaque", "Contre-attaques", "⚡"), ("turnover", "Turnovers", "🔁")] %}
+<div class="chart-row" style="margin-bottom:20px;">
+    <div class="card">
+        <h2>{{ icon }} {{ label }} — {{ match['own_team'] }}</h2>
+        <table class="stat-table">
+            <tbody>
+                <tr><td>Nombre</td><td class="stat-own">{{ data[key].own.count if data[key].own.count is not none else '—' }}</td></tr>
+                <tr><td>Phases avant perte du momentum</td><td class="stat-own">{{ data[key].own.phases_avant_perte if data[key].own.phases_avant_perte is not none else '—' }}</td></tr>
+            </tbody>
+        </table>
+        <h3 style="font-size:13px; margin:14px 0 8px; color:var(--text-secondary);">Résultat</h3>
+        {% if data[key].own.resultat %}
+        <div class="breakdown-chips">{% for name, n in data[key].own.resultat.items() %}<span class="chip">{{ name }} · {{ n }}</span>{% endfor %}</div>
+        {% else %}<p class="subtitle">Pas encore codé dans le XML.</p>{% endif %}
+        <h3 style="font-size:13px; margin:14px 0 8px; color:var(--text-secondary);">Zone jouée</h3>
+        <table class="stat-table">
+            <tbody>
+            {% for zone_name, v in data[key].own.zone.items() %}
+                <tr><td>{{ zone_name }}</td><td class="stat-own">{{ v if v is not none else '—' }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="card">
+        <h2>{{ icon }} {{ label }} — {{ match['opponent'] }}</h2>
+        <table class="stat-table">
+            <tbody>
+                <tr><td>Nombre</td><td class="stat-adverse">{{ data[key].adverse.count if data[key].adverse.count is not none else '—' }}</td></tr>
+                <tr><td>Phases avant perte du momentum</td><td class="stat-adverse">{{ data[key].adverse.phases_avant_perte if data[key].adverse.phases_avant_perte is not none else '—' }}</td></tr>
+            </tbody>
+        </table>
+        <h3 style="font-size:13px; margin:14px 0 8px; color:var(--text-secondary);">Résultat</h3>
+        {% if data[key].adverse.resultat %}
+        <div class="breakdown-chips">{% for name, n in data[key].adverse.resultat.items() %}<span class="chip">{{ name }} · {{ n }}</span>{% endfor %}</div>
+        {% else %}<p class="subtitle">Pas encore codé dans le XML.</p>{% endif %}
+        <h3 style="font-size:13px; margin:14px 0 8px; color:var(--text-secondary);">Zone jouée</h3>
+        <table class="stat-table">
+            <tbody>
+            {% for zone_name, v in data[key].adverse.zone.items() %}
+                <tr><td>{{ zone_name }}</td><td class="stat-adverse">{{ v if v is not none else '—' }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endfor %}
+
+{% endif %}
+
+<script>
+function preparePrint() { setTimeout(() => window.print(), 100); }
+</script>
+{% endblock %}

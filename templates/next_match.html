@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block title %}Prochain match{% endblock %}
+{% block content %}
+
+{% macro compare_table(sheet_name, team_name, rows) %}
+<h3 class="training-subcat-title">{{ sheet_name }}</h3>
+<table class="stat-table zebra-table">
+    <thead><tr><th>Statistique</th><th>{{ team_name }}</th><th>Moyenne Pro D2</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+        <tr>
+            <td>{{ r.key }}</td>
+            <td>
+                {% if r.color == 'good' %}<span class="kpi-badge kpi-badge-good">{{ r.value }} ▲</span>
+                {% elif r.color == 'bad' %}<span class="kpi-badge kpi-badge-bad">{{ r.value }} ▼</span>
+                {% else %}<span class="stat-own">{{ r.value if r.value is not none else '—' }}</span>
+                {% endif %}
+            </td>
+            <td>{{ r.avg if r.avg is not none else '—' }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endmacro %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>🎯 Prochain match{% if selected_team %} — {{ selected_team }}{% endif %}</h1>
+        <p class="subtitle">
+            {% if selected_team %}Notre forme récente + scouting de {{ selected_team }}, réunis pour préparer la semaine — {{ report_label }}.
+            {% else %}Sélectionne le prochain adversaire pour préparer la semaine.{% endif %}
+        </p>
+    </div>
+    {% if selected_team %}<button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>{% endif %}
+</div>
+
+{% if is_admin %}
+<div class="card no-print">
+    <h2>Prochain adversaire</h2>
+    {% if not has_report %}
+    <p class="subtitle">Importe d'abord un rapport Pro D2 pour pouvoir choisir un adversaire dans la liste.</p>
+    <p><a href="{{ url_for('prod2_import') }}">Importer le rapport Pro D2 →</a></p>
+    {% else %}
+    <form method="post" action="{{ url_for('next_match_set') }}" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <select name="team" style="max-width:280px;">
+            <option value="">— Aucun —</option>
+            {% for t in team_names %}
+            <option value="{{ t }}" {% if t == selected_team %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+        </select>
+        <button class="btn" type="submit">Enregistrer</button>
+    </form>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if not selected_team %}
+<div class="card empty-state">
+    <p>Aucun adversaire sélectionné pour le moment.</p>
+    {% if not is_admin %}<p class="subtitle">Seul un compte admin peut le renseigner.</p>{% endif %}
+</div>
+{% else %}
+
+{% if stale_team %}
+<div class="card empty-state">
+    <p>⚠️ « {{ selected_team }} » n'apparaît plus dans le dernier rapport Pro D2 importé (nom changé ou erreur de sélection). Le scouting ci-dessous est indisponible tant que ce n'est pas corrigé, mais la forme récente et l'historique restent affichés.</p>
+</div>
+{% endif %}
+
+<div class="card">
+    <h2>📅 Notre forme récente</h2>
+    <p class="subtitle">Sur les {{ recent_count }} dernier{{ 's' if recent_count != 1 else '' }} match{{ 's' if recent_count != 1 else '' }} codé{{ 's' if recent_count != 1 else '' }}.</p>
+    {% if not recent_dashboard %}
+    <p class="subtitle">Aucun match codé pour l'instant.</p>
+    {% else %}
+    {% set poss = recent_stats.get('Possession', {}) %}
+    {% set poss_own_d = poss.get('own', {}).get('duration', 0) %}
+    {% set poss_adv_d = poss.get('adverse', {}).get('duration', 0) %}
+    {% set poss_total = poss_own_d + poss_adv_d %}
+    {% set plaquage = recent_stats.get('Plaquage', {}).get('own', {}) %}
+    {% set discipline = recent_stats.get('Disciplines', {}) %}
+    <div class="kpi-row">
+        <div class="kpi-card">
+            <div class="kpi-label">Bilan V/N/D</div>
+            <div class="kpi-value"><span class="kpi-own">{{ recent_dashboard.record.wins }}</span> / {{ recent_dashboard.record.draws }} / <span class="kpi-adverse">{{ recent_dashboard.record.losses }}</span></div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Points marqués / encaissés</div>
+            <div class="kpi-value"><span class="kpi-own">{{ recent_dashboard.points_for }}</span> / <span class="kpi-adverse">{{ recent_dashboard.points_against }}</span></div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Possession</div>
+            <div class="kpi-value kpi-own">{{ (poss_own_d / poss_total * 100) | round(1) if poss_total else '—' }}{{ '%' if poss_total }}</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Réussite au plaquage</div>
+            <div class="kpi-value kpi-own">{{ plaquage.get('success_rate') if plaquage.get('success_rate') is not none else '—' }}{{ '%' if plaquage.get('success_rate') is not none }}</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Discipline (fautes concédées)</div>
+            <div class="kpi-value"><span class="kpi-own">{{ discipline.get('own', {}).get('count', 0) }}</span> / <span class="kpi-adverse">{{ discipline.get('adverse', {}).get('count', 0) }}</span></div>
+        </div>
+    </div>
+    <p class="subtitle" style="margin-top:10px;"><a href="{{ url_for('season') }}">Voir le Bilan de saison complet →</a></p>
+    {% endif %}
+</div>
+
+{% if profile %}
+<div class="card">
+    <h2>🆚 Scouting {{ selected_team }}</h2>
+    <div class="two-col">
+        <div>
+            <h3 class="training-subcat-title">💪 Points forts</h3>
+            {% if not team_trends.strengths %}
+            <p class="subtitle">Aucun indicateur ne se distingue nettement.</p>
+            {% else %}
+            <div class="breakdown-chips">
+                {% for s in team_trends.strengths %}<span class="chip">{{ s.label }} — {{ s.value }} (n°{{ s.rank }}/{{ s.n_teams }})</span>{% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        <div>
+            <h3 class="training-subcat-title">⚠️ Points faibles</h3>
+            {% if not team_trends.weaknesses %}
+            <p class="subtitle">Aucun indicateur ne se distingue nettement.</p>
+            {% else %}
+            <div class="breakdown-chips">
+                {% for w in team_trends.weaknesses %}<span class="chip">{{ w.label }} — {{ w.value }} (n°{{ w.rank }}/{{ w.n_teams }})</span>{% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% if threats %}
+    <h3 class="training-subcat-title" style="margin-top:16px;">🎯 Joueurs à surveiller</h3>
+    <div class="breakdown-chips">
+        {% for t in threats %}<span class="chip">{{ t.label }} : {{ t.name }} ({{ t.value }} {{ t.unit }})</span>{% endfor %}
+    </div>
+    {% endif %}
+    {% if kpi_profile.labels %}
+    <h3 class="training-subcat-title" style="margin-top:16px;">📊 Profil sur les indicateurs clés</h3>
+    <div style="position:relative; height:{{ 60 + kpi_profile.labels|length * 26 }}px;">
+        <canvas id="kpiProfileChart"></canvas>
+    </div>
+    {% endif %}
+    {{ compare_table('Possession', selected_team, possession_rows) }}
+    <p class="subtitle" style="margin-top:12px;"><a href="{{ url_for('opponent_detail', team=selected_team) }}">Voir la fiche complète de {{ selected_team }} →</a></p>
+</div>
+{% endif %}
+
+<div class="card">
+    <h2>📜 Historique face à {{ selected_team }}</h2>
+    {% if not head_to_head or not head_to_head.total %}
+    <p class="subtitle">Aucun match codé face à cette équipe cette saison.</p>
+    {% else %}
+    <p class="subtitle">{{ head_to_head.wins }} victoire{{ 's' if head_to_head.wins != 1 else '' }}, {{ head_to_head.draws }} nul{{ 's' if head_to_head.draws != 1 else '' }}, {{ head_to_head.losses }} défaite{{ 's' if head_to_head.losses != 1 else '' }} sur {{ head_to_head.total }} match{{ 's' if head_to_head.total != 1 else '' }} codé{{ 's' if head_to_head.total != 1 else '' }}.</p>
+    <table class="stat-table zebra-table">
+        <thead><tr><th>Date</th><th>Compétition</th><th>Score</th><th>Résultat</th></tr></thead>
+        <tbody>
+        {% for r in head_to_head.rows %}
+            <tr>
+                <td><a href="{{ url_for('match_detail', match_id=r.match_id) }}">{{ r.date or '—' }}</a></td>
+                <td>{{ r.competition or '—' }}</td>
+                <td><span class="stat-own">{{ r.own_score }}</span> — <span class="stat-adverse">{{ r.adverse_score }}</span></td>
+                <td>{{ r.result }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+
+{% endif %}
+
+<script>
+function preparePrint() { setTimeout(() => window.print(), 100); }
+
+const KPI_PROFILE = {{ (kpi_profile or {"labels": [], "percentiles": []}) | tojson }};
+if (KPI_PROFILE.labels.length) {
+    new Chart(document.getElementById('kpiProfileChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: KPI_PROFILE.labels,
+            datasets: [{
+                data: KPI_PROFILE.percentiles,
+                backgroundColor: KPI_PROFILE.percentiles.map(p => p >= 50 ? '#6fcf7a' : '#ff6b7d'),
+                borderRadius: 4,
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                datalabels: { anchor: 'end', align: 'right', color: '#e8edf0', formatter: v => v },
+                tooltip: { callbacks: { label: (ctx) => `Rang percentile : ${ctx.parsed.x}/100` } }
+            },
+            scales: { x: { min: 0, max: 100, ticks: { stepSize: 25 } } }
+        }
+    });
+}
+</script>
+{% endblock %}

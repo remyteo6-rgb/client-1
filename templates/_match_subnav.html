@@ -1,0 +1,91 @@
+<div class="subnav no-print">
+    <div class="subnav-inner">
+        <details class="subnav-dropdown">
+            <summary>☰</summary>
+        
+            <div class="landing-dropdown-content">
+                <a href="{{ url_for('landing') }}">🏠 Accueil</a>
+                <a href="{{ url_for('index') }}">📊 Matchs</a>
+                {% if enable_prod2 %}
+                <a href="{{ url_for('opponents') }}">🆚 Adversaires</a>
+                <a href="{{ url_for('opponents_trends') }}">📈 Tendances Pro D2</a>
+                <a href="{{ url_for('next_match') }}">🎯 Prochain match</a>
+                {% endif %}
+                <a href="{{ url_for('season') }}">📅 Bilan de saison</a>
+                <a href="{{ url_for('season_joueurs') }}">👥 Effectif</a>
+                {% if is_admin %}
+                <a href="{{ url_for('upload') }}">+ Importer un XML</a>
+                {% if enable_prod2 %}<a href="{{ url_for('prod2_import') }}">🏉 Importer rapport Pro D2</a>{% endif %}
+                <a href="{{ url_for('export_data') }}">💾 Sauvegarder les données</a>
+                <a href="{{ url_for('import_data') }}">📥 Restaurer une sauvegarde</a>
+                {% endif %}
+                {% if logged_in %}
+                <a href="{{ url_for('logout') }}">🔒 Se déconnecter</a>
+                {% else %}
+                <a href="{{ url_for('login') }}">🔑 Se connecter</a>
+                {% endif %}
+            </div>
+        </details>
+        <img src="{{ url_for('static', filename='logo.png') }}" class="subnav-logo" alt="{{ club_full_name }}">
+        {% if match is defined %}
+        {% set sector_keys = ['attaque', 'defense', 'transition', 'ruck', 'touches', 'melee', 'jap'] %}
+        <div class="subnav-links">
+            <a href="{{ url_for('match_detail', match_id=match['id']) }}" class="{{ 'active' if active=='overview' else '' }}">Vue d'ensemble</a>
+            <details class="subnav-sector-dropdown">
+                <summary class="{{ 'active' if active in sector_keys else '' }}">Secteurs ▾</summary>
+                <div class="subnav-sector-menu">
+                    <a href="{{ url_for('match_attaque', match_id=match['id']) }}" class="{{ 'active' if active=='attaque' else '' }}">Attaque</a>
+                    <a href="{{ url_for('match_defense', match_id=match['id']) }}" class="{{ 'active' if active=='defense' else '' }}">Défense</a>
+                    <a href="{{ url_for('match_transition', match_id=match['id']) }}" class="{{ 'active' if active=='transition' else '' }}">Transition</a>
+                    <a href="{{ url_for('match_ruck', match_id=match['id']) }}" class="{{ 'active' if active=='ruck' else '' }}">Ruck</a>
+                    <a href="{{ url_for('match_touches', match_id=match['id']) }}" class="{{ 'active' if active=='touches' else '' }}">Touches</a>
+                    <a href="{{ url_for('match_melee', match_id=match['id']) }}" class="{{ 'active' if active=='melee' else '' }}">Mêlée</a>
+                    <a href="{{ url_for('match_jap', match_id=match['id']) }}" class="{{ 'active' if active=='jap' else '' }}">Jeu au pied</a>
+                </div>
+            </details>
+            <a href="{{ url_for('match_joueurs', match_id=match['id']) }}" class="{{ 'active' if active=='joueurs' else '' }}">Joueurs</a>
+            <a href="{{ url_for('match_composition', match_id=match['id']) }}" class="{{ 'active' if active=='composition' else '' }}">Composition</a>
+        </div>
+        {% elif season_mode is defined %}
+        {% set sector_keys = ['attaque', 'defense', 'transition', 'ruck', 'touches', 'melee', 'jap'] %}
+        <div class="subnav-links">
+            <a href="{{ url_for('season') }}?{{ qs }}" class="{{ 'active' if active=='overview' else '' }}">Vue d'ensemble</a>
+            <details class="subnav-sector-dropdown">
+                <summary class="{{ 'active' if active in sector_keys else '' }}">Secteurs ▾</summary>
+                <div class="subnav-sector-menu">
+                    <a href="{{ url_for('season_attaque') }}?{{ qs }}" class="{{ 'active' if active=='attaque' else '' }}">Attaque</a>
+                    <a href="{{ url_for('season_defense') }}?{{ qs }}" class="{{ 'active' if active=='defense' else '' }}">Défense</a>
+                    <a href="{{ url_for('season_transition') }}?{{ qs }}" class="{{ 'active' if active=='transition' else '' }}">Transition</a>
+                    <a href="{{ url_for('season_ruck') }}?{{ qs }}" class="{{ 'active' if active=='ruck' else '' }}">Ruck</a>
+                    <a href="{{ url_for('season_touches') }}?{{ qs }}" class="{{ 'active' if active=='touches' else '' }}">Touches</a>
+                    <a href="{{ url_for('season_melee') }}?{{ qs }}" class="{{ 'active' if active=='melee' else '' }}">Mêlée</a>
+                    <a href="{{ url_for('season_jap') }}?{{ qs }}" class="{{ 'active' if active=='jap' else '' }}">Jeu au pied</a>
+                </div>
+            </details>
+            <a href="{{ url_for('season_joueurs') }}?{{ qs }}" class="{{ 'active' if active=='joueurs' else '' }}">Joueurs</a>
+            <a href="{{ url_for('season_comparateur') }}?{{ qs }}" class="{{ 'active' if active=='comparateur' else '' }}">Comparateur</a>
+            {% if enable_jiff %}<a href="{{ url_for('season_jiff') }}?{{ qs }}" class="{{ 'active' if active=='jiff' else '' }}">JIFF</a>{% endif %}
+            <a href="{{ url_for('season_entrainement') }}" class="{{ 'active' if active=='entrainement' else '' }}">Entraînement</a>
+            <a href="{{ url_for('season_analyse') }}?{{ qs }}" class="{{ 'active' if active=='analyse' else '' }}">Data Analyse</a>
+        </div>
+        {% elif team_mode is defined %}
+        {% set sector_keys = ['attaque', 'defense', 'discipline', 'touches', 'melee', 'rucks', 'jap'] %}
+        <div class="subnav-links">
+            <a href="{{ url_for('opponent_detail', team=team) }}" class="{{ 'active' if active=='overview' else '' }}">Vue d'ensemble</a>
+            <details class="subnav-sector-dropdown">
+                <summary class="{{ 'active' if active in sector_keys else '' }}">Secteurs ▾</summary>
+                <div class="subnav-sector-menu">
+                    <a href="{{ url_for('opponent_sector', team=team, sector='attaque') }}" class="{{ 'active' if active=='attaque' else '' }}">Attaque</a>
+                    <a href="{{ url_for('opponent_sector', team=team, sector='defense') }}" class="{{ 'active' if active=='defense' else '' }}">Défense</a>
+                    <a href="{{ url_for('opponent_sector', team=team, sector='discipline') }}" class="{{ 'active' if active=='discipline' else '' }}">Discipline</a>
+                    <a href="{{ url_for('opponent_sector', team=team, sector='touches') }}" class="{{ 'active' if active=='touches' else '' }}">Touches</a>
+                    <a href="{{ url_for('opponent_sector', team=team, sector='melee') }}" class="{{ 'active' if active=='melee' else '' }}">Mêlée</a>
+                    <a href="{{ url_for('opponent_sector', team=team, sector='rucks') }}" class="{{ 'active' if active=='rucks' else '' }}">Rucks</a>
+                    <a href="{{ url_for('opponent_sector', team=team, sector='jap') }}" class="{{ 'active' if active=='jap' else '' }}">Jeu au pied</a>
+                </div>
+            </details>
+            <a href="{{ url_for('opponent_joueurs', team=team) }}" class="{{ 'active' if active=='joueurs' else '' }}">Joueurs</a>
+        </div>
+        {% endif %}
+    </div>
+</div>

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Joueurs — {{ team }}{% endblock %}
+{% block content %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>👥 Joueurs — {{ team }}</h1>
+        <p class="subtitle">Effectif complet avec leurs statistiques individuelles — {{ report_label }}.</p>
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+</div>
+
+{% if not groups %}
+<div class="card empty-state">
+    <p>Pas de données joueurs pour cette équipe dans le rapport.</p>
+</div>
+{% endif %}
+
+{% if threats %}
+<div class="card">
+    <h2>🎯 Joueurs à surveiller</h2>
+    <p class="subtitle">Pas "qui joue le plus" (voir tableau ci-dessous) mais qui pèse le plus sur chaque registre du jeu.</p>
+    <div class="breakdown-chips">
+        {% for t in threats %}<span class="chip">{{ t.label }} : {{ t.name }} ({{ t.value }} {{ t.unit }})</span>{% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if most_used %}
+<div class="card">
+    <h2>🏉 Joueurs les plus utilisés</h2>
+    <p class="subtitle">Classés par titularisations puis temps de jeu total. L'export Pro D2 ne précise pas le poste de chaque joueur, donc pas de composition type par numéro — juste le niveau d'utilisation.</p>
+    <table class="stat-table zebra-table">
+        <thead><tr><th>#</th><th>Joueur</th><th>Titulaire</th><th>Remplaçant</th><th>Matchs</th><th>Temps de jeu (min)</th></tr></thead>
+        <tbody>
+        {% for r in most_used %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ r.name }}</td>
+                <td class="stat-own">{{ r.titulaires }}</td>
+                <td>{{ r.remplacant }}</td>
+                <td>{{ r.matchs }}</td>
+                <td>{{ r.temps_de_jeu }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% for g in groups %}
+<details class="card section-block" open>
+    <summary>
+        <span class="section-title">{{ g.name }}</span>
+        <span class="section-help">{{ g.rows|length }} joueur{{ 's' if g.rows|length != 1 else '' }}</span>
+    </summary>
+    <div class="section-body">
+        <table class="stat-table zebra-table">
+            <thead>
+                <tr>
+                    <th>Joueur</th>
+                    {% for col in g.columns %}<th>{{ col }}</th>{% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in g.rows %}
+                <tr>
+                    <td>{{ r.name }}</td>
+                    {% for v in r['values'] %}<td>{{ v if v is not none else '—' }}</td>{% endfor %}
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</details>
+{% endfor %}
+
+<script>
+function preparePrint() {
+    document.querySelectorAll('details.section-block').forEach(d => d.open = true);
+    setTimeout(() => window.print(), 100);
+}
+</script>
+{% endblock %}

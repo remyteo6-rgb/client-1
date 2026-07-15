@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Importer un match{% endblock %}
+{% block content %}
+<h1>Importer un export Sportscode</h1>
+<p class="subtitle">Une fois ton codage terminé dans Sportscode, exporte le fichier XML (ALL_INSTANCES) et dépose-le ici.</p>
+
+<div class="card">
+    <form class="upload-form" method="post" enctype="multipart/form-data" action="{{ url_for('upload') }}">
+        <div class="form-group">
+            <label>Fichier XML Sportscode *</label>
+            <input type="file" name="xml_file" accept=".xml" required>
+        </div>
+        <div class="form-group">
+            <label>Adversaire *</label>
+            <input type="text" name="opponent" placeholder="ex : Stade Toulousain" required>
+        </div>
+        <div class="form-group">
+            <label>Mon équipe (laisser vide pour utiliser le nom détecté dans le XML)</label>
+            <input type="text" name="own_team" placeholder="ex : {{ club_name }}">
+        </div>
+        <div class="form-group">
+            <label>Date du match</label>
+            <input type="date" name="match_date">
+        </div>
+        <div class="form-group">
+            <label>Compétition</label>
+            <input type="text" name="competition" placeholder="ex : Top 14, Champions Cup...">
+        </div>
+        <div class="form-group">
+            <label>Domicile / Extérieur</label>
+            <input type="text" name="venue" placeholder="ex : Domicile">
+        </div>
+        <button class="btn" type="submit">Importer et analyser</button>
+    </form>
+</div>
+{% endblock %}

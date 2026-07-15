@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Jeu au pied — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
+{% set active = 'jap' %}
+{% block content %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>🦶 Jeu au pied — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
+        <p class="subtitle">Volume, distance et réussite des coups de pied, nous vs {{ match['opponent'] }}.</p>
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+</div>
+
+<form method="post" action="{{ url_for('match_jap_manual', match_id=match['id']) }}">
+<div class="chart-row">
+    <div class="card">
+        <h2>{{ match['own_team'] }}</h2>
+        <table class="stat-table">
+            <tbody>
+                <tr><td>Nombre de jeu au pied</td><td class="stat-own">{{ data.own.total }}</td></tr>
+                <tr>
+                    <td>Distance totale des jeux au pied (m)</td>
+                    <td class="stat-own">
+                        {% if is_admin %}
+                        <input type="number" name="kick_distance_own" value="{{ match.manual_stats.get('kick_distance_own') if match.manual_stats.get('kick_distance_own') is not none else '' }}" placeholder="—" style="width:80px; background:transparent; border:1px solid rgba(255,255,255,0.25); border-radius:4px; color:inherit; padding:4px 6px;">
+                        {% else %}
+                        {{ match.manual_stats.get('kick_distance_own') if match.manual_stats.get('kick_distance_own') is not none else '—' }}
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr><td>Jeu au pied contestable / contesté</td><td class="stat-own">{{ data.own.kick_contestable }} / {{ data.own.kick_conteste }}</td></tr>
+                <tr><td>% ballons gagnés en duel aérien offensif</td><td class="stat-own">{{ data.own.duels_aeriens_off_pct if data.own.duels_aeriens_off_pct is not none else '—' }}{{ '%' if data.own.duels_aeriens_off_pct is not none }}</td></tr>
+                <tr><td>Ballons tapés en jeu / en touche</td><td class="stat-own">{{ data.own.won }} / {{ data.own.lost }}</td></tr>
+                <tr><td>Réussite aux pénaltouches</td><td class="stat-own">{{ data.own.penaltouche_rate if data.own.penaltouche_rate is not none else '—' }}{{ '%' if data.own.penaltouche_rate is not none }} ({{ data.own.penaltouche_total if data.own.penaltouche_total is not none else '—' }} tentée{{ 's' if data.own.penaltouche_total and data.own.penaltouche_total != 1 else '' }})</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="card">
+        <h2>{{ match['opponent'] }}</h2>
+        <table class="stat-table">
+            <tbody>
+                <tr><td>Nombre de jeu au pied</td><td class="stat-adverse">{{ data.adverse.total }}</td></tr>
+                <tr>
+                    <td>Distance totale des jeux au pied (m)</td>
+                    <td class="stat-adverse">
+                        {% if logged_in %}
+                        <input type="number" name="kick_distance_adverse" value="{{ match.manual_stats.get('kick_distance_adverse') if match.manual_stats.get('kick_distance_adverse') is not none else '' }}" placeholder="—" style="width:80px; background:transparent; border:1px solid rgba(255,255,255,0.25); border-radius:4px; color:inherit; padding:4px 6px;">
+                        {% else %}
+                        {{ match.manual_stats.get('kick_distance_adverse') if match.manual_stats.get('kick_distance_adverse') is not none else '—' }}
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr><td>Jeu au pied contestable / contesté</td><td class="stat-adverse">{{ data.adverse.kick_contestable }} / {{ data.adverse.kick_conteste }}</td></tr>
+                <tr><td>% ballons gagnés en duel aérien offensif</td><td class="stat-adverse">{{ data.adverse.duels_aeriens_off_pct if data.adverse.duels_aeriens_off_pct is not none else '—' }}{{ '%' if data.adverse.duels_aeriens_off_pct is not none }}</td></tr>
+                <tr><td>Ballons tapés en jeu / en touche</td><td class="stat-adverse">{{ data.adverse.won }} / {{ data.adverse.lost }}</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% if logged_in %}
+<button type="submit" class="btn btn-secondary no-print" style="margin-top:10px;">💾 Enregistrer les distances</button>
+{% endif %}
+</form>
+
+<div class="card chart-container" style="margin-top:20px;">
+    <h2>🦶 Type de JAP</h2>
+    <p class="subtitle">Répartition des coups de pied de {{ match['own_team'] }} par type codé (une barre par type + numéro de joueur).</p>
+    {% if data.own.sub_types %}
+    <canvas id="kickTypeChart"></canvas>
+    {% else %}
+    <p class="subtitle">Aucun sous-type de coup de pied codé sur ce match (le staff n'a pas utilisé ces boutons cette fois-ci).</p>
+    {% endif %}
+</div>
+
+<script>
+const KICK_TYPES = {{ data.own.sub_types | tojson if data.own.sub_types else 'null' }};
+const OWN_COLOR = '#ff6b7d';
+
+if (KICK_TYPES) {
+    const labels = Object.keys(KICK_TYPES);
+    const counts = labels.map(l => KICK_TYPES[l].count);
+    const pcts = labels.map(l => KICK_TYPES[l].pct);
+    new Chart(document.getElementById('kickTypeChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: counts,
+                backgroundColor: OWN_COLOR,
+                borderRadius: 4,
+            }]
+        },
+        plugins: [ChartDataLabels],
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                datalabels: {
+                    color: '#ffffff', font: { weight: 'bold', size: 12 }, anchor: 'center', align: 'center',
+                    formatter: (value, ctx) => {
+                        const pct = pcts[ctx.dataIndex];
+                        return pct !== null ? (value + '\n' + pct + '%') : value;
+                    }
+                }
+            },
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        }
+    });
+}
+
+function preparePrint() { setTimeout(() => window.print(), 100); }
+</script>
+{% endblock %}

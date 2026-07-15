@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Data Analyse — Saison{% endblock %}
+
+{% block content %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>📊 Data Analyse — Saison</h1>
+        <p class="subtitle">Comparaison automatique de chaque indicateur de jeu entre les matchs gagnés et les matchs perdus.</p>
+    </div>
+    {% if not analysis.insufficient_data %}
+    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+    {% endif %}
+</div>
+
+{% if analysis.insufficient_data %}
+<div class="card empty-state">
+    <p>Pas encore assez de données pour une comparaison fiable.</p>
+    <p class="subtitle">
+        Sur la sélection actuelle : {{ analysis.n_wins }} victoire{{ 's' if analysis.n_wins != 1 else '' }} et
+        {{ analysis.n_losses }} défaite{{ 's' if analysis.n_losses != 1 else '' }}.
+        Il faut au moins 2 victoires ET 2 défaites (avec des matchs entièrement importés) pour que la comparaison ait un sens.
+    </p>
+</div>
+{% else %}
+
+<div class="kpi-row">
+    <div class="kpi-card">
+        <div class="kpi-label">Victoires analysées</div>
+        <div class="kpi-value kpi-own">{{ analysis.n_wins }}</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Défaites analysées</div>
+        <div class="kpi-value kpi-adverse">{{ analysis.n_losses }}</div>
+    </div>
+</div>
+
+<div class="card no-print">
+    <p class="subtitle">
+        ⚠️ Ceci compare simplement la moyenne de chaque indicateur en victoire et en défaite : c'est une corrélation
+        observée sur tes matchs, pas une preuve que l'indicateur est la cause du résultat. Plus le nombre de matchs
+        analysés est petit, plus il faut prendre ça comme une piste de travail plutôt qu'une certitude.
+    </p>
+</div>
+
+<div class="card">
+    <h2>📋 Détail de tous les indicateurs comparés</h2>
+    <table class="stat-table zebra-table">
+        <thead>
+            <tr><th>Indicateur</th><th>Victoires</th><th>Défaites</th><th>Échantillon</th></tr>
+        </thead>
+        <tbody>
+        {% for row in analysis.all_rows %}
+            <tr>
+                <td>{{ row.label }}</td>
+                <td class="stat-own">{{ row.win_avg }}{{ row.unit }}</td>
+                <td class="stat-adverse">{{ row.loss_avg }}{{ row.unit }}</td>
+                <td>{{ row.n_win }}V / {{ row.n_loss }}D</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function preparePrint() {
+    document.querySelectorAll('details.section-block').forEach(d => d.open = true);
+    setTimeout(() => window.print(), 100);
+}
+</script>
+{% endif %}
+{% endblock %}

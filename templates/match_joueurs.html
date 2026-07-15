@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Joueurs — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
+{% block subnav %}{% include "_match_subnav.html" %}{% endblock %}
+{% block content %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>👥 Joueurs — {{ match['own_team'] }}</h1>
+        <p class="subtitle">Trois vues : attaque, défense, ruck. L'"indice" est une estimation pondérée (pas un score officiel du club) — dis-moi comment tu calcules le vôtre et je l'ajuste.</p>
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+</div>
+
+<details class="card section-block" open>
+    <summary>
+        <span class="section-title">⚔️ Attaque par joueur</span>
+        <span class="section-help">Contacts, duels, passes, offloads, ballons portés, défenseurs battus, breaks.</span>
+    </summary>
+    <div class="section-body">
+        <table class="stat-table zebra-table">
+            <thead>
+                <tr>
+                    <th>Joueur</th><th>Contact +/-</th><th>Total / %</th>
+                    <th>Duel +/-</th><th>Total / %</th>
+                    <th>Passes +/-</th><th>Total / %</th>
+                    <th>Offload +/-</th><th>Total / %</th>
+                    <th>PDB</th><th>Déf. battus</th><th>Break</th><th>Indice</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in attack_table.rows %}
+                <tr>
+                    <td>{{ r.name }}</td>
+                    <td>{{ r.contact_plus }} / {{ r.contact_minus }}</td><td>{{ r.contact_total }}{% if r.contact_pct is not none %} ({{ r.contact_pct }}%){% endif %}</td>
+                    <td>{{ r.duel_plus }} / {{ r.duel_minus }}</td><td>{{ r.duel_total }}{% if r.duel_pct is not none %} ({{ r.duel_pct }}%){% endif %}</td>
+                    <td>{{ r.passe_plus }} / {{ r.passe_minus }}</td><td>{{ r.passe_total }}{% if r.passe_pct is not none %} ({{ r.passe_pct }}%){% endif %}</td>
+                    <td>{{ r.offload_plus }} / {{ r.offload_minus }}</td><td>{{ r.offload_total }}{% if r.offload_pct is not none %} ({{ r.offload_pct }}%){% endif %}</td>
+                    <td>{{ r.pdb }}</td><td>{{ r.def_battu }}</td><td>{{ r.break }}</td>
+                    <td class="stat-own">{{ r.points }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="font-weight:700; border-top:2px solid #dee2e6;">
+                    <td>TOTAL</td>
+                    <td>{{ attack_table.totals.contact_plus }} / {{ attack_table.totals.contact_minus }}</td><td>{{ attack_table.totals.contact_plus + attack_table.totals.contact_minus }}</td>
+                    <td>{{ attack_table.totals.duel_plus }} / {{ attack_table.totals.duel_minus }}</td><td>{{ attack_table.totals.duel_plus + attack_table.totals.duel_minus }}</td>
+                    <td>{{ attack_table.totals.passe_plus }} / {{ attack_table.totals.passe_minus }}</td><td>{{ attack_table.totals.passe_plus + attack_table.totals.passe_minus }}</td>
+                    <td>{{ attack_table.totals.offload_plus }} / {{ attack_table.totals.offload_minus }}</td><td>{{ attack_table.totals.offload_plus + attack_table.totals.offload_minus }}</td>
+                    <td>{{ attack_table.totals.pdb }}</td><td>{{ attack_table.totals.def_battu }}</td><td>{{ attack_table.totals.break }}</td>
+                    <td>{{ attack_table.totals.points }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</details>
+
+<details class="card section-block" open>
+    <summary>
+        <span class="section-title">🛡️ Défense par joueur</span>
+        <span class="section-help">Plaquages par qualité (dominant / neutre / passif / raté), assists, discipline.</span>
+    </summary>
+    <div class="section-body">
+        <table class="stat-table zebra-table">
+            <thead>
+                <tr>
+                    <th>Joueur</th><th>Dominant (+)</th><th>Neutre (=)</th><th>Passif (-)</th><th>Raté</th>
+                    <th>Total / %</th><th>Assist +/-</th><th>Discipline</th><th>Indice</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in defense_table.rows %}
+                <tr>
+                    <td>{{ r.name }}</td>
+                    <td class="stat-own">{{ r.plaquage_dominant }}</td>
+                    <td>{{ r.plaquage_neutre }}</td>
+                    <td>{{ r.plaquage_passif }}</td>
+                    <td class="stat-adverse">{{ r.plaquage_rate }}</td>
+                    <td>{{ r.tackle_total }}{% if r.tackle_pct is not none %} ({{ r.tackle_pct }}%){% endif %}</td>
+                    <td>{{ r.assist_plus }} / {{ r.assist_minus }}</td>
+                    <td>{{ r.discipline }}</td>
+                    <td class="stat-own">{{ r.points }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="font-weight:700; border-top:2px solid #dee2e6;">
+                    <td>TOTAL</td>
+                    <td>{{ defense_table.totals.plaquage_dominant }}</td>
+                    <td>{{ defense_table.totals.plaquage_neutre }}</td>
+                    <td>{{ defense_table.totals.plaquage_passif }}</td>
+                    <td>{{ defense_table.totals.plaquage_rate }}</td>
+                    <td>{{ defense_table.totals.plaquage_dominant + defense_table.totals.plaquage_neutre + defense_table.totals.plaquage_passif + defense_table.totals.plaquage_rate }}</td>
+                    <td>{{ defense_table.totals.assist_plus }} / {{ defense_table.totals.assist_minus }}</td>
+                    <td>{{ defense_table.totals.discipline }}</td>
+                    <td>{{ defense_table.totals.points }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</details>
+
+<details class="card section-block" open>
+    <summary>
+        <span class="section-title">🤝 Ruck par joueur</span>
+        <span class="section-help">Ruck offensif (arrivée 1er/2e homme, ancreur, raseur) et ruck défensif (gratteur, contre-ruck).</span>
+    </summary>
+    <div class="section-body">
+        <table class="stat-table zebra-table">
+            <thead>
+                <tr>
+                    <th>Joueur</th><th>1er homme +/-</th><th>2e homme +/-</th>
+                    <th>Ancreur +/-</th><th>Raseur +/-</th>
+                    <th>Gratteur +/- (%)</th><th>Contre-ruck +/- (%)</th><th>Indice</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in ruck_table.rows %}
+                <tr>
+                    <td>{{ r.name }}</td>
+                    <td>{{ r.arr1_plus }} / {{ r.arr1_minus }}</td>
+                    <td>{{ r.arr2_plus }} / {{ r.arr2_minus }}</td>
+                    <td>{{ r.ancreur_plus }} / {{ r.ancreur_minus }}</td>
+                    <td>{{ r.raseur_plus }} / {{ r.raseur_minus }}</td>
+                    <td>{{ r.gratteur_plus }} / {{ r.gratteur_minus }}{% if r.gratteur_pct is not none %} ({{ r.gratteur_pct }}%){% endif %}</td>
+                    <td>{{ r.contre_ruck_plus }} / {{ r.contre_ruck_minus }}{% if r.contre_ruck_pct is not none %} ({{ r.contre_ruck_pct }}%){% endif %}</td>
+                    <td class="stat-own">{{ r.points }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="font-weight:700; border-top:2px solid #dee2e6;">
+                    <td>TOTAL</td>
+                    <td>{{ ruck_table.totals.arr1_plus }} / {{ ruck_table.totals.arr1_minus }}</td>
+                    <td>{{ ruck_table.totals.arr2_plus }} / {{ ruck_table.totals.arr2_minus }}</td>
+                    <td>{{ ruck_table.totals.ancreur_plus }} / {{ ruck_table.totals.ancreur_minus }}</td>
+                    <td>{{ ruck_table.totals.raseur_plus }} / {{ ruck_table.totals.raseur_minus }}</td>
+                    <td>{{ ruck_table.totals.gratteur_plus }} / {{ ruck_table.totals.gratteur_minus }}</td>
+                    <td>{{ ruck_table.totals.contre_ruck_plus }} / {{ ruck_table.totals.contre_ruck_minus }}</td>
+                    <td>{{ ruck_table.totals.points }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</details>
+
+<script>
+function preparePrint() {
+    document.querySelectorAll('details.section-block').forEach(d => d.open = true);
+    setTimeout(() => window.print(), 100);
+}
+</script>
+{% endblock %}

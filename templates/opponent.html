@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block title %}{{ team }} — Adversaire{% endblock %}
+{% set active = 'overview' %}
+{% block content %}
+
+{% macro compare_table(sheet_name, team_name, rows) %}
+<h3 class="training-subcat-title">{{ sheet_name }}</h3>
+<table class="stat-table zebra-table">
+    <thead><tr><th>Statistique</th><th>{{ team_name }}</th><th>Moyenne Pro D2</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+        <tr>
+            <td>{{ r.key }}</td>
+            <td>
+                {% if r.color == 'good' %}<span class="kpi-badge kpi-badge-good">{{ r.value }} ▲</span>
+                {% elif r.color == 'bad' %}<span class="kpi-badge kpi-badge-bad">{{ r.value }} ▼</span>
+                {% else %}<span class="stat-own">{{ r.value if r.value is not none else '—' }}</span>
+                {% endif %}
+            </td>
+            <td>{{ r.avg if r.avg is not none else '—' }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endmacro %}
+
+{% set c = profile.classement %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>🆚 {{ team }}</h1>
+        <p class="subtitle">Vue d'ensemble — {{ report_label }}.</p>
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+</div>
+
+<div class="card scoreboard-hero">
+    <div class="scoreboard-hero-teams">
+        <div class="scoreboard-hero-team">
+            <div class="team-badge team-badge-own">V</div>
+            <div class="scoreboard-hero-score own">{{ c.Victoires }}</div>
+        </div>
+        <div class="scoreboard-hero-sep">/</div>
+        <div class="scoreboard-hero-team">
+            <div class="team-badge">N</div>
+            <div class="scoreboard-hero-score">{{ c.Nuls }}</div>
+        </div>
+        <div class="scoreboard-hero-sep">/</div>
+        <div class="scoreboard-hero-team">
+            <div class="team-badge team-badge-adverse">D</div>
+            <div class="scoreboard-hero-score adverse">{{ c.Perdus }}</div>
+        </div>
+    </div>
+    <div class="scoreboard-hero-names">
+        <span class="own">{{ c['Points'] }} points au classement</span>
+        <span class="adverse">{{ c['Matchs joués'] }} matchs joués</span>
+    </div>
+</div>
+
+<div class="kpi-row">
+    <div class="kpi-card">
+        <div class="kpi-label">Points marqués / encaissés</div>
+        <div class="kpi-value"><span class="kpi-own">{{ c['Points Marqués'] }}</span> / <span class="kpi-adverse">{{ c['Points Encaissés'] }}</span></div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Essais marqués / encaissés</div>
+        <div class="kpi-value"><span class="kpi-own">{{ c['Essais Marqués'] }}</span> / <span class="kpi-adverse">{{ c['Essais Encaissés'] }}</span></div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Bonus offensif / défensif</div>
+        <div class="kpi-value"><span class="kpi-own">{{ c.BO }}</span> / <span class="kpi-adverse">{{ c.BD }}</span></div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Cartons 🟨 / 🟧 / 🟥</div>
+        <div class="kpi-value">{{ c['Cartons jaunes'] }} / {{ c['Cartons oranges'] }} / {{ c['Cartons Rouges'] }}</div>
+    </div>
+</div>
+'
+{% if nissa_compare %}
+<div class="card">
+    <h3 class="training-subcat-title">🆚 {{ club_name }} vs {{ team }}</h3>
+    <p class="subtitle">Comparaison indicative sur nos matchs codés cette saison. ⚠️ Nos statistiques viennent de notre propre codage vidéo (Sportscode), celles de {{ team }} du prestataire officiel Pro D2 — les méthodologies de calcul peuvent différer légèrement, à lire comme un ordre de grandeur plutôt qu'une égalité stricte.</p>
+    <table class="stat-table zebra-table">
+        <thead><tr><th>Statistique</th><th>{{ club_name }}</th><th>{{ team }}</th></tr></thead>
+        <tbody>
+        {% for r in nissa_compare %}
+            <tr>
+                <td>{{ r.label }}</td>
+                <td class="stat-own">{{ r.own if r.own is not none else '—' }}</td>
+                <td>{{ r.opponent if r.opponent is not none else '—' }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<div class="card">
+    <h3 class="training-subcat-title">📈 Évolution — position au classement</h3>
+    {% if history|length < 2 %}
+    <p class="subtitle">Pas encore assez d'historique pour une tendance — se remplit à chaque nouvel import du rapport Pro D2, semaine après semaine.</p>
+    {% else %}
+    <p class="subtitle">Position de {{ team }} au classement au fil des rapports importés (1 = leader de la Pro D2).</p>
+    <div style="position:relative; height:220px;">
+        <canvas id="positionHistoryChart"></canvas>
+    </div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h3 class="training-subcat-title">💪 Points forts / ⚠️ Points faibles</h3>
+    <p class="subtitle">Indicateurs où {{ team }} fait partie des 2 meilleures ou des 2 moins bonnes équipes de Pro D2 (sur la sélection d'indicateurs clés ci-dessous), dernier rapport importé.</p>
+    <div class="two-col">
+        <div>
+            <h3 class="training-subcat-title">💪 Points forts</h3>
+            {% if not team_trends.strengths %}
+            <p class="subtitle">Aucun indicateur ne se distingue nettement.</p>
+            {% else %}
+            <div class="breakdown-chips">
+                {% for s in team_trends.strengths %}<span class="chip">{{ s.label }} — {{ s.value }} (n°{{ s.rank }}/{{ s.n_teams }})</span>{% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        <div>
+            <h3 class="training-subcat-title">⚠️ Points faibles</h3>
+            {% if not team_trends.weaknesses %}
+            <p class="subtitle">Aucun indicateur ne se distingue nettement.</p>
+            {% else %}
+            <div class="breakdown-chips">
+                {% for w in team_trends.weaknesses %}<span class="chip">{{ w.label }} — {{ w.value }} (n°{{ w.rank }}/{{ w.n_teams }})</span>{% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    <p class="subtitle" style="margin-top:12px;"><a href="{{ url_for('opponents_trends') }}">Voir les tendances de toute la Pro D2 →</a></p>
+</div>
+
+{% if kpi_profile.labels %}
+<div class="card">
+    <h3 class="training-subcat-title">📊 Profil {{ team }} sur les indicateurs clés</h3>
+    <p class="subtitle">Classement de {{ team }} par rapport aux 15 autres équipes de Pro D2 sur chaque indicateur (100 = la meilleure équipe de la Pro D2, 0 = la moins bonne, 50 = dans la moyenne). Toujours dans le bon sens, même pour les indicateurs où « moins c'est mieux ».</p>
+    <div style="position:relative; height:{{ 60 + kpi_profile.labels|length * 26 }}px;">
+        <canvas id="kpiProfileChart"></canvas>
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    {{ compare_table('Possession', team, possession_rows) }}
+</div>
+
+<script>
+function preparePrint() { setTimeout(() => window.print(), 100); }
+
+const HISTORY = {{ history | tojson }};
+if (HISTORY.length >= 2) {
+    const ranks = HISTORY.map(h => h.rank);
+    new Chart(document.getElementById('positionHistoryChart').getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: HISTORY.map(h => h.label),
+            datasets: [{
+                label: 'Position au classement',
+                data: ranks,
+                borderColor: '#ff6b7d',
+                backgroundColor: '#ff6b7d33',
+                tension: 0.2,
+                pointRadius: 4,
+                pointBackgroundColor: '#ff6b7d',
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: { top: 20, bottom: 10 } },
+            plugins: {
+                legend: { display: false },
+                datalabels: {
+                    align: 'top', anchor: 'end', clamp: true, color: '#e8edf0',
+                    formatter: v => v,
+                },
+            },
+            scales: {
+                y: { reverse: true, min: 1, suggestedMax: Math.max(...ranks) + 1, ticks: { stepSize: 1, precision: 0 } }
+            }
+        }
+    });
+}
+
+const KPI_PROFILE = {{ kpi_profile | tojson }};
+if (KPI_PROFILE.labels.length) {
+    new Chart(document.getElementById('kpiProfileChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: KPI_PROFILE.labels,
+            datasets: [{
+                data: KPI_PROFILE.percentiles,
+                backgroundColor: KPI_PROFILE.percentiles.map(p => p >= 50 ? '#6fcf7a' : '#ff6b7d'),
+                borderRadius: 4,
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                datalabels: {
+                    anchor: 'end', align: 'right', color: '#e8edf0',
+                    formatter: v => v,
+                },
+                tooltip: {
+                    callbacks: { label: (ctx) => `Rang percentile : ${ctx.parsed.x}/100` }
+                }
+            },
+            scales: {
+                x: { min: 0, max: 100, ticks: { stepSize: 25 } }
+            }
+        }
+    });
+}
+</script>
+{% endblock %}

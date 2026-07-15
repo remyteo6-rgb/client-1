@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Restaurer une sauvegarde{% endblock %}
+{% block content %}
+<h1>Restaurer une sauvegarde</h1>
+<p class="subtitle">Dépose ici un fichier de sauvegarde JSON téléchargé avec « Sauvegarder les données ».
+Chaque match du fichier sera ajouté à la base actuelle (à utiliser juste après un changement de base de données, sur une base vide).</p>
+
+<div class="card">
+    <form method="post" enctype="multipart/form-data" action="{{ url_for('import_data') }}">
+        <div class="form-group">
+            <label>Fichier de sauvegarde (.json) *</label>
+            <input type="file" name="backup_file" accept=".json" required>
+        </div>
+        <button class="btn" type="submit">Restaurer</button>
+    </form>
+</div>
+{% endblock %}

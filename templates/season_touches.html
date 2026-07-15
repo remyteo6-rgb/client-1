@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Touches — Saison{% endblock %}
+{% block content %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>🤾 Touches — Saison</h1>
+        <p class="subtitle">Fiabilité en touche, sur notre lancer et sur celui de l'adversaire, cumulé sur {{ selected_count }} match{{ 's' if selected_count != 1 else '' }} sélectionné{{ 's' if selected_count != 1 else '' }}.</p>
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+</div>
+
+{% if not data %}
+<div class="card empty-state">
+    <p>Aucun match sélectionné avec données détaillées.</p>
+    <p><a href="{{ url_for('season') }}">Retour au Bilan de saison →</a></p>
+</div>
+{% else %}
+
+<div class="chart-row">
+    <div class="card">
+        <h2>{{ club_name }} — notre lancer</h2>
+        <div class="kpi-row" style="margin-bottom:10px;">
+            <div class="kpi-card">
+                <div class="kpi-label">Réussite touche</div>
+                <div class="kpi-value kpi-own">{{ data.own.success_rate if data.own.success_rate is not none else '—' }}{{ '%' if data.own.success_rate is not none }}</div>
+                <div class="kpi-help">{{ data.own.won }} gagnées / {{ data.own.total }} lancées, cumulé.</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Touche exploitable</div>
+                <div class="kpi-value kpi-own">{{ data.own.exploitable_rate if data.own.exploitable_rate is not none else '—' }}{{ '%' if data.own.exploitable_rate is not none }}</div>
+                <div class="kpi-help">{{ data.own.tqb_plus }} / {{ data.own.total }} avec un temps de qualité de ballon positif (TQB+), cumulé.</div>
+            </div>
+        </div>
+        <h3 style="font-size:13px; margin-bottom:8px; color:var(--text-secondary);">Mise en place (appel de touche)</h3>
+        {% if data.own.call_names %}
+        <div class="breakdown-chips">{% for name, n in data.own.call_names.items() %}<span class="chip">{{ name }} · {{ n }}</span>{% endfor %}</div>
+        {% else %}<p class="subtitle">Aucun appel de touche nommé codé.</p>{% endif %}
+        <h3 style="font-size:13px; margin:14px 0 8px; color:var(--text-secondary);">Réussite par nombre de sauteurs</h3>
+        <table class="stat-table">
+            <thead><tr><th>Nb sauteurs</th><th>Gagné</th><th>Perdu</th><th>%</th></tr></thead>
+            <tbody>
+            {% for j, v in data.own.jump_rates.items() %}
+                <tr><td>{{ j }}</td><td class="stat-own">{{ v.gagne }}</td><td class="stat-adverse">{{ v.perdu }}</td><td>{{ v.pct if v.pct is not none else '—' }}{{ '%' if v.pct is not none }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="card">
+        <h2>Adversaires cumulés — leur lancer</h2>
+        <div class="kpi-row" style="margin-bottom:10px;">
+            <div class="kpi-card">
+                <div class="kpi-label">Réussite touche adverse</div>
+                <div class="kpi-value kpi-adverse">{{ data.adverse.success_rate if data.adverse.success_rate is not none else '—' }}{{ '%' if data.adverse.success_rate is not none }}</div>
+                <div class="kpi-help">{{ data.adverse.won }} gagnées / {{ data.adverse.total }} lancées, cumulé.</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Touche exploitable adverse</div>
+                <div class="kpi-value kpi-adverse">{{ data.adverse.exploitable_rate if data.adverse.exploitable_rate is not none else '—' }}{{ '%' if data.adverse.exploitable_rate is not none }}</div>
+                <div class="kpi-help">{{ data.adverse.tqb_plus }} / {{ data.adverse.total }} avec un TQB+, cumulé.</div>
+            </div>
+        </div>
+        <h3 style="font-size:13px; margin-bottom:8px; color:var(--text-secondary);">Mise en place adverse</h3>
+        {% if data.adverse.call_names %}
+        <div class="breakdown-chips">{% for name, n in data.adverse.call_names.items() %}<span class="chip">{{ name }} · {{ n }}</span>{% endfor %}</div>
+        {% else %}<p class="subtitle">Aucun appel de touche adverse détaillé codé.</p>{% endif %}
+        <h3 style="font-size:13px; margin:14px 0 8px; color:var(--text-secondary);">Réussite par nombre de sauteurs</h3>
+        <table class="stat-table">
+            <thead><tr><th>Nb sauteurs</th><th>Gagné</th><th>Perdu</th><th>%</th></tr></thead>
+            <tbody>
+            {% for j, v in data.adverse.jump_rates.items() %}
+                <tr><td>{{ j }}</td><td class="stat-own">{{ v.gagne }}</td><td class="stat-adverse">{{ v.perdu }}</td><td>{{ v.pct if v.pct is not none else '—' }}{{ '%' if v.pct is not none }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="chart-row">
+    <div class="card">
+        <h2>Zone de saut — nous</h2>
+        <p class="subtitle">Répartition par couleur et lettre de zone codées par le staff, cumulé.</p>
+        <div class="breakdown-chips">
+            {% for name, n in data.own.colors.items() %}<span class="chip">{{ name }} · {{ n }}</span>{% endfor %}
+            {% for name, n in data.own.letters.items() %}<span class="chip">{{ name }} · {{ n }}</span>{% endfor %}
+        </div>
+        {% if not data.own.colors and not data.own.letters %}<p class="subtitle">Non détaillé sur la sélection.</p>{% endif %}
+    </div>
+    <div class="card">
+        <h2>Zone de saut — adversaires</h2>
+        <div class="breakdown-chips">
+            {% for name, n in data.adverse.colors.items() %}<span class="chip">{{ name }} · {{ n }}</span>{% endfor %}
+            {% for name, n in data.adverse.letters.items() %}<span class="chip">{{ name }} · {{ n }}</span>{% endfor %}
+        </div>
+        {% if not data.adverse.colors and not data.adverse.letters %}<p class="subtitle">Non détaillé sur la sélection.</p>{% endif %}
+    </div>
+</div>
+
+<script>
+function preparePrint() { setTimeout(() => window.print(), 100); }
+</script>
+{% endif %}
+{% endblock %}

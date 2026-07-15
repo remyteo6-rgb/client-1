@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+{% block title %}Bilan de saison{% endblock %}
+{% block content %}
+
+{% set poss = stats.get('Possession', {}) %}
+{% set poss_own_d = poss.get('own', {}).get('duration', 0) %}
+{% set poss_adv_d = poss.get('adverse', {}).get('duration', 0) %}
+{% set poss_total = poss_own_d + poss_adv_d %}
+{% set plaquage = stats.get('Plaquage', {}).get('own', {}) %}
+{% set ruck = stats.get('Ruck', {}) %}
+{% set ruck_own = ruck.get('own', {}).get('count', 0) %}
+{% set ruck_adv = ruck.get('adverse', {}).get('count', 0) %}
+{% set discipline = stats.get('Disciplines', {}) %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>📅 Bilan de saison</h1>
+        <p class="subtitle">
+            {% if all_matches %}
+            {{ selected_count }} match{{ 's' if selected_count != 1 else '' }} sélectionné{{ 's' if selected_count != 1 else '' }} sur {{ total_count }} au total.
+            {% else %}
+            Aucun match avec données détaillées pour l'instant.
+            {% endif %}
+        </p>
+    </div>
+    {% if dashboard %}
+    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+    {% endif %}
+</div>
+
+{% if all_matches %}
+<div class="card no-print">
+    <h2>Matchs inclus dans le cumul</h2>
+    <p class="subtitle">Tous cochés par défaut = saison complète. Décoche ceux à exclure, puis "Mettre à jour".</p>
+    <form method="get" action="{{ url_for('season') }}">
+        <div class="two-col">
+            {% for m in all_matches %}
+            <label style="display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:6px;">
+                <input type="checkbox" name="m" value="{{ m['id'] }}" {% if m['id'] in selected_ids %}checked{% endif %}>
+                {{ m['match_date'] or '—' }} — {{ m['own_team'] }} vs {{ m['opponent'] }}{% if m['competition'] %} ({{ m['competition'] }}){% endif %}
+            </label>
+            {% endfor %}
+        </div>
+        <div style="display:flex; gap:10px; margin-top:14px;">
+            <button class="btn btn-secondary" type="submit">Mettre à jour</button>
+            <a class="btn btn-secondary" href="{{ url_for('season') }}">Toute la saison</a>
+        </div>
+    </form>
+</div>
+{% else %}
+<div class="card empty-state">
+    <p>Aucun match avec données détaillées importé pour l'instant.</p>
+    {% if is_admin %}
+    <p><a href="{{ url_for('upload') }}">Importer un export Sportscode →</a></p>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if dashboard %}
+<div class="card scoreboard-hero">
+    <div class="scoreboard-hero-teams">
+        <div class="scoreboard-hero-team">
+            <div class="team-badge team-badge-own">V</div>
+            <div class="scoreboard-hero-score own">{{ dashboard.record.wins }}</div>
+        </div>
+        <div class="scoreboard-hero-sep">/</div>
+        <div class="scoreboard-hero-team">
+            <div class="team-badge">N</div>
+            <div class="scoreboard-hero-score">{{ dashboard.record.draws }}</div>
+        </div>
+        <div class="scoreboard-hero-sep">/</div>
+        <div class="scoreboard-hero-team">
+            <div class="team-badge team-badge-adverse">D</div>
+            <div class="scoreboard-hero-score adverse">{{ dashboard.record.losses }}</div>
+        </div>
+    </div>
+    <div class="scoreboard-hero-names">
+        <span class="own">{{ dashboard.points_for }} points marqués</span>
+        <span class="adverse">{{ dashboard.points_against }} points encaissés</span>
+    </div>
+
+    <div class="bip-bar-wrap">
+        <div class="bip-bar-label">
+            <span>⏱ Ball in Play cumulé</span>
+            <span>{{ dashboard.ball_in_play.duration_fmt }} · {{ dashboard.ball_in_play.avg_per_match_fmt }} / match</span>
+        </div>
+        <div class="bip-bar-track"><div class="bip-bar-fill" style="width:100%;"></div></div>
+    </div>
+
+    {% if dashboard.score_detail %}
+    <div class="score-detail-row">
+        <div class="score-detail-item">
+            <span class="score-detail-label">Essais</span>
+            <span class="score-detail-value"><span class="own">{{ dashboard.score_detail.own.tries }}</span><span class="sep">—</span><span class="adverse">{{ dashboard.score_detail.adverse.tries }}</span></span>
+        </div>
+        <div class="score-detail-item">
+            <span class="score-detail-label">Transfos</span>
+            <span class="score-detail-value"><span class="own">{{ dashboard.score_detail.own.conversions }}/{{ dashboard.score_detail.own.conversions_att }}</span><span class="sep">—</span><span class="adverse">{{ dashboard.score_detail.adverse.conversions }}/{{ dashboard.score_detail.adverse.conversions_att }}</span></span>
+        </div>
+        <div class="score-detail-item">
+            <span class="score-detail-label">Pénalités</span>
+            <span class="score-detail-value"><span class="own">{{ dashboard.score_detail.own.penalties }}/{{ dashboard.score_detail.own.penalties_att }}</span><span class="sep">—</span><span class="adverse">{{ dashboard.score_detail.adverse.penalties }}/{{ dashboard.score_detail.adverse.penalties_att }}</span></span>
+        </div>
+        <div class="score-detail-item">
+            <span class="score-detail-label">Drops</span>
+            <span class="score-detail-value"><span class="own">{{ dashboard.score_detail.own.drops }}</span><span class="sep">—</span><span class="adverse">{{ dashboard.score_detail.adverse.drops }}</span></span>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="kpi-row">
+    <div class="kpi-card">
+        <div class="kpi-label">Points par entrée</div>
+        <div class="kpi-value">
+            <span class="kpi-own">{{ dashboard.points_per_entry if dashboard.points_per_entry is not none else '—' }}</span>
+            /
+            <span class="kpi-adverse">{{ dashboard.points_per_entry_adverse if dashboard.points_per_entry_adverse is not none else '—' }}</span>
+        </div>
+        <div class="kpi-help">Nous : {{ dashboard.entries }} entrée{{ 's' if dashboard.entries != 1 else '' }} en zone RAID pour {{ dashboard.points_for }} points. Adversaires cumulés : {{ dashboard.entries_adverse }} entrée{{ 's' if dashboard.entries_adverse != 1 else '' }} pour {{ dashboard.points_against }} points.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">% gain ligne d'avantage</div>
+        <div class="kpi-value kpi-own">{{ dashboard.gain_line.pct if dashboard.gain_line and dashboard.gain_line.pct is not none else '—' }}{{ '%' if dashboard.gain_line and dashboard.gain_line.pct is not none }}</div>
+        <div class="kpi-help">{% if dashboard.gain_line and dashboard.gain_line.total %}{{ dashboard.gain_line.plus }} duels de contact gagnés sur {{ dashboard.gain_line.total }}, cumulés sur les matchs sélectionnés.{% else %}Pas encore codé sur ce match.{% endif %}</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Discipline (fautes concédées)</div>
+        <div class="kpi-value"><span class="kpi-own">{{ discipline.get('own', {}).get('count', 0) }}</span> / <span class="kpi-adverse">{{ discipline.get('adverse', {}).get('count', 0) }}</span></div>
+        <div class="kpi-help">Nous / adversaires — fautes qui donnent un coup de pied ou une touche, cumulées.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Pertes de balle</div>
+        <div class="kpi-value"><span class="kpi-own">{{ dashboard.lost_balls_own }}</span> / <span class="kpi-adverse">{{ dashboard.lost_balls_adverse }}</span></div>
+        <div class="kpi-help">Nous / adversaires — ballons perdus en possession, cumulés.</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>🚪 Comment on rentre en zone RAID</h2>
+    <p class="subtitle">Origine des entrées en zone d'attaque, cumulée sur les matchs sélectionnés : course (RUN), sortie de camp (EXIT) ou pénalité obtenue.</p>
+    <div class="two-col">
+        <div>
+            <div class="legend-pill"><span class="dot dot-own"></span>Nous</div>
+            <div class="breakdown-chips">
+                {% for label, n in dashboard.entry_types_own.items() %}<span class="chip">{{ label }} · {{ n }}</span>{% endfor %}
+                {% if not dashboard.entry_types_own %}<span class="subtitle">Aucune entrée détaillée codée.</span>{% endif %}
+            </div>
+        </div>
+        <div>
+            <div class="legend-pill"><span class="dot dot-adverse"></span>Adversaires cumulés</div>
+            <div class="breakdown-chips">
+                {% for label, n in dashboard.entry_types_adverse.items() %}<span class="chip">{{ label }} · {{ n }}</span>{% endfor %}
+                {% if not dashboard.entry_types_adverse %}<span class="subtitle">Aucune entrée détaillée codée.</span>{% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="kpi-row">
+    <div class="kpi-card">
+        <div class="kpi-label">Possession (temps codé)</div>
+        {% if poss_total > 0 %}
+        <div class="kpi-value kpi-own">{{ (poss_own_d / poss_total * 100) | round(1) }}%</div>
+        {% else %}
+        <div class="kpi-value">—</div>
+        {% endif %}
+        <div class="kpi-help">Part du temps de jeu où nous avions le ballon, cumulée sur la sélection.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Réussite au plaquage</div>
+        <div class="kpi-value kpi-own">{{ plaquage.get('success_rate') if plaquage.get('success_rate') is not none else '—' }}{{ '%' if plaquage.get('success_rate') is not none }}</div>
+        <div class="kpi-help">% de plaquages réussis sur le total tenté (nous), cumulé.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Rucks joués (nous vs eux)</div>
+        <div class="kpi-value"><span class="kpi-own">{{ ruck_own }}</span> / <span class="kpi-adverse">{{ ruck_adv }}</span></div>
+        <div class="kpi-help">Nombre de rucks joués par chaque équipe, cumulé.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Réussite en touche</div>
+        <div class="kpi-value"><span class="kpi-own">{{ dashboard.lineout.own.success_rate if dashboard.lineout.own.success_rate is not none else '—' }}{{ '%' if dashboard.lineout.own.success_rate is not none }}</span> / <span class="kpi-adverse">{{ dashboard.lineout.adverse.success_rate if dashboard.lineout.adverse.success_rate is not none else '—' }}{{ '%' if dashboard.lineout.adverse.success_rate is not none }}</span></div>
+        <div class="kpi-help">% de touches conservées sur celles jouées, nous / adversaires cumulés.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Réussite en mêlée</div>
+        <div class="kpi-value"><span class="kpi-own">{{ dashboard.scrum.own.won_pct if dashboard.scrum.own.won_pct is not none else '—' }}{{ '%' if dashboard.scrum.own.won_pct is not none }}</span> / <span class="kpi-adverse">{{ dashboard.scrum.adverse.won_pct if dashboard.scrum.adverse.won_pct is not none else '—' }}{{ '%' if dashboard.scrum.adverse.won_pct is not none }}</span></div>
+        <div class="kpi-help">% de mêlées gagnées sur celles jouées, nous / adversaires cumulés.</div>
+    </div>
+</div>
+
+<div class="chart-row">
+    <div class="card chart-container">
+        <h2>Possession</h2>
+        <canvas id="possessionChart"></canvas>
+    </div>
+    <div class="card chart-container">
+        <h2>Occupation du terrain</h2>
+        <canvas id="occupationChart"></canvas>
+    </div>
+</div>
+
+<div class="chart-row">
+    <div class="card chart-container">
+        <h2>Possession par match</h2>
+        <canvas id="possessionByMatchChart"></canvas>
+    </div>
+    <div class="card chart-container">
+        <h2>Occupation par match</h2>
+        <canvas id="occupationByMatchChart"></canvas>
+    </div>
+</div>
+
+{% if dashboard.bip_sequences and dashboard.bip_sequences.total %}
+<div class="card">
+    <h2>⏱️ Séquences de jeu (Ball in Play) par durée</h2>
+    <p class="subtitle">Répartition des {{ dashboard.bip_sequences.total }} séquence{{ 's' if dashboard.bip_sequences.total != 1 else '' }} de "ballon en jeu" selon leur durée, cumulées sur les matchs sélectionnés.</p>
+    <table class="stat-table zebra-table">
+        <thead><tr><th>Durée</th><th>Nb de séquences</th><th>%</th></tr></thead>
+        <tbody>
+        {% for label, v in dashboard.bip_sequences.buckets.items() %}
+            <tr><td>{{ label }}</td><td class="stat-own">{{ v.count }}</td><td>{{ v.pct }}%</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<script>
+const ownLabel = "Nous";
+const advLabel = "Adversaires";
+const DASHBOARD = {{ dashboard | tojson }};
+const OWN_COLOR = '#ff6b7d';
+const ADV_COLOR = '#c3d0d6';
+
+function pctFormatter(value, ctx) {
+    const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+    return total ? Math.round(value / total * 100) + '%' : '';
+}
+
+new Chart(document.getElementById('possessionChart').getContext('2d'), {
+    type: 'doughnut',
+    data: {
+        labels: [ownLabel, advLabel],
+        datasets: [{
+            data: [{{ poss_own_d }}, {{ poss_adv_d }}],
+            backgroundColor: [OWN_COLOR, ADV_COLOR],
+        }]
+    },
+    plugins: [ChartDataLabels],
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'bottom' },
+            datalabels: { color: '#1a0508', font: { weight: 'bold', size: 14 }, formatter: pctFormatter, anchor: 'center', align: 'center' },
+        }
+    }
+});
+
+new Chart(document.getElementById('occupationChart').getContext('2d'), {
+    type: 'doughnut',
+    data: {
+        labels: [ownLabel, advLabel],
+        datasets: [{
+            data: [DASHBOARD.occupation.own_events, DASHBOARD.occupation.adverse_events],
+            backgroundColor: [OWN_COLOR, ADV_COLOR],
+        }]
+    },
+    plugins: [ChartDataLabels],
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'bottom' },
+            datalabels: { color: '#1a0508', font: { weight: 'bold', size: 14 }, formatter: pctFormatter, anchor: 'center', align: 'center' },
+        }
+    }
+});
+
+const possByMatch = DASHBOARD.possession_by_match || [];
+new Chart(document.getElementById('possessionByMatchChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+        labels: possByMatch.map(m => m.label),
+        datasets: [
+            { label: ownLabel, data: possByMatch.map(m => m.own_pct), backgroundColor: OWN_COLOR, borderRadius: 4 },
+            { label: advLabel, data: possByMatch.map(m => m.adverse_pct), backgroundColor: ADV_COLOR, borderRadius: 4 }
+        ]
+    },
+    plugins: [ChartDataLabels],
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'top' },
+            datalabels: { color: '#1a0508', font: { weight: 'bold', size: 11 }, formatter: (v) => v !== null ? v + '%' : '', anchor: 'center', align: 'center' }
+        },
+        scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } }
+    }
+});
+
+const occByMatch = DASHBOARD.occupation_by_match || [];
+new Chart(document.getElementById('occupationByMatchChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+        labels: occByMatch.map(m => m.label),
+        datasets: [
+            { label: ownLabel, data: occByMatch.map(m => m.own_pct), backgroundColor: OWN_COLOR, borderRadius: 4 },
+            { label: advLabel, data: occByMatch.map(m => m.adverse_pct), backgroundColor: ADV_COLOR, borderRadius: 4 }
+        ]
+    },
+    plugins: [ChartDataLabels],
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'top' },
+            datalabels: { color: '#1a0508', font: { weight: 'bold', size: 11 }, formatter: (v) => v !== null ? v + '%' : '', anchor: 'center', align: 'center' }
+        },
+        scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } }
+    }
+});
+
+function preparePrint() {
+    setTimeout(() => window.print(), 100);
+}
+</script>
+{% endif %}
+{% endblock %}

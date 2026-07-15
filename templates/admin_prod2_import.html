@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Importer le rapport Pro D2{% endblock %}
+{% block content %}
+<h1>🏉 Importer le rapport Pro D2</h1>
+<p class="subtitle">Dépose ici le fichier Excel (.xlsx) envoyé chaque semaine par la ligue/le prestataire data.
+Toutes les fiches équipe basculent immédiatement sur ce nouvel import (comme avant), mais les anciens rapports sont maintenant conservés en coulisses pour suivre l'évolution de chaque équipe (position au classement) semaine après semaine.</p>
+
+<div class="card">
+    <form method="post" enctype="multipart/form-data" action="{{ url_for('prod2_import') }}">
+        <div class="form-group">
+            <label>Rapport Pro D2 (.xlsx) *</label>
+            <input type="file" name="xlsx_file" accept=".xlsx" required>
+        </div>
+        <button class="btn" type="submit">Importer</button>
+    </form>
+</div>
+{% endblock %}

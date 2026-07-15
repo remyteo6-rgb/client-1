@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rugby Analytics — {{ club_full_name }}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="landing-body">
+
+{% include "_match_subnav.html" %}
+
+<div class="landing-screen">
+    <img src="{{ url_for('static', filename='logo.png') }}" class="landing-logo" alt="{{ club_full_name }}">
+    <p class="landing-subtitle">Rugby Analytics</p>
+
+    <div class="landing-choice-row">
+        <a class="landing-choice-btn" href="{{ url_for('index') }}">Analyse matchs</a>
+        <a class="landing-choice-btn" href="{{ url_for('season') }}">Analyse saison</a>
+        {% if enable_prod2 %}
+        <a class="landing-choice-btn" href="{{ url_for('opponents') }}">Adversaires</a>
+        <a class="landing-choice-btn" href="{{ url_for('opponents_trends') }}">Tendances Pro D2</a>
+        {% endif %}
+    </div>
+</div>
+</body>
+</html>

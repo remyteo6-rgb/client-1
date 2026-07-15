@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title }} — {{ team }}{% endblock %}
+{% block content %}
+
+{% macro compare_table(sheet_name, team_name, team_row, rows) %}
+<h3 class="training-subcat-title">{{ sheet_name }}</h3>
+{% if not team_row %}
+<p class="subtitle">Pas de données pour cet onglet sur cette équipe dans le rapport.</p>
+{% else %}
+<table class="stat-table zebra-table">
+    <thead><tr><th>Statistique</th><th>{{ team_name }}</th><th>Moyenne Pro D2</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+        <tr>
+            <td>{{ r.key }}</td>
+            <td>
+                {% if r.color == 'good' %}<span class="kpi-badge kpi-badge-good">{{ r.value }} ▲</span>
+                {% elif r.color == 'bad' %}<span class="kpi-badge kpi-badge-bad">{{ r.value }} ▼</span>
+                {% else %}<span class="stat-own">{{ r.value if r.value is not none else '—' }}</span>
+                {% endif %}
+            </td>
+            <td>{{ r.avg if r.avg is not none else '—' }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endmacro %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>{{ page_icon }} {{ page_title }} — {{ team }}</h1>
+        <p class="subtitle">Statistiques {{ page_title|lower }}, comparées à la moyenne Pro D2 — {{ report_label }}.</p>
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+</div>
+
+<div class="card">
+    {% for s in sheets %}
+    {{ compare_table(s.name, team, s.team_row, s.rows) }}
+    {% endfor %}
+</div>
+
+<script>
+function preparePrint() { setTimeout(() => window.print(), 100); }
+</script>
+{% endblock %}

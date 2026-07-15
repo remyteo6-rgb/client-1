@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% block title %}Défense — Saison{% endblock %}
+{% block content %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>🛡️ Défense — Saison</h1>
+        <p class="subtitle">Ce que les adversaires ont fait balle en main, et comment {{ club_name }} a défendu, cumulé sur {{ selected_count }} match{{ 's' if selected_count != 1 else '' }} sélectionné{{ 's' if selected_count != 1 else '' }}.</p>
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+</div>
+
+{% if not data %}
+<div class="card empty-state">
+    <p>Aucun match sélectionné avec données détaillées.</p>
+    <p><a href="{{ url_for('season') }}">Retour au Bilan de saison →</a></p>
+</div>
+{% else %}
+
+<div class="chart-row">
+    <div class="card">
+        <h2>🏆 Origine des essais concédés</h2>
+        {% if data.try_origin.origin %}
+        <table class="stat-table">
+            <thead><tr><th>Origine</th><th>Nb</th></tr></thead>
+            <tbody>
+            {% for name, n in data.try_origin.origin.items() %}
+                <tr><td>{{ name }}</td><td class="stat-adverse">{{ n }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="subtitle">Pas d'essai concédé (ou origine non renseignée) sur la sélection.</p>
+        {% endif %}
+    </div>
+    <div class="card chart-container">
+        <h2>⏱️ Essais concédés par tranche de jeu</h2>
+        {% if data.try_timing %}
+        <canvas id="tryTimingChart"></canvas>
+        {% else %}
+        <p class="subtitle">Coupure de mi-temps non détectée — impossible de répartir par tranche.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="chart-row">
+    <div class="card">
+        <h2>💥 Origine des franchissements concédés</h2>
+        {% if data.break_origin %}
+        <table class="stat-table">
+            <thead><tr><th>Origine</th><th>Nb</th></tr></thead>
+            <tbody>
+            {% for name, n in data.break_origin.items() %}
+                <tr><td>{{ name }}</td><td class="stat-adverse">{{ n }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="subtitle">Pas de franchissement concédé (ou origine non renseignée) sur la sélection.</p>
+        {% endif %}
+    </div>
+    <div class="card chart-container">
+        <h2>⏱️ Franchissements concédés par tranche de jeu</h2>
+        {% if data.break_timing %}
+        <canvas id="breakTimingChart"></canvas>
+        {% else %}
+        <p class="subtitle">Coupure de mi-temps non détectée — impossible de répartir par tranche.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="kpi-row">
+    <div class="kpi-card">
+        <div class="kpi-label">Points concédés / entrée adverse</div>
+        <div class="kpi-value kpi-adverse">{{ data.points_per_entry if data.points_per_entry is not none else '—' }}</div>
+        <div class="kpi-help">{{ data.entries }} entrée{{ 's' if data.entries != 1 else '' }} adverse en zone d'attaque pour {{ data.score }} points concédés, cumulé.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Nb de phases moyen adverse</div>
+        <div class="kpi-value kpi-adverse">{{ data.phases_moyenne if data.phases_moyenne is not none else '—' }}</div>
+        <div class="kpi-help">Total du descripteur "phases de jeu" codé sur chaque possession adverse, divisé par le nombre de possessions adverses, cumulé.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Mètres gagnés adverses</div>
+        <div class="kpi-value kpi-adverse">{{ data.meters_gained if data.meters_gained is not none else '—' }}</div>
+        <div class="kpi-help">Pas encore codé dans le XML.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">% gain ligne d'avantage adverse</div>
+        <div class="kpi-value kpi-adverse">{{ data.gain_line.pct if data.gain_line and data.gain_line.pct is not none else '—' }}{{ '%' if data.gain_line and data.gain_line.pct is not none }}</div>
+        <div class="kpi-help">Pas encore codé dans le XML.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Plaquages ratés</div>
+        <div class="kpi-value kpi-adverse">{{ defense.plaquage.rate }}</div>
+        <div class="kpi-help">Sur {{ defense.plaquage.total }} plaquages tentés par {{ club_name }}, cumulé., cumulé.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Offloads adverses</div>
+        <div class="kpi-value kpi-adverse">{{ data.offloads }}</div>
+        <div class="kpi-help">Passes après contact concédées, cumulé.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Breaks adverses</div>
+        <div class="kpi-value kpi-adverse">{{ data.breaks }}</div>
+        <div class="kpi-help">Franchissements de ligne concédés, cumulé.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Pertes de balle adverses</div>
+        <div class="kpi-value kpi-own">{{ data.lost_balls }}</div>
+        <div class="kpi-help">Pertes de balle forcées chez l'adversaire, cumulé.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">% duel aérien défensif</div>
+        <div class="kpi-value kpi-own">{{ data.duels_aeriens.pct if data.duels_aeriens.pct is not none else '—' }}{{ '%' if data.duels_aeriens.pct is not none }}</div>
+        <div class="kpi-help">{{ data.duels_aeriens.plus }} / {{ data.duels_aeriens.total }} duels gagnés, cumulé. Offensif et défensif pas encore distingués.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">% aux plaquages</div>
+        <div class="kpi-value kpi-own">{{ defense.plaquage.rate_pct if defense.plaquage.rate_pct is not none else '—' }}{{ '%' if defense.plaquage.rate_pct is not none }}</div>
+        <div class="kpi-help">{{ defense.plaquage.reussi }} réussis sur {{ defense.plaquage.total }} entés par {{ club_name }}, cumulé.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Plaquages à 2</div>
+        <div class="kpi-value kpi-own">{{ defense.plaquage.plaquage_a_2 }}</div>
+        <div class="kpi-help">Plaquages effectués à deux défenseurs, cumulé.</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>⏱️ Vitesse de ruck adverse</h2>
+    <p class="subtitle">Temps moyen : {{ defense.ruck_speed_subi.avg if defense.ruck_speed_subi.avg is not none else '—' }}s sur {{ defense.ruck_speed_subi.total }} rucks adverses, cumulé.</p>
+    <table class="stat-table">
+        <thead><tr><th>Vitesse</th><th>Nb</th><th>%</th></tr></thead>
+        <tbody>
+        {% for label, v in defense.ruck_speed_subi.buckets.items() %}
+            <tr><td>{{ label }}</td><td class="stat-adverse">{{ v.count }}</td><td>{{ v.pct }}%</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <p class="subtitle">Un ruck adverse rapide (-3s) est plus dur à défendre — c'est du ballon "propre" pour eux.</p>
+</div>
+
+<div class="card">
+    <h2>⚠️ Discipline défensive</h2>
+    <p class="subtitle">Type de fautes concédées quand l'adversaire avait le ballon, cumulé.</p>
+    {% if data.discipline %}
+    <table class="stat-table">
+        <thead><tr><th>Type de faute</th><th>Nb</th></tr></thead>
+        <tbody>
+        {% for name, n in data.discipline.items() %}
+            <tr><td>{{ name }}</td><td class="stat-adverse">{{ n }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="subtitle">Aucune faute défensive détaillée codée.</p>
+    {% endif %}
+</div>
+
+{% if data.possession_sequences and data.possession_sequences.total %}
+<div class="card">
+    <h2>⏱️ Séquences de possession adverses par durée</h2>
+    <p class="subtitle">Répartition des {{ data.possession_sequences.total }} séquence{{ 's' if data.possession_sequences.total != 1 else '' }} de possession adverses selon leur durée, cumulé.</p>
+    <table class="stat-table">
+        <thead><tr><th>Durée</th><th>Nb de séquences</th><th>%</th></tr></thead>
+        <tbody>
+        {% for label, v in data.possession_sequences.buckets.items() %}
+            <tr><td>{{ label }}</td><td class="stat-adverse">{{ v.count }}</td><td>{{ v.pct }}%</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<script>
+const ADV_COLOR = '#c3d0d6';
+const TRY_TIMING = {{ data.try_timing | tojson if data.try_timing else 'null' }};
+const BREAK_TIMING = {{ data.break_timing | tojson if data.break_timing else 'null' }};
+
+function pctBarOptions() {
+    return {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            datalabels: { color: '#1a0508', font: { weight: 'bold', size: 12 }, anchor: 'center', align: 'center' }
+        },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    };
+}
+
+if (TRY_TIMING) {
+    const labels = Object.keys(TRY_TIMING);
+    new Chart(document.getElementById('tryTimingChart').getContext('2d'), {
+        type: 'bar',
+        data: { labels: labels, datasets: [{ data: labels.map(l => TRY_TIMING[l]), backgroundColor: ADV_COLOR, borderRadius: 4 }] },
+        plugins: [ChartDataLabels],
+        options: pctBarOptions()
+    });
+}
+
+if (BREAK_TIMING) {
+    const labels2 = Object.keys(BREAK_TIMING);
+    new Chart(document.getElementById('breakTimingChart').getContext('2d'), {
+        type: 'bar',
+        data: { labels: labels2, datasets: [{ data: labels2.map(l => BREAK_TIMING[l]), backgroundColor: ADV_COLOR, borderRadius: 4 }] },
+        plugins: [ChartDataLabels],
+        options: pctBarOptions()
+    });
+}
+
+function preparePrint() { setTimeout(() => window.print(), 100); }
+</script>
+{% endif %}
+{% endblock %}

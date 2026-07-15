@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Ruck — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
+{% set active = 'ruck' %}
+{% block content %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>🤝 Ruck — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
+        <p class="subtitle">Conquête du ballon au sol : volume, vitesse et grattages, nous vs {{ match['opponent'] }}.</p>
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+</div>
+
+<div class="kpi-row">
+    <div class="kpi-card">
+        <div class="kpi-label">Rucks gagnés / total</div>
+        <div class="kpi-value"><span class="kpi-own">{{ data.ruck_won_own if data.ruck_won_own is not none else '—' }} / {{ data.count_own }}</span> · <span class="kpi-adverse">{{ data.ruck_won_adverse if data.ruck_won_adverse is not none else '—' }} / {{ data.count_adverse }}</span></div>
+        <div class="kpi-help">Nous / {{ match['opponent'] }}. Pas encore codé sur ce match.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Vitesse moyenne</div>
+        <div class="kpi-value"><span class="kpi-own">{{ data.speed_own.avg if data.speed_own.avg is not none else '—' }}s</span> / <span class="kpi-adverse">{{ data.speed_adverse.avg if data.speed_adverse.avg is not none else '—' }}s</span></div>
+        <div class="kpi-help">Temps moyen de libération du ballon au ruck, nous / {{ match['opponent'] }}.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Contests réussis</div>
+        <div class="kpi-value kpi-own">{{ data.gratteur_plus }} / {{ data.gratteur_plus + data.gratteur_minus }}{% if data.gratteur_pct is not none %} ({{ data.gratteur_pct }}%){% endif %}</div>
+        <div class="kpi-help">Tentatives de grattage/contest réussies par nos joueurs.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Contre-rucks réussis</div>
+        <div class="kpi-value kpi-own">{{ data.contre_ruck_plus }} / {{ data.contre_ruck_plus + data.contre_ruck_minus }}{% if data.contre_ruck_pct is not none %} ({{ data.contre_ruck_pct }}%){% endif %}</div>
+        <div class="kpi-help">Contre-rucks (regroupement offensif pour repousser) réussis.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Rucks dans les 50m</div>
+        <div class="kpi-value"><span class="kpi-own">{{ data.ruck_50_own }}</span> / <span class="kpi-adverse">{{ data.ruck_50_adverse }}</span></div>
+        <div class="kpi-help">Nous / {{ match['opponent'] }}, rucks codés dans la zone des 50m.</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>⏱️ Vitesse de ruck par zone</h2>
+    <p class="subtitle">Répartition des rucks par vitesse de libération (-3s / 3-6s / +6s) et vitesse moyenne, par zone (RAID / ACTIONS / PRESSION / EXIT), nous vs {{ match['opponent'] }}. Pas encore codé sur ce match — la zone n'est pas encore rattachée à chaque ruck dans le XML.</p>
+    <table class="stat-table">
+        <thead>
+            <tr>
+                <th rowspan="2">Zone</th>
+                <th colspan="4" class="stat-own">{{ match['own_team'] }}</th>
+                <th colspan="4">{{ match['opponent'] }}</th>
+            </tr>
+            <tr>
+                <th class="stat-own">-3s</th><th class="stat-own">3-6s</th><th class="stat-own">+6s</th><th class="stat-own">Moy.</th>
+                <th>-3s</th><th>3-6s</th><th>+6s</th><th>Moy.</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for zone in data.speed_by_zone.zones %}
+            <tr>
+                <td>{{ zone }}</td>
+                <td class="stat-own">{{ data.speed_by_zone.own[zone].buckets['-3s'] if data.speed_by_zone.own[zone].buckets['-3s'] is not none else '—' }}</td>
+                <td class="stat-own">{{ data.speed_by_zone.own[zone].buckets['3-6s'] if data.speed_by_zone.own[zone].buckets['3-6s'] is not none else '—' }}</td>
+                <td class="stat-own">{{ data.speed_by_zone.own[zone].buckets['+6s'] if data.speed_by_zone.own[zone].buckets['+6s'] is not none else '—' }}</td>
+                <td class="stat-own">{{ data.speed_by_zone.own[zone].avg if data.speed_by_zone.own[zone].avg is not none else '—' }}</td>
+                <td class="stat-adverse">{{ data.speed_by_zone.adverse[zone].buckets['-3s'] if data.speed_by_zone.adverse[zone].buckets['-3s'] is not none else '—' }}</td>
+                <td class="stat-adverse">{{ data.speed_by_zone.adverse[zone].buckets['3-6s'] if data.speed_by_zone.adverse[zone].buckets['3-6s'] is not none else '—' }}</td>
+                <td class="stat-adverse">{{ data.speed_by_zone.adverse[zone].buckets['+6s'] if data.speed_by_zone.adverse[zone].buckets['+6s'] is not none else '—' }}</td>
+                <td class="stat-adverse">{{ data.speed_by_zone.adverse[zone].avg if data.speed_by_zone.adverse[zone].avg is not none else '—' }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<p class="subtitle" style="margin-top:16px;">Détail ruck par joueur (arrivées, ancreur, raseur, grattages...) → <a href="{{ url_for('match_joueurs', match_id=match['id']) }}" style="color:var(--own-color); font-weight:600;">page Joueurs</a>.</p>
+
+<script>
+function preparePrint() {
+    document.querySelectorAll('details.section-block').forEach(d => d.open = true);
+    setTimeout(() => window.print(), 100);
+}
+</script>
+{% endblock %}
