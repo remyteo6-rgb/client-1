@@ -365,7 +365,7 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
     font-weight: 700;
     border: 1px solid;
 }
-.team-badge-own { background: rgba(255,107,125,0.18); border-color: var(--own-color); color: var(--own-color); }
+team-badge-own { background: rgba(91,143,176,0.18); border-color: var(--own-color); color: var(--own-color); }
 .team-badge-adverse { background: rgba(195,208,214,0.18); border-color: var(--adverse-color); color: var(--adverse-color); }
 .scoreboard-hero-score { font-size: 46px; font-weight: 800; line-height: 1; }
 .scoreboard-hero-score.own { color: var(--own-color); }
