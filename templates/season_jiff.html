@@ -61,7 +61,7 @@
 <script>
 const LABELS = {{ data.rows | map(attribute='label') | list | tojson }};
 const DIFFS = {{ data.rows | map(attribute='diff') | list | tojson }};
-const COLORS = DIFFS.map(d => d >= 0 ? '#4ade80' : '#ff6b7d');
+const COLORS = DIFFS.map(d => d >= 0 ? '#4ade80' : '#5b8fb0');
 
 new Chart(document.getElementById('jiffChart').getContext('2d'), {
     type: 'line',
@@ -71,8 +71,8 @@ new Chart(document.getElementById('jiffChart').getContext('2d'), {
             {
                 label: 'Écart JIFF',
                 data: DIFFS,
-                borderColor: '#ff6b7d',
-                backgroundColor: '#ff6b7d22',
+                borderColor: '#5b8fb0',
+                backgroundColor: '#5b8fb022',
                 fill: true,
                 tension: 0.3,
                 pointRadius: 5,
@@ -103,7 +103,7 @@ new Chart(document.getElementById('jiffChart').getContext('2d'), {
         plugins: {
             legend: { display: false },
             datalabels: {
-                color: (ctx) => ctx.dataset.data[ctx.dataIndex] >= 0 ? '#4ade80' : '#ff6b7d',
+                color: (ctx) => ctx.dataset.data[ctx.dataIndex] >= 0 ? '#4ade80' : '#5b8fb0',
                 font: { weight: 'bold', size: 12 },
                 align: (ctx) => ctx.dataset.data[ctx.dataIndex] >= 0 ? 'top' : 'bottom',
                 anchor: (ctx) => ctx.dataset.data[ctx.dataIndex] >= 0 ? 'end' : 'start',
