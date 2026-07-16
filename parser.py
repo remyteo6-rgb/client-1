@@ -912,6 +912,15 @@ def compute_scrum_detail(instances):
 
 # ---- Jeu au pied (kicking) --------------------------------------------------
 
+# Labels codés sur les coups de pied qui ne sont pas des "types" de coup de pied
+# (résultat de duel aérien, qualité de zone...) : à exclure du graphique par type,
+# sinon ils s'affichent comme des barres à côté des vrais types de coup de pied.
+KICK_SUBTYPE_EXCLUDED = {
+    "bon jump", "bonne zone", "mauvaise zone",
+    "gagné", "GAGNE", "perdu", "contestable", "contesté",
+}
+
+
 def compute_kicking_detail(instances):
     result = {}
     # Duels aériens : comptés globalement sur le match (labels "Duel Espace"/"duelaérien"
@@ -935,7 +944,9 @@ def compute_kicking_detail(instances):
                 if lab["group"] in ("timing", "plaquage"):
                     continue
                 text = lab["text"]
-                if text in ("REUSSI", "RATE", "raté", "reussi"):
+               if text in ("REUSSI", "RATE", "raté", "reussi"):
+                    continue
+                if text in KICK_SUBTYPE_EXCLUDED:
                     continue
                 if ZONE_RE.match(text) or text.isdigit():
                     continue
