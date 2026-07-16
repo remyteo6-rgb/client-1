@@ -816,3 +816,9 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
 }
 .kpi-compare-fill { height: 100%; border-radius: 4px; }
 .kpi-compare-values { font-size: 12px; color: var(--text-secondary); }
+/* Mode démo : floute les noms de joueurs à l'écran (présentation à un club) sans
+   toucher aux données. Activé/désactivé via le bouton dans le menu ☰. */
+body.demo-mode .demo-blur {
+    filter: blur(6px);
+    user-select: none;
+}
