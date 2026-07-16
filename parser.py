@@ -8,6 +8,7 @@ tout le reste (surnoms de joueurs, marqueurs type STOP) comme des "tags" sépar�
 """
 import re
 import statistics
+import unicodedata
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -912,12 +913,21 @@ def compute_scrum_detail(instances):
 
 # ---- Jeu au pied (kicking) --------------------------------------------------
 
+def _normalize_label(text):
+    """Minuscule + sans accents, pour comparer des labels codés à la main sans se soucier
+    de la casse ou des accents (ex : "Gagne" / "gagné" / "GAGNE" doivent tous matcher)."""
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(c for c in text if not unicodedata.combining(c))
+    return text.strip().lower()
+
+
 # Labels codés sur les coups de pied qui ne sont pas des "types" de coup de pied
 # (résultat de duel aérien, qualité de zone...) : à exclure du graphique par type,
 # sinon ils s'affichent comme des barres à côté des vrais types de coup de pied.
+# Comparaison insensible à la casse/aux accents (voir _normalize_label).
 KICK_SUBTYPE_EXCLUDED = {
-    "bon jump", "bonne zone", "mauvaise zone",
-    "gagné", "GAGNE", "perdu", "contestable", "contesté",
+    _normalize_label(t) for t in
+    ["bon jump", "bonne zone", "mauvaise zone", "gagne", "perdu", "contestable", "conteste"]
 }
 
 
@@ -946,7 +956,7 @@ def compute_kicking_detail(instances):
                 text = lab["text"]
                 if text in ("REUSSI", "RATE", "raté", "reussi"):
                     continue
-                if text in KICK_SUBTYPE_EXCLUDED:
+                if _normalize_label(text) in KICK_SUBTYPE_EXCLUDED:
                     continue
                 if ZONE_RE.match(text) or text.isdigit():
                     continue
