@@ -4,12 +4,16 @@
 // le bouton "Mode démo" dans le menu ☰. L'état est mémorisé (localStorage), donc il
 // reste actif quand on change de page.
 
+// Colonnes à flouter en mode démo : noms de joueurs, et types de "plan de jeu" (relance)
+// qui sont des appellations tactiques propres au club, pas juste des identités.
+const DEMO_BLUR_HEADERS = ['Joueur', 'Plan de jeu'];
+
 function markPlayerNameCells() {
     document.querySelectorAll('table').forEach(function (table) {
         const headerCells = table.querySelectorAll('thead th');
         let nameColIndex = -1;
         headerCells.forEach(function (th, i) {
-            if (th.textContent.trim() === 'Joueur') nameColIndex = i;
+            if (DEMO_BLUR_HEADERS.includes(th.textContent.trim())) nameColIndex = i;
         });
         if (nameColIndex === -1) return;
         table.querySelectorAll('tbody tr').forEach(function (row) {
