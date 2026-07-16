@@ -4,6 +4,7 @@
             <summary>☰</summary>
         
             <div class="landing-dropdown-content">
+                <a href="{{ url_for('landing') }}">🏠 Accueil</a>
                 <a href="#" id="demoModeToggle" onclick="toggleDemoMode(); return false;">🙈 Mode démo (flouter les noms)</a>
                 <a href="{{ url_for('index') }}">📊 Matchs</a>
                 {% if enable_prod2 %}
