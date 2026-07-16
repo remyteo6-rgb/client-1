@@ -944,7 +944,7 @@ def compute_kicking_detail(instances):
                 if lab["group"] in ("timing", "plaquage"):
                     continue
                 text = lab["text"]
-               if text in ("REUSSI", "RATE", "raté", "reussi"):
+                if text in ("REUSSI", "RATE", "raté", "reussi"):
                     continue
                 if text in KICK_SUBTYPE_EXCLUDED:
                     continue
