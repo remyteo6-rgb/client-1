@@ -597,7 +597,26 @@ def compute_event_timing(instances, category, side):
                     break
     return result
 
+def compute_event_timing_multi(selected, category, side):
+    """Comme compute_event_timing, mais pour plusieurs matchs à la fois (saison).
 
+    Chaque match a sa propre vidéo, donc sa propre coupure de mi-temps : on ne peut pas
+    fusionner les instances brutes de tous les matchs avant de chercher la coupure (la plus
+    grande coupure temporelle n'aurait alors plus rien à voir avec une mi-temps). On calcule
+    donc la répartition par tranche match par match, puis on additionne les tranches.
+    Renvoie None si aucun des matchs sélectionnés n'a de coupure de mi-temps détectée."""
+    total = None
+    for m in selected:
+        per_match = compute_event_timing(m["instances"], category, side)
+        if per_match is None:
+            continue
+        if total is None:
+            total = dict(per_match)
+        else:
+            for k, v in per_match.items():
+                total[k] = total.get(k, 0) + v
+    return total
+    
 def compute_discipline_breakdown(instances, side, phase=None):
     """Répartition des fautes concédées par type (groupe DISCIPLINES).
 
