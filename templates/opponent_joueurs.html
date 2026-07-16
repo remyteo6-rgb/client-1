@@ -21,7 +21,7 @@
     <h2>🎯 Joueurs à surveiller</h2>
     <p class="subtitle">Pas "qui joue le plus" (voir tableau ci-dessous) mais qui pèse le plus sur chaque registre du jeu.</p>
     <div class="breakdown-chips">
-        {% for t in threats %}<span class="chip">{{ t.label }} : {{ t.name }} ({{ t.value }} {{ t.unit }})</span>{% endfor %}
+        {% for t in threats %}<span class="chip">{{ t.label }} : <span class="demo-blur">{{ t.name }}</span> ({{ t.value }} {{ t.unit }})</span>{% endfor %}
     </div>
 </div>
 {% endif %}
