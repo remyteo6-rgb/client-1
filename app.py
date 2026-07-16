@@ -1079,7 +1079,7 @@ def season_attaque():
         attack["try_timing"] = compute_event_timing_multi(selected, "Essai", "own")
         attack["break_timing"] = compute_event_timing_multi(selected, "Break", "own")
     back3_trend = compute_back3_trend(selected) if selected else []
-return render_template("season_attaque.html", data=attack, back3_trend=back3_trend, season_mode=True,
+    return render_template("season_attaque.html", data=attack, back3_trend=back3_trend, season_mode=True,
                            active="attaque", qs=qs, selected_count=len(selected))
 
 @app.route("/season/defense")
