@@ -19,7 +19,7 @@ from parser import (
     compute_transition_sector, compute_player_comparison, compute_comparison_radars,
     compute_back3_trend, TRAINING_TAXONOMY, compute_training_volume,
     group_training_sessions_by_period, compute_win_loss_analysis, compute_match_kpis,
-    PHASE_ICONS, PHASE_HELP,
+    PHASE_ICONS, PHASE_HELP, compute_event_timing_multi,
 )
 from prod2 import (
     parse_prod2_report, get_team_profile, get_classement_table, compute_player_groups,
@@ -1075,9 +1075,10 @@ def season_attaque():
     _, selected, _, qs = _season_context()
     instances = _season_instances(selected)
     attack = compute_attack_sector(instances, "own") if instances else None
+    if attack:
+        attack["try_timing"] = compute_event_timing_multi(selected, "Essai", "own")
+        attack["break_timing"] = compute_event_timing_multi(selected, "Break", "own")
     back3_trend = compute_back3_trend(selected) if selected else []
-    return render_template("season_attaque.html", data=attack, back3_trend=back3_trend, season_mode=True,
-                           active="attaque", qs=qs, selected_count=len(selected))
 
 
 @app.route("/season/defense")
@@ -1085,6 +1086,9 @@ def season_defense():
     _, selected, _, qs = _season_context()
     instances = _season_instances(selected)
     attack_adv = compute_attack_sector(instances, "adverse") if instances else None
+    if attack_adv:
+        attack_adv["try_timing"] = compute_event_timing_multi(selected, "Essai", "adverse")
+        attack_adv["break_timing"] = compute_event_timing_multi(selected, "Break", "adverse")
     defense = compute_defense_sector(instances, "adverse") if instances else None
     return render_template("season_defense.html", data=attack_adv, defense=defense, season_mode=True,
                            active="defense", qs=qs, selected_count=len(selected))
