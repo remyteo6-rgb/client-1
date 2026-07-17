@@ -408,7 +408,7 @@ def match_detail(match_id):
     highlights = generate_highlights(match["stats"], match["own_team"], match["opponent"])
     radar = compute_radar_metrics(match["stats"])
 
-  score = None
+    score = None
     phase_timing = None
     dashboard = None
     baseline = None
