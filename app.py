@@ -20,6 +20,7 @@ from parser import (
     compute_back3_trend, TRAINING_TAXONOMY, compute_training_volume,
     group_training_sessions_by_period, compute_win_loss_analysis, compute_match_kpis,
    PHASE_ICONS, PHASE_HELP, compute_event_timing_multi, compute_match_baseline,
+    compute_sector_baselines,
 )
 from prod2 import (
     parse_prod2_report, get_team_profile, get_classement_table, compute_player_groups,
@@ -434,7 +435,10 @@ def match_attaque(match_id):
         flash("Ce match a été importé avant la mise à jour détaillée par secteur : réimporte le fichier XML pour voir cette page.", "error")
         return redirect(url_for("match_detail", match_id=match_id))
     attack = compute_attack_sector(match["instances"], "own")
-    return render_template("match_attaque.html", match=match, data=attack, phase_icons=PHASE_ICONS)
+    matches_with_instances, _, _, _ = _season_context()
+    baselines = compute_sector_baselines(matches_with_instances, exclude_id=match_id)
+    return render_template("match_attaque.html", match=match, data=attack, phase_icons=PHASE_ICONS,
+                           baseline=(baselines or {}).get("attaque"))
 
 
 @app.route("/match/<int:match_id>/defense")
@@ -445,7 +449,10 @@ def match_defense(match_id):
         return redirect(url_for("match_detail", match_id=match_id))
     attack_adv = compute_attack_sector(match["instances"], "adverse")
     defense = compute_defense_sector(match["instances"], "adverse")
-    return render_template("match_defense.html", match=match, data=attack_adv, defense=defense, phase_icons=PHASE_ICONS)
+    matches_with_instances, _, _, _ = _season_context()
+    baselines = compute_sector_baselines(matches_with_instances, exclude_id=match_id)
+    return render_template("match_defense.html", match=match, data=attack_adv, defense=defense, phase_icons=PHASE_ICONS,
+                           baseline=(baselines or {}).get("defense"))
 
 
 @app.route("/match/<int:match_id>/ruck")
@@ -455,7 +462,10 @@ def match_ruck(match_id):
         flash("Ce match a été importé avant la mise à jour détaillée par secteur : réimporte le fichier XML pour voir cette page.", "error")
         return redirect(url_for("match_detail", match_id=match_id))
     ruck = compute_ruck_sector(match["instances"])
-    return render_template("match_ruck.html", match=match, data=ruck, phase_icons=PHASE_ICONS)
+    matches_with_instances, _, _, _ = _season_context()
+    baselines = compute_sector_baselines(matches_with_instances, exclude_id=match_id)
+    return render_template("match_ruck.html", match=match, data=ruck, phase_icons=PHASE_ICONS,
+                           baseline=(baselines or {}).get("ruck"))
 
 
 @app.route("/match/<int:match_id>/touches")
@@ -465,7 +475,10 @@ def match_touches(match_id):
         flash("Ce match a été importé avant la mise à jour détaillée par secteur : réimporte le fichier XML pour voir cette page.", "error")
         return redirect(url_for("match_detail", match_id=match_id))
     lineout = compute_lineout_detail(match["instances"])
-    return render_template("match_touches.html", match=match, data=lineout)
+    matches_with_instances, _, _, _ = _season_context()
+    baselines = compute_sector_baselines(matches_with_instances, exclude_id=match_id)
+    return render_template("match_touches.html", match=match, data=lineout,
+                           baseline=(baselines or {}).get("touches"))
 
 
 @app.route("/match/<int:match_id>/melee")
@@ -475,7 +488,10 @@ def match_melee(match_id):
         flash("Ce match a été importé avant la mise à jour détaillée par secteur : réimporte le fichier XML pour voir cette page.", "error")
         return redirect(url_for("match_detail", match_id=match_id))
     scrum = compute_scrum_detail(match["instances"])
-    return render_template("match_melee.html", match=match, data=scrum, phase_icons=PHASE_ICONS)
+    matches_with_instances, _, _, _ = _season_context()
+    baselines = compute_sector_baselines(matches_with_instances, exclude_id=match_id)
+    return render_template("match_melee.html", match=match, data=scrum, phase_icons=PHASE_ICONS,
+                           baseline=(baselines or {}).get("melee"))
 
 
 @app.route("/match/<int:match_id>/jap")
@@ -485,7 +501,10 @@ def match_jap(match_id):
         flash("Ce match a été importé avant la mise à jour détaillée par secteur : réimporte le fichier XML pour voir cette page.", "error")
         return redirect(url_for("match_detail", match_id=match_id))
     kicking = compute_kicking_detail(match["instances"])
-    return render_template("match_jap.html", match=match, data=kicking)
+    matches_with_instances, _, _, _ = _season_context()
+    baselines = compute_sector_baselines(matches_with_instances, exclude_id=match_id)
+    return render_template("match_jap.html", match=match, data=kicking,
+                           baseline=(baselines or {}).get("jap"))
 
 
 @app.route("/match/<int:match_id>/jap/manual", methods=["POST"])
