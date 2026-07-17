@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Mêlée — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
-{% block subnav %}{% include "_match_subnav.html" %}{% endblock %}
+{% set active = 'melee' %}
 {% block content %}
+{% from "_kpi_compare.html" import kpi_compare %}
 
 <div class="page-header no-print">
     <div>
@@ -18,11 +19,13 @@
             <div class="kpi-card">
                 <div class="kpi-label">Mêlées jouées</div>
                 <div class="kpi-value kpi-own">{{ data.own.total }}</div>
-                <div class="kpi-help">{{ data.own.won }} gagnées / {{ data.own.lost }} perdues{% if data.own.won_pct is not none %} ({{ data.own.won_pct }}%){% endif %}.</div>
+                {% if baseline %}{{ kpi_compare(data.own.total, baseline.own_total, none) }}{% endif %}
+                <div class="kpi-help">{{ data.own.won }} gagnées / {{ data.own.lost }} perdues{% if data.own.won_pct is not none %} ({{ data.own.won_pct }}%){% endif %}.{% if baseline and data.own.won_pct is not none %} {{ kpi_compare(data.own.won_pct, baseline.own_won_pct, true, '% gagnées') }}{% endif %}</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">Progression</div>
                 <div class="kpi-value">{{ data.own.avance }} / {{ data.own.stable }}</div>
+                {% if baseline %}{{ kpi_compare(data.own.avance_pct, baseline.own_avance_pct, true, '% en avançant') }}{% endif %}
                 <div class="kpi-help">Avance{% if data.own.avance_pct is not none %} ({{ data.own.avance_pct }}%){% endif %} vs stable{% if data.own.stable_pct is not none %} ({{ data.own.stable_pct }}%){% endif %}.</div>
             </div>
             <div class="kpi-card">
@@ -38,7 +41,8 @@
             <div class="kpi-card">
                 <div class="kpi-label">Mêlées jouées</div>
                 <div class="kpi-value kpi-adverse">{{ data.adverse.total }}</div>
-                <div class="kpi-help">{{ data.adverse.won }} gagnées / {{ data.adverse.lost }} perdues{% if data.adverse.won_pct is not none %} ({{ data.adverse.won_pct }}%){% endif %}.</div>
+                {% if baseline %}{{ kpi_compare(data.adverse.total, baseline.adverse_total, none) }}{% endif %}
+                <div class="kpi-help">{{ data.adverse.won }} gagnées / {{ data.adverse.lost }} perdues{% if data.adverse.won_pct is not none %} ({{ data.adverse.won_pct }}%){% endif %}.{% if baseline and data.adverse.won_pct is not none %} {{ kpi_compare(data.adverse.won_pct, baseline.adverse_won_pct, false, '% gagnées') }}{% endif %}</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">Progression</div>
