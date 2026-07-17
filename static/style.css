@@ -240,6 +240,12 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
     display: flex;
     align-items: center;
 }
+.subnav-logo {
+    height: 26px;
+    width: auto;
+    margin: 0 12px;
+    flex-shrink: 0;
+}
 /* Pastille de contexte dans le bandeau collant : rappelle où on est (match / saison /
    adversaire) même après avoir défilé loin dans la page. */
 .subnav-context {
