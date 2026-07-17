@@ -2,6 +2,7 @@
 {% block title %}Attaque — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
 {% set active = 'attaque' %}
 {% block content %}
+{% from "_kpi_compare.html" import kpi_compare %}
 
 <div class="page-header no-print">
     <div>
@@ -79,11 +80,13 @@
     <div class="kpi-card">
         <div class="kpi-label">Points par entrée en zone d'attaque</div>
         <div class="kpi-value kpi-own">{{ data.points_per_entry if data.points_per_entry is not none else '—' }}</div>
+        {% if baseline %}{{ kpi_compare(data.points_per_entry, baseline.points_per_entry, true) }}{% endif %}
         <div class="kpi-help">{{ data.entries }} entrée{{ 's' if data.entries != 1 else '' }} en zone d'attaque (22m adverse) pour {{ data.score }} points marqués.</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Nb de phases moyen</div>
         <div class="kpi-value kpi-own">{{ data.phases_moyenne if data.phases_moyenne is not none else '—' }}</div>
+        {% if baseline %}{{ kpi_compare(data.phases_moyenne, baseline.phases_moyenne, true) }}{% endif %}
         <div class="kpi-help">Total du descripteur "phases de jeu" codé sur chaque possession, divisé par le nombre de possessions.</div>
     </div>
     <div class="kpi-card">
@@ -99,26 +102,31 @@
     <div class="kpi-card">
         <div class="kpi-label">Défenseurs battus</div>
         <div class="kpi-value kpi-own">{{ data.defenders_beaten if data.defenders_beaten is not none else '—' }}</div>
+        {% if baseline %}{{ kpi_compare(data.defenders_beaten, baseline.defenders_beaten, true) }}{% endif %}
         <div class="kpi-help">Nombre de défenseurs évités ou dominés balle en main.</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Offloads</div>
         <div class="kpi-value kpi-own">{{ data.offloads }}</div>
+        {% if baseline %}{{ kpi_compare(data.offloads, baseline.offloads, true) }}{% endif %}
         <div class="kpi-help">Passes après contact.</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Breaks</div>
         <div class="kpi-value kpi-own">{{ data.breaks }}</div>
+        {% if baseline %}{{ kpi_compare(data.breaks, baseline.breaks, true) }}{% endif %}
         <div class="kpi-help">Franchissements de ligne.</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Pertes de balle</div>
         <div class="kpi-value kpi-adverse">{{ data.lost_balls }}</div>
+        {% if baseline %}{{ kpi_compare(data.lost_balls, baseline.lost_balls, false) }}{% endif %}
         <div class="kpi-help">Pertes de balle en possession, hors touches et mêlées (comptées à part sur leurs pages dédiées).</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Duels aériens off gagnés</div>
         <div class="kpi-value kpi-own">{{ data.duels_aeriens.plus }} / {{ data.duels_aeriens.total }}</div>
+        {% if baseline %}{{ kpi_compare(data.duels_aeriens.pct, baseline.duels_aeriens_pct, true, '%') }}{% endif %}
         <div class="kpi-help">{{ data.duels_aeriens.pct if data.duels_aeriens.pct is not none else '—' }}% de réussite. Offensif et défensif pas encore distingués dans le codage actuel.</div>
     </div>
     <div class="kpi-card">
