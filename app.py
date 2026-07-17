@@ -19,7 +19,7 @@ from parser import (
     compute_transition_sector, compute_player_comparison, compute_comparison_radars,
     compute_back3_trend, TRAINING_TAXONOMY, compute_training_volume,
     group_training_sessions_by_period, compute_win_loss_analysis, compute_match_kpis,
-    PHASE_ICONS, PHASE_HELP, compute_event_timing_multi,
+   PHASE_ICONS, PHASE_HELP, compute_event_timing_multi, compute_match_baseline,
 )
 from prod2 import (
     parse_prod2_report, get_team_profile, get_classement_table, compute_player_groups,
@@ -408,21 +408,24 @@ def match_detail(match_id):
     highlights = generate_highlights(match["stats"], match["own_team"], match["opponent"])
     radar = compute_radar_metrics(match["stats"])
 
-    score = None
+  score = None
     phase_timing = None
     dashboard = None
+    baseline = None
     if match["instances"]:
         score = compute_score(match["instances"])
         phase_timing = compute_phase_timing(match["instances"])
         dashboard = compute_overview_dashboard(match["instances"], score)
+        matches_with_instances, _, _, _ = _season_context()
+        baseline = compute_match_baseline(matches_with_instances, exclude_id=match_id)
 
     return render_template(
         "match.html", match=match, sections=sections, top_players=top_players,
         highlights=highlights, radar=radar, score=score, phase_timing=phase_timing,
         phase_icons=PHASE_ICONS, phase_help=PHASE_HELP, dashboard=dashboard,
+        baseline=baseline,
         has_instances=not _no_instances_guard(match),
     )
-
 
 @app.route("/match/<int:match_id>/attaque")
 def match_attaque(match_id):
