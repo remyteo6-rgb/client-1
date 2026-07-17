@@ -1369,7 +1369,43 @@ def compute_occupation_by_period(instances):
         }
     return result
 
+def compute_match_baseline(matches_with_instances, exclude_id=None):
+    """Moyennes 'saison' (tous les autres matchs, hors celui affiché) pour comparer les
+    stats d'un match à ce que l'équipe fait habituellement — sert à voir d'un coup d'œil
+    si un match est bon ou mauvais par rapport à la norme. Renvoie None s'il n'y a pas
+    d'autre match avec des données pour calculer une moyenne."""
+    others = [m for m in matches_with_instances if m["id"] != exclude_id and m["instances"]]
+    if not others:
+        return None
+    nb = len(others)
+    instances = [i for m in others for i in m["instances"]]
 
+    score = compute_score(instances)
+    dash = compute_overview_dashboard(instances, score)
+    stats, _ = aggregate_match_stats(instances)
+
+    poss = stats.get("Possession", {})
+    poss_own = poss.get("own", {}).get("duration", 0)
+    poss_adv = poss.get("adverse", {}).get("duration", 0)
+    poss_total = poss_own + poss_adv
+
+    plaquage = stats.get("Plaquage", {}).get("own", {})
+    ruck = stats.get("Ruck", {})
+    discipline = stats.get("Disciplines", {})
+    lineout = dash.get("lineout") or {}
+    scrum = dash.get("scrum") or {}
+
+    return {
+        "points_per_entry": dash.get("points_per_entry"),
+        "discipline_own": round(discipline.get("own", {}).get("count", 0) / nb, 1),
+        "lost_balls_own": round(dash.get("lost_balls_own", 0) / nb, 1),
+        "possession_pct": round(poss_own / poss_total * 100, 1) if poss_total else None,
+        "plaquage_success_rate": plaquage.get("success_rate"),
+        "ruck_own": round(ruck.get("own", {}).get("count", 0) / nb, 1),
+        "lineout_success_rate": (lineout.get("own") or {}).get("success_rate"),
+        "scrum_won_pct": (scrum.get("own") or {}).get("won_pct"),
+    }
+    
 def compute_season_dashboard(selected_matches):
     """Bilan cumulé sur plusieurs matchs (saison complète ou sélection personnalisée par Téo).
 
