@@ -1,0 +1,18 @@
+{# Comparaison d'une stat de match à la moyenne saison (hors ce match).
+   Affiche une petite ligne sous la valeur : flèche colorée + moyenne saison entre parenthèses.
+   higher_better=true  -> plus haut que la moyenne = bon (vert)
+   higher_better=false -> plus bas que la moyenne = bon (vert)
+   higher_better=none  -> pas de jugement (gris), juste la moyenne à titre indicatif #}
+{% macro kpi_compare(match_val, season_val, higher_better=true, unit='') %}
+{%- if match_val is not none and season_val is not none -%}
+{%- if higher_better is none -%}
+<div class="kpi-compare kpi-compare-flat" title="Moyenne saison, hors ce match">(moy. saison : {{ season_val }}{{ unit }})</div>
+{%- elif match_val == season_val -%}
+<div class="kpi-compare kpi-compare-flat" title="Moyenne saison, hors ce match">→ (moy. saison : {{ season_val }}{{ unit }})</div>
+{%- elif (match_val > season_val) == higher_better -%}
+<div class="kpi-compare kpi-compare-up" title="Moyenne saison, hors ce match">↑ (moy. saison : {{ season_val }}{{ unit }})</div>
+{%- else -%}
+<div class="kpi-compare kpi-compare-down" title="Moyenne saison, hors ce match">↓ (moy. saison : {{ season_val }}{{ unit }})</div>
+{%- endif -%}
+{%- endif -%}
+{% endmacro %}
