@@ -2157,7 +2157,7 @@ def group_training_sessions_by_period(sessions, period="week"):
 # souhaité (ex: plus de réussite au plaquage = mieux, mais moins de pertes de balle = mieux)
 # pour que le calcul d'écart victoire/défaite pointe dans le bon sens.
 KPI_DEFINITIONS = [
-    {"key": "bip_minutes", "label": "Temps de jeu effectif (Ball in Play)", "unit": " min", "higher_is_better": True},,
+    {"key": "bip_minutes", "label": "Temps de jeu effectif (Ball in Play)", "unit": " min", "higher_is_better": True},
     {"key": "possession_pct", "label": "Possession", "unit": "%", "higher_is_better": True},
     {"key": "occupation_pct", "label": "Occupation du terrain", "unit": "%", "higher_is_better": True},
     {"key": "tackle_pct", "label": "Réussite au plaquage", "unit": "%", "higher_is_better": True},
