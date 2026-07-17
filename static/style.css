@@ -822,3 +822,10 @@ body.demo-mode .demo-blur {
     filter: blur(6px);
     user-select: none;
 }
+
+/* Comparaison d'une stat de match à la moyenne saison (hors ce match) : petite flèche
+   colorée à côté de la valeur, pour voir d'un coup d'œil si le match est bon ou mauvais. */
+.kpi-compare { font-size: 13px; font-weight: 800; margin-left: 6px; cursor: help; }
+.kpi-compare-up { color: var(--positive); }
+.kpi-compare-down { color: var(--negative); }
+.kpi-compare-flat { color: var(--text-secondary); }
