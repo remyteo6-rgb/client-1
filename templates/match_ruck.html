@@ -2,6 +2,7 @@
 {% block title %}Ruck — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
 {% set active = 'ruck' %}
 {% block content %}
+{% from "_kpi_compare.html" import kpi_compare %}
 
 <div class="page-header no-print">
     <div>
@@ -15,26 +16,31 @@
     <div class="kpi-card">
         <div class="kpi-label">Rucks gagnés / total</div>
         <div class="kpi-value"><span class="kpi-own">{{ data.ruck_won_own if data.ruck_won_own is not none else '—' }} / {{ data.count_own }}</span> · <span class="kpi-adverse">{{ data.ruck_won_adverse if data.ruck_won_adverse is not none else '—' }} / {{ data.count_adverse }}</span></div>
+        {% if baseline %}{{ kpi_compare(data.count_own, baseline.count_own, none) }}{% endif %}
         <div class="kpi-help">Nous / {{ match['opponent'] }}. Pas encore codé sur ce match.</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Vitesse moyenne</div>
         <div class="kpi-value"><span class="kpi-own">{{ data.speed_own.avg if data.speed_own.avg is not none else '—' }}s</span> / <span class="kpi-adverse">{{ data.speed_adverse.avg if data.speed_adverse.avg is not none else '—' }}s</span></div>
-        <div class="kpi-help">Temps moyen de libération du ballon au ruck, nous / {{ match['opponent'] }}.</div>
+        {% if baseline %}{{ kpi_compare(data.speed_own.avg, baseline.speed_own_avg, false, 's') }}{% endif %}
+        <div class="kpi-help">Temps moyen de libération du ballon au ruck, nous / {{ match['opponent'] }}. Un ruck plus rapide que la moyenne = mieux.</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Contests réussis</div>
         <div class="kpi-value kpi-own">{{ data.gratteur_plus }} / {{ data.gratteur_plus + data.gratteur_minus }}{% if data.gratteur_pct is not none %} ({{ data.gratteur_pct }}%){% endif %}</div>
+        {% if baseline %}{{ kpi_compare(data.gratteur_pct, baseline.gratteur_pct, true, '%') }}{% endif %}
         <div class="kpi-help">Tentatives de grattage/contest réussies par nos joueurs.</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Contre-rucks réussis</div>
         <div class="kpi-value kpi-own">{{ data.contre_ruck_plus }} / {{ data.contre_ruck_plus + data.contre_ruck_minus }}{% if data.contre_ruck_pct is not none %} ({{ data.contre_ruck_pct }}%){% endif %}</div>
+        {% if baseline %}{{ kpi_compare(data.contre_ruck_pct, baseline.contre_ruck_pct, true, '%') }}{% endif %}
         <div class="kpi-help">Contre-rucks (regroupement offensif pour repousser) réussis.</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Rucks dans les 50m</div>
         <div class="kpi-value"><span class="kpi-own">{{ data.ruck_50_own }}</span> / <span class="kpi-adverse">{{ data.ruck_50_adverse }}</span></div>
+        {% if baseline %}{{ kpi_compare(data.ruck_50_own, baseline.ruck_50_own, none) }}{% endif %}
         <div class="kpi-help">Nous / {{ match['opponent'] }}, rucks codés dans la zone des 50m.</div>
     </div>
 </div>
