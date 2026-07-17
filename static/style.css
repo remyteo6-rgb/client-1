@@ -240,11 +240,25 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
     display: flex;
     align-items: center;
 }
-.subnav-logo {
-    height: 26px;
-    width: auto;
-    margin: 0 12px;
+/* Pastille de contexte dans le bandeau collant : rappelle où on est (match / saison /
+   adversaire) même après avoir défilé loin dans la page. */
+.subnav-context {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 999px;
+    padding: 4px 12px;
+    margin-right: 12px;
+    white-space: nowrap;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
     flex-shrink: 0;
+}
+@media (max-width: 700px) {
+    .subnav-context { max-width: 130px; font-size: 11px; }
 }
 .subnav-dropdown {
     position: relative;
