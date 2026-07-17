@@ -2,6 +2,11 @@
 {% block title %}Jeu au pied — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
 {% set active = 'jap' %}
 {% block content %}
+{% from "_kpi_compare.html" import kpi_compare %}
+<div id="jap-page">
+<style>
+#jap-page .stat-adverse { color: #ffffff !important; }
+</style>
 
 <div class="page-header no-print">
     <div>
@@ -17,7 +22,7 @@
         <h2>{{ match['own_team'] }}</h2>
         <table class="stat-table">
             <tbody>
-                <tr><td>Nombre de jeu au pied</td><td class="stat-own">{{ data.own.total }}</td></tr>
+                <tr><td>Nombre de jeu au pied</td><td class="stat-own">{{ data.own.total }}{% if baseline %}{{ kpi_compare(data.own.total, baseline.own_total, none) }}{% endif %}</td></tr>
                 <tr>
                     <td>Distance totale des jeux au pied (m)</td>
                     <td class="stat-own">
@@ -29,7 +34,7 @@
                     </td>
                 </tr>
                 <tr><td>Jeu au pied contestable / contesté</td><td class="stat-own">{{ data.own.kick_contestable }} / {{ data.own.kick_conteste }}</td></tr>
-                <tr><td>% ballons gagnés en duel aérien offensif</td><td class="stat-own">{{ data.own.duels_aeriens_off_pct if data.own.duels_aeriens_off_pct is not none else '—' }}{{ '%' if data.own.duels_aeriens_off_pct is not none }}</td></tr>
+                <tr><td>% ballons gagnés en duel aérien offensif</td><td class="stat-own">{{ data.own.duels_aeriens_off_pct if data.own.duels_aeriens_off_pct is not none else '—' }}{{ '%' if data.own.duels_aeriens_off_pct is not none }}{% if baseline %}{{ kpi_compare(data.own.duels_aeriens_off_pct, baseline.duels_off_pct, true, '%') }}{% endif %}</td></tr>
                 <tr><td>Ballons tapés en jeu / en touche</td><td class="stat-own">{{ data.own.won }} / {{ data.own.lost }}</td></tr>
                 <tr><td>Réussite aux pénaltouches</td><td class="stat-own">{{ data.own.penaltouche_rate if data.own.penaltouche_rate is not none else '—' }}{{ '%' if data.own.penaltouche_rate is not none }} ({{ data.own.penaltouche_total if data.own.penaltouche_total is not none else '—' }} tentée{{ 's' if data.own.penaltouche_total and data.own.penaltouche_total != 1 else '' }})</td></tr>
             </tbody>
@@ -39,11 +44,11 @@
         <h2>{{ match['opponent'] }}</h2>
         <table class="stat-table">
             <tbody>
-                <tr><td>Nombre de jeu au pied</td><td class="stat-adverse">{{ data.adverse.total }}</td></tr>
+                <tr><td>Nombre de jeu au pied</td><td class="stat-adverse">{{ data.adverse.total }}{% if baseline %}{{ kpi_compare(data.adverse.total, baseline.adverse_total, none) }}{% endif %}</td></tr>
                 <tr>
                     <td>Distance totale des jeux au pied (m)</td>
                     <td class="stat-adverse">
-                        {% if logged_in %}
+                        {% if is_admin %}
                         <input type="number" name="kick_distance_adverse" value="{{ match.manual_stats.get('kick_distance_adverse') if match.manual_stats.get('kick_distance_adverse') is not none else '' }}" placeholder="—" style="width:80px; background:transparent; border:1px solid rgba(255,255,255,0.25); border-radius:4px; color:inherit; padding:4px 6px;">
                         {% else %}
                         {{ match.manual_stats.get('kick_distance_adverse') if match.manual_stats.get('kick_distance_adverse') is not none else '—' }}
@@ -57,7 +62,7 @@
         </table>
     </div>
 </div>
-{% if logged_in %}
+{% if is_admin %}
 <button type="submit" class="btn btn-secondary no-print" style="margin-top:10px;">💾 Enregistrer les distances</button>
 {% endif %}
 </form>
@@ -103,11 +108,16 @@ if (KICK_TYPES) {
                     }
                 }
             },
-            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+            scales: {
+                x: { ticks: { color: '#ffffff' } },
+                y: { beginAtZero: true, ticks: { precision: 0, color: '#ffffff' } }
+            }
         }
     });
 }
 
 function preparePrint() { setTimeout(() => window.print(), 100); }
 </script>
+
+</div>
 {% endblock %}
