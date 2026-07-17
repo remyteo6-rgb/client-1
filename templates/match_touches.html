@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Touches — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
-{% block subnav %}{% include "_match_subnav.html" %}{% endblock %}
+{% set active = 'touches' %}
 {% block content %}
+{% from "_kpi_compare.html" import kpi_compare %}
 
 <div class="page-header no-print">
     <div>
@@ -18,11 +19,13 @@
             <div class="kpi-card">
                 <div class="kpi-label">Réussite touche</div>
                 <div class="kpi-value kpi-own">{{ data.own.success_rate if data.own.success_rate is not none else '—' }}{{ '%' if data.own.success_rate is not none }}</div>
+                {% if baseline %}{{ kpi_compare(data.own.success_rate, baseline.own_success_rate, true, '%') }}{% endif %}
                 <div class="kpi-help">{{ data.own.won }} gagnées / {{ data.own.total }} lancées.</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">Touche exploitable</div>
                 <div class="kpi-value kpi-own">{{ data.own.exploitable_rate if data.own.exploitable_rate is not none else '—' }}{{ '%' if data.own.exploitable_rate is not none }}</div>
+                {% if baseline %}{{ kpi_compare(data.own.exploitable_rate, baseline.own_exploitable_rate, true, '%') }}{% endif %}
                 <div class="kpi-help">{{ data.own.tqb_plus }} / {{ data.own.total }} avec un temps de qualité de ballon positif (TQB+).</div>
             </div>
         </div>
@@ -46,11 +49,13 @@
             <div class="kpi-card">
                 <div class="kpi-label">Réussite touche adverse</div>
                 <div class="kpi-value kpi-adverse">{{ data.adverse.success_rate if data.adverse.success_rate is not none else '—' }}{{ '%' if data.adverse.success_rate is not none }}</div>
+                {% if baseline %}{{ kpi_compare(data.adverse.success_rate, baseline.adverse_success_rate, false, '%') }}{% endif %}
                 <div class="kpi-help">{{ data.adverse.won }} gagnées / {{ data.adverse.total }} lancées.</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">Touche exploitable adverse</div>
                 <div class="kpi-value kpi-adverse">{{ data.adverse.exploitable_rate if data.adverse.exploitable_rate is not none else '—' }}{{ '%' if data.adverse.exploitable_rate is not none }}</div>
+                {% if baseline %}{{ kpi_compare(data.adverse.exploitable_rate, baseline.adverse_exploitable_rate, false, '%') }}{% endif %}
                 <div class="kpi-help">{{ data.adverse.tqb_plus }} / {{ data.adverse.total }} avec un TQB+.</div>
             </div>
         </div>
