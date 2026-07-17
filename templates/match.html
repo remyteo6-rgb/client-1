@@ -3,17 +3,7 @@
 {% set active = 'overview' %}
 {% block content %}
 
-{% macro kpi_compare(match_val, season_val, higher_better=true) %}
-{%- if match_val is not none and season_val is not none -%}
-{%- if match_val == season_val -%}
-<span class="kpi-compare kpi-compare-flat" title="Moyenne saison (hors ce match) : {{ season_val }}">→</span>
-{%- elif (match_val > season_val) == higher_better -%}
-<span class="kpi-compare kpi-compare-up" title="Moyenne saison (hors ce match) : {{ season_val }}">↑</span>
-{%- else -%}
-<span class="kpi-compare kpi-compare-down" title="Moyenne saison (hors ce match) : {{ season_val }}">↓</span>
-{%- endif -%}
-{%- endif -%}
-{% endmacro %}
+{% from "_kpi_compare.html" import kpi_compare %}
 
 {% set poss = match['stats'].get('Possession', {}) %}
 {% set poss_own_d = poss.get('own', {}).get('duration', 0) %}
@@ -114,10 +104,11 @@
     <div class="kpi-card">
         <div class="kpi-label">Points par entrée</div>
         <div class="kpi-value">
-            <span class="kpi-own">{{ dashboard.points_per_entry if dashboard.points_per_entry is not none else '—' }}</span>{% if baseline %}{{ kpi_compare(dashboard.points_per_entry, baseline.points_per_entry, true) }}{% endif %}
+            <span class="kpi-own">{{ dashboard.points_per_entry if dashboard.points_per_entry is not none else '—' }}</span>
             /
             <span class="kpi-adverse">{{ dashboard.points_per_entry_adverse if dashboard.points_per_entry_adverse is not none else '—' }}</span>
         </div>
+        {% if baseline %}{{ kpi_compare(dashboard.points_per_entry, baseline.points_per_entry, true) }}{% endif %}
         <div class="kpi-help">Nous : {{ dashboard.entries }} entrée{{ 's' if dashboard.entries != 1 else '' }} en zone RAID pour {{ score.own }} points. {{ match['opponent'] }} : {{ dashboard.entries_adverse }} entrée{{ 's' if dashboard.entries_adverse != 1 else '' }} en zone RAID pour {{ score.adverse }} points.{% if baseline %} Flèche = comparaison à la moyenne saison (hors ce match).{% endif %}</div>
     </div>
     <div class="kpi-card">
@@ -127,12 +118,14 @@
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Discipline (fautes concédées)</div>
-        <div class="kpi-value"><span class="kpi-own">{{ discipline.get('own', {}).get('count', 0) }}</span>{% if baseline %}{{ kpi_compare(discipline.get('own', {}).get('count', 0), baseline.discipline_own, false) }}{% endif %} / <span class="kpi-adverse">{{ discipline.get('adverse', {}).get('count', 0) }}</span></div>
+        <div class="kpi-value"><span class="kpi-own">{{ discipline.get('own', {}).get('count', 0) }}</span> / <span class="kpi-adverse">{{ discipline.get('adverse', {}).get('count', 0) }}</span></div>
+        {% if baseline %}{{ kpi_compare(discipline.get('own', {}).get('count', 0), baseline.discipline_own, false) }}{% endif %}
         <div class="kpi-help">Nous / {{ match['opponent'] }} — fautes qui donnent un coup de pied ou une touche.</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Pertes de balle</div>
-        <div class="kpi-value"><span class="kpi-own">{{ dashboard.lost_balls_own }}</span>{% if baseline %}{{ kpi_compare(dashboard.lost_balls_own, baseline.lost_balls_own, false) }}{% endif %} / <span class="kpi-adverse">{{ dashboard.lost_balls_adverse }}</span></div>
+        <div class="kpi-value"><span class="kpi-own">{{ dashboard.lost_balls_own }}</span> / <span class="kpi-adverse">{{ dashboard.lost_balls_adverse }}</span></div>
+        {% if baseline %}{{ kpi_compare(dashboard.lost_balls_own, baseline.lost_balls_own, false) }}{% endif %}
         <div class="kpi-help">Nous / {{ match['opponent'] }} — ballons perdus en possession.</div>
     </div>
 </div>
@@ -162,7 +155,8 @@
     <div class="kpi-card">
         <div class="kpi-label">Possession (temps codé)</div>
         {% if poss_total > 0 %}
-        <div class="kpi-value kpi-own">{{ (poss_own_d / poss_total * 100) | round(1) }}%{% if baseline %}{{ kpi_compare((poss_own_d / poss_total * 100) | round(1), baseline.possession_pct, true) }}{% endif %}</div>
+        <div class="kpi-value kpi-own">{{ (poss_own_d / poss_total * 100) | round(1) }}%</div>
+        {% if baseline %}{{ kpi_compare((poss_own_d / poss_total * 100) | round(1), baseline.possession_pct, true, '%') }}{% endif %}
         {% else %}
         <div class="kpi-value">—</div>
         {% endif %}
@@ -170,22 +164,26 @@
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Réussite au plaquage</div>
-        <div class="kpi-value kpi-own">{{ plaquage.get('success_rate') if plaquage.get('success_rate') is not none else '—' }}{{ '%' if plaquage.get('success_rate') is not none }}{% if baseline %}{{ kpi_compare(plaquage.get('success_rate'), baseline.plaquage_success_rate, true) }}{% endif %}</div>
+        <div class="kpi-value kpi-own">{{ plaquage.get('success_rate') if plaquage.get('success_rate') is not none else '—' }}{{ '%' if plaquage.get('success_rate') is not none }}</div>
+        {% if baseline %}{{ kpi_compare(plaquage.get('success_rate'), baseline.plaquage_success_rate, true, '%') }}{% endif %}
         <div class="kpi-help">% de plaquages réussis sur le total tenté (nous).</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Rucks gagnés (nous vs eux)</div>
-        <div class="kpi-value"><span class="kpi-own">{{ ruck_own }}</span>{% if baseline %}{{ kpi_compare(ruck_own, baseline.ruck_own, true) }}{% endif %} / <span class="kpi-adverse">{{ ruck_adv }}</span></div>
+        <div class="kpi-value"><span class="kpi-own">{{ ruck_own }}</span> / <span class="kpi-adverse">{{ ruck_adv }}</span></div>
+        {% if baseline %}{{ kpi_compare(ruck_own, baseline.ruck_own, true) }}{% endif %}
         <div class="kpi-help">Nombre de rucks joués par chaque équipe.</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Réussite en touche</div>
-        <div class="kpi-value"><span class="kpi-own">{{ dashboard.lineout.own.success_rate if dashboard.lineout.own.success_rate is not none else '—' }}{{ '%' if dashboard.lineout.own.success_rate is not none }}</span>{% if baseline %}{{ kpi_compare(dashboard.lineout.own.success_rate, baseline.lineout_success_rate, true) }}{% endif %} / <span class="kpi-adverse">{{ dashboard.lineout.adverse.success_rate if dashboard.lineout.adverse.success_rate is not none else '—' }}{{ '%' if dashboard.lineout.adverse.success_rate is not none }}</span></div>
+        <div class="kpi-value"><span class="kpi-own">{{ dashboard.lineout.own.success_rate if dashboard.lineout.own.success_rate is not none else '—' }}{{ '%' if dashboard.lineout.own.success_rate is not none }}</span> / <span class="kpi-adverse">{{ dashboard.lineout.adverse.success_rate if dashboard.lineout.adverse.success_rate is not none else '—' }}{{ '%' if dashboard.lineout.adverse.success_rate is not none }}</span></div>
+        {% if baseline %}{{ kpi_compare(dashboard.lineout.own.success_rate, baseline.lineout_success_rate, true, '%') }}{% endif %}
         <div class="kpi-help">% de touches conservées sur celles jouées, nous / {{ match['opponent'] }}.</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Réussite en mêlée</div>
-        <div class="kpi-value"><span class="kpi-own">{{ dashboard.scrum.own.won_pct if dashboard.scrum.own.won_pct is not none else '—' }}{{ '%' if dashboard.scrum.own.won_pct is not none }}</span>{% if baseline %}{{ kpi_compare(dashboard.scrum.own.won_pct, baseline.scrum_won_pct, true) }}{% endif %} / <span class="kpi-adverse">{{ dashboard.scrum.adverse.won_pct if dashboard.scrum.adverse.won_pct is not none else '—' }}{{ '%' if dashboard.scrum.adverse.won_pct is not none }}</span></div>
+        <div class="kpi-value"><span class="kpi-own">{{ dashboard.scrum.own.won_pct if dashboard.scrum.own.won_pct is not none else '—' }}{{ '%' if dashboard.scrum.own.won_pct is not none }}</span> / <span class="kpi-adverse">{{ dashboard.scrum.adverse.won_pct if dashboard.scrum.adverse.won_pct is not none else '—' }}{{ '%' if dashboard.scrum.adverse.won_pct is not none }}</span></div>
+        {% if baseline %}{{ kpi_compare(dashboard.scrum.own.won_pct, baseline.scrum_won_pct, true, '%') }}{% endif %}
         <div class="kpi-help">% de mêlées gagnées sur celles jouées, nous / {{ match['opponent'] }}.{% if baseline %} Flèche = comparaison à la moyenne saison (hors ce match).{% endif %}</div>
     </div>
 </div>
