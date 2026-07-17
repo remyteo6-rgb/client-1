@@ -2157,7 +2157,7 @@ def group_training_sessions_by_period(sessions, period="week"):
 # souhaité (ex: plus de réussite au plaquage = mieux, mais moins de pertes de balle = mieux)
 # pour que le calcul d'écart victoire/défaite pointe dans le bon sens.
 KPI_DEFINITIONS = [
-    {"key": "bip_pct", "label": "Temps de jeu effectif (Ball in Play)", "unit": "%", "higher_is_better": True},
+    {"key": "bip_minutes", "label": "Temps de jeu effectif (Ball in Play)", "unit": " min", "higher_is_better": True},,
     {"key": "possession_pct", "label": "Possession", "unit": "%", "higher_is_better": True},
     {"key": "occupation_pct", "label": "Occupation du terrain", "unit": "%", "higher_is_better": True},
     {"key": "tackle_pct", "label": "Réussite au plaquage", "unit": "%", "higher_is_better": True},
@@ -2194,7 +2194,8 @@ def compute_match_kpis(instances):
     # Vue d'ensemble d'un match, pour pouvoir comparer leur moyenne en victoire vs défaite.
     score = compute_score(instances)
     dash = compute_overview_dashboard(instances, score)
-    bip_pct = (dash.get("ball_in_play") or {}).get("pct_match")
+    bip_duration = (dash.get("ball_in_play") or {}).get("duration")
+    bip_minutes = round(bip_duration / 60, 1) if bip_duration is not None else None
 
     stats, _ = aggregate_match_stats(instances)
     poss = stats.get("Possession", {})
@@ -2210,7 +2211,7 @@ def compute_match_kpis(instances):
     occupation_pct = round(occ_own / occ_total * 100, 1) if occ_total else None
 
     return {
-        "bip_pct": bip_pct,
+        "bip_minutes": bip_minutes,
         "possession_pct": possession_pct,
         "occupation_pct": occupation_pct,
         "tackle_pct": plaquage["rate_pct"],
@@ -2286,6 +2287,7 @@ def compute_win_loss_analysis(matches):
         signed_effect = effect if kpi_def["higher_is_better"] else -effect
 
         rows.append({
+            "key": key,
             "label": kpi_def["label"],
             "unit": kpi_def["unit"],
             "win_avg": round(win_avg, 1),
@@ -2300,8 +2302,12 @@ def compute_win_loss_analysis(matches):
 
     strengths = sorted([r for r in rows if r["signed_effect"] > 0], key=lambda r: -r["signed_effect"])
     weaknesses = sorted([r for r in rows if r["signed_effect"] < 0], key=lambda r: r["signed_effect"])
-    all_rows = sorted(rows, key=lambda r: -abs(r["signed_effect"]))
-
+    # Temps de jeu effectif puis possession toujours en tête du tableau (demande de Téo),
+    # le reste trié par importance de l'écart victoire/défaite.
+    pinned_keys = ["bip_minutes", "possession_pct"]
+    pinned = [r for k in pinned_keys for r in rows if r["key"] == k]
+    all_rows = pinned + sorted([r for r in rows if r["key"] not in pinned_keys],
+                               key=lambda r: -abs(r["signed_effect"]))
     return {
         "insufficient_data": False,
         "n_wins": n_wins,
