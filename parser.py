@@ -2188,7 +2188,7 @@ def compute_match_kpis(instances):
     ruck_speed_own = compute_ruck_speed(instances, "own")
     ruck_totals = compute_player_ruck_table(instances)["totals"]
 
-   ruck_fast_pct = ruck_speed_own["buckets"]["-3s"]["pct"] if ruck_speed_own["total"] else None
+    ruck_fast_pct = ruck_speed_own["buckets"]["-3s"]["pct"] if ruck_speed_own["total"] else None
 
     # Temps de jeu effectif, possession et occupation moyens : mêmes calculs que sur la
     # Vue d'ensemble d'un match, pour pouvoir comparer leur moyenne en victoire vs défaite.
