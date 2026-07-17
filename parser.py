@@ -2157,6 +2157,9 @@ def group_training_sessions_by_period(sessions, period="week"):
 # souhaité (ex: plus de réussite au plaquage = mieux, mais moins de pertes de balle = mieux)
 # pour que le calcul d'écart victoire/défaite pointe dans le bon sens.
 KPI_DEFINITIONS = [
+    {"key": "bip_pct", "label": "Temps de jeu effectif (Ball in Play)", "unit": "%", "higher_is_better": True},
+    {"key": "possession_pct", "label": "Possession", "unit": "%", "higher_is_better": True},
+    {"key": "occupation_pct", "label": "Occupation du terrain", "unit": "%", "higher_is_better": True},
     {"key": "tackle_pct", "label": "Réussite au plaquage", "unit": "%", "higher_is_better": True},
     {"key": "lineout_pct", "label": "Réussite en touche", "unit": "%", "higher_is_better": True},
     {"key": "scrum_pct", "label": "Réussite en mêlée", "unit": "%", "higher_is_better": True},
@@ -2185,9 +2188,31 @@ def compute_match_kpis(instances):
     ruck_speed_own = compute_ruck_speed(instances, "own")
     ruck_totals = compute_player_ruck_table(instances)["totals"]
 
-    ruck_fast_pct = ruck_speed_own["buckets"]["-3s"]["pct"] if ruck_speed_own["total"] else None
+   ruck_fast_pct = ruck_speed_own["buckets"]["-3s"]["pct"] if ruck_speed_own["total"] else None
+
+    # Temps de jeu effectif, possession et occupation moyens : mêmes calculs que sur la
+    # Vue d'ensemble d'un match, pour pouvoir comparer leur moyenne en victoire vs défaite.
+    score = compute_score(instances)
+    dash = compute_overview_dashboard(instances, score)
+    bip_pct = (dash.get("ball_in_play") or {}).get("pct_match")
+
+    stats, _ = aggregate_match_stats(instances)
+    poss = stats.get("Possession", {})
+    poss_own = poss.get("own", {}).get("duration", 0)
+    poss_adv = poss.get("adverse", {}).get("duration", 0)
+    poss_total = poss_own + poss_adv
+    possession_pct = round(poss_own / poss_total * 100, 1) if poss_total else None
+
+    occ = dash.get("occupation") or {}
+    occ_own = occ.get("own_events", 0)
+    occ_adv = occ.get("adverse_events", 0)
+    occ_total = occ_own + occ_adv
+    occupation_pct = round(occ_own / occ_total * 100, 1) if occ_total else None
 
     return {
+        "bip_pct": bip_pct,
+        "possession_pct": possession_pct,
+        "occupation_pct": occupation_pct,
         "tackle_pct": plaquage["rate_pct"],
         "lineout_pct": lineout["own"]["success_rate"],
         "scrum_pct": scrum["own"]["won_pct"],
