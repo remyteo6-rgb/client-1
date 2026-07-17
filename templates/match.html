@@ -3,6 +3,18 @@
 {% set active = 'overview' %}
 {% block content %}
 
+{% macro kpi_compare(match_val, season_val, higher_better=true) %}
+{%- if match_val is not none and season_val is not none -%}
+{%- if match_val == season_val -%}
+<span class="kpi-compare kpi-compare-flat" title="Moyenne saison (hors ce match) : {{ season_val }}">→</span>
+{%- elif (match_val > season_val) == higher_better -%}
+<span class="kpi-compare kpi-compare-up" title="Moyenne saison (hors ce match) : {{ season_val }}">↑</span>
+{%- else -%}
+<span class="kpi-compare kpi-compare-down" title="Moyenne saison (hors ce match) : {{ season_val }}">↓</span>
+{%- endif -%}
+{%- endif -%}
+{% endmacro %}
+
 {% set poss = match['stats'].get('Possession', {}) %}
 {% set poss_own_d = poss.get('own', {}).get('duration', 0) %}
 {% set poss_adv_d = poss.get('adverse', {}).get('duration', 0) %}
