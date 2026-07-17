@@ -51,10 +51,19 @@
         </thead>
         <tbody>
         {% for row in analysis.all_rows %}
+            {# Vert = la valeur qui va dans le bon sens pour cet indicateur, rouge = celle qui
+               va dans le mauvais sens — indépendamment de la colonne victoire/défaite. #}
+            {% if row.win_avg == row.loss_avg %}
+            {% set win_cls, loss_cls = '', '' %}
+            {% elif (row.win_avg > row.loss_avg) == row.higher_is_better %}
+            {% set win_cls, loss_cls = 'stat-pos', 'stat-neg' %}
+            {% else %}
+            {% set win_cls, loss_cls = 'stat-neg', 'stat-pos' %}
+            {% endif %}
             <tr>
                 <td>{{ row.label }}</td>
-                <td class="stat-own">{{ row.win_avg }}{{ row.unit }}</td>
-                <td class="stat-adverse">{{ row.loss_avg }}{{ row.unit }}</td>
+                <td class="{{ win_cls }}">{{ row.win_avg }}{{ row.unit }}</td>
+                <td class="{{ loss_cls }}">{{ row.loss_avg }}{{ row.unit }}</td>
                 <td>{{ row.n_win }}V / {{ row.n_loss }}D</td>
             </tr>
         {% endfor %}
