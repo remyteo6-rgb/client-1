@@ -2,6 +2,7 @@
 {% block title %}Défense — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
 {% set active = 'defense' %}
 {% block content %}
+{% from "_kpi_compare.html" import kpi_compare %}
 
 <div class="page-header no-print">
     <div>
@@ -67,11 +68,13 @@
     <div class="kpi-card">
         <div class="kpi-label">Points concédés / entrée adverse</div>
         <div class="kpi-value kpi-adverse">{{ data.points_per_entry if data.points_per_entry is not none else '—' }}</div>
+        {% if baseline %}{{ kpi_compare(data.points_per_entry, baseline.points_per_entry, false) }}{% endif %}
         <div class="kpi-help">{{ data.entries }} entrée{{ 's' if data.entries != 1 else '' }} adverse en zone d'attaque pour {{ data.score }} points concédés.</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Nb de phases moyen adverse</div>
         <div class="kpi-value kpi-adverse">{{ data.phases_moyenne if data.phases_moyenne is not none else '—' }}</div>
+        {% if baseline %}{{ kpi_compare(data.phases_moyenne, baseline.phases_moyenne, false) }}{% endif %}
         <div class="kpi-help">Total du descripteur "phases de jeu" codé sur chaque possession adverse, divisé par le nombre de possessions adverses.</div>
     </div>
     <div class="kpi-card">
@@ -87,36 +90,43 @@
     <div class="kpi-card">
         <div class="kpi-label">Plaquages ratés</div>
         <div class="kpi-value kpi-adverse">{{ defense.plaquage.rate }}</div>
+        {% if baseline %}{{ kpi_compare(defense.plaquage.rate, baseline.plaquage_rate, false) }}{% endif %}
         <div class="kpi-help">Sur {{ defense.plaquage.total }} plaquages tentés par {{ match['own_team'] }}.</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Offloads adverses</div>
         <div class="kpi-value kpi-adverse">{{ data.offloads }}</div>
+        {% if baseline %}{{ kpi_compare(data.offloads, baseline.offloads, false) }}{% endif %}
         <div class="kpi-help">Passes après contact concédées.</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Breaks adverses</div>
         <div class="kpi-value kpi-adverse">{{ data.breaks }}</div>
+        {% if baseline %}{{ kpi_compare(data.breaks, baseline.breaks, false) }}{% endif %}
         <div class="kpi-help">Franchissements de ligne concédés.</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Pertes de balle adverses</div>
         <div class="kpi-value kpi-own">{{ data.lost_balls }}</div>
+        {% if baseline %}{{ kpi_compare(data.lost_balls, baseline.lost_balls, true) }}{% endif %}
         <div class="kpi-help">Pertes de balle forcées chez l'adversaire.</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">% duel aérien défensif</div>
         <div class="kpi-value kpi-own">{{ data.duels_aeriens.pct if data.duels_aeriens.pct is not none else '—' }}{{ '%' if data.duels_aeriens.pct is not none }}</div>
+        {% if baseline %}{{ kpi_compare(data.duels_aeriens.pct, baseline.duels_aeriens_pct, true, '%') }}{% endif %}
         <div class="kpi-help">{{ data.duels_aeriens.plus }} / {{ data.duels_aeriens.total }} duels gagnés. Offensif et défensif pas encore distingués dans le codage actuel.</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">% aux plaquages</div>
         <div class="kpi-value kpi-own">{{ defense.plaquage.rate_pct if defense.plaquage.rate_pct is not none else '—' }}{{ '%' if defense.plaquage.rate_pct is not none }}</div>
+        {% if baseline %}{{ kpi_compare(defense.plaquage.rate_pct, baseline.plaquage_rate_pct, true, '%') }}{% endif %}
         <div class="kpi-help">{{ defense.plaquage.reussi }} réussis sur {{ defense.plaquage.total }} tentés par {{ match['own_team'] }}.</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Plaquages à 2</div>
         <div class="kpi-value kpi-own">{{ defense.plaquage.plaquage_a_2 }}</div>
+        {% if baseline %}{{ kpi_compare(defense.plaquage.plaquage_a_2, baseline.plaquage_a_2, true) }}{% endif %}
         <div class="kpi-help">Plaquages effectués à deux défenseurs.</div>
     </div>
 </div>
