@@ -1405,6 +1405,81 @@ def compute_match_baseline(matches_with_instances, exclude_id=None):
         "lineout_success_rate": (lineout.get("own") or {}).get("success_rate"),
         "scrum_won_pct": (scrum.get("own") or {}).get("won_pct"),
     }
+
+def compute_sector_baselines(matches_with_instances, exclude_id=None):
+    """Moyennes saison (hors le match affiché) pour les 6 pages secteur d'un match.
+
+    Même principe que compute_match_baseline : les taux/pourcentages sont calculés
+    directement sur l'ensemble des autres matchs (déjà normalisés), les volumes
+    (comptages) sont divisés par le nombre de matchs pour donner une moyenne par match,
+    comparable au comptage brut d'un seul match. Renvoie None s'il n'y a pas d'autre
+    match avec des données."""
+    others = [m for m in matches_with_instances if m["id"] != exclude_id and m["instances"]]
+    if not others:
+        return None
+    nb = len(others)
+    instances = [i for m in others for i in m["instances"]]
+
+    def per_match(v):
+        return round(v / nb, 1) if v is not None else None
+
+    attack = compute_attack_sector(instances, "own")
+    attack_adv = compute_attack_sector(instances, "adverse")
+    defense = compute_defense_sector(instances, "adverse")
+    ruck = compute_ruck_sector(instances)
+    lineout = compute_lineout_detail(instances)
+    scrum = compute_scrum_detail(instances)
+    kicking = compute_kicking_detail(instances)
+
+    return {
+        "attaque": {
+            "points_per_entry": attack["points_per_entry"],
+            "phases_moyenne": attack["phases_moyenne"],
+            "defenders_beaten": per_match(attack["defenders_beaten"]),
+            "offloads": per_match(attack["offloads"]),
+            "breaks": per_match(attack["breaks"]),
+            "lost_balls": per_match(attack["lost_balls"]),
+            "duels_aeriens_pct": attack["duels_aeriens"]["pct"],
+        },
+        "defense": {
+            "points_per_entry": attack_adv["points_per_entry"],
+            "phases_moyenne": attack_adv["phases_moyenne"],
+            "offloads": per_match(attack_adv["offloads"]),
+            "breaks": per_match(attack_adv["breaks"]),
+            "lost_balls": per_match(attack_adv["lost_balls"]),
+            "duels_aeriens_pct": attack_adv["duels_aeriens"]["pct"],
+            "plaquage_rate": per_match(defense["plaquage"]["rate"]),
+            "plaquage_rate_pct": defense["plaquage"]["rate_pct"],
+            "plaquage_a_2": per_match(defense["plaquage"]["plaquage_a_2"]),
+        },
+        "ruck": {
+            "count_own": per_match(ruck["count_own"]),
+            "ruck_50_own": per_match(ruck["ruck_50_own"]),
+            "speed_own_avg": ruck["speed_own"]["avg"],
+            "speed_adverse_avg": ruck["speed_adverse"]["avg"],
+            "gratteur_pct": ruck["gratteur_pct"],
+            "contre_ruck_pct": ruck["contre_ruck_pct"],
+        },
+        "touches": {
+            "own_success_rate": lineout["own"]["success_rate"],
+            "own_exploitable_rate": lineout["own"]["exploitable_rate"],
+            "adverse_success_rate": lineout["adverse"]["success_rate"],
+            "adverse_exploitable_rate": lineout["adverse"]["exploitable_rate"],
+        },
+        "melee": {
+            "own_total": per_match(scrum["own"]["total"]),
+            "own_won_pct": scrum["own"]["won_pct"],
+            "own_avance_pct": scrum["own"]["avance_pct"],
+            "adverse_total": per_match(scrum["adverse"]["total"]),
+            "adverse_won_pct": scrum["adverse"]["won_pct"],
+        },
+        "jap": {
+            "own_total": per_match(kicking["own"]["total"]),
+            "adverse_total": per_match(kicking["adverse"]["total"]),
+            "duels_off_pct": kicking["own"]["duels_aeriens_off_pct"],
+        },
+    }
+    
     
 def compute_season_dashboard(selected_matches):
     """Bilan cumulé sur plusieurs matchs (saison complète ou sélection personnalisée par Téo).
