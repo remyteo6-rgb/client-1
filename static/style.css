@@ -819,8 +819,8 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
 
 /* Valeur positive (vert) / négative (rouge) dans les tableaux comparatifs, quel que soit
    le côté victoire/défaite : c'est le sens de la stat qui décide de la couleur. */
-.stat-pos { color: var(--positive); font-weight: 700; }
-.stat-neg { color: var(--negative); font-weight: 700; }
+.stat-pos, .stat-table tbody td.stat-pos { color: var(--positive); font-weight: 700; }
+.stat-neg, .stat-table tbody td.stat-neg { color: var(--negative); font-weight: 700; }
 /* Page Data Analyse : comparaison victoire/défaite par indicateur */
 .kpi-compare-row {
     display: flex;
