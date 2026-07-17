@@ -2,7 +2,6 @@
     <div class="subnav-inner">
         <details class="subnav-dropdown">
             <summary>☰</summary>
-        
             <div class="landing-dropdown-content">
                 <a href="{{ url_for('landing') }}">🏠 Accueil</a>
                 <a href="#" id="demoModeToggle" onclick="toggleDemoMode(); return false;">🙈 Mode démo (flouter les noms)</a>
@@ -28,6 +27,15 @@
             </div>
         </details>
         <img src="{{ url_for('static', filename='logo.png') }}" class="subnav-logo" alt="{{ club_full_name }}">
+        {# Pastille de contexte : rappelle en permanence (le bandeau reste collé en haut au
+           défilement) si on regarde un match, le bilan saison ou une équipe adverse. #}
+        {% if match is defined %}
+        <span class="subnav-context" title="{{ match['own_team'] }} vs {{ match['opponent'] }}{% if match['match_date'] %} · {{ match['match_date'] }}{% endif %}">🏉 {{ match['own_team'] }} vs {{ match['opponent'] }}{% if match['match_date'] %} · {{ match['match_date'] }}{% endif %}</span>
+        {% elif season_mode is defined %}
+        <span class="subnav-context">📅 Bilan de saison{% if selected_count is defined and selected_count %} · {{ selected_count }} match{{ 's' if selected_count != 1 else '' }}{% endif %}</span>
+        {% elif team_mode is defined %}
+        <span class="subnav-context" title="Adversaire : {{ team }}">🆚 Adversaire : {{ team }}</span>
+        {% endif %}
         {% if match is defined %}
         {% set sector_keys = ['attaque', 'defense', 'transition', 'ruck', 'touches', 'melee', 'jap'] %}
         <div class="subnav-links">
