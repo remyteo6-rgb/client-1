@@ -10,10 +10,15 @@ const DEMO_BLUR_HEADERS = ['Joueur', 'Plan de jeu'];
 
 function markPlayerNameCells() {
     document.querySelectorAll('table').forEach(function (table) {
-        const headerCells = table.querySelectorAll('thead th');
+        // On cherche l'en-tête ligne par ligne (et pas sur tout le thead d'un coup) pour que
+        // l'index de colonne reste correct dans les tableaux à double ligne d'en-tête
+        // (ligne de groupes ATTAQUE/DÉFENSE... au-dessus des colonnes).
         let nameColIndex = -1;
-        headerCells.forEach(function (th, i) {
-            if (DEMO_BLUR_HEADERS.includes(th.textContent.trim())) nameColIndex = i;
+        table.querySelectorAll('thead tr').forEach(function (tr) {
+            Array.from(tr.children).forEach(function (th, i) {
+                const txt = th.textContent.trim().replace(/ [▲▼]$/, '');
+                if (DEMO_BLUR_HEADERS.includes(txt)) nameColIndex = i;
+            });
         });
         if (nameColIndex === -1) return;
         table.querySelectorAll('tbody tr').forEach(function (row) {
