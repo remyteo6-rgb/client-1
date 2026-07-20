@@ -2,7 +2,7 @@
 {% block title %}Joueurs — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
 {% set active = 'joueurs' %}
 {% block content %}
-{% from "_kpi_compare.html" import kpi_compare %}
+{% from "_kpi_compare.html" import kpi_compare, kpi_arrow %}
 
 <div class="page-header no-print">
     <div>
