@@ -1611,6 +1611,67 @@ def compute_player_ruck_table(instances):
     return {"rows": result, "totals": dict(totals)}
 
 
+def compute_player_season_baselines(matches_with_instances, exclude_id=None):
+    """Moyennes saison PAR JOUEUR (hors le match affiché), pour comparer la perf d'un
+    joueur sur un match à ce qu'il fait d'habitude. Les % sont recalculés sur le cumul
+    des autres matchs ; l'indice ('points') est ramené à une moyenne par match joué
+    (nombre de matchs où le joueur apparaît). Renvoie None s'il n'y a pas d'autre match."""
+    others = [m for m in matches_with_instances if m["id"] != exclude_id and m["instances"]]
+    if not others:
+        return None
+    combined = [i for m in others for i in m["instances"]]
+    appearances = defaultdict(int)
+    for m in others:
+        for name in _player_names(m["instances"]):
+            appearances[name] += 1
+
+    attack = compute_player_attack_table(combined)
+    defense = compute_player_defense_table(combined)
+    ruck = compute_player_ruck_table(combined)
+
+    result = {}
+
+    def _entry(name):
+        return result.setdefault(name, {"matches": appearances.get(name, 0)})
+
+    for r in attack["rows"]:
+        n = appearances.get(r["name"], 0) or 1
+        _entry(r["name"])["attack"] = {
+            "contact_pct": r["contact_pct"], "duel_pct": r["duel_pct"],
+            "passe_pct": r["passe_pct"], "offload_pct": r["offload_pct"],
+            "points_avg": round(r["points"] / n, 1),
+        }
+    for r in defense["rows"]:
+        n = appearances.get(r["name"], 0) or 1
+        _entry(r["name"])["defense"] = {
+            "tackle_pct": r["tackle_pct"],
+            "points_avg": round(r["points"] / n, 1),
+        }
+    for r in ruck["rows"]:
+        n = appearances.get(r["name"], 0) or 1
+        _entry(r["name"])["ruck"] = {
+            "gratteur_pct": r["gratteur_pct"], "contre_ruck_pct": r["contre_ruck_pct"],
+            "points_avg": round(r["points"] / n, 1),
+        }
+    return result
+
+
+def build_player_cards(attack_table, defense_table, ruck_table):
+    """Fusionne les 3 tableaux joueurs d'un match en une liste de 'cartes' (une par
+    joueur) : indice attaque / défense / ruck + indice global, triée par indice global
+    décroissant pour mettre les joueurs les plus influents en premier."""
+    cards = {}
+    for section, table in (("attack", attack_table), ("defense", defense_table), ("ruck", ruck_table)):
+        for r in table["rows"]:
+            cards.setdefault(r["name"], {"name": r["name"], "attack": None, "defense": None, "ruck": None})[section] = r
+    out = []
+    for c in cards.values():
+        c["total_points"] = sum((c[s] or {}).get("points", 0) for s in ("attack", "defense", "ruck"))
+        out.append(c)
+    out.sort(key=lambda c: -c["total_points"])
+    return out
+
+
 # ---- Comparateur de joueurs (saison) ------------------------------------------
 
 def _zero_attack_row(name):
