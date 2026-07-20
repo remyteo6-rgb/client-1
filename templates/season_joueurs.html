@@ -1,14 +1,21 @@
 {% extends "base.html" %}
 {% block title %}Effectif — Joueurs par poste{% endblock %}
 {% block content %}
+{% from "_players_overview.html" import players_overview %}
 
 <div class="page-header no-print">
     <div>
         <h1>👥 Effectif — Joueurs par poste</h1>
         <p class="subtitle">Tout l'effectif, groupé par poste, statistiques cumulées sur {{ selected_count }} match{{ 's' if selected_count != 1 else '' }} sélectionné{{ 's' if selected_count != 1 else '' }}. Un joueur sans stat sur la sélection affiche une ligne à zéro.</p>
 
+<div class="card">
+    <h2>📋 Vue d'ensemble individuelle — saison</h2>
+    <p class="subtitle">Cumul sur les matchs sélectionnés, joueurs par ordre alphabétique. Clique sur un en-tête de colonne pour trier.</p>
+    {{ players_overview(player_cards, attack_table, defense_table, ruck_table) }}
+</div>
+
 {% for g in groups %}
-<details class="card section-block" open>
+<details class="card section-block">
     <summary>
         <span class="section-title">{{ g.position }}</span>
         <span class="section-help">{{ g.attack_rows|length }} joueur{{ 's' if g.attack_rows|length != 1 else '' }}</span>
