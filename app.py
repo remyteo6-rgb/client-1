@@ -1167,9 +1167,14 @@ def season_joueurs():
     _, selected, _, qs = _season_context()
     instances = _season_instances(selected)
     groups = compute_squad_season_stats(instances, selected)
+    attack_table = compute_player_attack_table(instances)
+    defense_table = compute_player_defense_table(instances)
+    ruck_table = compute_player_ruck_table(instances)
+    player_cards = build_player_cards(attack_table, defense_table, ruck_table)
     return render_template("season_joueurs.html", groups=groups, season_mode=True, active="joueurs",
-                           qs=qs, selected_count=len(selected))
-
+                           qs=qs, selected_count=len(selected),
+                           attack_table=attack_table, defense_table=defense_table,
+                           ruck_table=ruck_table, player_cards=player_cards)
 
 @app.route("/season/comparateur")
 def season_comparateur():
