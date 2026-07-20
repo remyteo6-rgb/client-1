@@ -16,3 +16,17 @@
 {%- endif -%}
 {%- endif -%}
 {% endmacro %}
+
+{# Version compacte pour les tableaux denses : juste la flèche colorée, la moyenne saison
+   exacte s'affiche au survol de la souris (title). #}
+{% macro kpi_arrow(match_val, season_val, higher_better=true, unit='') %}
+{%- if match_val is not none and season_val is not none -%}
+{%- if match_val == season_val -%}
+<span class="kpi-arrow kpi-compare-flat" title="Moyenne saison (hors ce match) : {{ season_val }}{{ unit }}">→</span>
+{%- elif (match_val > season_val) == higher_better -%}
+<span class="kpi-arrow kpi-compare-up" title="Moyenne saison (hors ce match) : {{ season_val }}{{ unit }}">↑</span>
+{%- else -%}
+<span class="kpi-arrow kpi-compare-down" title="Moyenne saison (hors ce match) : {{ season_val }}{{ unit }}">↓</span>
+{%- endif -%}
+{%- endif -%}
+{% endmacro %}
