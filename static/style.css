@@ -850,6 +850,7 @@ body.demo-mode .demo-blur {
 /* Comparaison d'une stat de match à la moyenne saison (hors ce match) : petite flèche
    colorée à côté de la valeur, pour voir d'un coup d'œil si le match est bon ou mauvais. */
 .kpi-compare { font-size: 12px; font-weight: 700; margin-top: 3px; cursor: help; }
+.kpi-arrow { font-size: 13px; font-weight: 800; margin-left: 4px; cursor: help; }
 .kpi-compare-up { color: var(--positive); }
 .kpi-compare-down { color: var(--negative); }
 .kpi-compare-flat { color: var(--text-secondary); }
