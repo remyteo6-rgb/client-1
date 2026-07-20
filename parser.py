@@ -1656,10 +1656,17 @@ def compute_player_season_baselines(matches_with_instances, exclude_id=None):
     return result
 
 
-def build_player_cards(attack_table, defense_table, ruck_table):
-    """Fusionne les 3 tableaux joueurs d'un match en une liste de 'cartes' (une par
-    joueur) : indice attaque / défense / ruck + indice global, triée par indice global
-    décroissant pour mettre les joueurs les plus influents en premier."""
+def build_player_cards(attack_table, defense_table, ruck_table, composition=None):
+    """Fusionne les 3 tableaux joueurs en une liste de lignes (une par joueur) avec
+    l'indice attaque / défense / ruck + indice global.
+
+    Ordre (pas de classement à la performance, demande de Téo) :
+    - si une composition est fournie (liste des 23 noms saisis sur la page Composition,
+      index 0 = n°1 ... index 22 = n°23), les joueurs sont ordonnés par numéro de maillot
+      (avec 'number' renseigné), les joueurs hors composition à la suite par ordre
+      alphabétique ;
+    - sinon, ordre alphabétique. La comparaison des noms est insensible à la casse
+      (le XML tague 'ROUET', la feuille de composition 'Rouet')."""
     cards = {}
     for section, table in (("attack", attack_table), ("defense", defense_table), ("ruck", ruck_table)):
         for r in table["rows"]:
@@ -1667,8 +1674,16 @@ def build_player_cards(attack_table, defense_table, ruck_table):
     out = []
     for c in cards.values():
         c["total_points"] = sum((c[s] or {}).get("points", 0) for s in ("attack", "defense", "ruck"))
+        c["number"] = None
         out.append(c)
-    out.sort(key=lambda c: -c["total_points"])
+
+    numbers = {}
+    for i, n in enumerate(composition or []):
+        if n:
+            numbers[n.strip().casefold()] = i + 1
+    for c in out:
+        c["number"] = numbers.get(c["name"].strip().casefold())
+    out.sort(key=lambda c: (c["number"] is None, c["number"] or 0, c["name"].casefold()))
     return out
 
 
