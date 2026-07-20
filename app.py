@@ -20,7 +20,7 @@ from parser import (
     compute_back3_trend, TRAINING_TAXONOMY, compute_training_volume,
     group_training_sessions_by_period, compute_win_loss_analysis, compute_match_kpis,
    PHASE_ICONS, PHASE_HELP, compute_event_timing_multi, compute_match_baseline,
-    compute_sector_baselines,
+    compute_sector_baselines, compute_player_season_baselines, build_player_cards,
 )
 from prod2 import (
     parse_prod2_report, get_team_profile, get_classement_table, compute_player_groups,
