@@ -57,15 +57,15 @@
                 <tr>
                     <td>{% if loop.index == 1 %}🥇 {% elif loop.index == 2 %}🥈 {% elif loop.index == 3 %}🥉 {% endif %}{{ r.name }}</td>
                     <td><span class="{{ 'stat-pos' if r.contact_plus else '' }}">{{ r.contact_plus }}</span> / <span class="{{ 'stat-neg' if r.contact_minus else '' }}">{{ r.contact_minus }}</span></td>
-                    <td>{{ r.contact_total }}{% if r.contact_pct is not none %} ({{ r.contact_pct }}%){% endif %}{% if pb and r.contact_pct is not none %}{{ kpi_compare(r.contact_pct, pb.contact_pct, true, '%') }}{% endif %}</td>
+                    <td>{{ r.contact_total }}{% if r.contact_pct is not none %} ({{ r.contact_pct }}%){% endif %}{% if pb and r.contact_pct is not none %}{{ kpi_arrow(r.contact_pct, pb.contact_pct, true, '%') }}{% endif %}</td>
                     <td><span class="{{ 'stat-pos' if r.duel_plus else '' }}">{{ r.duel_plus }}</span> / <span class="{{ 'stat-neg' if r.duel_minus else '' }}">{{ r.duel_minus }}</span></td>
-                    <td>{{ r.duel_total }}{% if r.duel_pct is not none %} ({{ r.duel_pct }}%){% endif %}{% if pb and r.duel_pct is not none %}{{ kpi_compare(r.duel_pct, pb.duel_pct, true, '%') }}{% endif %}</td>
+                    <td>{{ r.duel_total }}{% if r.duel_pct is not none %} ({{ r.duel_pct }}%){% endif %}{% if pb and r.duel_pct is not none %}{{ kpi_arrow(r.duel_pct, pb.duel_pct, true, '%') }}{% endif %}</td>
                     <td><span class="{{ 'stat-pos' if r.passe_plus else '' }}">{{ r.passe_plus }}</span> / <span class="{{ 'stat-neg' if r.passe_minus else '' }}">{{ r.passe_minus }}</span></td>
-                    <td>{{ r.passe_total }}{% if r.passe_pct is not none %} ({{ r.passe_pct }}%){% endif %}{% if pb and r.passe_pct is not none %}{{ kpi_compare(r.passe_pct, pb.passe_pct, true, '%') }}{% endif %}</td>
+                    <td>{{ r.passe_total }}{% if r.passe_pct is not none %} ({{ r.passe_pct }}%){% endif %}{% if pb and r.passe_pct is not none %}{{ kpi_arrow(r.passe_pct, pb.passe_pct, true, '%') }}{% endif %}</td>
                     <td><span class="{{ 'stat-pos' if r.offload_plus else '' }}">{{ r.offload_plus }}</span> / <span class="{{ 'stat-neg' if r.offload_minus else '' }}">{{ r.offload_minus }}</span></td>
-                    <td>{{ r.offload_total }}{% if r.offload_pct is not none %} ({{ r.offload_pct }}%){% endif %}{% if pb and r.offload_pct is not none %}{{ kpi_compare(r.offload_pct, pb.offload_pct, true, '%') }}{% endif %}</td>
+                    <td>{{ r.offload_total }}{% if r.offload_pct is not none %} ({{ r.offload_pct }}%){% endif %}{% if pb and r.offload_pct is not none %}{{ kpi_arrow(r.offload_pct, pb.offload_pct, true, '%') }}{% endif %}</td>
                     <td>{{ r.pdb }}</td><td>{{ r.def_battu }}</td><td>{{ r.break }}</td>
-                    <td class="stat-own">{{ r.points }}{% if pb %}{{ kpi_compare(r.points, pb.points_avg, true) }}{% endif %}</td>
+                    <td class="stat-own">{{ r.points }}{% if pb %}{{ kpi_arrow(r.points, pb.points_avg, true) }}{% endif %}</td>
                 </tr>
             {% endfor %}
             </tbody>
@@ -106,10 +106,10 @@
                     <td>{{ r.plaquage_neutre }}</td>
                     <td>{{ r.plaquage_passif }}</td>
                     <td><span class="{{ 'stat-neg' if r.plaquage_rate else '' }}">{{ r.plaquage_rate }}</span></td>
-                    <td>{{ r.tackle_total }}{% if r.tackle_pct is not none %} ({{ r.tackle_pct }}%){% endif %}{% if pb and r.tackle_pct is not none %}{{ kpi_compare(r.tackle_pct, pb.tackle_pct, true, '%') }}{% endif %}</td>
+                    <td>{{ r.tackle_total }}{% if r.tackle_pct is not none %} ({{ r.tackle_pct }}%){% endif %}{% if pb and r.tackle_pct is not none %}{{ kpi_arrow(r.tackle_pct, pb.tackle_pct, true, '%') }}{% endif %}</td>
                     <td><span class="{{ 'stat-pos' if r.assist_plus else '' }}">{{ r.assist_plus }}</span> / <span class="{{ 'stat-neg' if r.assist_minus else '' }}">{{ r.assist_minus }}</span></td>
                     <td><span class="{{ 'stat-neg' if r.discipline else '' }}">{{ r.discipline }}</span></td>
-                    <td class="stat-own">{{ r.points }}{% if pb %}{{ kpi_compare(r.points, pb.points_avg, true) }}{% endif %}</td>
+                    <td class="stat-own">{{ r.points }}{% if pb %}{{ kpi_arrow(r.points, pb.points_avg, true) }}{% endif %}</td>
                 </tr>
             {% endfor %}
             </tbody>
@@ -153,9 +153,9 @@
                     <td><span class="{{ 'stat-pos' if r.arr2_plus else '' }}">{{ r.arr2_plus }}</span> / <span class="{{ 'stat-neg' if r.arr2_minus else '' }}">{{ r.arr2_minus }}</span></td>
                     <td><span class="{{ 'stat-pos' if r.ancreur_plus else '' }}">{{ r.ancreur_plus }}</span> / <span class="{{ 'stat-neg' if r.ancreur_minus else '' }}">{{ r.ancreur_minus }}</span></td>
                     <td><span class="{{ 'stat-pos' if r.raseur_plus else '' }}">{{ r.raseur_plus }}</span> / <span class="{{ 'stat-neg' if r.raseur_minus else '' }}">{{ r.raseur_minus }}</span></td>
-                    <td><span class="{{ 'stat-pos' if r.gratteur_plus else '' }}">{{ r.gratteur_plus }}</span> / <span class="{{ 'stat-neg' if r.gratteur_minus else '' }}">{{ r.gratteur_minus }}</span>{% if r.gratteur_pct is not none %} ({{ r.gratteur_pct }}%){% endif %}{% if pb and r.gratteur_pct is not none %}{{ kpi_compare(r.gratteur_pct, pb.gratteur_pct, true, '%') }}{% endif %}</td>
-                    <td><span class="{{ 'stat-pos' if r.contre_ruck_plus else '' }}">{{ r.contre_ruck_plus }}</span> / <span class="{{ 'stat-neg' if r.contre_ruck_minus else '' }}">{{ r.contre_ruck_minus }}</span>{% if r.contre_ruck_pct is not none %} ({{ r.contre_ruck_pct }}%){% endif %}{% if pb and r.contre_ruck_pct is not none %}{{ kpi_compare(r.contre_ruck_pct, pb.contre_ruck_pct, true, '%') }}{% endif %}</td>
-                    <td class="stat-own">{{ r.points }}{% if pb %}{{ kpi_compare(r.points, pb.points_avg, true) }}{% endif %}</td>
+                    <td><span class="{{ 'stat-pos' if r.gratteur_plus else '' }}">{{ r.gratteur_plus }}</span> / <span class="{{ 'stat-neg' if r.gratteur_minus else '' }}">{{ r.gratteur_minus }}</span>{% if r.gratteur_pct is not none %} ({{ r.gratteur_pct }}%){% endif %}{% if pb and r.gratteur_pct is not none %}{{ kpi_arrow(r.gratteur_pct, pb.gratteur_pct, true, '%') }}{% endif %}</td>
+                    <td><span class="{{ 'stat-pos' if r.contre_ruck_plus else '' }}">{{ r.contre_ruck_plus }}</span> / <span class="{{ 'stat-neg' if r.contre_ruck_minus else '' }}">{{ r.contre_ruck_minus }}</span>{% if r.contre_ruck_pct is not none %} ({{ r.contre_ruck_pct }}%){% endif %}{% if pb and r.contre_ruck_pct is not none %}{{ kpi_arrow(r.contre_ruck_pct, pb.contre_ruck_pct, true, '%') }}{% endif %}</td>
+                    <td class="stat-own">{{ r.points }}{% if pb %}{{ kpi_arrow(r.points, pb.points_avg, true) }}{% endif %}</td>
                 </tr>
             {% endfor %}
             </tbody>
