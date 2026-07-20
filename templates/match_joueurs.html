@@ -2,48 +2,98 @@
 {% block title %}Joueurs — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
 {% set active = 'joueurs' %}
 {% block content %}
-{% from "_kpi_compare.html" import kpi_compare, kpi_arrow %}
+{% from "_kpi_compare.html" import kpi_arrow %}
 
 <div class="page-header no-print">
     <div>
         <h1>👥 Joueurs — {{ match['own_team'] }}</h1>
-        <p class="subtitle">Cartes par joueur puis trois tableaux détaillés (attaque, défense, ruck). Clique sur l'en-tête d'une colonne pour trier. Flèche = comparaison à la moyenne saison du joueur (hors ce match).</p>
+        <p class="subtitle">Vue d'ensemble individuelle du match. Clique sur l'en-tête d'une colonne pour trier. Le détail complet par secteur est disponible dans les blocs repliés en bas de page.</p>
     </div>
     <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
 </div>
 
-<details class="card section-block" open>
-    <summary>
-        <span class="section-title">🃏 Cartes par joueur</span>
-        <span class="section-help">Indice attaque / défense / ruck de chaque joueur sur ce match, comparé à sa moyenne saison.</span>
-    </summary>
-    <div class="section-body">
-        <div class="kpi-row">
+<div class="card">
+    <h2>📋 Vue d'ensemble individuelle</h2>
+    <table class="stat-table zebra-table sortable players-overview">
+        <thead>
+            <tr class="group-row">
+                <th></th>
+                <th colspan="5">⚔️ ATTAQUE</th>
+                <th colspan="3">💥 ZONE DE CONTACT</th>
+                <th colspan="4">🛡️ DÉFENSE</th>
+                <th colspan="2">🤝 RUCK</th>
+                <th>⚠️ DISC.</th>
+                <th>SCORE</th>
+            </tr>
+            <tr class="cols-row">
+                <th>Joueur</th>
+                <th class="sep-l">Ballons portés</th><th>Déf. battus</th><th>Offloads</th><th>Breaks</th><th>Passes</th>
+                <th class="sep-l">Contact +</th><th>Contact −</th><th>Efficacité</th>
+                <th class="sep-l">Plaquages</th><th>Dominants</th><th>Ratés</th><th>% Réussite</th>
+                <th class="sep-l">Grattages</th><th>Contre-rucks</th>
+                <th class="sep-l">Fautes</th>
+                <th class="sep-l">Indice</th>
+            </tr>
+        </thead>
+        <tbody>
         {% for c in player_cards %}
-            {% set pb = (player_baselines or {}).get(c.name) or {} %}
-            <div class="kpi-card">
-                <div class="kpi-label"><span class="demo-blur">{{ c.name }}</span>{% if pb.get('matches') %} · {{ pb.get('matches') }} match{{ 's' if pb.get('matches') != 1 else '' }} en saison{% endif %}</div>
-                <div class="kpi-value {{ 'kpi-own' if c.total_points >= 0 else 'kpi-adverse' }}">{{ c.total_points }}</div>
-                <div class="kpi-help">
-                    {% if c.attack %}⚔️ Attaque : <strong>{{ c.attack.points }}</strong>{% if pb.get('attack') %}{{ kpi_compare(c.attack.points, pb.get('attack').points_avg, true) }}{% endif %}<br>{% endif %}
-                    {% if c.defense %}🛡️ Défense : <strong>{{ c.defense.points }}</strong>{% if pb.get('defense') %}{{ kpi_compare(c.defense.points, pb.get('defense').points_avg, true) }}{% endif %}<br>{% endif %}
-                    {% if c.ruck %}🤝 Ruck : <strong>{{ c.ruck.points }}</strong>{% if pb.get('ruck') %}{{ kpi_compare(c.ruck.points, pb.get('ruck').points_avg, true) }}{% endif %}{% endif %}
-                </div>
-            </div>
+            {% set a = c.attack or {} %}
+            {% set d = c.defense or {} %}
+            {% set ru = c.ruck or {} %}
+            <tr>
+                <td>{% if loop.index == 1 %}🥇 {% elif loop.index == 2 %}🥈 {% elif loop.index == 3 %}🥉 {% endif %}{{ c.name }}</td>
+                <td class="sep-l">{{ a.get('pdb', 0) }}</td>
+                <td>{{ a.get('def_battu', 0) }}</td>
+                <td>{{ a.get('offload_plus', 0) }}</td>
+                <td>{{ a.get('break', 0) }}</td>
+                <td>{{ a.get('passe_total', 0) }}</td>
+                <td class="sep-l"><span class="{{ 'stat-pos' if a.get('contact_plus') else '' }}">{{ a.get('contact_plus', 0) }}</span></td>
+                <td><span class="{{ 'stat-neg' if a.get('contact_minus') else '' }}">{{ a.get('contact_minus', 0) }}</span></td>
+                <td>{{ a.get('contact_pct') ~ '%' if a.get('contact_pct') is not none else '—' }}</td>
+                <td class="sep-l">{{ d.get('tackle_total', 0) }}</td>
+                <td><span class="{{ 'stat-pos' if d.get('plaquage_dominant') else '' }}">{{ d.get('plaquage_dominant', 0) }}</span></td>
+                <td><span class="{{ 'stat-neg' if d.get('plaquage_rate') else '' }}">{{ d.get('plaquage_rate', 0) }}</span></td>
+                <td>{{ d.get('tackle_pct') ~ '%' if d.get('tackle_pct') is not none else '—' }}</td>
+                <td class="sep-l"><span class="{{ 'stat-pos' if ru.get('gratteur_plus') else '' }}">{{ ru.get('gratteur_plus', 0) }}</span></td>
+                <td><span class="{{ 'stat-pos' if ru.get('contre_ruck_plus') else '' }}">{{ ru.get('contre_ruck_plus', 0) }}</span></td>
+                <td class="sep-l"><span class="{{ 'stat-neg' if d.get('discipline') else '' }}">{{ d.get('discipline', 0) }}</span></td>
+                <td class="sep-l stat-own" style="font-weight:800;">{{ c.total_points }}</td>
+            </tr>
         {% endfor %}
-        </div>
-    </div>
-</details>
+        </tbody>
+        <tfoot>
+            <tr style="font-weight:700; border-top:2px solid rgba(255,255,255,0.3);">
+                <td>TOTAL</td>
+                <td class="sep-l">{{ attack_table.totals.get('pdb', 0) }}</td>
+                <td>{{ attack_table.totals.get('def_battu', 0) }}</td>
+                <td>{{ attack_table.totals.get('offload_plus', 0) }}</td>
+                <td>{{ attack_table.totals.get('break', 0) }}</td>
+                <td>{{ attack_table.totals.get('passe_plus', 0) + attack_table.totals.get('passe_minus', 0) }}</td>
+                <td class="sep-l">{{ attack_table.totals.get('contact_plus', 0) }}</td>
+                <td>{{ attack_table.totals.get('contact_minus', 0) }}</td>
+                <td>{% set ct = attack_table.totals.get('contact_plus', 0) + attack_table.totals.get('contact_minus', 0) %}{{ (attack_table.totals.get('contact_plus', 0) / ct * 100) | round if ct else '—' }}{{ '%' if ct }}</td>
+                <td class="sep-l">{{ defense_table.totals.get('plaquage_dominant', 0) + defense_table.totals.get('plaquage_neutre', 0) + defense_table.totals.get('plaquage_passif', 0) + defense_table.totals.get('plaquage_rate', 0) }}</td>
+                <td>{{ defense_table.totals.get('plaquage_dominant', 0) }}</td>
+                <td>{{ defense_table.totals.get('plaquage_rate', 0) }}</td>
+                <td>{% set tt = defense_table.totals.get('plaquage_dominant', 0) + defense_table.totals.get('plaquage_neutre', 0) + defense_table.totals.get('plaquage_passif', 0) + defense_table.totals.get('plaquage_rate', 0) %}{{ ((tt - defense_table.totals.get('plaquage_rate', 0)) / tt * 100) | round if tt else '—' }}{{ '%' if tt }}</td>
+                <td class="sep-l">{{ ruck_table.totals.get('gratteur_plus', 0) }}</td>
+                <td>{{ ruck_table.totals.get('contre_ruck_plus', 0) }}</td>
+                <td class="sep-l">{{ defense_table.totals.get('discipline', 0) }}</td>
+                <td class="sep-l">{{ attack_table.totals.get('points', 0) + defense_table.totals.get('points', 0) + ruck_table.totals.get('points', 0) }}</td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
 
-<details class="card section-block" open>
+<details class="card section-block">
     <summary>
-        <span class="section-title">⚔️ Attaque par joueur</span>
-        <span class="section-help">Contacts, duels, passes, offloads, ballons portés, défenseurs battus, breaks.</span>
+        <span class="section-title">⚔️ Détail attaque par joueur</span>
+        <span class="section-help">Contacts, duels, passes, offloads détaillés en +/-. Flèche = vs sa moyenne saison (survole pour la valeur).</span>
     </summary>
     <div class="section-body">
         <table class="stat-table zebra-table sortable">
             <thead>
-                <tr>
+                <tr class="cols-row">
                     <th>Joueur</th><th>Contact +/-</th><th>Total / %</th>
                     <th>Duel +/-</th><th>Total / %</th>
                     <th>Passes +/-</th><th>Total / %</th>
@@ -55,7 +105,7 @@
             {% for r in attack_table.rows %}
                 {% set pb = ((player_baselines or {}).get(r.name) or {}).get('attack') %}
                 <tr>
-                    <td>{% if loop.index == 1 %}🥇 {% elif loop.index == 2 %}🥈 {% elif loop.index == 3 %}🥉 {% endif %}{{ r.name }}</td>
+                    <td>{{ r.name }}</td>
                     <td><span class="{{ 'stat-pos' if r.contact_plus else '' }}">{{ r.contact_plus }}</span> / <span class="{{ 'stat-neg' if r.contact_minus else '' }}">{{ r.contact_minus }}</span></td>
                     <td>{{ r.contact_total }}{% if r.contact_pct is not none %} ({{ r.contact_pct }}%){% endif %}{% if pb and r.contact_pct is not none %}{{ kpi_arrow(r.contact_pct, pb.contact_pct, true, '%') }}{% endif %}</td>
                     <td><span class="{{ 'stat-pos' if r.duel_plus else '' }}">{{ r.duel_plus }}</span> / <span class="{{ 'stat-neg' if r.duel_minus else '' }}">{{ r.duel_minus }}</span></td>
@@ -69,30 +119,19 @@
                 </tr>
             {% endfor %}
             </tbody>
-            <tfoot>
-                <tr style="font-weight:700; border-top:2px solid #dee2e6;">
-                    <td>TOTAL</td>
-                    <td>{{ attack_table.totals.contact_plus }} / {{ attack_table.totals.contact_minus }}</td><td>{{ attack_table.totals.contact_plus + attack_table.totals.contact_minus }}</td>
-                    <td>{{ attack_table.totals.duel_plus }} / {{ attack_table.totals.duel_minus }}</td><td>{{ attack_table.totals.duel_plus + attack_table.totals.duel_minus }}</td>
-                    <td>{{ attack_table.totals.passe_plus }} / {{ attack_table.totals.passe_minus }}</td><td>{{ attack_table.totals.passe_plus + attack_table.totals.passe_minus }}</td>
-                    <td>{{ attack_table.totals.offload_plus }} / {{ attack_table.totals.offload_minus }}</td><td>{{ attack_table.totals.offload_plus + attack_table.totals.offload_minus }}</td>
-                    <td>{{ attack_table.totals.pdb }}</td><td>{{ attack_table.totals.def_battu }}</td><td>{{ attack_table.totals.break }}</td>
-                    <td>{{ attack_table.totals.points }}</td>
-                </tr>
-            </tfoot>
         </table>
     </div>
 </details>
 
-<details class="card section-block" open>
+<details class="card section-block">
     <summary>
-        <span class="section-title">🛡️ Défense par joueur</span>
+        <span class="section-title">🛡️ Détail défense par joueur</span>
         <span class="section-help">Plaquages par qualité (dominant / neutre / passif / raté), assists, discipline.</span>
     </summary>
     <div class="section-body">
         <table class="stat-table zebra-table sortable">
             <thead>
-                <tr>
+                <tr class="cols-row">
                     <th>Joueur</th><th>Dominant (+)</th><th>Neutre (=)</th><th>Passif (-)</th><th>Raté</th>
                     <th>Total / %</th><th>Assist +/-</th><th>Discipline</th><th>Indice</th>
                 </tr>
@@ -101,7 +140,7 @@
             {% for r in defense_table.rows %}
                 {% set pb = ((player_baselines or {}).get(r.name) or {}).get('defense') %}
                 <tr>
-                    <td>{% if loop.index == 1 %}🥇 {% elif loop.index == 2 %}🥈 {% elif loop.index == 3 %}🥉 {% endif %}{{ r.name }}</td>
+                    <td>{{ r.name }}</td>
                     <td><span class="{{ 'stat-pos' if r.plaquage_dominant else '' }}">{{ r.plaquage_dominant }}</span></td>
                     <td>{{ r.plaquage_neutre }}</td>
                     <td>{{ r.plaquage_passif }}</td>
@@ -113,32 +152,19 @@
                 </tr>
             {% endfor %}
             </tbody>
-            <tfoot>
-                <tr style="font-weight:700; border-top:2px solid #dee2e6;">
-                    <td>TOTAL</td>
-                    <td>{{ defense_table.totals.plaquage_dominant }}</td>
-                    <td>{{ defense_table.totals.plaquage_neutre }}</td>
-                    <td>{{ defense_table.totals.plaquage_passif }}</td>
-                    <td>{{ defense_table.totals.plaquage_rate }}</td>
-                    <td>{{ defense_table.totals.plaquage_dominant + defense_table.totals.plaquage_neutre + defense_table.totals.plaquage_passif + defense_table.totals.plaquage_rate }}</td>
-                    <td>{{ defense_table.totals.assist_plus }} / {{ defense_table.totals.assist_minus }}</td>
-                    <td>{{ defense_table.totals.discipline }}</td>
-                    <td>{{ defense_table.totals.points }}</td>
-                </tr>
-            </tfoot>
         </table>
     </div>
 </details>
 
-<details class="card section-block" open>
+<details class="card section-block">
     <summary>
-        <span class="section-title">🤝 Ruck par joueur</span>
+        <span class="section-title">🤝 Détail ruck par joueur</span>
         <span class="section-help">Ruck offensif (arrivée 1er/2e homme, ancreur, raseur) et ruck défensif (gratteur, contre-ruck).</span>
     </summary>
     <div class="section-body">
         <table class="stat-table zebra-table sortable">
             <thead>
-                <tr>
+                <tr class="cols-row">
                     <th>Joueur</th><th>1er homme +/-</th><th>2e homme +/-</th>
                     <th>Ancreur +/-</th><th>Raseur +/-</th>
                     <th>Gratteur +/- (%)</th><th>Contre-ruck +/- (%)</th><th>Indice</th>
@@ -148,7 +174,7 @@
             {% for r in ruck_table.rows %}
                 {% set pb = ((player_baselines or {}).get(r.name) or {}).get('ruck') %}
                 <tr>
-                    <td>{% if loop.index == 1 %}🥇 {% elif loop.index == 2 %}🥈 {% elif loop.index == 3 %}🥉 {% endif %}{{ r.name }}</td>
+                    <td>{{ r.name }}</td>
                     <td><span class="{{ 'stat-pos' if r.arr1_plus else '' }}">{{ r.arr1_plus }}</span> / <span class="{{ 'stat-neg' if r.arr1_minus else '' }}">{{ r.arr1_minus }}</span></td>
                     <td><span class="{{ 'stat-pos' if r.arr2_plus else '' }}">{{ r.arr2_plus }}</span> / <span class="{{ 'stat-neg' if r.arr2_minus else '' }}">{{ r.arr2_minus }}</span></td>
                     <td><span class="{{ 'stat-pos' if r.ancreur_plus else '' }}">{{ r.ancreur_plus }}</span> / <span class="{{ 'stat-neg' if r.ancreur_minus else '' }}">{{ r.ancreur_minus }}</span></td>
@@ -159,18 +185,6 @@
                 </tr>
             {% endfor %}
             </tbody>
-            <tfoot>
-                <tr style="font-weight:700; border-top:2px solid #dee2e6;">
-                    <td>TOTAL</td>
-                    <td>{{ ruck_table.totals.arr1_plus }} / {{ ruck_table.totals.arr1_minus }}</td>
-                    <td>{{ ruck_table.totals.arr2_plus }} / {{ ruck_table.totals.arr2_minus }}</td>
-                    <td>{{ ruck_table.totals.ancreur_plus }} / {{ ruck_table.totals.ancreur_minus }}</td>
-                    <td>{{ ruck_table.totals.raseur_plus }} / {{ ruck_table.totals.raseur_minus }}</td>
-                    <td>{{ ruck_table.totals.gratteur_plus }} / {{ ruck_table.totals.gratteur_minus }}</td>
-                    <td>{{ ruck_table.totals.contre_ruck_plus }} / {{ ruck_table.totals.contre_ruck_minus }}</td>
-                    <td>{{ ruck_table.totals.points }}</td>
-                </tr>
-            </tfoot>
         </table>
     </div>
 </details>
@@ -181,18 +195,20 @@ function preparePrint() {
     setTimeout(() => window.print(), 100);
 }
 
-// Tri cliquable sur les tableaux joueurs : clic sur un en-tête = tri décroissant,
-// second clic = croissant. Le tri lit le premier nombre de chaque cellule (ex : "3 / 1 (75%)"
-// est trié sur 3), et retombe sur un tri alphabétique pour la colonne Joueur.
+// Tri cliquable : clic sur un en-tête de colonne = tri décroissant, second clic = croissant.
+// On n'attache le tri qu'à la ligne d'en-têtes de colonnes (tr.cols-row), pas à la ligne
+// des groupes (ATTAQUE / DÉFENSE...) qui utilise des colspans.
 document.querySelectorAll('table.sortable').forEach(function (table) {
-    table.querySelectorAll('thead th').forEach(function (th, colIdx) {
+    const colsRow = table.querySelector('thead tr.cols-row') || table.querySelector('thead tr:last-child');
+    if (!colsRow) return;
+    Array.from(colsRow.children).forEach(function (th, colIdx) {
         th.style.cursor = 'pointer';
         th.title = 'Cliquer pour trier';
         th.addEventListener('click', function () {
             const tbody = table.querySelector('tbody');
             const rows = Array.from(tbody.querySelectorAll('tr'));
             const desc = th.dataset.sortDir !== 'desc';
-            table.querySelectorAll('thead th').forEach(function (h) {
+            Array.from(colsRow.children).forEach(function (h) {
                 delete h.dataset.sortDir;
                 h.textContent = h.textContent.replace(/ [▲▼]$/, '');
             });
