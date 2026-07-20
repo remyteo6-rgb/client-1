@@ -542,7 +542,8 @@ def match_joueurs(match_id):
     ruck_table = compute_player_ruck_table(match["instances"])
     matches_with_instances, _, _, _ = _season_context()
     player_baselines = compute_player_season_baselines(matches_with_instances, exclude_id=match_id)
-    player_cards = build_player_cards(attack_table, defense_table, ruck_table)
+    player_cards = build_player_cards(attack_table, defense_table, ruck_table,
+                                      composition=match.get("composition"))
     return render_template("match_joueurs.html", match=match, attack_table=attack_table,
                            defense_table=defense_table, ruck_table=ruck_table,
                            player_baselines=player_baselines, player_cards=player_cards)
