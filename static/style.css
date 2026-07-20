@@ -851,6 +851,22 @@ body.demo-mode .demo-blur {
    colorée à côté de la valeur, pour voir d'un coup d'œil si le match est bon ou mauvais. */
 .kpi-compare { font-size: 12px; font-weight: 700; margin-top: 3px; cursor: help; }
 .kpi-arrow { font-size: 13px; font-weight: 800; margin-left: 4px; cursor: help; }
+/* Tableau "vue d'ensemble individuelle" (page Joueurs d'un match) : groupes de colonnes
+   à la façon des rapports pro (ATTAQUE / ZONE DE CONTACT / DÉFENSE / RUCK / SCORE). */
+.players-overview thead tr.group-row th {
+    background: linear-gradient(180deg, #2b4a63, #16222c);
+    color: #ffffff;
+    text-align: center;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    padding: 8px 6px;
+    border-left: 2px solid rgba(255,255,255,0.18);
+}
+.players-overview thead tr.group-row th:first-child { background: transparent; border-left: none; }
+.players-overview thead tr.cols-row th { text-align: center; }
+.players-overview tbody td, .players-overview tfoot td { text-align: center; }
+.players-overview tbody td:first-child, .players-overview tfoot td:first-child { text-align: left; font-weight: 600; white-space: nowrap; }
+.players-overview .sep-l { border-left: 2px solid rgba(255,255,255,0.18); }
 .kpi-compare-up { color: var(--positive); }
 .kpi-compare-down { color: var(--negative); }
 .kpi-compare-flat { color: var(--text-secondary); }
