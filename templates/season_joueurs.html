@@ -3,14 +3,14 @@
 {% block content %}
 {% from "_players_overview.html" import players_overview %}
 
-<div class="page-header no-print">
+<div class="no-print card card-full-bleed">
+  <div class="page-header card-full-bleed-inner">
     <div>
         <h1>👥 Effectif — Joueurs par poste</h1>
         <p class="subtitle">Tout l'effectif, groupé par poste, statistiques cumulées sur {{ selected_count }} match{{ 's' if selected_count != 1 else '' }} sélectionné{{ 's' if selected_count != 1 else '' }}. Un joueur sans stat sur la sélection affiche une ligne à zéro.</p>
-
-<div class="card card-full-bleed">
-    <p class="subtitle">Cumul sur les matchs sélectionnés, joueurs par ordre alphabétique. Clique sur un en-tête de colonne pour trier.</p>
-    {{ players_overview(player_cards, attack_table, defense_table, ruck_table) }}
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+  </div>
 </div>
 
 {% for g in groups %}
