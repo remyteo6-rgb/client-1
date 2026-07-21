@@ -21,6 +21,7 @@ from parser import (
     group_training_sessions_by_period, compute_win_loss_analysis, compute_match_kpis,
    PHASE_ICONS, PHASE_HELP, compute_event_timing_multi, compute_match_baseline,
     compute_sector_baselines, compute_player_season_baselines, build_player_cards,
+    attach_overview_highlights,
 )
 from prod2 import (
     parse_prod2_report, get_team_profile, get_classement_table, compute_player_groups,
@@ -542,8 +543,8 @@ def match_joueurs(match_id):
     ruck_table = compute_player_ruck_table(match["instances"])
     matches_with_instances, _, _, _ = _season_context()
     player_baselines = compute_player_season_baselines(matches_with_instances, exclude_id=match_id)
-    player_cards = build_player_cards(attack_table, defense_table, ruck_table,
-                                      composition=match.get("composition"))
+    player_cards = attach_overview_highlights(build_player_cards(
+        attack_table, defense_table, ruck_table, composition=match.get("composition")))
     return render_template("match_joueurs.html", match=match, attack_table=attack_table,
                            defense_table=defense_table, ruck_table=ruck_table,
                            player_baselines=player_baselines, player_cards=player_cards)
@@ -1170,7 +1171,7 @@ def season_joueurs():
     attack_table = compute_player_attack_table(instances)
     defense_table = compute_player_defense_table(instances)
     ruck_table = compute_player_ruck_table(instances)
-    player_cards = build_player_cards(attack_table, defense_table, ruck_table)
+    player_cards = attach_overview_highlights(build_player_cards(attack_table, defense_table, ruck_table))
     return render_template("season_joueurs.html", groups=groups, season_mode=True, active="joueurs",
                            qs=qs, selected_count=len(selected),
                            attack_table=attack_table, defense_table=defense_table,
