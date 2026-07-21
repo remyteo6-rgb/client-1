@@ -11,11 +11,6 @@
     <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
 </div>
 
-<div class="card">
-    <h2>📋 Vue d'ensemble individuelle — saison</h2>
-    <p class="subtitle">Cumul sur les matchs sélectionnés, joueurs par ordre alphabétique. Clique sur un en-tête de colonne pour trier.</p>
-    {{ players_overview(player_cards, attack_table, defense_table, ruck_table) }}
-</div>
 
 {% for g in groups %}
 <details class="card section-block">
