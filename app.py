@@ -16,7 +16,7 @@ from parser import (
     compute_overview_dashboard, compute_ruck_sector, compute_season_dashboard,
     compute_squad_preview, compute_squad_season_stats, SQUAD_ROSTER, SQUAD_POSITION_ORDER,
     is_jiff, compute_jiff_chart,
-    compute_transition_sector, compute_player_comparison, compute_comparison_radars,
+    compute_transition_sector, compute_player_comparison, compute_player_radar_svg,
     compute_back3_trend, TRAINING_TAXONOMY, compute_training_volume,
     group_training_sessions_by_period, compute_win_loss_analysis, compute_match_kpis,
    PHASE_ICONS, PHASE_HELP, compute_event_timing_multi, compute_match_baseline,
@@ -1184,20 +1184,20 @@ def season_comparateur():
     player_a = request.args.get("a") or ""
     player_b = request.args.get("b") or ""
     comparison = None
-    radars = None
+    radar_svg = None
     if instances and player_a and player_b:
         comparison = compute_player_comparison(instances, player_a, player_b)
-        radars = compute_comparison_radars(comparison["attack_rows"], comparison["defense_rows"], comparison["ruck_rows"])
+        radar_svg = compute_player_radar_svg(comparison["attack_rows"], comparison["defense_rows"],
+                                              comparison["ruck_rows"])
     all_players = [
         {"position": position, "players": SQUAD_ROSTER[position]}
         for position in SQUAD_POSITION_ORDER
     ]
     return render_template(
-        "season_comparateur.html", data=comparison, radars=radars, all_players=all_players,
+        "season_comparateur.html", data=comparison, radar_svg=radar_svg, all_players=all_players,
         player_a=player_a, player_b=player_b, selected_ids=selected_ids,
         season_mode=True, active="comparateur", qs=qs, selected_count=len(selected),
     )
-
 
 @app.route("/season/jiff")
 def season_jiff():
