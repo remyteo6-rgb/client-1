@@ -867,6 +867,11 @@ body.demo-mode .demo-blur {
 .players-overview tbody td, .players-overview tfoot td { text-align: center; }
 .players-overview tbody td:first-child, .players-overview tfoot td:first-child { text-align: left; font-weight: 600; white-space: nowrap; }
 .players-overview .sep-l { border-left: 2px solid rgba(255,255,255,0.18); }
+/* Surlignage automatique du meilleur / pire joueur de chaque colonne clé (voir
+   compute_overview_highlights dans parser.py) : fait ressortir les extrêmes d'un coup
+   d'œil, sans avoir à trier colonne par colonne. */
+.players-overview td.stat-highlight-good { background: rgba(111,207,122,0.22); }
+.players-overview td.stat-highlight-bad { background: rgba(255,92,92,0.22); }
 .kpi-compare-up { color: var(--positive); }
 .kpi-compare-down { color: var(--negative); }
 .kpi-compare-flat { color: var(--text-secondary); }
