@@ -1687,6 +1687,61 @@ def build_player_cards(attack_table, defense_table, ruck_table, composition=None
     return out
 
 
+# Colonnes du tableau "vue d'ensemble individuelle" où repérer automatiquement l'extrême :
+# GOOD = plus haut est mieux, on surligne le(s) meilleur(s) ; BAD = plus haut est pire
+# (fautes, plaquages ratés, ballons perdus en contact), on surligne le(s) pire(s).
+_OVERVIEW_GOOD_METRICS = [
+    ("attack", "pdb"), ("attack", "def_battu"), ("attack", "offload_plus"),
+    ("attack", "break"), ("attack", "contact_plus"),
+    ("defense", "plaquage_dominant"), ("ruck", "gratteur_plus"), ("ruck", "contre_ruck_plus"),
+]
+_OVERVIEW_BAD_METRICS = [
+    ("attack", "contact_minus"), ("defense", "plaquage_rate"), ("defense", "discipline"),
+]
+
+
+def compute_overview_highlights(player_cards):
+    """Repère, pour chaque colonne clé du tableau vue d'ensemble, le(s) joueur(s) qui font
+    le mieux (à surligner en vert) et, pour les colonnes où plus haut est mauvais (fautes,
+    plaquages ratés, pertes en contact), le(s) joueur(s) qui font le moins bien (à surligner
+    en rouge) — pour faire ressortir les extrêmes d'un coup d'œil dans un tableau dense,
+    sans avoir à trier colonne par colonne. Seules les valeurs > 0 sont éligibles (on ne
+    surligne pas des '0' partagés par tout l'effectif). Renvoie {nom_joueur: {colonne: 'good'|'bad'}}."""
+    def _get(card, section, key):
+        v = (card.get(section) or {}).get(key)
+        return v if isinstance(v, (int, float)) else None
+
+    highlights = {c["name"]: {} for c in player_cards}
+    for section, key in _OVERVIEW_GOOD_METRICS:
+        vals = [(c["name"], _get(c, section, key)) for c in player_cards]
+        vals = [(n, v) for n, v in vals if v]
+        if not vals:
+            continue
+        best = max(v for _, v in vals)
+        for n, v in vals:
+            if v == best:
+                highlights[n][key] = "good"
+    for section, key in _OVERVIEW_BAD_METRICS:
+        vals = [(c["name"], _get(c, section, key)) for c in player_cards]
+        vals = [(n, v) for n, v in vals if v]
+        if not vals:
+            continue
+        worst = max(v for _, v in vals)
+        for n, v in vals:
+            if v == worst:
+                highlights[n][key] = "bad"
+    return highlights
+
+
+def attach_overview_highlights(player_cards):
+    """Calcule et attache à chaque carte joueur ('hl') les surlignages du tableau vue
+    d'ensemble (voir compute_overview_highlights). Renvoie la même liste, mutée."""
+    highlights = compute_overview_highlights(player_cards)
+    for c in player_cards:
+        c["hl"] = highlights.get(c["name"], {})
+    return player_cards
+
+
 # ---- Comparateur de joueurs (saison) ------------------------------------------
 
 def _zero_attack_row(name):
