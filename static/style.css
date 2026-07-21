@@ -42,7 +42,7 @@ a { color: inherit; text-decoration: none; }
 }
 
 .page {
-    max-width: 1200px;
+    max-width: 1600px;
     margin: 24px auto;
     padding: 28px 32px;
     background: rgba(4,7,10,0.5);
@@ -872,25 +872,7 @@ body.demo-mode .demo-blur {
    d'œil, sans avoir à trier colonne par colonne. */
 .players-overview td.stat-highlight-good { background: rgba(111,207,122,0.22); }
 .players-overview td.stat-highlight-bad { background: rgba(255,92,92,0.22); }
-/* Carte "pleine largeur" : casse le cadre de .page (limité à 1200px) pour occuper tout
-   l'écran, utile pour un tableau très large (ex : vue d'ensemble individuelle) qui sinon
-   laisse une bande vide inutilisée de chaque côté sur un grand écran. */
-.card-full-bleed {
-    width: 100vw;
-    max-width: 100vw;
-    margin-left: calc(50% - 50vw);
-    margin-right: calc(50% - 50vw);
-    box-sizing: border-box;
-    border-radius: 0;
-    overflow-x: visible;
-}
-.card-full-bleed-inner {
-    max-width: 1600px;
-    margin: 0 auto;
-}
-@media print {
-    .card-full-bleed { width: auto; max-width: none; margin-left: 0; margin-right: 0; }
-}
+
 .kpi-compare-up { color: var(--positive); }
 .kpi-compare-down { color: var(--negative); }
 .kpi-compare-flat { color: var(--text-secondary); }
