@@ -876,20 +876,20 @@ body.demo-mode .demo-blur {
    l'écran, utile pour un tableau très large (ex : vue d'ensemble individuelle) qui sinon
    laisse une bande vide inutilisée de chaque côté sur un grand écran. */
 .card-full-bleed {
-    width: 94vw;
-    max-width: 1600px;
-    position: relative;
-    left: 50vw;
-    transform: translateX(-50%);
+    width: 100vw;
+    max-width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
     box-sizing: border-box;
+    border-radius: 0;
     overflow-x: visible;
 }
+.card-full-bleed-inner {
+    max-width: 1600px;
+    margin: 0 auto;
+}
 @media print {
-    .card-full-bleed { width: auto; max-width: none; left: auto; transform: none; }
-}
-    .card-full-bleed { width: auto; max-width: none; left: auto; transform: none; }
-}
-    .card-full-bleed { width: auto; max-width: none; left: auto; right: auto; margin-left: 0; margin-right: 0; }
+    .card-full-bleed { width: auto; max-width: none; margin-left: 0; margin-right: 0; }
 }
 .kpi-compare-up { color: var(--positive); }
 .kpi-compare-down { color: var(--negative); }
