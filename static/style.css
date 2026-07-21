@@ -882,8 +882,11 @@ body.demo-mode .demo-blur {
     left: 50vw;
     transform: translateX(-50%);
     box-sizing: border-box;
+    overflow-x: visible;
 }
 @media print {
+    .card-full-bleed { width: auto; max-width: none; left: auto; transform: none; }
+}
     .card-full-bleed { width: auto; max-width: none; left: auto; transform: none; }
 }
     .card-full-bleed { width: auto; max-width: none; left: auto; right: auto; margin-left: 0; margin-right: 0; }
