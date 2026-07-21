@@ -5,17 +5,16 @@
 {% from "_kpi_compare.html" import kpi_arrow %}
 {% from "_players_overview.html" import players_overview %}
 
-<div class="no-print card card-full-bleed">
-  <div class="page-header card-full-bleed-inner">
+<div class="page-header no-print">
     <div>
         <h1>👥 Joueurs — {{ match['own_team'] }}</h1>
         <p class="subtitle">Vue d'ensemble individuelle du match. Clique sur l'en-tête d'une colonne pour trier. Le détail complet par secteur est disponible dans les blocs repliés en bas de page.</p>
     </div>
     <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
-  </div>
 </div>
 
-<div class="card card-full-bleed">
+<div class="card">
+    <h2>📋 Vue d'ensemble individuelle</h2>
     {{ players_overview(player_cards, attack_table, defense_table, ruck_table) }}
 </div>
 
@@ -128,5 +127,6 @@ function preparePrint() {
     document.querySelectorAll('details.section-block').forEach(d => d.open = true);
     setTimeout(() => window.print(), 100);
 }
+
 </script>
 {% endblock %}
