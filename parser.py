@@ -6,6 +6,7 @@ il détecte automatiquement les codes numérotés du type "<n> - <Catégorie> <C
 (ex: "21 - Plaquage Nice", "43 - Mêlées Adverse", "22 - Duels aériens") et classe
 tout le reste (surnoms de joueurs, marqueurs type STOP) comme des "tags" séparés.
 """
+import math
 import re
 import statistics
 import unicodedata
