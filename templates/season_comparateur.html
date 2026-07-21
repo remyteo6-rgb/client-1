@@ -53,15 +53,21 @@
 </div>
 {% else %}
 
+<div class="card">
+    <h2>🎯 Vue d'ensemble</h2>
+    <div class="radar-legend">
+        <span class="radar-legend-item"><span class="radar-dot" style="background:#5fb0e0;"></span>{{ player_a }}</span>
+        <span class="radar-legend-item"><span class="radar-dot" style="background:#e0a458;"></span>{{ player_b }}</span>
+    </div>
+    {{ radar_svg | safe }}
+</div>
+
 <details class="card section-block" open>
     <summary>
         <span class="section-title">⚔️ Attaque</span>
         <span class="section-help">Contacts, duels, passes, offloads, ballons portés, défenseurs battus, breaks.</span>
     </summary>
     <div class="section-body">
-        <div class="card chart-container">
-            <canvas id="attackRadar"></canvas>
-        </div>
         <table class="stat-table zebra-table">
             <thead>
                 <tr>
@@ -95,9 +101,6 @@
         <span class="section-help">Plaquages par qualité (dominant / neutre / passif / raté), assists, discipline.</span>
     </summary>
     <div class="section-body">
-        <div class="card chart-container">
-            <canvas id="defenseRadar"></canvas>
-        </div>
         <table class="stat-table zebra-table">
             <thead>
                 <tr>
@@ -130,9 +133,6 @@
         <span class="section-help">Ruck offensif (arrivée 1er/2e homme, ancreur, raseur) et ruck défensif (gratteur, contre-ruck).</span>
     </summary>
     <div class="section-body">
-        <div class="card chart-container">
-            <canvas id="ruckRadar"></canvas>
-        </div>
         <table class="stat-table zebra-table">
             <thead>
                 <tr>
@@ -160,30 +160,6 @@
 </details>
 
 <script>
-const RADARS = {{ radars | tojson }};
-
-function buildRadar(canvasId, radarData, labelA, labelB) {
-    new Chart(document.getElementById(canvasId).getContext('2d'), {
-        type: 'radar',
-        data: {
-            labels: radarData.labels,
-            datasets: [
-                { label: labelA, data: radarData.a, backgroundColor: '#5b8fb0', borderColor: '#5b8fb0'', pointBackgroundColor: '#5b8fb0', borderWidth: 2 },
-                { label: labelB, data: radarData.b, backgroundColor: '#37474F33', borderColor: '#90a4ae', pointBackgroundColor: '#90a4ae', borderWidth: 2 }
-            ]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { position: 'top' } },
-            scales: { r: { min: 0, max: 100, ticks: { stepSize: 25 } } }
-        }
-    });
-}
-
-buildRadar('attackRadar', RADARS.attack, {{ player_a | tojson }}, {{ player_b | tojson }});
-buildRadar('defenseRadar', RADARS.defense, {{ player_a | tojson }}, {{ player_b | tojson }});
-buildRadar('ruckRadar', RADARS.ruck, {{ player_a | tojson }}, {{ player_b | tojson }});
-
 function preparePrint() {
     document.querySelectorAll('details.section-block').forEach(d => d.open = true);
     setTimeout(() => window.print(), 100);
