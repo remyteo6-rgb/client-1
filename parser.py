@@ -1821,49 +1821,82 @@ def _normalize_count_inverted(value_a, value_b):
         return 100, 100
     return round((top - value_a) / top * 100), round((top - value_b) / top * 100)
 
+def build_comparison_radar_svg(labels, values_a, values_b, color_a="#5fb0e0", color_b="#e0a458", size=460):
+    """Génère un radar en SVG pur (pas de Chart.js/JS) : toujours affiché, aucune dépendance
+    au chargement d'une librairie JS ou à la taille d'un canvas caché."""
+    n = len(labels)
+    cx = cy = size / 2
+    r = size / 2 - 90
+    label_r = r + 34
 
-def compute_comparison_radars(attack_rows, defense_rows, ruck_rows):
-    """3 radars (Attaque/Défense/Ruck) pour la page Comparateur, en plus des tableaux déjà
-    affichés : une vue d'ensemble visuelle des 2 joueurs superposés sur un même graphique.
-    Chaque axe est ramené sur 0-100 : les % déjà calculés (contact_pct, tackle_pct...) sont
-    gardés tels quels (0 si pas de data), les volumes bruts (def_battu, plaquage_dominant...)
-    sont normalisés relativement entre les 2 joueurs via _normalize_count, et la discipline
-    (moins de fautes = mieux) est inversée via _normalize_count_inverted."""
+    def point(angle_deg, radius):
+        a = math.radians(angle_deg - 90)
+        return cx + radius * math.cos(a), cy + radius * math.sin(a)
+
+    def polygon_points(values):
+        pts = []
+        for i, v in enumerate(values):
+            v = max(0, min(100, v or 0))
+            angle = i * 360 / n
+            x, y = point(angle, r * v / 100)
+            pts.append(f"{x:.1f},{y:.1f}")
+        return " ".join(pts)
+
+    rings = []
+    for frac in (0.25, 0.5, 0.75, 1.0):
+        ring_pts = " ".join(f"{point(i * 360/n, r*frac)[0]:.1f},{point(i*360/n, r*frac)[1]:.1f}" for i in range(n))
+        rings.append(f'<polygon points="{ring_pts}" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>')
+
+    axes, labels_svg = [], []
+    for i, lab in enumerate(labels):
+        angle = i * 360 / n
+        x2, y2 = point(angle, r)
+        axes.append(f'<line x1="{cx}" y1="{cy}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>')
+        lx, ly = point(angle, label_r)
+        anchor = "end" if lx < cx - 5 else ("start" if lx > cx + 5 else "middle")
+        labels_svg.append(f'<text x="{lx:.1f}" y="{ly:.1f}" text-anchor="{anchor}" dominant-baseline="middle" font-size="11" fill="#c7d0d6">{lab}</text>')
+
+    poly_a = polygon_points(values_a)
+    poly_b = polygon_points(values_b)
+
+    return f'''<svg viewBox="0 0 {size} {size}" class="radar-svg">
+  {''.join(rings)}
+  {''.join(axes)}
+  <polygon points="{poly_b}" fill="{color_b}33" stroke="{color_b}" stroke-width="2"/>
+  <polygon points="{poly_a}" fill="{color_a}33" stroke="{color_a}" stroke-width="2"/>
+  {''.join(labels_svg)}
+</svg>'''
+
+
+def compute_player_radar_svg(attack_rows, defense_rows, ruck_rows):
+    """Fusionne les 3 anciens radars (attaque/défense/ruck) en un seul, façon rapport pro :
+    tous les indicateurs clés sur un même graphique pour comparer 2 joueurs d'un coup d'œil."""
     a_atk, b_atk = attack_rows
     a_def, b_def = defense_rows
     a_ruck, b_ruck = ruck_rows
 
     def_battu_a, def_battu_b = _normalize_count(a_atk["def_battu"], b_atk["def_battu"])
     break_a, break_b = _normalize_count(a_atk["break"], b_atk["break"])
-    attack_radar = {
-        "labels": ["Contact %", "Duel %", "Passe %", "Offload %", "Déf. battus", "Breaks"],
-        "a": [a_atk["contact_pct"] or 0, a_atk["duel_pct"] or 0, a_atk["passe_pct"] or 0,
-              a_atk["offload_pct"] or 0, def_battu_a, break_a],
-        "b": [b_atk["contact_pct"] or 0, b_atk["duel_pct"] or 0, b_atk["passe_pct"] or 0,
-              b_atk["offload_pct"] or 0, def_battu_b, break_b],
-    }
-
     plaq_dom_a, plaq_dom_b = _normalize_count(a_def["plaquage_dominant"], b_def["plaquage_dominant"])
     assist_a, assist_b = _normalize_count(max(a_def["assist_plus"] - a_def["assist_minus"], 0),
                                            max(b_def["assist_plus"] - b_def["assist_minus"], 0))
     discipline_a, discipline_b = _normalize_count_inverted(a_def["discipline"], b_def["discipline"])
-    defense_radar = {
-        "labels": ["Plaquages dominants", "Taux plaquage %", "Assists", "Discipline"],
-        "a": [plaq_dom_a, a_def["tackle_pct"] or 0, assist_a, discipline_a],
-        "b": [plaq_dom_b, b_def["tackle_pct"] or 0, assist_b, discipline_b],
-    }
-
     ancreur_a, ancreur_b = _normalize_count(a_ruck["ancreur_plus"], b_ruck["ancreur_plus"])
     raseur_a, raseur_b = _normalize_count(a_ruck["raseur_plus"], b_ruck["raseur_plus"])
     arrivees_a, arrivees_b = _normalize_count(a_ruck["arr1_plus"] + a_ruck["arr2_plus"],
                                                b_ruck["arr1_plus"] + b_ruck["arr2_plus"])
-    ruck_radar = {
-        "labels": ["Ancreur", "Raseur", "Gratteur %", "Contre-ruck %", "Arrivées 1er/2e"],
-        "a": [ancreur_a, raseur_a, a_ruck["gratteur_pct"] or 0, a_ruck["contre_ruck_pct"] or 0, arrivees_a],
-        "b": [ancreur_b, raseur_b, b_ruck["gratteur_pct"] or 0, b_ruck["contre_ruck_pct"] or 0, arrivees_b],
-    }
 
-    return {"attack": attack_radar, "defense": defense_radar, "ruck": ruck_radar}
+    labels = ["Contact %", "Duel %", "Passe %", "Offload %", "Déf. battus", "Breaks",
+              "Plaq. dominants", "Taux plaquage %", "Assists", "Discipline",
+              "Ancreur", "Raseur", "Gratteur %", "Contre-ruck %", "Arrivées"]
+    values_a = [a_atk["contact_pct"] or 0, a_atk["duel_pct"] or 0, a_atk["passe_pct"] or 0, a_atk["offload_pct"] or 0,
+                def_battu_a, break_a, plaq_dom_a, a_def["tackle_pct"] or 0, assist_a, discipline_a,
+                ancreur_a, raseur_a, a_ruck["gratteur_pct"] or 0, a_ruck["contre_ruck_pct"] or 0, arrivees_a]
+    values_b = [b_atk["contact_pct"] or 0, b_atk["duel_pct"] or 0, b_atk["passe_pct"] or 0, b_atk["offload_pct"] or 0,
+                def_battu_b, break_b, plaq_dom_b, b_def["tackle_pct"] or 0, assist_b, discipline_b,
+                ancreur_b, raseur_b, b_ruck["gratteur_pct"] or 0, b_ruck["contre_ruck_pct"] or 0, arrivees_b]
+
+    return build_comparison_radar_svg(labels, values_a, values_b)
 
 # ---- Effectif de la saison (feuille de poste, pas de hiérarchie/statut) ------
 
