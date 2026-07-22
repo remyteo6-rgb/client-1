@@ -69,6 +69,10 @@ JIFF_ENDPOINTS = {"season_jiff"}
 # variables d'environnement Render — sinon ces valeurs par défaut (à changer !) sont utilisées.
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@nissarugby.fr")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "changeme")
+# Lien de démo public : quiconque a ce lien voit le site en lecture seule, sans compte,
+# avec le mode démo (noms floutés) activé automatiquement. Change cette valeur si tu veux
+# un lien différent, et ne le partage qu'avec des prospects (il donne accès en lecture à tout).
+DEMO_TOKEN = os.environ.get("DEMO_TOKEN", "decouverte-club1")
 
 # Comptes STAFF (accès lecture seule : navigue partout mais ne voit aucune action de
 # modification) : autant de comptes que voulu, chacun avec SON PROPRE email/mot de passe.
@@ -98,7 +102,7 @@ STAFF_ACCOUNTS = _load_staff_accounts()
 # Le site entier est privé : seule une personne connectée (admin OU staff) peut voir
 # quoi que ce soit. Seules ces 2 routes restent accessibles sans connexion (sinon
 # impossible d'atteindre la page de connexion elle-même).
-PUBLIC_ENDPOINTS = {"login", "static"}
+PUBLIC_ENDPOINTS = {"login", "static", "demo_login"}
 
 @app.before_request
 def require_login_everywhere():
@@ -139,6 +143,16 @@ def inject_logged_in():
         "club_name": CLUB_NAME, "club_full_name": CLUB_FULL_NAME,
         "enable_prod2": ENABLE_PROD2, "enable_jiff": ENABLE_JIFF,
     }
+
+@app.route("/demo/<token>")
+def demo_login(token):
+    if token != DEMO_TOKEN:
+        flash("Lien de démonstration invalide.", "error")
+        return redirect(url_for("login"))
+    session.permanent = True
+    session["logged_in"] = True
+    session["is_admin"] = False
+    return redirect(url_for("landing", demo="1"))
 
 
 @app.route("/login", methods=["GET", "POST"])
