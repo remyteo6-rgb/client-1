@@ -45,6 +45,9 @@ function toggleDemoMode() {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
+    if (new URLSearchParams(location.search).get('demo') === '1') {
+        localStorage.setItem('demoMode', '1');
+    }
     markPlayerNameCells();
     applyDemoMode();
 });
