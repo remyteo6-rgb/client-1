@@ -25,7 +25,6 @@ body {
     color: var(--text-primary);
     line-height: 1.5;
     position: relative;
-    padding-top: 56px;
 }
 a { color: inherit; text-decoration: none; }
 
@@ -229,10 +228,8 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
 .subnav {
     background: rgba(10,4,6,0.94);
     border-bottom: 1px solid rgba(255,255,255,0.18);
-    position: fixed;
+    position: sticky;
     top: 0;
-    left: 0;
-    right: 0;
     z-index: 20;
 }
 .subnav-inner {
@@ -453,7 +450,6 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
 }
 
 @media (max-width: 768px) {
-    body { padding-top: 60px; }
     .page { margin: 12px auto; padding: 18px 16px; border-radius: 8px; }
     h1 { font-size: 19px; }
     h2 { font-size: 15px; }
@@ -498,7 +494,7 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
     body {
         background: radial-gradient(ellipse at top, #1c2b38 0%, #10181f 55%, #090d11 100%) !important;
-        background-attachment: fixed !important;
+        background-attachment: sticky !important;
         padding-top: 0;
     }
     .page { max-width: none; margin: 0; padding: 0; box-shadow: none; border-radius: 0; }
