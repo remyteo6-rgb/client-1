@@ -260,11 +260,14 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
     text-overflow: ellipsis;
     flex-shrink: 0;
 }
+
 @media (max-width: 700px) {
     .subnav-context { max-width: 130px; font-size: 11px; }
-    .subnav-links { display: none; }
-    .mobile-page-link { display: block; }
+    .subnav-links > a,
+    .subnav-links > details.subnav-sector-dropdown { display: none; }
+    .subnav-page-dropdown { display: block; }
 }
+
     .subnav-links::-webkit-scrollbar { display: none; }
     .subnav-links a { padding: 12px 10px; font-size: 12.5px; }
 }
@@ -360,6 +363,45 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
 }
 .subnav-sector-menu a:hover { background: rgba(255,255,255,0.08); color: #fff; }
 .subnav-sector-menu a.active { color: var(--accent-gold); }
+
+/* Sur mobile, tous les onglets de la ligne (Vue d'ensemble, Secteurs, Joueurs...) se
+   replient dans CE SEUL bouton "Page actuelle ▾", pour garder un bandeau fin comme sur
+   ordinateur. Ne touche jamais au menu ☰ ni à "Secteurs ▾". */
+.subnav-page-dropdown { display: none; position: relative; }
+.subnav-page-dropdown summary {
+    list-style: none;
+    cursor: pointer;
+    color: rgba(255,255,255,0.75);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 12px 14px;
+    white-space: nowrap;
+    user-select: none;
+}
+.subnav-page-dropdown summary::-webkit-details-marker { display: none; }
+.subnav-page-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: rgba(10,4,6,0.98);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 8px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    min-width: 170px;
+    z-index: 30;
+}
+.subnav-page-menu a {
+    color: rgba(255,255,255,0.8);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 10px;
+    border-radius: 5px;
+    white-space: nowrap;
+}
+.subnav-page-menu a:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.subnav-page-menu a.active { color: var(--accent-gold); }
 
 /* Tableau de score — carte "centre de match" */
 .scoreboard-hero {
