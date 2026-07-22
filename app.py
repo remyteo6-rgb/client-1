@@ -140,6 +140,7 @@ def admin_required(view):
 def inject_logged_in():
     return {
         "logged_in": session.get("logged_in", False), "is_admin": session.get("is_admin", False),
+        "demo_forced": session.get("demo_forced", False),
         "club_name": CLUB_NAME, "club_full_name": CLUB_FULL_NAME,
         "enable_prod2": ENABLE_PROD2, "enable_jiff": ENABLE_JIFF,
     }
@@ -152,6 +153,7 @@ def demo_login(token):
     session.permanent = True
     session["logged_in"] = True
     session["is_admin"] = False
+    session["demo_forced"] = True
     return redirect(url_for("landing", demo="1"))
 
 
