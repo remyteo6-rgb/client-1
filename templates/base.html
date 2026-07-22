@@ -13,7 +13,7 @@
 if (window.Chart) { Chart.defaults.color = '#ffffff'; }
 </script>
 </head>
-<body>
+<body data-demo-forced="{{ 'true' if demo_forced else 'false' }}">
 <img src="{{ url_for('static', filename='logo.png') }}" class="body-watermark no-print" alt="">
 {% include "_match_subnav.html" %}
 <main class="page">
