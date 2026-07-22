@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{% block title %}Rugby Analytics{% endblock %}</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ asset_version }}">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2/dist/chartjs-plugin-datalabels.min.js"></script>
-<script src="{{ url_for('static', filename='demo-mode.js') }}"></script>
-<script src="{{ url_for('static', filename='sortable.js') }}"></script>
+<script src="{{ url_for('static', filename='demo-mode.js') }}?v={{ asset_version }}"></script>
+<script src="{{ url_for('static', filename='sortable.js') }}?v={{ asset_version }}"></script>
     <script>
 if (window.Chart) { Chart.defaults.color = '#ffffff'; }
 </script>
