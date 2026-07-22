@@ -4,9 +4,43 @@
             <summary>☰</summary>
             <div class="landing-dropdown-content">
                 <a href="{{ url_for('landing') }}">🏠 Accueil</a>
-                {% if not demo_forced %}
-                <a href="#" id="demoModeToggle" onclick="toggleDemoMode(); return false;">🙈 Mode démo (flouter les noms)</a>
+                {% if match is defined %}
+                <a class="mobile-page-link {{ 'active' if active=='overview' else '' }}" href="{{ url_for('match_detail', match_id=match['id']) }}">📊 Vue d'ensemble (match)</a>
+                <a class="mobile-page-link {{ 'active' if active=='attaque' else '' }}" href="{{ url_for('match_attaque', match_id=match['id']) }}">⚔️ Attaque</a>
+                <a class="mobile-page-link {{ 'active' if active=='defense' else '' }}" href="{{ url_for('match_defense', match_id=match['id']) }}">🛡️ Défense</a>
+                <a class="mobile-page-link {{ 'active' if active=='transition' else '' }}" href="{{ url_for('match_transition', match_id=match['id']) }}">🔁 Transition</a>
+                <a class="mobile-page-link {{ 'active' if active=='ruck' else '' }}" href="{{ url_for('match_ruck', match_id=match['id']) }}">🤝 Ruck</a>
+                <a class="mobile-page-link {{ 'active' if active=='touches' else '' }}" href="{{ url_for('match_touches', match_id=match['id']) }}">🥅 Touches</a>
+                <a class="mobile-page-link {{ 'active' if active=='melee' else '' }}" href="{{ url_for('match_melee', match_id=match['id']) }}">🏉 Mêlée</a>
+                <a class="mobile-page-link {{ 'active' if active=='jap' else '' }}" href="{{ url_for('match_jap', match_id=match['id']) }}">🦶 Jeu au pied</a>
+                <a class="mobile-page-link {{ 'active' if active=='joueurs' else '' }}" href="{{ url_for('match_joueurs', match_id=match['id']) }}">👥 Joueurs (match)</a>
+                <a class="mobile-page-link {{ 'active' if active=='composition' else '' }}" href="{{ url_for('match_composition', match_id=match['id']) }}">📋 Composition</a>
+                {% elif season_mode is defined %}
+                <a class="mobile-page-link {{ 'active' if active=='overview' else '' }}" href="{{ url_for('season') }}?{{ qs }}">📊 Vue d'ensemble (saison)</a>
+                <a class="mobile-page-link {{ 'active' if active=='attaque' else '' }}" href="{{ url_for('season_attaque') }}?{{ qs }}">⚔️ Attaque</a>
+                <a class="mobile-page-link {{ 'active' if active=='defense' else '' }}" href="{{ url_for('season_defense') }}?{{ qs }}">🛡️ Défense</a>
+                <a class="mobile-page-link {{ 'active' if active=='transition' else '' }}" href="{{ url_for('season_transition') }}?{{ qs }}">🔁 Transition</a>
+                <a class="mobile-page-link {{ 'active' if active=='ruck' else '' }}" href="{{ url_for('season_ruck') }}?{{ qs }}">🤝 Ruck</a>
+                <a class="mobile-page-link {{ 'active' if active=='touches' else '' }}" href="{{ url_for('season_touches') }}?{{ qs }}">🥅 Touches</a>
+                <a class="mobile-page-link {{ 'active' if active=='melee' else '' }}" href="{{ url_for('season_melee') }}?{{ qs }}">🏉 Mêlée</a>
+                <a class="mobile-page-link {{ 'active' if active=='jap' else '' }}" href="{{ url_for('season_jap') }}?{{ qs }}">🦶 Jeu au pied</a>
+                <a class="mobile-page-link {{ 'active' if active=='joueurs' else '' }}" href="{{ url_for('season_joueurs') }}?{{ qs }}">👥 Joueurs (saison)</a>
+                <a class="mobile-page-link {{ 'active' if active=='comparateur' else '' }}" href="{{ url_for('season_comparateur') }}?{{ qs }}">⚖️ Comparateur</a>
+                {% if enable_jiff %}<a class="mobile-page-link {{ 'active' if active=='jiff' else '' }}" href="{{ url_for('season_jiff') }}?{{ qs }}">🇫🇷 JIFF</a>{% endif %}
+                <a class="mobile-page-link {{ 'active' if active=='entrainement' else '' }}" href="{{ url_for('season_entrainement') }}">🏋️ Entraînement</a>
+                <a class="mobile-page-link {{ 'active' if active=='analyse' else '' }}" href="{{ url_for('season_analyse') }}?{{ qs }}">📈 Data Analyse</a>
+                {% elif team_mode is defined %}
+                <a class="mobile-page-link {{ 'active' if active=='overview' else '' }}" href="{{ url_for('opponent_detail', team=team) }}">📊 Vue d'ensemble (adversaire)</a>
+                <a class="mobile-page-link {{ 'active' if active=='attaque' else '' }}" href="{{ url_for('opponent_sector', team=team, sector='attaque') }}">⚔️ Attaque</a>
+                <a class="mobile-page-link {{ 'active' if active=='defense' else '' }}" href="{{ url_for('opponent_sector', team=team, sector='defense') }}">🛡️ Défense</a>
+                <a class="mobile-page-link {{ 'active' if active=='discipline' else '' }}" href="{{ url_for('opponent_sector', team=team, sector='discipline') }}">⚠️ Discipline</a>
+                <a class="mobile-page-link {{ 'active' if active=='touches' else '' }}" href="{{ url_for('opponent_sector', team=team, sector='touches') }}">🥅 Touches</a>
+                <a class="mobile-page-link {{ 'active' if active=='melee' else '' }}" href="{{ url_for('opponent_sector', team=team, sector='melee') }}">🏉 Mêlée</a>
+                <a class="mobile-page-link {{ 'active' if active=='rucks' else '' }}" href="{{ url_for('opponent_sector', team=team, sector='rucks') }}">🤝 Rucks</a>
+                <a class="mobile-page-link {{ 'active' if active=='jap' else '' }}" href="{{ url_for('opponent_sector', team=team, sector='jap') }}">🦶 Jeu au pied</a>
+                <a class="mobile-page-link {{ 'active' if active=='joueurs' else '' }}" href="{{ url_for('opponent_joueurs', team=team) }}">👥 Joueurs (adversaire)</a>
                 {% endif %}
+                <a href="#" id="demoModeToggle" onclick="toggleDemoMode(); return false;">🙈 Mode démo (flouter les noms)</a>
                 <a href="{{ url_for('index') }}">📊 Matchs</a>
                 {% if enable_prod2 %}
                 <a href="{{ url_for('opponents') }}">🆚 Adversaires</a>
@@ -29,8 +63,6 @@
             </div>
         </details>
         <img src="{{ url_for('static', filename='logo.png') }}" class="subnav-logo" alt="{{ club_full_name }}">
-        {# Pastille de contexte : rappelle en permanence (le bandeau reste collé en haut au
-           défilement) si on regarde un match, le bilan saison ou une équipe adverse. #}
         {% if match is defined %}
         <span class="subnav-context" title="{{ match['own_team'] }} vs {{ match['opponent'] }}{% if match['match_date'] %} · {{ match['match_date'] }}{% endif %}">🏉 {{ match['own_team'] }} vs {{ match['opponent'] }}{% if match['match_date'] %} · {{ match['match_date'] }}{% endif %}</span>
         {% elif season_mode is defined %}
