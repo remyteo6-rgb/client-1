@@ -32,7 +32,8 @@ function markPlayerNameCells() {
 }
 
 function applyDemoMode() {
-    const on = localStorage.getItem('demoMode') === '1';
+    const forced = document.body.dataset.demoForced === 'true';
+    const on = forced || localStorage.getItem('demoMode') === '1';
     document.body.classList.toggle('demo-mode', on);
     const btn = document.getElementById('demoModeToggle');
     if (btn) btn.textContent = on ? '👁️ Désactiver le mode démo' : '🙈 Mode démo (flouter les noms)';
