@@ -1,4 +1,5 @@
 import os
+import time
 import re
 import json
 import psycopg2
@@ -41,6 +42,9 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
 app.config["MAX_CONTENT_LENGTH"] = 30 * 1024 * 1024  # 30MB max upload
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)  # reste connecté 30 jours
+ASSET_VERSION = str(int(time.time()))  # change à chaque redémarrage : force le navigateur à
+                                        # retélécharger le CSS/JS au lieu de garder une vieille
+                                        # version en cache après un déploiement.
 
 # Identité du club : seules ces 2 variables (+ le fichier static/logo.png) changent d'une
 # copie du site à l'autre pour un autre club. CLUB_NAME = nom court utilisé dans le texte des
@@ -143,6 +147,7 @@ def inject_logged_in():
         "demo_forced": session.get("demo_forced", False),
         "club_name": CLUB_NAME, "club_full_name": CLUB_FULL_NAME,
         "enable_prod2": ENABLE_PROD2, "enable_jiff": ENABLE_JIFF,
+        "asset_version": ASSET_VERSION,
     }
 
 @app.route("/demo/<token>")
