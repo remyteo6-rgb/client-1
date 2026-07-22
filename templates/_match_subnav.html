@@ -4,42 +4,6 @@
             <summary>☰</summary>
             <div class="landing-dropdown-content">
                 <a href="{{ url_for('landing') }}">🏠 Accueil</a>
-                {% if match is defined %}
-                <a class="mobile-page-link {{ 'active' if active=='overview' else '' }}" href="{{ url_for('match_detail', match_id=match['id']) }}">📊 Vue d'ensemble (match)</a>
-                <a class="mobile-page-link {{ 'active' if active=='attaque' else '' }}" href="{{ url_for('match_attaque', match_id=match['id']) }}">⚔️ Attaque</a>
-                <a class="mobile-page-link {{ 'active' if active=='defense' else '' }}" href="{{ url_for('match_defense', match_id=match['id']) }}">🛡️ Défense</a>
-                <a class="mobile-page-link {{ 'active' if active=='transition' else '' }}" href="{{ url_for('match_transition', match_id=match['id']) }}">🔁 Transition</a>
-                <a class="mobile-page-link {{ 'active' if active=='ruck' else '' }}" href="{{ url_for('match_ruck', match_id=match['id']) }}">🤝 Ruck</a>
-                <a class="mobile-page-link {{ 'active' if active=='touches' else '' }}" href="{{ url_for('match_touches', match_id=match['id']) }}">🥅 Touches</a>
-                <a class="mobile-page-link {{ 'active' if active=='melee' else '' }}" href="{{ url_for('match_melee', match_id=match['id']) }}">🏉 Mêlée</a>
-                <a class="mobile-page-link {{ 'active' if active=='jap' else '' }}" href="{{ url_for('match_jap', match_id=match['id']) }}">🦶 Jeu au pied</a>
-                <a class="mobile-page-link {{ 'active' if active=='joueurs' else '' }}" href="{{ url_for('match_joueurs', match_id=match['id']) }}">👥 Joueurs (match)</a>
-                <a class="mobile-page-link {{ 'active' if active=='composition' else '' }}" href="{{ url_for('match_composition', match_id=match['id']) }}">📋 Composition</a>
-                {% elif season_mode is defined %}
-                <a class="mobile-page-link {{ 'active' if active=='overview' else '' }}" href="{{ url_for('season') }}?{{ qs }}">📊 Vue d'ensemble (saison)</a>
-                <a class="mobile-page-link {{ 'active' if active=='attaque' else '' }}" href="{{ url_for('season_attaque') }}?{{ qs }}">⚔️ Attaque</a>
-                <a class="mobile-page-link {{ 'active' if active=='defense' else '' }}" href="{{ url_for('season_defense') }}?{{ qs }}">🛡️ Défense</a>
-                <a class="mobile-page-link {{ 'active' if active=='transition' else '' }}" href="{{ url_for('season_transition') }}?{{ qs }}">🔁 Transition</a>
-                <a class="mobile-page-link {{ 'active' if active=='ruck' else '' }}" href="{{ url_for('season_ruck') }}?{{ qs }}">🤝 Ruck</a>
-                <a class="mobile-page-link {{ 'active' if active=='touches' else '' }}" href="{{ url_for('season_touches') }}?{{ qs }}">🥅 Touches</a>
-                <a class="mobile-page-link {{ 'active' if active=='melee' else '' }}" href="{{ url_for('season_melee') }}?{{ qs }}">🏉 Mêlée</a>
-                <a class="mobile-page-link {{ 'active' if active=='jap' else '' }}" href="{{ url_for('season_jap') }}?{{ qs }}">🦶 Jeu au pied</a>
-                <a class="mobile-page-link {{ 'active' if active=='joueurs' else '' }}" href="{{ url_for('season_joueurs') }}?{{ qs }}">👥 Joueurs (saison)</a>
-                <a class="mobile-page-link {{ 'active' if active=='comparateur' else '' }}" href="{{ url_for('season_comparateur') }}?{{ qs }}">⚖️ Comparateur</a>
-                {% if enable_jiff %}<a class="mobile-page-link {{ 'active' if active=='jiff' else '' }}" href="{{ url_for('season_jiff') }}?{{ qs }}">🇫🇷 JIFF</a>{% endif %}
-                <a class="mobile-page-link {{ 'active' if active=='entrainement' else '' }}" href="{{ url_for('season_entrainement') }}">🏋️ Entraînement</a>
-                <a class="mobile-page-link {{ 'active' if active=='analyse' else '' }}" href="{{ url_for('season_analyse') }}?{{ qs }}">📈 Data Analyse</a>
-                {% elif team_mode is defined %}
-                <a class="mobile-page-link {{ 'active' if active=='overview' else '' }}" href="{{ url_for('opponent_detail', team=team) }}">📊 Vue d'ensemble (adversaire)</a>
-                <a class="mobile-page-link {{ 'active' if active=='attaque' else '' }}" href="{{ url_for('opponent_sector', team=team, sector='attaque') }}">⚔️ Attaque</a>
-                <a class="mobile-page-link {{ 'active' if active=='defense' else '' }}" href="{{ url_for('opponent_sector', team=team, sector='defense') }}">🛡️ Défense</a>
-                <a class="mobile-page-link {{ 'active' if active=='discipline' else '' }}" href="{{ url_for('opponent_sector', team=team, sector='discipline') }}">⚠️ Discipline</a>
-                <a class="mobile-page-link {{ 'active' if active=='touches' else '' }}" href="{{ url_for('opponent_sector', team=team, sector='touches') }}">🥅 Touches</a>
-                <a class="mobile-page-link {{ 'active' if active=='melee' else '' }}" href="{{ url_for('opponent_sector', team=team, sector='melee') }}">🏉 Mêlée</a>
-                <a class="mobile-page-link {{ 'active' if active=='rucks' else '' }}" href="{{ url_for('opponent_sector', team=team, sector='rucks') }}">🤝 Rucks</a>
-                <a class="mobile-page-link {{ 'active' if active=='jap' else '' }}" href="{{ url_for('opponent_sector', team=team, sector='jap') }}">🦶 Jeu au pied</a>
-                <a class="mobile-page-link {{ 'active' if active=='joueurs' else '' }}" href="{{ url_for('opponent_joueurs', team=team) }}">👥 Joueurs (adversaire)</a>
-                {% endif %}
                 <a href="#" id="demoModeToggle" onclick="toggleDemoMode(); return false;">🙈 Mode démo (flouter les noms)</a>
                 <a href="{{ url_for('index') }}">📊 Matchs</a>
                 {% if enable_prod2 %}
@@ -70,8 +34,10 @@
         {% elif team_mode is defined %}
         <span class="subnav-context" title="Adversaire : {{ team }}">🆚 Adversaire : {{ team }}</span>
         {% endif %}
+
         {% if match is defined %}
         {% set sector_keys = ['attaque', 'defense', 'transition', 'ruck', 'touches', 'melee', 'jap'] %}
+        {% set page_labels = {'overview': "Vue d'ensemble", 'attaque': 'Attaque', 'defense': 'Défense', 'transition': 'Transition', 'ruck': 'Ruck', 'touches': 'Touches', 'melee': 'Mêlée', 'jap': 'Jeu au pied', 'joueurs': 'Joueurs', 'composition': 'Composition'} %}
         <div class="subnav-links">
             <a href="{{ url_for('match_detail', match_id=match['id']) }}" class="{{ 'active' if active=='overview' else '' }}">Vue d'ensemble</a>
             <details class="subnav-sector-dropdown">
@@ -88,9 +54,25 @@
             </details>
             <a href="{{ url_for('match_joueurs', match_id=match['id']) }}" class="{{ 'active' if active=='joueurs' else '' }}">Joueurs</a>
             <a href="{{ url_for('match_composition', match_id=match['id']) }}" class="{{ 'active' if active=='composition' else '' }}">Composition</a>
+            <details class="subnav-page-dropdown">
+                <summary>{{ page_labels.get(active, 'Pages') }} ▾</summary>
+                <div class="subnav-page-menu">
+                    <a href="{{ url_for('match_detail', match_id=match['id']) }}" class="{{ 'active' if active=='overview' else '' }}">Vue d'ensemble</a>
+                    <a href="{{ url_for('match_attaque', match_id=match['id']) }}" class="{{ 'active' if active=='attaque' else '' }}">Attaque</a>
+                    <a href="{{ url_for('match_defense', match_id=match['id']) }}" class="{{ 'active' if active=='defense' else '' }}">Défense</a>
+                    <a href="{{ url_for('match_transition', match_id=match['id']) }}" class="{{ 'active' if active=='transition' else '' }}">Transition</a>
+                    <a href="{{ url_for('match_ruck', match_id=match['id']) }}" class="{{ 'active' if active=='ruck' else '' }}">Ruck</a>
+                    <a href="{{ url_for('match_touches', match_id=match['id']) }}" class="{{ 'active' if active=='touches' else '' }}">Touches</a>
+                    <a href="{{ url_for('match_melee', match_id=match['id']) }}" class="{{ 'active' if active=='melee' else '' }}">Mêlée</a>
+                    <a href="{{ url_for('match_jap', match_id=match['id']) }}" class="{{ 'active' if active=='jap' else '' }}">Jeu au pied</a>
+                    <a href="{{ url_for('match_joueurs', match_id=match['id']) }}" class="{{ 'active' if active=='joueurs' else '' }}">Joueurs</a>
+                    <a href="{{ url_for('match_composition', match_id=match['id']) }}" class="{{ 'active' if active=='composition' else '' }}">Composition</a>
+                </div>
+            </details>
         </div>
         {% elif season_mode is defined %}
         {% set sector_keys = ['attaque', 'defense', 'transition', 'ruck', 'touches', 'melee', 'jap'] %}
+        {% set page_labels = {'overview': "Vue d'ensemble", 'attaque': 'Attaque', 'defense': 'Défense', 'transition': 'Transition', 'ruck': 'Ruck', 'touches': 'Touches', 'melee': 'Mêlée', 'jap': 'Jeu au pied', 'joueurs': 'Joueurs', 'comparateur': 'Comparateur', 'jiff': 'JIFF', 'entrainement': 'Entraînement', 'analyse': 'Data Analyse'} %}
         <div class="subnav-links">
             <a href="{{ url_for('season') }}?{{ qs }}" class="{{ 'active' if active=='overview' else '' }}">Vue d'ensemble</a>
             <details class="subnav-sector-dropdown">
@@ -110,9 +92,28 @@
             {% if enable_jiff %}<a href="{{ url_for('season_jiff') }}?{{ qs }}" class="{{ 'active' if active=='jiff' else '' }}">JIFF</a>{% endif %}
             <a href="{{ url_for('season_entrainement') }}" class="{{ 'active' if active=='entrainement' else '' }}">Entraînement</a>
             <a href="{{ url_for('season_analyse') }}?{{ qs }}" class="{{ 'active' if active=='analyse' else '' }}">Data Analyse</a>
+            <details class="subnav-page-dropdown">
+                <summary>{{ page_labels.get(active, 'Pages') }} ▾</summary>
+                <div class="subnav-page-menu">
+                    <a href="{{ url_for('season') }}?{{ qs }}" class="{{ 'active' if active=='overview' else '' }}">Vue d'ensemble</a>
+                    <a href="{{ url_for('season_attaque') }}?{{ qs }}" class="{{ 'active' if active=='attaque' else '' }}">Attaque</a>
+                    <a href="{{ url_for('season_defense') }}?{{ qs }}" class="{{ 'active' if active=='defense' else '' }}">Défense</a>
+                    <a href="{{ url_for('season_transition') }}?{{ qs }}" class="{{ 'active' if active=='transition' else '' }}">Transition</a>
+                    <a href="{{ url_for('season_ruck') }}?{{ qs }}" class="{{ 'active' if active=='ruck' else '' }}">Ruck</a>
+                    <a href="{{ url_for('season_touches') }}?{{ qs }}" class="{{ 'active' if active=='touches' else '' }}">Touches</a>
+                    <a href="{{ url_for('season_melee') }}?{{ qs }}" class="{{ 'active' if active=='melee' else '' }}">Mêlée</a>
+                    <a href="{{ url_for('season_jap') }}?{{ qs }}" class="{{ 'active' if active=='jap' else '' }}">Jeu au pied</a>
+                    <a href="{{ url_for('season_joueurs') }}?{{ qs }}" class="{{ 'active' if active=='joueurs' else '' }}">Joueurs</a>
+                    <a href="{{ url_for('season_comparateur') }}?{{ qs }}" class="{{ 'active' if active=='comparateur' else '' }}">Comparateur</a>
+                    {% if enable_jiff %}<a href="{{ url_for('season_jiff') }}?{{ qs }}" class="{{ 'active' if active=='jiff' else '' }}">JIFF</a>{% endif %}
+                    <a href="{{ url_for('season_entrainement') }}" class="{{ 'active' if active=='entrainement' else '' }}">Entraînement</a>
+                    <a href="{{ url_for('season_analyse') }}?{{ qs }}" class="{{ 'active' if active=='analyse' else '' }}">Data Analyse</a>
+                </div>
+            </details>
         </div>
         {% elif team_mode is defined %}
         {% set sector_keys = ['attaque', 'defense', 'discipline', 'touches', 'melee', 'rucks', 'jap'] %}
+        {% set page_labels = {'overview': "Vue d'ensemble", 'attaque': 'Attaque', 'defense': 'Défense', 'discipline': 'Discipline', 'touches': 'Touches', 'melee': 'Mêlée', 'rucks': 'Rucks', 'jap': 'Jeu au pied', 'joueurs': 'Joueurs'} %}
         <div class="subnav-links">
             <a href="{{ url_for('opponent_detail', team=team) }}" class="{{ 'active' if active=='overview' else '' }}">Vue d'ensemble</a>
             <details class="subnav-sector-dropdown">
@@ -128,6 +129,20 @@
                 </div>
             </details>
             <a href="{{ url_for('opponent_joueurs', team=team) }}" class="{{ 'active' if active=='joueurs' else '' }}">Joueurs</a>
+            <details class="subnav-page-dropdown">
+                <summary>{{ page_labels.get(active, 'Pages') }} ▾</summary>
+                <div class="subnav-page-menu">
+                    <a href="{{ url_for('opponent_detail', team=team) }}" class="{{ 'active' if active=='overview' else '' }}">Vue d'ensemble</a>
+                    <a href="{{ url_for('opponent_sector', team=team, sector='attaque') }}" class="{{ 'active' if active=='attaque' else '' }}">Attaque</a>
+                    <a href="{{ url_for('opponent_sector', team=team, sector='defense') }}" class="{{ 'active' if active=='defense' else '' }}">Défense</a>
+                    <a href="{{ url_for('opponent_sector', team=team, sector='discipline') }}" class="{{ 'active' if active=='discipline' else '' }}">Discipline</a>
+                    <a href="{{ url_for('opponent_sector', team=team, sector='touches') }}" class="{{ 'active' if active=='touches' else '' }}">Touches</a>
+                    <a href="{{ url_for('opponent_sector', team=team, sector='melee') }}" class="{{ 'active' if active=='melee' else '' }}">Mêlée</a>
+                    <a href="{{ url_for('opponent_sector', team=team, sector='rucks') }}" class="{{ 'active' if active=='rucks' else '' }}">Rucks</a>
+                    <a href="{{ url_for('opponent_sector', team=team, sector='jap') }}" class="{{ 'active' if active=='jap' else '' }}">Jeu au pied</a>
+                    <a href="{{ url_for('opponent_joueurs', team=team) }}" class="{{ 'active' if active=='joueurs' else '' }}">Joueurs</a>
+                </div>
+            </details>
         </div>
         {% endif %}
     </div>
