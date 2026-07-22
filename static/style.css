@@ -262,12 +262,9 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
 }
 @media (max-width: 700px) {
     .subnav-context { max-width: 130px; font-size: 11px; }
-    .subnav-links {
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-    }
+    .subnav-links { display: none; }
+    .mobile-page-link { display: block; }
+}
     .subnav-links::-webkit-scrollbar { display: none; }
     .subnav-links a { padding: 12px 10px; font-size: 12.5px; }
 }
