@@ -173,6 +173,7 @@ def login():
             session.permanent = True
             session["logged_in"] = True
             session["is_admin"] = True
+            session["demo_forced"] = False
             flash("Connecté.", "success")
             return redirect(next_target)
         for staff_email, staff_password in STAFF_ACCOUNTS:
@@ -180,6 +181,7 @@ def login():
                 session.permanent = True
                 session["logged_in"] = True
                 session["is_admin"] = False
+                session["demo_forced"] = False
                 flash("Connecté.", "success")
                 return redirect(next_target)
         flash("Email ou mot de passe incorrect.", "error")
@@ -190,9 +192,8 @@ def login():
 def logout():
     session.pop("logged_in", None)
     session.pop("is_admin", None)
+    session.pop("demo_forced", None)
     flash("Déconnecté.", "success")
-    return redirect(url_for("landing"))
-
 
 class DB:
     """Petit adaptateur autour de psycopg2 pour garder l'écriture
