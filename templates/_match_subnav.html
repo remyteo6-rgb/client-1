@@ -4,7 +4,9 @@
             <summary>☰</summary>
             <div class="landing-dropdown-content">
                 <a href="{{ url_for('landing') }}">🏠 Accueil</a>
+                {% if not demo_forced %}
                 <a href="#" id="demoModeToggle" onclick="toggleDemoMode(); return false;">🙈 Mode démo (flouter les noms)</a>
+                {% endif %}
                 <a href="{{ url_for('index') }}">📊 Matchs</a>
                 {% if enable_prod2 %}
                 <a href="{{ url_for('opponents') }}">🆚 Adversaires</a>
