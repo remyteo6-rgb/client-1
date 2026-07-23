@@ -194,7 +194,7 @@ def logout():
     session.pop("is_admin", None)
     session.pop("demo_forced", None)
     flash("Déconnecté.", "success")
-
+    return redirect(url_for("login"))
 class DB:
     """Petit adaptateur autour de psycopg2 pour garder l'écriture
     db.execute(sql, params).fetchall() / .fetchone() utilisée partout dans ce fichier,
