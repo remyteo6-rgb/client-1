@@ -405,51 +405,14 @@ def _no_instances_guard(match):
 @app.route("/match/<int:match_id>")
 def match_detail(match_id):
     match = _get_match_or_404(match_id)
-
-    sections = []
-    for section_name, cats in CATEGORY_SECTIONS.items():
-        section_rows = []
-        for cat in cats:
-            data = match["stats"].get(cat)
-            if not data:
-                continue
-            own = data.get("own", {"count": 0})
-            adv = data.get("adverse", {"count": 0})
-            neutral = data.get("neutral", {"count": 0})
-            if own.get("count", 0) == 0 and adv.get("count", 0) == 0 and neutral.get("count", 0) == 0:
-                continue
-            help_text = CATEGORY_HELP.get(cat, "")
-            section_rows.append({"category": cat, "own": own, "adverse": adv, "neutral": neutral, "help": help_text})
-        if section_rows:
-            sections.append({
-                "name": section_name,
-                "icon": SECTION_ICONS.get(section_name, ""),
-                "help": SECTION_HELP.get(section_name, ""),
-                "rows": section_rows,
-            })
-
-    top_players = sorted(match["players"].items(), key=lambda x: -x[1]["count"])[:15]
-    highlights = generate_highlights(match["stats"], match["own_team"], match["opponent"])
-    radar = compute_radar_metrics(match["stats"])
-
-    score = None
-    phase_timing = None
-    dashboard = None
-    baseline = None
-    if match["instances"]:
-        score = compute_score(match["instances"])
-        phase_timing = compute_phase_timing(match["instances"])
-        dashboard = compute_overview_dashboard(match["instances"], score)
-        matches_with_instances, _, _, _ = _season_context()
-        baseline = compute_match_baseline(matches_with_instances, exclude_id=match_id)
-
-    return render_template(
-        "match.html", match=match, sections=sections, top_players=top_players,
-        highlights=highlights, radar=radar, score=score, phase_timing=phase_timing,
-        phase_icons=PHASE_ICONS, phase_help=PHASE_HELP, dashboard=dashboard,
-        baseline=baseline,
-        has_instances=not _no_instances_guard(match),
-    )
+    ov = match["romania_overview"]
+    score = {
+        "own": match["score_own"] if match["score_own"] is not None else 0,
+        "adverse": match["score_opp"] if match["score_opp"] is not None else 0,
+        "own_tries": ov.get("tries", {}).get("own", 0),
+        "adverse_tries": ov.get("tries", {}).get("opp", 0),
+    }
+    return render_template("match.html", match=match, score=score, ov=ov)
 
 @app.route("/match/<int:match_id>/attaque")
 def match_attaque(match_id):
