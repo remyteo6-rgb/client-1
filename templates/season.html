@@ -79,12 +79,12 @@
         <span class="adverse">{{ dashboard.points_against }} points encaissés</span>
     </div>
 
-    <div class="bip-bar-wrap">
+   <div class="bip-bar-wrap">
         <div class="bip-bar-label">
-            <span>⏱ Ball in Play cumulé</span>
-            <span>{{ dashboard.ball_in_play.duration_fmt }} · {{ dashboard.ball_in_play.avg_per_match_fmt }} / match</span>
+            <span>⏱ Ball in Play moyen / match</span>
+            <span>{{ dashboard.ball_in_play.avg_per_match_fmt }} / 80:00</span>
         </div>
-        <div class="bip-bar-track"><div class="bip-bar-fill" style="width:100%;"></div></div>
+        <div class="bip-bar-track"><div class="bip-bar-fill" style="width:{{ (dashboard.ball_in_play.avg_per_match / 4800 * 100) | round(1) }}%;"></div></div>
     </div>
 
     {% if dashboard.score_detail %}
