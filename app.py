@@ -30,6 +30,8 @@ from prod2 import (
     compute_team_kpi_profile, compute_team_threats, compute_team_position_history,
 )
 
+from parser_ubb import parse_ubb_xml, compute_ubb_overview
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_DIR = os.path.join(BASE_DIR, "data", "uploads")
 
@@ -273,6 +275,14 @@ def init_db():
         db.execute("ALTER TABLE matches ADD COLUMN composition_json TEXT")
     if "player_match_stats_json" not in cols:
         db.execute("ALTER TABLE matches ADD COLUMN player_match_stats_json TEXT")
+    if "ubb_overview_json" not in cols:
+        db.execute("ALTER TABLE matches ADD COLUMN ubb_overview_json TEXT")
+    if "score_own" not in cols:
+        db.execute("ALTER TABLE matches ADD COLUMN score_own INTEGER")
+    if "score_opp" not in cols:
+        db.execute("ALTER TABLE matches ADD COLUMN score_opp INTEGER")
+    if "score_ht" not in cols:
+        db.execute("ALTER TABLE matches ADD COLUMN score_ht TEXT")
     db.execute("""
         CREATE TABLE IF NOT EXISTS training_sessions (
             id SERIAL PRIMARY KEY,
@@ -376,6 +386,67 @@ def upload():
     flash("Match importé avec succès.", "success")
     return redirect(url_for("match_detail", match_id=match_id))
 
+@app.route("/upload-ubb", methods=["GET", "POST"])
+@admin_required
+def upload_ubb():
+    if request.method == "GET":
+        return render_template("upload_ubb.html")
+    file = request.files.get("xml_file")
+    opponent = request.form.get("opponent", "").strip()
+    if not file or file.filename == "":
+        flash("Merci de sélectionner un fichier XML Sportscode.", "error")
+        return redirect(url_for("upload_ubb"))
+    if not opponent:
+        flash("Merci d'indiquer le nom exact de l'adversaire tel qu'il apparaît dans le fichier.", "error")
+        return redirect(url_for("upload_ubb"))
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    ts = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    safe_name = f"{ts}_{file.filename}"
+    save_path = os.path.join(UPLOAD_DIR, safe_name)
+    file.save(save_path)
+    try:
+        instances = parse_ubb_xml(save_path)
+        overview = compute_ubb_overview(instances, own_team="Union Bordeaux Begles", opp_team=opponent)
+    except Exception as exc:
+        flash(f"Erreur lors de la lecture du fichier XML : {exc}", "error")
+        return redirect(url_for("upload_ubb"))
+
+    def _to_int(raw):
+        raw = (raw or "").strip()
+        if raw == "":
+            return None
+        try:
+            return int(raw)
+        except ValueError:
+            return None
+
+    db = get_db()
+    cur = db.execute(
+        """INSERT INTO matches
+           (created_at, match_date, own_team, opponent, competition, venue, own_team_tag,
+            filename, total_instances, ubb_overview_json, score_own, score_opp, score_ht)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+           RETURNING id""",
+        (
+            datetime.utcnow().isoformat(),
+            request.form.get("match_date") or None,
+            CLUB_FULL_NAME,
+            opponent,
+            request.form.get("competition") or None,
+            request.form.get("venue") or None,
+            "Union Bordeaux Begles",
+            file.filename,
+            len(instances),
+            json.dumps(overview),
+            _to_int(request.form.get("score_own")),
+            _to_int(request.form.get("score_opp")),
+            request.form.get("score_ht") or None,
+        ),
+    )
+    match_id = cur.fetchone()["id"]
+    db.commit()
+    flash("Match UBB importé avec succès.", "success")
+    return redirect(url_for("match_detail", match_id=match_id))
 
 def _row_to_match(row):
     m = dict(row)
@@ -403,9 +474,13 @@ def _no_instances_guard(match):
 
 
 @app.route("/match/<int:match_id>")
+@app.route("/match/<int:match_id>")
 def match_detail(match_id):
     match = _get_match_or_404(match_id)
-
+    if match.get("ubb_overview"):
+        return render_template("match_ubb.html", match=match, ov=match["ubb_overview"])
+    sections = []
+    for section_name, cats in CATEGORY_SECTIONS.items():
     sections = []
     for section_name, cats in CATEGORY_SECTIONS.items():
         section_rows = []
