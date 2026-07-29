@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}{{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
+{% set active = 'overview' %}
+{% block content %}
+<div class="page-header no-print">
+    <div>
+        <h1>{{ match['own_team'] }} <span style="color:#6c757d;">vs</span> {{ match['opponent'] }}</h1>
+        <p class="subtitle">
+            {{ match['match_date'] or 'Date non renseignée' }}
+            {% if match['competition'] %} · {{ match['competition'] }}{% endif %}
+            {% if match['venue'] %} · {{ match['venue'] }}{% endif %}
+        </p>
+    </div>
+    <div style="display:flex; gap:10px;">
+        <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+        {% if is_admin %}
+        <form method="post" action="{{ url_for('delete_match', match_id=match['id']) }}" onsubmit="return confirm('Supprimer ce match ?');">
+            <button class="btn btn-danger" type="submit">Supprimer</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+<div class="print-only-header">
+    <h1>{{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
+    <p>{{ match['match_date'] or '' }}{% if match['competition'] %} · {{ match['competition'] }}{% endif %}</p>
+</div>
+
+<div class="card no-print">
+    <p class="subtitle">⚠️ Vue d'ensemble Phase 1 — possession, essais, pénalités, cartons, touches, mêlées et ballons perdus. Le score est saisi à la main (pas reconstruit depuis le XML). Le nombre d'essais n'a pas pu être recoupé avec un rapport officiel — à vérifier de ton côté.</p>
+</div>
+
+<div class="card scoreboard-hero">
+    <div class="scoreboard-hero-teams">
+        <div class="scoreboard-hero-team">
+            <div class="team-badge team-badge-own">{{ match['own_team'][0]|upper }}</div>
+            <div class="scoreboard-hero-score own">{{ match['score_own'] if match['score_own'] is not none else '-' }}</div>
+        </div>
+        <div class="scoreboard-hero-sep">—</div>
+        <div class="scoreboard-hero-team">
+            <div class="team-badge team-badge-adverse">{{ match['opponent'][0]|upper }}</div>
+            <div class="scoreboard-hero-score adverse">{{ match['score_opp'] if match['score_opp'] is not none else '-' }}</div>
+        </div>
+    </div>
+    <div class="scoreboard-hero-names">
+        <span class="own">{{ match['own_team'] }}</span>
+        <span class="adverse">{{ match['opponent'] }}</span>
+    </div>
+    {% if match['score_ht'] %}
+    <div class="scoreboard-tries">Mi-temps : {{ match['score_ht'] }}</div>
+    {% endif %}
+    <div class="score-detail-row">
+        <div class="score-detail-item">
+            <span class="score-detail-label">Essais</span>
+            <span class="score-detail-value"><span class="own">{{ ov.tries.own }}</span><span class="sep">—</span><span class="adverse">{{ ov.tries.opp }}</span></span>
+        </div>
+        <div class="score-detail-item">
+            <span class="score-detail-label">Pénalités concédées</span>
+            <span class="score-detail-value"><span class="own">{{ ov.penalties_conceded.own }}</span><span class="sep">—</span><span class="adverse">{{ ov.penalties_conceded.opp }}</span></span>
+        </div>
+        <div class="score-detail-item">
+            <span class="score-detail-label">Ballons perdus</span>
+            <span class="score-detail-value"><span class="own">{{ ov.turnovers_lost.own }}</span><span class="sep">—</span><span class="adverse">{{ ov.turnovers_lost.opp }}</span></span>
+        </div>
+        <div class="score-detail-item">
+            <span class="score-detail-label">Cartons 🟨/🟥</span>
+            <span class="score-detail-value"><span class="own">{{ ov.cards.own.yellow }}/{{ ov.cards.own.red }}</span><span class="sep">—</span><span class="adverse">{{ ov.cards.opp.yellow }}/{{ ov.cards.opp.red }}</span></span>
+        </div>
+    </div>
+</div>
+
+<div class="kpi-row">
+    <div class="kpi-card">
+        <div class="kpi-label">Possession</div>
+        <div class="kpi-value"><span class="kpi-own">{{ ov.possession.own }}%</span> / <span class="kpi-adverse">{{ ov.possession.opp }}%</span></div>
+        <div class="kpi-help">Part du temps de jeu où chaque équipe avait le ballon.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Touches</div>
+        <div class="kpi-value"><span class="kpi-own">{{ ov.lineouts.own }}</span> / <span class="kpi-adverse">{{ ov.lineouts.opp }}</span></div>
+        <div class="kpi-help">Nombre de touches jouées, {{ match['own_team'] }} / {{ match['opponent'] }}.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Mêlées</div>
+        <div class="kpi-value"><span class="kpi-own">{{ ov.scrums.own }}</span> / <span class="kpi-adverse">{{ ov.scrums.opp }}</span></div>
+        <div class="kpi-help">Nombre de mêlées jouées, {{ match['own_team'] }} / {{ match['opponent'] }}.</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Ballons perdus</div>
+        <div class="kpi-value"><span class="kpi-own">{{ ov.turnovers_lost.own }}</span> / <span class="kpi-adverse">{{ ov.turnovers_lost.opp }}</span></div>
+        <div class="kpi-help">Nous / {{ match['opponent'] }}.</div>
+    </div>
+</div>
+
+<div class="chart-row">
+    <div class="card chart-container">
+        <h2>Possession</h2>
+        <canvas id="possessionChart"></canvas>
+    </div>
+</div>
+
+<script>
+const ownLabel = {{ match['own_team'] | tojson }};
+const advLabel = {{ match['opponent'] | tojson }};
+const OWN_COLOR = '#1c4586';
+const ADV_COLOR = '#c3d0d6';
+function pctFormatter(value, ctx) {
+    const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+    return total ? Math.round(value / total * 100) + '%' : '';
+}
+new Chart(document.getElementById('possessionChart').getContext('2d'), {
+    type: 'doughnut',
+    data: {
+        labels: [ownLabel, advLabel],
+        datasets: [{ data: [{{ ov.possession.own }}, {{ ov.possession.opp }}], backgroundColor: [OWN_COLOR, ADV_COLOR] }]
+    },
+    plugins: [ChartDataLabels],
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'bottom' },
+            datalabels: { color: '#1a0508', font: { weight: 'bold', size: 14 }, formatter: pctFormatter, anchor: 'center', align: 'center' }
+        }
+    }
+});
+function preparePrint() {
+    setTimeout(() => window.print(), 100);
+}
+</script>
+{% endblock %}
