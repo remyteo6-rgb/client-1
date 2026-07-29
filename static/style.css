@@ -1,15 +1,15 @@
 :root {
-    /* Palette neutre (générique, sans identité de club) : bleu ardoise / gris acier.
-       Remplace ici + CLUB_NAME/CLUB_FULL_NAME/static/logo.png pour personnaliser un client. */
+    /* Union Bordeaux Bègles : bordeaux/bleu marine/or, couleurs extraites du blason
+       officiel (logo_UBB transparent.png). */
     --bg-primary: transparent;
     --bg-card: rgba(255,255,255,0.11);
     --bg-card-border: rgba(255,255,255,0.28);
-    --bg-header: #0f0f0f;
+    --bg-header: #530d34;
     --text-primary: #ffffff;
     --text-secondary: rgba(255,255,255,0.8);
     --text-on-dark: #ffffff;
-    --accent-gold: #9fb3c8;
-    --own-color: #5b8fb0;
+    --accent-gold: #f9a240;
+    --own-color: #1c4586;
     --adverse-color: #ffffff;
     --positive: #6fcf7a;
     --negative: #ff5c5c;
