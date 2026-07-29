@@ -1538,6 +1538,7 @@ def compute_season_dashboard(selected_matches):
     dash["ball_in_play"] = {
         "duration": round(total_bip, 1),
         "duration_fmt": _fmt_mmss(total_bip),
+        "avg_per_match": round(total_bip / nb, 1),
         "avg_per_match_fmt": _fmt_mmss(total_bip / nb),
     }
     dash["possession_by_period"] = None
