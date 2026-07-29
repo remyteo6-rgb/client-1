@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Importer un match UBB{% endblock %}
+{% block content %}
+<h1>🏉 Importer un match UBB</h1>
+<p class="subtitle">Dépose le fichier XML Sportscode du match ("Équipe - Action"). Le score se saisit à la main (il n'est pas reconstruit depuis le fichier).</p>
+
+<div class="card">
+    <form method="post" enctype="multipart/form-data" action="{{ url_for('upload_ubb') }}" class="upload-form">
+        <div class="form-group">
+            <label>Fichier XML Sportscode *</label>
+            <input type="file" name="xml_file" accept=".xml" required>
+        </div>
+        <div class="form-group">
+            <label>Adversaire (nom EXACT tel qu'il apparaît dans le fichier) *</label>
+            <input type="text" name="opponent" placeholder="ex: Montpellier Herault Rugby" required>
+        </div>
+        <div class="form-group">
+            <label>Score UBB</label>
+            <input type="number" name="score_own" placeholder="ex: 24">
+        </div>
+        <div class="form-group">
+            <label>Score adversaire</label>
+            <input type="number" name="score_opp" placeholder="ex: 20">
+        </div>
+        <div class="form-group">
+            <label>Score mi-temps (optionnel)</label>
+            <input type="text" name="score_ht" placeholder="ex: 10-7">
+        </div>
+        <div class="form-group">
+            <label>Date du match (optionnel)</label>
+            <input type="date" name="match_date">
+        </div>
+        <div class="form-group">
+            <label>Compétition (optionnel)</label>
+            <input type="text" name="competition" placeholder="ex: Top 14">
+        </div>
+        <div class="form-group">
+            <label>Lieu (optionnel)</label>
+            <input type="text" name="venue">
+        </div>
+        <button class="btn" type="submit">Importer</button>
+    </form>
+</div>
+{% endblock %}
