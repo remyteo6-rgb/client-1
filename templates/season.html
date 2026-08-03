@@ -227,21 +227,6 @@
 {% endif %}
 
 <script>
-const ownLabel = "Nous";
-const advLabel = "Adversaires";
-const DASHBOARD = {{ dashboard | tojson }};
-const OWN_COLOR = '#5b8fb0';
-const ADV_COLOR = '#c3d0d6';
-function pctFormatter(value, ctx) {
-    const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
-    return total ? Math.round(value / total * 100) + '%' : '';
-}
-
-// Légendes/axes en clair pour le fond sombre du site. En impression/PDF le fond
-// devient blanc, donc ce texte clair devient invisible : on bascule sur des
-// couleurs sombres juste avant l'impression, puis on revient après.
-const chartScreenColors = { text: 'rgba(255,255,255,0.75)', grid: 'rgba(255,255,255,0.1)' };
-const chartPrintColors = { text: '#333333', grid: 'rgba(0,0,0,0.15)' };
 
 const possessionChartInstance = new Chart(document.getElementById('possessionChart').getContext('2d'), {
     type: 'doughnut',
