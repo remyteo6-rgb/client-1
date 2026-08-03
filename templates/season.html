@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Bilan de saison{% endblock %}
 {% block content %}
-
 {% set poss = stats.get('Possession', {}) %}
 {% set poss_own_d = poss.get('own', {}).get('duration', 0) %}
 {% set poss_adv_d = poss.get('adverse', {}).get('duration', 0) %}
@@ -11,7 +10,6 @@
 {% set ruck_own = ruck.get('own', {}).get('count', 0) %}
 {% set ruck_adv = ruck.get('adverse', {}).get('count', 0) %}
 {% set discipline = stats.get('Disciplines', {}) %}
-
 <div class="page-header no-print">
     <div>
         <h1>📅 Bilan de saison</h1>
@@ -27,7 +25,6 @@
     <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
     {% endif %}
 </div>
-
 {% if all_matches %}
 <div class="card no-print">
     <h2>Matchs inclus dans le cumul</h2>
@@ -55,7 +52,6 @@
     {% endif %}
 </div>
 {% endif %}
-
 {% if dashboard %}
 <div class="card scoreboard-hero">
     <div class="scoreboard-hero-teams">
@@ -78,7 +74,6 @@
         <span class="own">{{ dashboard.points_for }} points marqués</span>
         <span class="adverse">{{ dashboard.points_against }} points encaissés</span>
     </div>
-
    <div class="bip-bar-wrap">
         <div class="bip-bar-label">
             <span>⏱ Ball in Play moyen / match</span>
@@ -86,7 +81,6 @@
         </div>
         <div class="bip-bar-track"><div class="bip-bar-fill" style="width:{{ (dashboard.ball_in_play.avg_per_match / 4800 * 100) | round(1) }}%;"></div></div>
     </div>
-
     {% if dashboard.score_detail %}
     <div class="score-detail-row">
         <div class="score-detail-item">
@@ -108,7 +102,6 @@
     </div>
     {% endif %}
 </div>
-
 <div class="kpi-row">
     <div class="kpi-card">
         <div class="kpi-label">Points par entrée</div>
@@ -135,7 +128,6 @@
         <div class="kpi-help">Nous / adversaires — ballons perdus en possession, cumulés.</div>
     </div>
 </div>
-
 <div class="card">
     <h2>🚪 Comment on rentre en zone RAID</h2>
     <p class="subtitle">Origine des entrées en zone d'attaque, cumulée sur les matchs sélectionnés : course (RUN), sortie de camp (EXIT) ou pénalité obtenue.</p>
@@ -156,7 +148,6 @@
         </div>
     </div>
 </div>
-
 <div class="kpi-row">
     <div class="kpi-card">
         <div class="kpi-label">Possession (temps codé)</div>
@@ -188,7 +179,6 @@
         <div class="kpi-help">% de mêlées gagnées sur celles jouées, nous / adversaires cumulés.</div>
     </div>
 </div>
-
 <div class="chart-row">
     <div class="card chart-container">
         <h2>Possession</h2>
@@ -199,7 +189,6 @@
         <canvas id="occupationChart"></canvas>
     </div>
 </div>
-
 <div class="chart-row">
     <div class="card chart-container">
         <h2>Possession par match</h2>
@@ -210,7 +199,6 @@
         <canvas id="occupationByMatchChart"></canvas>
     </div>
 </div>
-
 {% if dashboard.bip_sequences and dashboard.bip_sequences.total %}
 <div class="card">
     <h2>⏱️ Séquences de jeu (Ball in Play) par durée</h2>
@@ -225,9 +213,16 @@
     </table>
 </div>
 {% endif %}
-
 <script>
-
+const ownLabel = "Nous";
+const advLabel = "Adversaires";
+const DASHBOARD = {{ dashboard | tojson }};
+const OWN_COLOR = '#5b8fb0';
+const ADV_COLOR = '#c3d0d6';
+function pctFormatter(value, ctx) {
+    const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+    return total ? Math.round(value / total * 100) + '%' : '';
+}
 const possessionChartInstance = new Chart(document.getElementById('possessionChart').getContext('2d'), {
     type: 'doughnut',
     data: {
@@ -241,7 +236,7 @@ const possessionChartInstance = new Chart(document.getElementById('possessionCha
     options: {
         responsive: true, maintainAspectRatio: false, animation: false,
         plugins: {
-            legend: { position: 'bottom', labels: { color: chartScreenColors.text } },
+            legend: { position: 'bottom' },
             datalabels: { color: '#1a0508', font: { weight: 'bold', size: 14 }, formatter: pctFormatter, anchor: 'center', align: 'center' },
         }
     }
@@ -259,7 +254,7 @@ const occupationChartInstance = new Chart(document.getElementById('occupationCha
     options: {
         responsive: true, maintainAspectRatio: false, animation: false,
         plugins: {
-            legend: { position: 'bottom', labels: { color: chartScreenColors.text } },
+            legend: { position: 'bottom' },
             datalabels: { color: '#1a0508', font: { weight: 'bold', size: 14 }, formatter: pctFormatter, anchor: 'center', align: 'center' },
         }
     }
@@ -278,13 +273,10 @@ const possessionByMatchChartInstance = new Chart(document.getElementById('posses
     options: {
         responsive: true, maintainAspectRatio: false, animation: false,
         plugins: {
-            legend: { position: 'top', labels: { color: chartScreenColors.text } },
+            legend: { position: 'top' },
             datalabels: { color: '#1a0508', font: { weight: 'bold', size: 11 }, formatter: (v) => v !== null ? v + '%' : '', anchor: 'center', align: 'center' }
         },
-        scales: {
-            x: { ticks: { color: chartScreenColors.text }, grid: { color: chartScreenColors.grid } },
-            y: { beginAtZero: true, max: 100, ticks: { color: chartScreenColors.text, callback: v => v + '%' }, grid: { color: chartScreenColors.grid } }
-        }
+        scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } }
     }
 });
 const occByMatch = DASHBOARD.occupation_by_match || [];
@@ -301,35 +293,20 @@ const occupationByMatchChartInstance = new Chart(document.getElementById('occupa
     options: {
         responsive: true, maintainAspectRatio: false, animation: false,
         plugins: {
-            legend: { position: 'top', labels: { color: chartScreenColors.text } },
+            legend: { position: 'top' },
             datalabels: { color: '#1a0508', font: { weight: 'bold', size: 11 }, formatter: (v) => v !== null ? v + '%' : '', anchor: 'center', align: 'center' }
         },
-        scales: {
-            x: { ticks: { color: chartScreenColors.text }, grid: { color: chartScreenColors.grid } },
-            y: { beginAtZero: true, max: 100, ticks: { color: chartScreenColors.text, callback: v => v + '%' }, grid: { color: chartScreenColors.grid } }
-        }
+        scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } }
     }
 });
 
-function setAllChartColors(c) {
-    [possessionChartInstance, occupationChartInstance].forEach(ch => {
-        ch.options.plugins.legend.labels.color = c.text;
-        ch.update('none');
-    });
-    [possessionByMatchChartInstance, occupationByMatchChartInstance].forEach(ch => {
-        ch.options.plugins.legend.labels.color = c.text;
-        ch.options.scales.x.ticks.color = c.text;
-        ch.options.scales.x.grid.color = c.grid;
-        ch.options.scales.y.ticks.color = c.text;
-        ch.options.scales.y.grid.color = c.grid;
-        ch.update('none');
-    });
-}
-window.addEventListener('beforeprint', function () { setAllChartColors(chartPrintColors); });
-window.addEventListener('afterprint', function () { setAllChartColors(chartScreenColors); });
+const allSeasonCharts = [possessionChartInstance, occupationChartInstance, possessionByMatchChartInstance, occupationByMatchChartInstance];
+window.addEventListener('beforeprint', function () {
+    allSeasonCharts.forEach(function (ch) { ch.resize(); ch.update('none'); });
+});
 
 function preparePrint() {
-    setTimeout(() => window.print(), 100);
+    setTimeout(() => window.print(), 300);
 }
 </script>
 {% endif %}
