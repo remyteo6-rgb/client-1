@@ -232,13 +232,18 @@ const advLabel = "Adversaires";
 const DASHBOARD = {{ dashboard | tojson }};
 const OWN_COLOR = '#5b8fb0';
 const ADV_COLOR = '#c3d0d6';
-
 function pctFormatter(value, ctx) {
     const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
     return total ? Math.round(value / total * 100) + '%' : '';
 }
 
-new Chart(document.getElementById('possessionChart').getContext('2d'), {
+// Légendes/axes en clair pour le fond sombre du site. En impression/PDF le fond
+// devient blanc, donc ce texte clair devient invisible : on bascule sur des
+// couleurs sombres juste avant l'impression, puis on revient après.
+const chartScreenColors = { text: 'rgba(255,255,255,0.75)', grid: 'rgba(255,255,255,0.1)' };
+const chartPrintColors = { text: '#333333', grid: 'rgba(0,0,0,0.15)' };
+
+const possessionChartInstance = new Chart(document.getElementById('possessionChart').getContext('2d'), {
     type: 'doughnut',
     data: {
         labels: [ownLabel, advLabel],
@@ -249,15 +254,14 @@ new Chart(document.getElementById('possessionChart').getContext('2d'), {
     },
     plugins: [ChartDataLabels],
     options: {
-        responsive: true, maintainAspectRatio: false,
+        responsive: true, maintainAspectRatio: false, animation: false,
         plugins: {
-            legend: { position: 'bottom' },
+            legend: { position: 'bottom', labels: { color: chartScreenColors.text } },
             datalabels: { color: '#1a0508', font: { weight: 'bold', size: 14 }, formatter: pctFormatter, anchor: 'center', align: 'center' },
         }
     }
 });
-
-new Chart(document.getElementById('occupationChart').getContext('2d'), {
+const occupationChartInstance = new Chart(document.getElementById('occupationChart').getContext('2d'), {
     type: 'doughnut',
     data: {
         labels: [ownLabel, advLabel],
@@ -268,16 +272,15 @@ new Chart(document.getElementById('occupationChart').getContext('2d'), {
     },
     plugins: [ChartDataLabels],
     options: {
-        responsive: true, maintainAspectRatio: false,
+        responsive: true, maintainAspectRatio: false, animation: false,
         plugins: {
-            legend: { position: 'bottom' },
+            legend: { position: 'bottom', labels: { color: chartScreenColors.text } },
             datalabels: { color: '#1a0508', font: { weight: 'bold', size: 14 }, formatter: pctFormatter, anchor: 'center', align: 'center' },
         }
     }
 });
-
 const possByMatch = DASHBOARD.possession_by_match || [];
-new Chart(document.getElementById('possessionByMatchChart').getContext('2d'), {
+const possessionByMatchChartInstance = new Chart(document.getElementById('possessionByMatchChart').getContext('2d'), {
     type: 'bar',
     data: {
         labels: possByMatch.map(m => m.label),
@@ -288,17 +291,19 @@ new Chart(document.getElementById('possessionByMatchChart').getContext('2d'), {
     },
     plugins: [ChartDataLabels],
     options: {
-        responsive: true, maintainAspectRatio: false,
+        responsive: true, maintainAspectRatio: false, animation: false,
         plugins: {
-            legend: { position: 'top' },
+            legend: { position: 'top', labels: { color: chartScreenColors.text } },
             datalabels: { color: '#1a0508', font: { weight: 'bold', size: 11 }, formatter: (v) => v !== null ? v + '%' : '', anchor: 'center', align: 'center' }
         },
-        scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } }
+        scales: {
+            x: { ticks: { color: chartScreenColors.text }, grid: { color: chartScreenColors.grid } },
+            y: { beginAtZero: true, max: 100, ticks: { color: chartScreenColors.text, callback: v => v + '%' }, grid: { color: chartScreenColors.grid } }
+        }
     }
 });
-
 const occByMatch = DASHBOARD.occupation_by_match || [];
-new Chart(document.getElementById('occupationByMatchChart').getContext('2d'), {
+const occupationByMatchChartInstance = new Chart(document.getElementById('occupationByMatchChart').getContext('2d'), {
     type: 'bar',
     data: {
         labels: occByMatch.map(m => m.label),
@@ -309,18 +314,36 @@ new Chart(document.getElementById('occupationByMatchChart').getContext('2d'), {
     },
     plugins: [ChartDataLabels],
     options: {
-        responsive: true, maintainAspectRatio: false,
+        responsive: true, maintainAspectRatio: false, animation: false,
         plugins: {
-            legend: { position: 'top' },
+            legend: { position: 'top', labels: { color: chartScreenColors.text } },
             datalabels: { color: '#1a0508', font: { weight: 'bold', size: 11 }, formatter: (v) => v !== null ? v + '%' : '', anchor: 'center', align: 'center' }
         },
-        scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } }
+        scales: {
+            x: { ticks: { color: chartScreenColors.text }, grid: { color: chartScreenColors.grid } },
+            y: { beginAtZero: true, max: 100, ticks: { color: chartScreenColors.text, callback: v => v + '%' }, grid: { color: chartScreenColors.grid } }
+        }
     }
 });
+
+function setAllChartColors(c) {
+    [possessionChartInstance, occupationChartInstance].forEach(ch => {
+        ch.options.plugins.legend.labels.color = c.text;
+        ch.update('none');
+    });
+    [possessionByMatchChartInstance, occupationByMatchChartInstance].forEach(ch => {
+        ch.options.plugins.legend.labels.color = c.text;
+        ch.options.scales.x.ticks.color = c.text;
+        ch.options.scales.x.grid.color = c.grid;
+        ch.options.scales.y.ticks.color = c.text;
+        ch.options.scales.y.grid.color = c.grid;
+        ch.update('none');
+    });
+}
+window.addEventListener('beforeprint', function () { setAllChartColors(chartPrintColors); });
+window.addEventListener('afterprint', function () { setAllChartColors(chartScreenColors); });
 
 function preparePrint() {
     setTimeout(() => window.print(), 100);
 }
 </script>
-{% endif %}
-{% endblock %}
