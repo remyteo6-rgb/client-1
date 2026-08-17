@@ -345,7 +345,7 @@ def init_db():
     """)
     db.commit()
     db.close()
-    @app.route("/")
+@app.route("/")
 def landing():
     return render_template("landing.html")
 @app.route("/matchs")
