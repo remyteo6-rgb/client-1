@@ -322,7 +322,6 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
 }
 .subnav-links a:hover { color: #fff; }
 .subnav-links a.active { color: #fff; border-bottom-color: var(--accent-gold); }
-
 /* Sous-menu "Secteurs ▾" dans la sous-nav : regroupe Attaque/Défense/Ruck/Touches/
    Mêlée/JAP/Transition (et Discipline/Rucks côté Adversaires) pour éviter d'avoir
    10+ onglets à plat sur une seule ligne. */
@@ -683,7 +682,6 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
     font-size: 14px;
     font-weight: 700;
 }
-
 /* Menu déroulant en haut à droite (accueil ET toutes les autres pages) */
 .landing-topmenu {
     position: fixed;
@@ -929,6 +927,7 @@ body.demo-mode .demo-blur {
 .radar-legend-item { display: flex; align-items: center; gap: 6px; }
 .radar-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
 .mobile-page-link { display: none; }
+
 /* ---------- Espace Documents (plateforme du staff) ---------- */
 .docs-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; }
 .docs-breadcrumb { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
@@ -967,3 +966,66 @@ body.demo-mode .demo-blur {
 .docs-mini-btn:hover { background: rgba(255,255,255,0.16); }
 .docs-mini-danger:hover { border-color: var(--negative); }
 .docs-delete-form { display: inline; }
+
+/* ---------- Calendrier du staff ---------- */
+.cal-form-row { display: flex; gap: 12px; }
+.cal-form-row .form-group { flex: 1; }
+.cal-month-card h2 { text-transform: capitalize; }
+.cal-event-list { display: flex; flex-direction: column; gap: 10px; }
+.cal-event-row {
+    display: flex; align-items: flex-start; gap: 16px;
+    background: rgba(255,255,255,0.05); border: 1px solid var(--bg-card-border);
+    border-radius: var(--radius); padding: 12px 16px;
+}
+.cal-event-row.cal-event-past { opacity: 0.5; }
+.cal-event-date { display: flex; flex-direction: column; align-items: center; min-width: 44px; }
+.cal-event-day { font-size: 20px; font-weight: 800; line-height: 1; }
+.cal-event-time { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+.cal-event-main { flex: 1; min-width: 0; }
+.cal-event-title { font-weight: 700; font-size: 14px; }
+.cal-event-desc { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+.cal-event-meta { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+.cal-event-actions { display: flex; gap: 6px; align-items: flex-start; flex-shrink: 0; }
+
+/* ---------- Cahier des charges (tableau à 3 colonnes) ---------- */
+.cc-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: start; }
+.cc-column { background: rgba(255,255,255,0.04); border: 1px solid var(--bg-card-border); border-radius: var(--radius); overflow: hidden; }
+.cc-column-header {
+    padding: 12px 16px; font-weight: 700; font-size: 13px; text-transform: uppercase;
+    letter-spacing: 0.4px; display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid var(--bg-card-border);
+}
+.cc-column-a_faire { color: var(--negative); }
+.cc-column-en_cours { color: var(--accent-gold); }
+.cc-column-fait { color: var(--positive); }
+.cc-column-count {
+    background: rgba(255,255,255,0.1); border-radius: 999px; padding: 2px 9px; font-size: 11px;
+}
+.cc-column-body { display: flex; flex-direction: column; gap: 10px; padding: 12px; min-height: 40px; }
+.cc-column-empty { font-size: 12px; color: var(--text-secondary); text-align: center; padding: 10px 0; }
+.cc-card { background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: 6px; padding: 12px 14px; }
+.cc-card-title { font-weight: 700; font-size: 13px; }
+.cc-card-desc { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+.cc-card-meta { font-size: 11px; color: var(--text-secondary); margin-top: 6px; }
+.cc-card-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; gap: 8px; }
+.cc-status-form select {
+    background: rgba(255,255,255,0.08); color: var(--text-primary); border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 5px; padding: 4px 6px; font-size: 12px;
+}
+@media (max-width: 900px) {
+    .cc-board { grid-template-columns: 1fr; }
+}
+
+/* Sous-menu imbriqué "🎥 Analyse vidéo" DANS le menu ☰ (regroupe toutes les pages qui
+   existaient avant l'ajout des espaces Documents/Calendrier/Cahier des charges). */
+.landing-dropdown-sub { position: relative; }
+.landing-dropdown-sub summary {
+    list-style: none; cursor: pointer; display: block; padding: 12px 16px;
+    color: #fff; font-size: 13px; font-weight: 600; user-select: none;
+}
+.landing-dropdown-sub summary::-webkit-details-marker { display: none; }
+.landing-dropdown-sub summary::after { content: " ▸"; float: right; opacity: 0.6; }
+.landing-dropdown-sub[open] summary::after { content: " ▾"; }
+.landing-dropdown-sub summary:hover { background: rgba(255,255,255,0.08); }
+.landing-dropdown-sub-content { display: flex; flex-direction: column; background: rgba(0,0,0,0.25); }
+.landing-dropdown-sub-content a { padding-left: 30px; font-size: 12.5px; }
