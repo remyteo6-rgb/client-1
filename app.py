@@ -113,10 +113,15 @@ def gate_optional_features():
     if not ENABLE_JIFF and request.endpoint in JIFF_ENDPOINTS:
         flash("Cette fonctionnalité n'est pas activée sur ce site.", "error")
         return redirect(url_for("landing"))
-    # L'espace Documents contient des fichiers internes au staff (plans de jeu, compos...) :
-    # il est totalement invisible pour les visiteurs du lien de démonstration.
-    if session.get("demo_forced") and request.endpoint and request.endpoint.startswith("documents"):
-        flash("L'espace Documents n'est pas accessible en mode démonstration.", "error")
+    # Les espaces Documents / Calendrier / Cahier des charges contiennent des informations
+    # internes au staff : ils sont totalement invisibles pour les visiteurs du lien de
+    # démonstration.
+    if session.get("demo_forced") and request.endpoint and (
+        request.endpoint.startswith("documents")
+        or request.endpoint.startswith("calendrier")
+        or request.endpoint.startswith("cahier_charges")
+    ):
+        flash("Cet espace n'est pas accessible en mode démonstration.", "error")
         return redirect(url_for("landing"))
 def admin_required(view):
     """Garde-fou pour les actions réservées à l'admin (import, suppression, validation
@@ -313,9 +318,34 @@ def init_db():
             uploaded_at TEXT NOT NULL
         )
     """)
+    # Calendrier du staff : événements divers (réunions, déplacements, rendez-vous...),
+    # distincts des matchs/entraînements qui restent gérés ailleurs sur le site.
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS calendar_events (
+            id SERIAL PRIMARY KEY,
+            title TEXT NOT NULL,
+            description TEXT,
+            event_date TEXT NOT NULL,
+            event_time TEXT,
+            created_by TEXT,
+            created_at TEXT NOT NULL
+        )
+    """)
+    # Cahier des charges : suivi de tâches/exigences du staff, à 3 statuts.
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS charges_items (
+            id SERIAL PRIMARY KEY,
+            title TEXT NOT NULL,
+            description TEXT,
+            status TEXT NOT NULL DEFAULT 'a_faire',
+            created_by TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT
+        )
+    """)
     db.commit()
     db.close()
-@app.route("/")
+    @app.route("/")
 def landing():
     return render_template("landing.html")
 @app.route("/matchs")
@@ -541,7 +571,7 @@ def match_ruck(match_id):
     baselines = compute_sector_baselines(matches_with_instances, exclude_id=match_id)
     return render_template("match_ruck.html", match=match, data=ruck, phase_icons=PHASE_ICONS,
                            baseline=(baselines or {}).get("ruck"))
-@app.route("/match/<int:match_id>/touches")
+    @app.route("/match/<int:match_id>/touches")
 def match_touches(match_id):
     match = _get_match_or_404(match_id)
     if _no_instances_guard(match):
@@ -723,7 +753,7 @@ def delete_match(match_id):
     db.commit()
     flash("Match supprimé.", "success")
     return redirect(url_for("index"))
-    SECTOR_PAGE_META = {
+SECTOR_PAGE_META = {
     "attaque": {"title": "Attaque", "icon": "⚔️"},
     "defense": {"title": "Défense", "icon": "🛡️"},
     "discipline": {"title": "Discipline", "icon": "🟨"},
@@ -764,7 +794,7 @@ def _load_prod2_meta():
         "filename": row["filename"],
         "journee": _extract_journee(row["filename"]),
     }
-def _report_label(report_meta):
+    def _report_label(report_meta):
     if not report_meta:
         return "aucun rapport importé"
     parts = []
@@ -1169,7 +1199,7 @@ def season_jiff():
     jiff_data = compute_jiff_chart(selected)
     return render_template("season_jiff.html", data=jiff_data, season_mode=True, active="jiff", qs=qs,
                            selected_count=len(selected))
-@app.route("/season/transition")
+    @app.route("/season/transition")
 def season_transition():
     _, selected, _, qs = _season_context()
     instances = _season_instances(selected)
@@ -1247,7 +1277,7 @@ def season_analyse():
         "season_analyse.html", analysis=analysis, season_mode=True, active="analyse",
         qs=qs, selected_count=len(selected),
     )
-    # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # ESPACE DOCUMENTS — plateforme centrale du staff
 # ---------------------------------------------------------------------------
 # Chaque membre du staff (connecté avec son compte) peut créer des dossiers,
@@ -1503,6 +1533,189 @@ def documents_rename_folder(folder_id):
         db.commit()
         flash("Dossier renommé.", "success")
     return redirect(url_for("documents", folder_id=folder_id))
+
+# ---------------------------------------------------------------------------
+# ANALYSE VIDÉO — page d'entrée du pôle qui regroupe tout ce qui existait sur
+# le site avant l'ajout des espaces Documents / Calendrier / Cahier des charges
+# (Matchs, Bilan de saison, Adversaires, Tendances, Prochain match, Effectif).
+# ---------------------------------------------------------------------------
+@app.route("/analyse-video")
+def analyse_video():
+    return render_template("analyse_video.html")
+
+# ---------------------------------------------------------------------------
+# CALENDRIER — agenda d'événements du staff (réunions, déplacements, rendez-vous
+# médicaux...), distinct des matchs/entraînements gérés ailleurs sur le site.
+# Règles identiques à l'espace Documents : tout le staff ajoute, chacun gère ses
+# propres événements, l'admin gère tout ; invisible en mode démo.
+# ---------------------------------------------------------------------------
+def _cal_can_edit(row):
+    """Réutilise la même règle que les documents : admin = tout, sinon = ses propres
+    événements uniquement (comparaison sur created_by)."""
+    return _doc_can_delete(dict(row))
+
+@app.route("/calendrier")
+def calendrier():
+    db = get_db()
+    rows = db.execute(
+        "SELECT * FROM calendar_events ORDER BY event_date ASC, COALESCE(event_time, '99:99') ASC, id ASC"
+    ).fetchall()
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    events_by_month = {}
+    for r in rows:
+        r = dict(r)
+        r["can_edit"] = _cal_can_edit(r)
+        r["is_past"] = (r["event_date"] or "") < today
+        month_key = (r["event_date"] or "")[:7]  # "AAAA-MM"
+        events_by_month.setdefault(month_key, []).append(r)
+    # Libellés lisibles pour chaque mois présent (ex. "Août 2026"), triés chronologiquement.
+    MONTH_NAMES = ["", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet",
+                   "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
+    months = []
+    for key in sorted(events_by_month.keys()):
+        year, month = key.split("-")
+        months.append({
+            "key": key, "label": f"{MONTH_NAMES[int(month)]} {year}",
+            "events": events_by_month[key],
+        })
+    upcoming_count = sum(1 for r in rows if (r["event_date"] or "") >= today)
+    return render_template(
+        "calendrier.html", months=months, today=today,
+        upcoming_count=upcoming_count, total_count=len(rows),
+    )
+
+@app.route("/calendrier/ajouter", methods=["POST"])
+def calendrier_add():
+    title = request.form.get("title", "").strip()
+    event_date = request.form.get("event_date", "").strip()
+    event_time = request.form.get("event_time", "").strip()
+    description = request.form.get("description", "").strip()
+    if not title or not event_date:
+        flash("Merci d'indiquer au moins un titre et une date.", "error")
+    else:
+        db = get_db()
+        db.execute(
+            """INSERT INTO calendar_events (title, description, event_date, event_time, created_by, created_at)
+               VALUES (%s, %s, %s, %s, %s, %s)""",
+            (title, description or None, event_date, event_time or None,
+             session.get("user_email", ""), datetime.utcnow().isoformat()),
+        )
+        db.commit()
+        flash("Événement ajouté au calendrier.", "success")
+    return redirect(url_for("calendrier"))
+
+@app.route("/calendrier/<int:event_id>/modifier", methods=["POST"])
+def calendrier_edit(event_id):
+    db = get_db()
+    row = db.execute("SELECT * FROM calendar_events WHERE id = %s", (event_id,)).fetchone()
+    if not row:
+        abort(404)
+    if not _cal_can_edit(row):
+        flash("Tu ne peux modifier que tes propres événements (ou demande à l'admin).", "error")
+        return redirect(url_for("calendrier"))
+    title = request.form.get("title", "").strip()
+    event_date = request.form.get("event_date", "").strip()
+    event_time = request.form.get("event_time", "").strip()
+    description = request.form.get("description", "").strip()
+    if not title or not event_date:
+        flash("Merci d'indiquer au moins un titre et une date.", "error")
+    else:
+        db.execute(
+            """UPDATE calendar_events SET title = %s, description = %s, event_date = %s, event_time = %s
+               WHERE id = %s""",
+            (title, description or None, event_date, event_time or None, event_id),
+        )
+        db.commit()
+        flash("Événement modifié.", "success")
+    return redirect(url_for("calendrier"))
+
+@app.route("/calendrier/<int:event_id>/supprimer", methods=["POST"])
+def calendrier_delete(event_id):
+    db = get_db()
+    row = db.execute("SELECT * FROM calendar_events WHERE id = %s", (event_id,)).fetchone()
+    if not row:
+        abort(404)
+    if not _cal_can_edit(row):
+        flash("Tu ne peux supprimer que tes propres événements (ou demande à l'admin).", "error")
+    else:
+        db.execute("DELETE FROM calendar_events WHERE id = %s", (event_id,))
+        db.commit()
+        flash("Événement supprimé.", "success")
+    return redirect(url_for("calendrier"))
+
+# ---------------------------------------------------------------------------
+# CAHIER DES CHARGES — suivi de tâches/exigences du staff, en 3 colonnes
+# (à faire / en cours / fait). Tout le staff peut créer une tâche et déplacer
+# n'importe quelle tâche d'une colonne à l'autre (travail collaboratif) ; seule
+# la personne qui l'a créée (ou l'admin) peut la supprimer. Invisible en démo.
+# ---------------------------------------------------------------------------
+CHARGES_STATUSES = ["a_faire", "en_cours", "fait"]
+CHARGES_STATUS_LABELS = {"a_faire": "À faire", "en_cours": "En cours", "fait": "Fait"}
+
+@app.route("/cahier-des-charges")
+def cahier_charges():
+    db = get_db()
+    rows = db.execute(
+        "SELECT * FROM charges_items ORDER BY created_at DESC, id DESC"
+    ).fetchall()
+    columns = {status: [] for status in CHARGES_STATUSES}
+    for r in rows:
+        r = dict(r)
+        r["can_delete"] = _doc_can_delete(r)
+        r["date_human"] = (r["created_at"] or "")[:10]
+        columns.setdefault(r["status"], []).append(r)
+    return render_template(
+        "cahier_charges.html", columns=columns, statuses=CHARGES_STATUSES,
+        status_labels=CHARGES_STATUS_LABELS, total_count=len(rows),
+    )
+
+@app.route("/cahier-des-charges/ajouter", methods=["POST"])
+def cahier_charges_add():
+    title = request.form.get("title", "").strip()
+    description = request.form.get("description", "").strip()
+    if not title:
+        flash("Merci d'indiquer au moins un titre.", "error")
+    else:
+        db = get_db()
+        db.execute(
+            """INSERT INTO charges_items (title, description, status, created_by, created_at)
+               VALUES (%s, %s, 'a_faire', %s, %s)""",
+            (title, description or None, session.get("user_email", ""), datetime.utcnow().isoformat()),
+        )
+        db.commit()
+        flash("Tâche ajoutée.", "success")
+    return redirect(url_for("cahier_charges"))
+
+@app.route("/cahier-des-charges/<int:item_id>/statut", methods=["POST"])
+def cahier_charges_status(item_id):
+    new_status = request.form.get("status", "")
+    if new_status not in CHARGES_STATUSES:
+        abort(400)
+    db = get_db()
+    row = db.execute("SELECT id FROM charges_items WHERE id = %s", (item_id,)).fetchone()
+    if not row:
+        abort(404)
+    db.execute(
+        "UPDATE charges_items SET status = %s, updated_at = %s WHERE id = %s",
+        (new_status, datetime.utcnow().isoformat(), item_id),
+    )
+    db.commit()
+    flash(f"Tâche déplacée vers « {CHARGES_STATUS_LABELS[new_status]} ».", "success")
+    return redirect(url_for("cahier_charges"))
+
+@app.route("/cahier-des-charges/<int:item_id>/supprimer", methods=["POST"])
+def cahier_charges_delete(item_id):
+    db = get_db()
+    row = db.execute("SELECT * FROM charges_items WHERE id = %s", (item_id,)).fetchone()
+    if not row:
+        abort(404)
+    if not _doc_can_delete(dict(row)):
+        flash("Tu ne peux supprimer que les tâches que tu as créées (ou demande à l'admin).", "error")
+    else:
+        db.execute("DELETE FROM charges_items WHERE id = %s", (item_id,))
+        db.commit()
+        flash("Tâche supprimée.", "success")
+    return redirect(url_for("cahier_charges"))
 
 init_db()
 if __name__ == "__main__":
