@@ -325,7 +325,7 @@ def index():
     opponents = sorted({r["opponent"] for r in rows})
     competitions = sorted({r["competition"] for r in rows if r["competition"]})
     return render_template("index.html", matches=rows, opponents=opponents, competitions=competitions)
-    @app.route("/upload", methods=["GET", "POST"])
+@app.route("/upload", methods=["GET", "POST"])
 @admin_required
 def upload():
     if request.method == "GET":
