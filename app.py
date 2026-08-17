@@ -68,7 +68,7 @@ ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@nissarugby.fr")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "changeme")
 # Lien de démo public : quiconque a ce lien voit le site en lecture seule, sans compte,
 # avec le mode démo (noms floutés) activé automatiquement. Change cette valeur si tu veux
-# un lien différent, et ne le partage qu'avec des prospects (il donne accès en lecture à tout).
+# un lien différent, et ne le partage qu'à des prospects (il donne accès en lecture à tout).
 DEMO_TOKEN = os.environ.get("DEMO_TOKEN", "decouverte-club1")
 # Comptes STAFF (accès lecture seule : navigue partout mais ne voit aucune action de
 # modification) : autant de comptes que voulu, chacun avec SON PROPRE email/mot de passe.
@@ -113,6 +113,11 @@ def gate_optional_features():
     if not ENABLE_JIFF and request.endpoint in JIFF_ENDPOINTS:
         flash("Cette fonctionnalité n'est pas activée sur ce site.", "error")
         return redirect(url_for("landing"))
+    # L'espace Documents contient des fichiers internes au staff (plans de jeu, compos...) :
+    # il est totalement invisible pour les visiteurs du lien de démonstration.
+    if session.get("demo_forced") and request.endpoint and request.endpoint.startswith("documents"):
+        flash("L'espace Documents n'est pas accessible en mode démonstration.", "error")
+        return redirect(url_for("landing"))
 def admin_required(view):
     """Garde-fou pour les actions réservées à l'admin (import, suppression, validation
     composition, sauvegarde...). Le staff est bien connecté (passe le before_request
@@ -129,6 +134,7 @@ def inject_logged_in():
     return {
         "logged_in": session.get("logged_in", False), "is_admin": session.get("is_admin", False),
         "demo_forced": session.get("demo_forced", False),
+        "user_email": session.get("user_email", ""),
         "club_name": CLUB_NAME, "club_full_name": CLUB_FULL_NAME,
         "enable_prod2": ENABLE_PROD2, "enable_jiff": ENABLE_JIFF,
         "asset_version": ASSET_VERSION,
@@ -142,6 +148,7 @@ def demo_login(token):
     session["logged_in"] = True
     session["is_admin"] = False
     session["demo_forced"] = True
+    session["user_email"] = "démo"
     return redirect(url_for("landing", demo="1"))
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -155,6 +162,7 @@ def login():
             session["logged_in"] = True
             session["is_admin"] = True
             session["demo_forced"] = False
+            session["user_email"] = email
             flash("Connecté.", "success")
             return redirect(next_target)
         for staff_email, staff_password in STAFF_ACCOUNTS:
@@ -163,6 +171,7 @@ def login():
                 session["logged_in"] = True
                 session["is_admin"] = False
                 session["demo_forced"] = False
+                session["user_email"] = email
                 flash("Connecté.", "success")
                 return redirect(next_target)
         flash("Email ou mot de passe incorrect.", "error")
@@ -172,6 +181,7 @@ def logout():
     session.pop("logged_in", None)
     session.pop("is_admin", None)
     session.pop("demo_forced", None)
+    session.pop("user_email", None)
     flash("Déconnecté.", "success")
     return redirect(url_for("login"))
 class DB:
@@ -275,6 +285,34 @@ def init_db():
             updated_at TEXT NOT NULL
         )
     """)
+    # Espace Documents du staff : dossiers libres + fichiers stockés DANS la base
+    # PostgreSQL (colonne BYTEA) pour survivre aux redéploiements Render (le disque
+    # du plan gratuit n'est pas persistant). Les vidéos lourdes passent par des
+    # liens (kind='link') plutôt que des fichiers.
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS doc_folders (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            parent_id INTEGER REFERENCES doc_folders(id) ON DELETE CASCADE,
+            created_by TEXT,
+            created_at TEXT NOT NULL
+        )
+    """)
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS documents (
+            id SERIAL PRIMARY KEY,
+            folder_id INTEGER REFERENCES doc_folders(id) ON DELETE CASCADE,
+            kind TEXT NOT NULL DEFAULT 'file',
+            filename TEXT,
+            mimetype TEXT,
+            size_bytes INTEGER,
+            data BYTEA,
+            url TEXT,
+            title TEXT,
+            uploaded_by TEXT,
+            uploaded_at TEXT NOT NULL
+        )
+    """)
     db.commit()
     db.close()
 @app.route("/")
@@ -287,7 +325,7 @@ def index():
     opponents = sorted({r["opponent"] for r in rows})
     competitions = sorted({r["competition"] for r in rows if r["competition"]})
     return render_template("index.html", matches=rows, opponents=opponents, competitions=competitions)
-@app.route("/upload", methods=["GET", "POST"])
+    @app.route("/upload", methods=["GET", "POST"])
 @admin_required
 def upload():
     if request.method == "GET":
@@ -685,7 +723,7 @@ def delete_match(match_id):
     db.commit()
     flash("Match supprimé.", "success")
     return redirect(url_for("index"))
-SECTOR_PAGE_META = {
+    SECTOR_PAGE_META = {
     "attaque": {"title": "Attaque", "icon": "⚔️"},
     "defense": {"title": "Défense", "icon": "🛡️"},
     "discipline": {"title": "Discipline", "icon": "🟨"},
@@ -1209,6 +1247,263 @@ def season_analyse():
         "season_analyse.html", analysis=analysis, season_mode=True, active="analyse",
         qs=qs, selected_count=len(selected),
     )
+    # ---------------------------------------------------------------------------
+# ESPACE DOCUMENTS — plateforme centrale du staff
+# ---------------------------------------------------------------------------
+# Chaque membre du staff (connecté avec son compte) peut créer des dossiers,
+# déposer des fichiers (PDF, présentations, images, Excel... max 30 Mo) et
+# ajouter des liens vidéo (Hudl, YouTube, Drive...). Les fichiers sont stockés
+# dans PostgreSQL : ils survivent aux redéploiements Render.
+# Règles : tout le staff peut déposer ; chacun peut supprimer SES dépôts ;
+# l'admin peut tout supprimer ; le mode démo ne voit rien (voir gate_optional_features).
+
+DOC_TYPE_ICONS = {
+    "pdf": "📕", "doc": "📘", "docx": "📘", "ppt": "📙", "pptx": "📙", "key": "📙",
+    "xls": "📗", "xlsx": "📗", "csv": "📗", "png": "🖼️", "jpg": "🖼️", "jpeg": "🖼️",
+    "gif": "🖼️", "heic": "🖼️", "webp": "🖼️", "mp4": "🎬", "mov": "🎬", "zip": "🗜️",
+    "txt": "📄", "xml": "📄",
+}
+# Extensions dont l'aperçu peut s'ouvrir directement dans le navigateur.
+DOC_INLINE_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "gif", "webp", "txt"}
+
+def _doc_ext(filename):
+    return (filename or "").rsplit(".", 1)[-1].lower() if "." in (filename or "") else ""
+
+def _doc_icon(doc):
+    if doc["kind"] == "link":
+        return "🔗"
+    return DOC_TYPE_ICONS.get(_doc_ext(doc["filename"]), "📄")
+
+def _doc_can_delete(row):
+    """L'admin supprime tout ; un membre du staff supprime ce qu'il a déposé lui-même."""
+    if session.get("is_admin"):
+        return True
+    email = session.get("user_email", "")
+    return bool(email) and (row.get("uploaded_by") or row.get("created_by")) == email
+
+def _folder_or_404(db, folder_id):
+    folder = db.execute("SELECT * FROM doc_folders WHERE id = %s", (folder_id,)).fetchone()
+    if not folder:
+        abort(404)
+    return folder
+
+def _folder_breadcrumb(db, folder):
+    """Remonte la chaîne des parents pour afficher le fil d'Ariane."""
+    crumbs = []
+    current = folder
+    while current:
+        crumbs.append(current)
+        current = (
+            db.execute("SELECT * FROM doc_folders WHERE id = %s", (current["parent_id"],)).fetchone()
+            if current["parent_id"] else None
+        )
+    return list(reversed(crumbs))
+
+def _human_size(size_bytes):
+    if not size_bytes:
+        return ""
+    if size_bytes < 1024:
+        return f"{size_bytes} o"
+    if size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.0f} Ko"
+    return f"{size_bytes / (1024 * 1024):.1f} Mo"
+
+@app.route("/documents")
+@app.route("/documents/dossier/<int:folder_id>")
+def documents(folder_id=None):
+    db = get_db()
+    folder = _folder_or_404(db, folder_id) if folder_id else None
+    breadcrumb = _folder_breadcrumb(db, folder) if folder else []
+    if folder_id:
+        subfolders = db.execute(
+            "SELECT * FROM doc_folders WHERE parent_id = %s ORDER BY name", (folder_id,)
+        ).fetchall()
+        docs = db.execute(
+            """SELECT id, folder_id, kind, filename, mimetype, size_bytes, url, title,
+                      uploaded_by, uploaded_at
+               FROM documents WHERE folder_id = %s
+               ORDER BY uploaded_at DESC, id DESC""",
+            (folder_id,),
+        ).fetchall()
+    else:
+        subfolders = db.execute(
+            "SELECT * FROM doc_folders WHERE parent_id IS NULL ORDER BY name"
+        ).fetchall()
+        docs = db.execute(
+            """SELECT id, folder_id, kind, filename, mimetype, size_bytes, url, title,
+                      uploaded_by, uploaded_at
+               FROM documents WHERE folder_id IS NULL
+               ORDER BY uploaded_at DESC, id DESC"""
+        ).fetchall()
+    # Nombre d'éléments par sous-dossier (dossiers enfants + documents) pour l'affichage.
+    counts = {}
+    for sub in subfolders:
+        n_docs = db.execute(
+            "SELECT COUNT(*) AS n FROM documents WHERE folder_id = %s", (sub["id"],)
+        ).fetchone()["n"]
+        n_dirs = db.execute(
+            "SELECT COUNT(*) AS n FROM doc_folders WHERE parent_id = %s", (sub["id"],)
+        ).fetchone()["n"]
+        counts[sub["id"]] = n_docs + n_dirs
+    docs_view = []
+    for d in docs:
+        d = dict(d)
+        d["icon"] = _doc_icon(d)
+        d["ext"] = _doc_ext(d["filename"])
+        d["inline"] = d["kind"] == "file" and d["ext"] in DOC_INLINE_EXTENSIONS
+        d["size_human"] = _human_size(d["size_bytes"])
+        d["can_delete"] = _doc_can_delete(d)
+        d["date_human"] = (d["uploaded_at"] or "")[:10]
+        docs_view.append(d)
+    return render_template(
+        "documents.html", folder=folder, breadcrumb=breadcrumb,
+        subfolders=subfolders, folder_counts=counts, docs=docs_view,
+        can_delete_folder={s["id"]: _doc_can_delete(dict(s)) for s in subfolders},
+    )
+
+@app.route("/documents/dossier", methods=["POST"])
+def documents_create_folder():
+    name = request.form.get("name", "").strip()
+    parent_id = request.form.get("parent_id") or None
+    if not name:
+        flash("Merci d'indiquer un nom de dossier.", "error")
+    else:
+        db = get_db()
+        db.execute(
+            "INSERT INTO doc_folders (name, parent_id, created_by, created_at) VALUES (%s, %s, %s, %s)",
+            (name, parent_id, session.get("user_email", ""), datetime.utcnow().isoformat()),
+        )
+        db.commit()
+        flash(f"Dossier « {name} » créé.", "success")
+    return redirect(url_for("documents", folder_id=parent_id) if parent_id else url_for("documents"))
+
+@app.route("/documents/upload", methods=["POST"])
+def documents_upload():
+    folder_id = request.form.get("folder_id") or None
+    files = [f for f in request.files.getlist("files") if f and f.filename]
+    if not files:
+        flash("Merci de sélectionner au moins un fichier.", "error")
+        return redirect(url_for("documents", folder_id=folder_id) if folder_id else url_for("documents"))
+    db = get_db()
+    saved = 0
+    for file in files:
+        payload = file.read()
+        if not payload:
+            continue
+        db.execute(
+            """INSERT INTO documents
+               (folder_id, kind, filename, mimetype, size_bytes, data, uploaded_by, uploaded_at)
+               VALUES (%s, 'file', %s, %s, %s, %s, %s, %s)""",
+            (
+                folder_id, file.filename,
+                file.mimetype or "application/octet-stream",
+                len(payload), psycopg2.Binary(payload),
+                session.get("user_email", ""), datetime.utcnow().isoformat(),
+            ),
+        )
+        saved += 1
+    db.commit()
+    flash(f"{saved} fichier{'s' if saved > 1 else ''} déposé{'s' if saved > 1 else ''}.", "success")
+    return redirect(url_for("documents", folder_id=folder_id) if folder_id else url_for("documents"))
+
+@app.route("/documents/lien", methods=["POST"])
+def documents_add_link():
+    folder_id = request.form.get("folder_id") or None
+    title = request.form.get("title", "").strip()
+    url = request.form.get("url", "").strip()
+    if not url or not (url.startswith("http://") or url.startswith("https://")):
+        flash("Merci de coller un lien complet (commençant par http:// ou https://).", "error")
+    else:
+        db = get_db()
+        db.execute(
+            """INSERT INTO documents (folder_id, kind, url, title, uploaded_by, uploaded_at)
+               VALUES (%s, 'link', %s, %s, %s, %s)""",
+            (folder_id, url, title or url, session.get("user_email", ""), datetime.utcnow().isoformat()),
+        )
+        db.commit()
+        flash("Lien ajouté.", "success")
+    return redirect(url_for("documents", folder_id=folder_id) if folder_id else url_for("documents"))
+
+def _serve_document(doc_id, inline):
+    db = get_db()
+    doc = db.execute("SELECT * FROM documents WHERE id = %s", (doc_id,)).fetchone()
+    if not doc or doc["kind"] != "file":
+        abort(404)
+    data = bytes(doc["data"])
+    disposition = "inline" if inline else "attachment"
+    filename = (doc["filename"] or "document").replace('"', "")
+    return Response(
+        data,
+        mimetype=doc["mimetype"] or "application/octet-stream",
+        headers={
+            "Content-Disposition": f'{disposition}; filename="{filename}"',
+            "Content-Length": str(len(data)),
+        },
+    )
+
+@app.route("/documents/<int:doc_id>/telecharger")
+def documents_download(doc_id):
+    return _serve_document(doc_id, inline=False)
+
+@app.route("/documents/<int:doc_id>/apercu")
+def documents_preview(doc_id):
+    return _serve_document(doc_id, inline=True)
+
+@app.route("/documents/<int:doc_id>/supprimer", methods=["POST"])
+def documents_delete(doc_id):
+    db = get_db()
+    doc = db.execute(
+        "SELECT id, folder_id, kind, filename, title, uploaded_by FROM documents WHERE id = %s",
+        (doc_id,),
+    ).fetchone()
+    if not doc:
+        abort(404)
+    if not _doc_can_delete(dict(doc)):
+        flash("Tu ne peux supprimer que tes propres dépôts (ou demande à l'admin).", "error")
+    else:
+        db.execute("DELETE FROM documents WHERE id = %s", (doc_id,))
+        db.commit()
+        flash("Document supprimé.", "success")
+    folder_id = doc["folder_id"]
+    return redirect(url_for("documents", folder_id=folder_id) if folder_id else url_for("documents"))
+
+@app.route("/documents/dossier/<int:folder_id>/supprimer", methods=["POST"])
+def documents_delete_folder(folder_id):
+    db = get_db()
+    folder = _folder_or_404(db, folder_id)
+    parent_id = folder["parent_id"]
+    if not _doc_can_delete(dict(folder)):
+        flash("Tu ne peux supprimer que les dossiers que tu as créés (ou demande à l'admin).", "error")
+        return redirect(url_for("documents", folder_id=folder_id))
+    n_docs = db.execute(
+        "SELECT COUNT(*) AS n FROM documents WHERE folder_id = %s", (folder_id,)
+    ).fetchone()["n"]
+    n_dirs = db.execute(
+        "SELECT COUNT(*) AS n FROM doc_folders WHERE parent_id = %s", (folder_id,)
+    ).fetchone()["n"]
+    if (n_docs or n_dirs) and not session.get("is_admin"):
+        flash("Ce dossier n'est pas vide : seul l'admin peut le supprimer avec son contenu.", "error")
+        return redirect(url_for("documents", folder_id=folder_id))
+    db.execute("DELETE FROM doc_folders WHERE id = %s", (folder_id,))
+    db.commit()
+    flash(f"Dossier « {folder['name']} » supprimé.", "success")
+    return redirect(url_for("documents", folder_id=parent_id) if parent_id else url_for("documents"))
+
+@app.route("/documents/dossier/<int:folder_id>/renommer", methods=["POST"])
+def documents_rename_folder(folder_id):
+    db = get_db()
+    folder = _folder_or_404(db, folder_id)
+    name = request.form.get("name", "").strip()
+    if not name:
+        flash("Merci d'indiquer un nom de dossier.", "error")
+    elif not _doc_can_delete(dict(folder)):
+        flash("Tu ne peux renommer que les dossiers que tu as créés (ou demande à l'admin).", "error")
+    else:
+        db.execute("UPDATE doc_folders SET name = %s WHERE id = %s", (name, folder_id))
+        db.commit()
+        flash("Dossier renommé.", "success")
+    return redirect(url_for("documents", folder_id=folder_id))
+
 init_db()
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
