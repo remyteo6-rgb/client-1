@@ -68,7 +68,7 @@ ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@nissarugby.fr")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "changeme")
 # Lien de démo public : quiconque a ce lien voit le site en lecture seule, sans compte,
 # avec le mode démo (noms floutés) activé automatiquement. Change cette valeur si tu veux
-# un lien différent, et ne le partage qu'à des prospects (il donne accès en lecture à tout).
+# un lien différent, et ne le partage qu'avec des prospects (il donne accès en lecture à tout).
 DEMO_TOKEN = os.environ.get("DEMO_TOKEN", "decouverte-club1")
 # Comptes STAFF (accès lecture seule : navigue partout mais ne voit aucune action de
 # modification) : autant de comptes que voulu, chacun avec SON PROPRE email/mot de passe.
@@ -571,7 +571,7 @@ def match_ruck(match_id):
     baselines = compute_sector_baselines(matches_with_instances, exclude_id=match_id)
     return render_template("match_ruck.html", match=match, data=ruck, phase_icons=PHASE_ICONS,
                            baseline=(baselines or {}).get("ruck"))
-    @app.route("/match/<int:match_id>/touches")
+@app.route("/match/<int:match_id>/touches")
 def match_touches(match_id):
     match = _get_match_or_404(match_id)
     if _no_instances_guard(match):
@@ -794,7 +794,7 @@ def _load_prod2_meta():
         "filename": row["filename"],
         "journee": _extract_journee(row["filename"]),
     }
-    def _report_label(report_meta):
+def _report_label(report_meta):
     if not report_meta:
         return "aucun rapport importé"
     parts = []
@@ -1199,7 +1199,7 @@ def season_jiff():
     jiff_data = compute_jiff_chart(selected)
     return render_template("season_jiff.html", data=jiff_data, season_mode=True, active="jiff", qs=qs,
                            selected_count=len(selected))
-    @app.route("/season/transition")
+@app.route("/season/transition")
 def season_transition():
     _, selected, _, qs = _season_context()
     instances = _season_instances(selected)
