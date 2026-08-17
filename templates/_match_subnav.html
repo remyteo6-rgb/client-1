@@ -15,6 +15,9 @@
                 {% endif %}
                 <a href="{{ url_for('season') }}">📅 Bilan de saison</a>
                 <a href="{{ url_for('season_joueurs') }}">👥 Effectif</a>
+                {% if not demo_forced %}
+                <a href="{{ url_for('documents') }}">📁 Documents</a>
+                {% endif %}
                 {% if is_admin %}
                 <a href="{{ url_for('upload') }}">+ Importer un XML</a>
                 {% if enable_prod2 %}<a href="{{ url_for('prod2_import') }}">🏉 Importer rapport Pro D2</a>{% endif %}
