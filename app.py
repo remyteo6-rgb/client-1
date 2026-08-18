@@ -95,7 +95,7 @@ STAFF_ACCOUNTS = _load_staff_accounts()
 # Le site entier est privé : seule une personne connectée (admin OU staff) peut voir
 # quoi que ce soit. Seules ces 2 routes restent accessibles sans connexion (sinon
 # impossible d'atteindre la page de connexion elle-même).
-PUBLIC_ENDPOINTS = {"login", "static", "demo_login"}
+PUBLIC_ENDPOINTS = {"login", "static", "demo_login", "pwa_manifest", "pwa_service_worker"}
 @app.before_request
 def require_login_everywhere():
     if request.endpoint is None or request.endpoint in PUBLIC_ENDPOINTS:
@@ -144,6 +144,108 @@ def inject_logged_in():
         "enable_prod2": ENABLE_PROD2, "enable_jiff": ENABLE_JIFF,
         "asset_version": ASSET_VERSION,
     }
+
+# Contenu du service worker, généré en Python pour pouvoir y injecter ASSET_VERSION :
+# le nom du cache change donc à chaque redémarrage/déploiement, ce qui vide
+# automatiquement l'ancien cache (voir le handler "activate" ci-dessous) sans
+# jamais servir une vieille version du CSS/JS aux téléphones qui ont installé
+# l'appli.
+SERVICE_WORKER_JS = """
+const CACHE_NAME = "rugby-analytics-shell-%(v)s";
+const APP_SHELL = [
+  "/static/style.css",
+  "/static/demo-mode.js",
+  "/static/sortable.js",
+  "/static/calendar.js",
+  "/static/logo.png",
+  "/static/icons/icon-192.png",
+  "/static/icons/icon-512.png",
+];
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).catch(() => {})
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+    )
+  );
+  self.clients.claim();
+});
+
+self.addEventListener("fetch", (event) => {
+  const req = event.request;
+  if (req.method !== "GET") return; // jamais les POST (uploads, ajouts de docs/événements...)
+  const url = new URL(req.url);
+
+  // Fichiers de l'appli (CSS/JS/icônes) : servis depuis le cache pour un chargement
+  // instantané, et rafraîchis en arrière-plan dès que le réseau répond.
+  if (url.origin === self.location.origin && APP_SHELL.includes(url.pathname)) {
+    event.respondWith(
+      caches.match(req).then((cached) => {
+        const network = fetch(req)
+          .then((res) => {
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, res.clone()));
+            return res;
+          })
+          .catch(() => cached);
+        return cached || network;
+      })
+    );
+    return;
+  }
+
+  // Pages et données (matchs, documents, calendrier...) : toujours le réseau en
+  // priorité, pour ne jamais afficher des stats périmées. Le cache ne sert que
+  // de filet de sécurité si le téléphone perd la connexion.
+  event.respondWith(fetch(req).catch(() => caches.match(req)));
+});
+""" % {"v": ASSET_VERSION}
+
+# ---------------------------------------------------------------------------
+# PWA — rend le site installable sur l'écran d'accueil (iPhone/Android), sans
+# passer par l'App Store/Play Store. Manifest généré dynamiquement (pas un
+# fichier static) pour reprendre le nom du club configuré par CLUB_NAME /
+# CLUB_FULL_NAME. Les deux routes doivent rester accessibles sans connexion
+# (voir PUBLIC_ENDPOINTS) : le navigateur les demande dès la page de login,
+# avant que la personne ne soit authentifiée.
+# ---------------------------------------------------------------------------
+@app.route("/manifest.json")
+def pwa_manifest():
+    manifest = {
+        "name": f"{CLUB_FULL_NAME} — Rugby Analytics",
+        "short_name": CLUB_NAME or "Rugby Analytics",
+        "description": "Analyse vidéo, documents, calendrier et suivi du staff, au même endroit.",
+        "start_url": "/?source=pwa",
+        "scope": "/",
+        "display": "standalone",
+        "orientation": "portrait-primary",
+        "background_color": "#10181f",
+        "theme_color": "#530d34",
+        "icons": [
+            {"src": url_for("static", filename="icons/icon-192.png"), "sizes": "192x192", "type": "image/png", "purpose": "any"},
+            {"src": url_for("static", filename="icons/icon-512.png"), "sizes": "512x512", "type": "image/png", "purpose": "any"},
+            {"src": url_for("static", filename="icons/icon-maskable-512.png"), "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+        ],
+    }
+    # mimetype précis (et pas juste application/json) : certains navigateurs sont
+    # stricts sur ce point pour proposer l'installation de l'appli.
+    return Response(json.dumps(manifest, ensure_ascii=False), mimetype="application/manifest+json")
+
+@app.route("/sw.js")
+def pwa_service_worker():
+    resp = Response(SERVICE_WORKER_JS, mimetype="application/javascript")
+    # Le fichier de service worker ne doit jamais rester en cache navigateur :
+    # sinon une mise à jour du site ne serait jamais détectée par les téléphones
+    # qui ont déjà installé l'appli.
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
 @app.route("/demo/<token>")
 def demo_login(token):
     if token != DEMO_TOKEN:
