@@ -7,20 +7,20 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 <script src="{{ url_for('static', filename='demo-mode.js') }}"></script>
 </head>
-<body class="landing-body">
+<body class="landing-body" data-demo-forced="{{ 'true' if demo_forced else 'false' }}">
 
 {% include "_match_subnav.html" %}
 
 <div class="landing-screen">
     <img src="{{ url_for('static', filename='logo.png') }}" class="landing-logo" alt="{{ club_full_name }}">
-    <p class="landing-subtitle">Rugby Analytics</p>
+    <p class="landing-subtitle">{{ club_full_name }}</p>
 
     <div class="landing-choice-row">
-        <a class="landing-choice-btn" href="{{ url_for('index') }}">Analyse matchs</a>
-        <a class="landing-choice-btn" href="{{ url_for('season') }}">Analyse saison</a>
-        {% if enable_prod2 %}
-        <a class="landing-choice-btn" href="{{ url_for('opponents') }}">Adversaires</a>
-        <a class="landing-choice-btn" href="{{ url_for('opponents_trends') }}">Tendances Top 14</a>
+        <a class="landing-choice-btn" href="{{ url_for('analyse_video') }}">🎥 Analyse vidéo</a>
+        {% if not demo_forced %}
+        <a class="landing-choice-btn" href="{{ url_for('documents') }}">📁 Documents</a>
+        <a class="landing-choice-btn" href="{{ url_for('calendrier') }}">🗓️ Calendrier</a>
+        <a class="landing-choice-btn" href="{{ url_for('cahier_charges') }}">📋 Cahier des charges</a>
         {% endif %}
     </div>
 </div>
