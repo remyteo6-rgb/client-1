@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Cahier des charges — Rugby Analytics{% endblock %}
+{% block content %}
+
+<div class="docs-header">
+    <div>
+        <h1>📋 Cahier des charges</h1>
+        <p class="subtitle">{{ total_count }} tâche{{ 's' if total_count != 1 else '' }} au total</p>
+    </div>
+</div>
+
+<div class="docs-actions">
+    <details class="docs-action-panel">
+        <summary class="btn">＋ Ajouter une tâche</summary>
+        <form method="POST" action="{{ url_for('cahier_charges_add') }}" class="docs-form">
+            <div class="form-group">
+                <label>Titre</label>
+                <input type="text" name="title" placeholder="ex. Ajouter les stats de mêlée fermée" required>
+            </div>
+            <div class="form-group">
+                <label>Description (optionnel)</label>
+                <input type="text" name="description" placeholder="Détails, contexte...">
+            </div>
+            <button type="submit" class="btn">Ajouter (dans « À faire »)</button>
+        </form>
+    </details>
+</div>
+
+<div class="cc-board">
+    {% for status in statuses %}
+    <div class="cc-column">
+        <div class="cc-column-header cc-column-{{ status }}">
+            {{ status_labels[status] }}
+            <span class="cc-column-count">{{ columns[status]|length }}</span>
+        </div>
+        <div class="cc-column-body">
+            {% for item in columns[status] %}
+            <div class="cc-card">
+                <div class="cc-card-title">{{ item.title }}</div>
+                {% if item.description %}<div class="cc-card-desc">{{ item.description }}</div>{% endif %}
+                <div class="cc-card-meta">{{ item.created_by }} · {{ item.date_human }}</div>
+                <div class="cc-card-actions">
+                    <form method="POST" action="{{ url_for('cahier_charges_status', item_id=item.id) }}" class="cc-status-form">
+                        <select name="status" onchange="this.form.submit()">
+                            {% for s in statuses %}
+                            <option value="{{ s }}" {{ 'selected' if s == status else '' }}>{{ status_labels[s] }}</option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                    {% if item.can_delete %}
+                    <form method="POST" action="{{ url_for('cahier_charges_delete', item_id=item.id) }}" class="docs-delete-form"
+                          onsubmit="return confirm('Supprimer « {{ item.title|e }} » ?');">
+                        <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer">🗑️</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <p class="cc-column-empty">Aucune tâche ici.</p>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}
