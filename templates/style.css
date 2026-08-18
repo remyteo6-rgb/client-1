@@ -1,0 +1,1154 @@
+:root {
+    /* Union Bordeaux Bègles : bordeaux/bleu marine/or, couleurs extraites du blason
+       officiel (logo_UBB transparent.png). */
+    --bg-primary: transparent;
+    --bg-card: rgba(255,255,255,0.11);
+    --bg-card-border: rgba(255,255,255,0.28);
+    --bg-header: #530d34;
+    --text-primary: #ffffff;
+    --text-secondary: rgba(255,255,255,0.8);
+    --text-on-dark: #ffffff;
+    --accent-gold: #f9a240;
+    --own-color: #4f7fd6;
+    --adverse-color: #ffffff;
+    --positive: #6fcf7a;
+    --negative: #ff5c5c;
+    --radius: 8px;
+    --gap: 16px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { min-height: 100%; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: radial-gradient(ellipse at top, #1c2b38 0%, #10181f 55%, #090d11 100%);
+    background-attachment: fixed;
+    color: var(--text-primary);
+    body {
+    line-height: 1.5;
+    position: relative;
+    padding-top: 56px;
+}
+a { color: inherit; text-decoration: none; }
+
+.body-watermark {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(70vw, 900px);
+    opacity: 0.05;
+    z-index: 0;
+    pointer-events: none;
+    user-select: none;
+}
+
+.page {
+    max-width: 1600px;
+    margin: 24px auto;
+    padding: 28px 32px;
+    background: rgba(4,7,10,0.5);
+    border-radius: 12px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.35);
+    position: relative;
+    z-index: 1;
+}
+
+.flash-stack { margin-bottom: 16px; }
+.flash { padding: 10px 16px; border-radius: 6px; margin-bottom: 8px; font-size: 14px; }
+.flash-success { background: rgba(46,125,50,0.18); color: var(--positive); }
+.flash-error { background: rgba(200,16,46,0.18); color: var(--negative); }
+
+h1 { font-size: 22px; margin-bottom: 6px; color: var(--text-primary); }
+h2 { font-size: 17px; margin-bottom: 12px; color: var(--text-primary); }
+.subtitle { color: var(--text-secondary); font-size: 13px; margin-bottom: 20px; }
+
+.card {
+    background: var(--bg-card);
+    border: 1px solid var(--bg-card-border);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    box-shadow: none;
+    margin-bottom: var(--gap);
+}
+
+.match-list { display: flex; flex-direction: column; gap: 10px; }
+.match-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-card);
+    border: 1px solid var(--bg-card-border);
+    border-radius: var(--radius);
+    padding: 14px 20px;
+    box-shadow: none;
+}
+.match-row:hover { background: rgba(255,255,255,0.1); }
+.match-main { display: flex; flex-direction: column; gap: 2px; }
+.match-title { font-weight: 600; font-size: 15px; }
+.match-meta { font-size: 12px; color: var(--text-secondary); }
+.match-actions { display: flex; gap: 10px; align-items: center; }
+.badge { padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.badge-comp { background: rgba(255,255,255,0.08); color: var(--text-secondary); }
+
+.empty-state { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
+.empty-state a { color: var(--own-color); font-weight: 600; }
+
+form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 520px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+.form-group input, .form-group select {
+    padding: 10px 12px;
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 6px;
+    font-size: 14px;
+    background: rgba(255,255,255,0.05);
+    color: var(--text-primary);
+}
+.btn {
+    background: var(--own-color);
+    color: #0d1114;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    width: fit-content;
+}
+.btn:hover { opacity: 0.9; }
+.btn-danger { background: transparent; color: var(--negative); border: 1px solid var(--negative); }
+.btn-secondary { background: transparent; color: var(--text-secondary); border: 1px solid rgba(255,255,255,0.3); }
+
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--gap); margin-bottom: var(--gap); }
+.kpi-card { background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: var(--radius); padding: 18px 20px; box-shadow: none; }
+.kpi-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px; }
+.kpi-value { font-size: 24px; font-weight: 700; color: var(--text-primary); }
+.kpi-own { color: var(--own-color); }
+.kpi-adverse { color: var(--adverse-color); }
+.kpi-help { font-size: 11px; color: var(--text-secondary); margin-top: 6px; line-height: 1.4; }
+
+.highlights-card { border-left: 4px solid var(--accent-gold); }
+.highlights-card h2 { margin-bottom: 10px; }
+.highlights-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.highlights-list li {
+    font-size: 14px; padding-left: 18px; position: relative;
+}
+.highlights-list li::before {
+    content: "•"; position: absolute; left: 0; color: var(--accent-gold); font-weight: 700;
+}
+
+.chart-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: var(--gap); margin-bottom: var(--gap); }
+.chart-container { position: relative; height: 380px; padding-bottom: 20px; }
+.chart-container canvas { max-height: 290px; }
+
+.section-block {
+    background: var(--bg-card);
+    border: 1px solid var(--bg-card-border);
+    border-left: 4px solid var(--own-color);
+    border-radius: var(--radius);
+    margin-bottom: var(--gap);
+    padding: 0;
+}
+.section-block summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 18px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    user-select: none;
+    color: var(--text-primary);
+}
+.section-block summary::-webkit-details-marker { display: none; }
+.section-block summary::after {
+    content: "▸";
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin-left: auto;
+    transition: transform 0.15s ease;
+}
+.section-block[open] summary::after { transform: rotate(90deg); }
+.section-title { font-size: 15px; font-weight: 700; }
+.section-help { font-size: 12px; color: var(--text-secondary); font-weight: 400; }
+.section-body { padding: 0 24px 20px 24px; }
+
+.stat-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.stat-table thead th {
+    text-align: left; padding: 8px 10px; border-bottom: 2px solid rgba(255,255,255,0.3);
+    color: var(--text-secondary); font-weight: 600; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.4px;
+}
+.stat-table tbody td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.14); color: var(--text-primary); }
+.stat-table tbody tr:hover { background: rgba(255,255,255,0.08); }
+
+/* Lignes alternées (zébrées) pour les longs tableaux de l'onglet Joueurs */
+.zebra-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.045); }
+.zebra-table tbody tr:nth-child(even):hover { background: rgba(255,255,255,0.1); }
+.stat-own { color: var(--own-color); font-weight: 600; }
+.stat-adverse { color: var(--adverse-color); font-weight: 600; }
+.kpi-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-weight: 700; font-size: 12.5px; border: 1px solid transparent; white-space: nowrap; }
+.kpi-badge-good { background: rgba(111,207,122,0.2); border-color: var(--positive); color: var(--positive); }
+.kpi-badge-bad { background: rgba(255,59,48,0.2); border-color: #ff3b30; color: #ff3b30; }
+.cat-name { cursor: help; border-bottom: 1px dotted rgba(255,255,255,0.4); }
+.info-dot { font-size: 11px; color: var(--text-secondary); }
+.stat-rate { font-size: 11px; color: var(--text-secondary); }
+
+.legend-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; margin-right: 14px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.dot-own { background: var(--own-color); }
+.dot-adverse { background: var(--adverse-color); }
+
+.opponent-list { display: flex; flex-direction: column; gap: 10px; }
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: var(--gap);
+}
+
+.breakdown-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.chip {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.08);
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.print-only-header { display: none; }
+
+/* Bandeau de navigation — identique et fixe en haut sur TOUTES les pages du site
+   (accueil, matchs, adversaires, saison, connexion...), avec le menu ☰ toujours à
+   gauche. Sur les pages de match, les onglets de secteur s'ajoutent à droite du logo. */
+.subnav {
+    background: rgba(10,4,6,0.94);
+    border-bottom: 1px solid rgba(255,255,255,0.18);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+}
+.subnav-inner {
+    padding: 0 24px 0 0;
+    display: flex;
+    align-items: center;
+}
+.subnav-logo {
+    height: 26px;
+    width: auto;
+    margin: 0 12px;
+    flex-shrink: 0;
+}
+/* Pastille de contexte dans le bandeau collant : rappelle où on est (match / saison /
+   adversaire) même après avoir défilé loin dans la page. */
+.subnav-context {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 999px;
+    padding: 4px 12px;
+    margin-right: 12px;
+    white-space: nowrap;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 0;
+}
+
+@media (max-width: 700px) {
+    body { padding-top: 60px; }
+    .subnav-context { max-width: 130px; font-size: 11px; }
+    .subnav-links > a,
+    .subnav-links > details.subnav-sector-dropdown { display: none; }
+    .subnav-page-dropdown { display: block; }
+}
+
+    .subnav-links::-webkit-scrollbar { display: none; }
+    .subnav-links a { padding: 12px 10px; font-size: 12.5px; }
+}
+.subnav-dropdown {
+    position: relative;
+    flex-shrink: 0;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    border-right: 1px solid rgba(255,255,255,0.18);
+}
+.subnav-dropdown summary {
+    list-style: none;
+    cursor: pointer;
+    width: 48px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: #fff;
+    user-select: none;
+}
+.subnav-dropdown summary::-webkit-details-marker { display: none; }
+.subnav-dropdown summary:hover { background: rgba(255,255,255,0.1); }
+.subnav-dropdown .landing-dropdown-content {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: auto;
+}
+.subnav-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    row-gap: 0;
+    padding-left: 8px;
+}
+.subnav-links a {
+    color: rgba(255,255,255,0.75);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 12px 14px;
+    white-space: nowrap;
+    border-bottom: 3px solid transparent;
+    flex-shrink: 0;
+}
+.subnav-links a:hover { color: #fff; }
+.subnav-links a.active { color: #fff; border-bottom-color: var(--accent-gold); }
+
+/* Sous-menu "Secteurs ▾" dans la sous-nav : regroupe Attaque/Défense/Ruck/Touches/
+   Mêlée/JAP/Transition (et Discipline/Rucks côté Adversaires) pour éviter d'avoir
+   10+ onglets à plat sur une seule ligne. */
+.subnav-sector-dropdown {
+    position: relative;
+    flex-shrink: 0;
+}
+.subnav-sector-dropdown summary {
+    list-style: none;
+    cursor: pointer;
+    color: rgba(255,255,255,0.75);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 12px 14px;
+    white-space: nowrap;
+    border-bottom: 3px solid transparent;
+    user-select: none;
+}
+.subnav-sector-dropdown summary::-webkit-details-marker { display: none; }
+.subnav-sector-dropdown summary:hover { color: #fff; }
+.subnav-sector-dropdown summary.active { color: #fff; border-bottom-color: var(--accent-gold); }
+.subnav-sector-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: rgba(10,4,6,0.98);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 8px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    min-width: 170px;
+    z-index: 30;
+}
+.subnav-sector-menu a {
+    color: rgba(255,255,255,0.8);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 10px;
+    border-radius: 5px;
+    white-space: nowrap;
+    border-bottom: none;
+}
+.subnav-sector-menu a:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.subnav-sector-menu a.active { color: var(--accent-gold); }
+
+/* Sur mobile, tous les onglets de la ligne (Vue d'ensemble, Secteurs, Joueurs...) se
+   replient dans CE SEUL bouton "Page actuelle ▾", pour garder un bandeau fin comme sur
+   ordinateur. Ne touche jamais au menu ☰ ni à "Secteurs ▾". */
+.subnav-page-dropdown { display: none; position: relative; }
+.subnav-page-dropdown summary {
+    list-style: none;
+    cursor: pointer;
+    color: rgba(255,255,255,0.75);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 12px 14px;
+    white-space: nowrap;
+    user-select: none;
+}
+.subnav-page-dropdown summary::-webkit-details-marker { display: none; }
+.subnav-page-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: rgba(10,4,6,0.98);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 8px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    min-width: 170px;
+    z-index: 30;
+}
+.subnav-page-menu a {
+    color: rgba(255,255,255,0.8);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 10px;
+    border-radius: 5px;
+    white-space: nowrap;
+}
+.subnav-page-menu a:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.subnav-page-menu a.active { color: var(--accent-gold); }
+
+/* Tableau de score — carte "centre de match" */
+.scoreboard-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--bg-header);
+    color: #fff;
+    padding: 26px 28px 22px;
+}
+.scoreboard-hero-teams { display: flex; align-items: center; justify-content: center; gap: 26px; }
+.scoreboard-hero-team { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.team-badge {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    border: 1px solid;
+}
+.team-badge-own { background: rgba(91,143,176,0.18); border-color: var(--own-color); color: var(--own-color); }
+.team-badge-adverse { background: rgba(195,208,214,0.18); border-color: var(--adverse-color); color: var(--adverse-color); }
+.scoreboard-hero-score { font-size: 46px; font-weight: 800; line-height: 1; }
+.scoreboard-hero-score.own { color: var(--own-color); }
+.scoreboard-hero-score.adverse { color: var(--adverse-color); }
+.scoreboard-hero-sep { font-size: 22px; color: rgba(255,255,255,0.35); }
+.scoreboard-hero-names { display: flex; justify-content: center; gap: 26px; font-size: 13px; margin-top: 8px; }
+.scoreboard-hero-names .own { color: var(--own-color); }
+.scoreboard-hero-names .adverse { color: var(--adverse-color); }
+.scoreboard-tries { text-align: center; font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 8px; }
+
+.bip-bar-wrap { width: 100%; max-width: 420px; margin: 18px auto 0; }
+.bip-bar-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: rgba(255,255,255,0.6);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.bip-bar-track { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.14); overflow: hidden; }
+.bip-bar-fill { height: 100%; background: var(--accent-gold); border-radius: 3px; }
+
+.score-detail-row {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    flex-wrap: wrap;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255,255,255,0.15);
+}
+.score-detail-item { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.score-detail-label { font-size: 11px; color: rgba(255,255,255,0.55); text-transform: uppercase; letter-spacing: 0.3px; }
+.score-detail-value { display: flex; align-items: baseline; gap: 6px; font-size: 14px; font-weight: 700; }
+.score-detail-value .own { color: var(--own-color); min-width: 30px; text-align: right; }
+.score-detail-value .adverse { color: var(--adverse-color); min-width: 30px; text-align: left; }
+.score-detail-value .sep { color: rgba(255,255,255,0.3); font-weight: 400; }
+
+.two-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
+
+/* Grille de phases (Exit/Pression/Action/Raid) */
+.phase-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+}
+.phase-block { background: rgba(255,255,255,0.05); border-radius: 6px; padding: 12px 14px; }
+.phase-title { font-size: 13px; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); }
+.phase-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 11px; }
+.phase-side-label { width: 70px; flex-shrink: 0; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.phase-bar-track { flex: 1; background: rgba(255,255,255,0.1); border-radius: 4px; height: 10px; overflow: hidden; }
+.phase-bar-fill { height: 100%; border-radius: 4px; }
+.phase-bar-fill.own { background: var(--own-color); }
+.phase-bar-fill.adverse { background: var(--adverse-color); }
+.phase-value { width: 90px; flex-shrink: 0; text-align: right; color: var(--text-secondary); }
+
+/* Tableaux : défilement horizontal plutôt que casser la mise en page sur petit écran */
+.card { overflow-x: auto; }
+
+/* ===========================================================================
+   RESPONSIVE : tablette et mobile. Le site est conçu desktop-first (staff sur
+   ordinateur en salle vidéo), mais doit rester lisible et utilisable sur
+   tablette et téléphone (consultation rapide sur le terrain).
+   =========================================================================== */
+@media (max-width: 900px) {
+    .chart-row { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 768px) {
+    .page { margin: 12px auto; padding: 18px 16px; border-radius: 8px; }
+    h1 { font-size: 19px; }
+    h2 { font-size: 15px; }
+    .card, .kpi-card { padding: 14px 16px; }
+    .kpi-row { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+    .two-col { grid-template-columns: 1fr; }
+    .phase-grid { grid-template-columns: 1fr; }
+    .scoreboard-hero { padding: 20px 16px 18px; }
+    .scoreboard-hero-teams { gap: 14px; }
+    .scoreboard-hero-score { font-size: 34px; }
+    .team-badge { width: 32px; height: 32px; font-size: 12px; }
+    .scoreboard-hero-sep { font-size: 18px; }
+    .score-detail-row { gap: 18px; row-gap: 12px; }
+    .landing-topmenu { top: 12px; right: 12px; }
+    .page-header { flex-direction: column; align-items: stretch; }
+    .page-header .btn { width: 100%; }
+}
+
+@media (max-width: 480px) {
+    .page { padding: 14px 12px; }
+    .kpi-row { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+    .kpi-value { font-size: 19px; }
+    .scoreboard-hero-score { font-size: 26px; }
+    .scoreboard-hero-teams { gap: 8px; }
+    .team-badge { width: 26px; height: 26px; font-size: 10px; }
+    .scoreboard-hero-names { gap: 12px; font-size: 11px; }
+    .subtitle, .kpi-help { font-size: 11px; }
+    .stat-table { font-size: 11.5px; }
+    .stat-table thead th, .stat-table tbody td { padding: 6px 6px; }
+    .chart-container { height: 300px; }
+    .chart-container canvas { max-height: 220px; }
+    .subnav-inner { padding: 0 12px; }
+    .landing-dropdown-content { min-width: 170px; }
+}
+
+@media print {
+    /* Le PDF exporté garde exactement le même thème sombre que le site (au lieu d'un
+       fond blanc) : on ne réécrit plus les couleurs, on force juste le navigateur à
+       imprimer les couleurs de fond (sinon Chrome les retire par défaut à l'impression). */
+    .no-print, .landing-topmenu, .flash-stack, .body-watermark { display: none !important; }
+    .print-only-header { display: block; margin-bottom: 16px; }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+    body {
+        background: radial-gradient(ellipse at top, #1c2b38 0%, #10181f 55%, #090d11 100%) !important;
+        background-attachment: sticky !important;
+        padding-top: 0;
+    }
+    .page { max-width: none; margin: 0; padding: 0; box-shadow: none; border-radius: 0; }
+    .card, .kpi-card, .section-block, .match-row, .highlights-card { break-inside: avoid; }
+    details.section-block summary::after { display: none; }
+    .chart-container { height: 260px; }
+    .chart-container canvas { max-height: 260px; }
+}
+
+/* Page de présentation (accueil "/") */
+.landing-body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(ellipse at top, #16222c 0%, #0c1116 55%, #060809 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 96px 20px 40px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+.landing-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    max-width: 420px;
+}
+.landing-logo {
+    width: min(60vw, 220px);
+    height: auto;
+    filter: drop-shadow(0 8px 24px rgba(0,0,0,0.5));
+    margin-bottom: 6px;
+}
+.landing-subtitle {
+    color: rgba(255,255,255,0.7);
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 22px;
+}
+.landing-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+}
+.landing-link {
+    display: block;
+    text-align: center;
+    padding: 18px 20px;
+    border: 1px solid rgba(255,255,255,0.55);
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border-radius: 4px;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.landing-link:hover {
+    background: rgba(255,255,255,0.16);
+    border-color: #fff;
+}
+
+.landing-match-card {
+    display: block;
+    width: 100%;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 8px;
+    padding: 20px 24px;
+    color: #fff;
+    text-align: center;
+    margin-bottom: 22px;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.landing-match-card:hover {
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(255,255,255,0.6);
+}
+.landing-match-teams {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+.landing-match-vs {
+    color: rgba(255,255,255,0.5);
+    font-weight: 400;
+    text-transform: none;
+}
+.landing-match-score {
+    font-size: 32px;
+    font-weight: 800;
+    margin-bottom: 6px;
+}
+.landing-match-score .own { color: #5b8fb0; }
+.landing-match-score .adverse { color: #b0bec5; }
+.landing-match-date {
+    font-size: 12px;
+    color: rgba(255,255,255,0.6);
+    margin-bottom: 14px;
+}
+.landing-match-extra {
+    font-size: 13px;
+    color: rgba(255,255,255,0.85);
+    margin-bottom: 14px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,0.15);
+}
+.landing-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+.landing-kpi {
+    background: rgba(0,0,0,0.2);
+    border-radius: 6px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.landing-kpi-label {
+    font-size: 10px;
+    color: rgba(255,255,255,0.55);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+.landing-kpi-value {
+    font-size: 14px;
+    font-weight: 700;
+}
+
+/* Menu déroulant en haut à droite (accueil ET toutes les autres pages) */
+.landing-topmenu {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10;
+}
+.landing-dropdown summary {
+    list-style: none;
+    cursor: pointer;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.5);
+    border-radius: 6px;
+    color: #fff;
+    font-size: 20px;
+}
+.landing-dropdown summary::-webkit-details-marker { display: none; }
+.landing-dropdown summary:hover { background: rgba(255,255,255,0.16); }
+.landing-dropdown-content {
+    position: absolute;
+    top: 52px;
+    right: 0;
+    background: #0d1114;
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 8px;
+    overflow: hidden;
+    min-width: 190px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+.landing-dropdown-content a {
+    display: block;
+    padding: 12px 16px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+}
+.landing-dropdown-content a:hover { background: rgba(255,255,255,0.08); }
+
+/* Grille alignée (2 colonnes) pour les boutons de secteur sur la page d'accueil,
+   plutôt qu'une longue colonne verticale. */
+.landing-menu {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+.landing-menu a:only-child { grid-column: span 2; }
+.landing-link { padding: 14px 10px; font-size: 13px; }
+
+/* Page d'accueil simplifiée : 2 gros boutons de choix (Match vs Saison),
+   même style que les gros boutons pleine largeur type "SITE OFFICIEL". */
+.landing-choice-row {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+}
+.landing-choice-btn {
+    display: block;
+    text-align: center;
+    padding: 30px 20px;
+    border: 1px solid rgba(255,255,255,0.7);
+    background: rgba(255,255,255,0.04);
+    color: #fff;
+    font-weight: 800;
+    font-size: 19px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    border-radius: 2px;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.landing-choice-btn:hover {
+    background: rgba(255,255,255,0.16);
+    border-color: #fff;
+}
+
+/* Page Composition : 23 listes déroulantes numérotées (n°1 à n°23) */
+.composition-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+}
+.composition-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    padding: 8px 10px;
+    min-width: 0;
+    overflow: hidden;
+}
+.composition-number {
+    font-weight: 700;
+    color: var(--own-color);
+    min-width: 30px;
+    flex-shrink: 0;
+}
+.composition-row select {
+    flex: 1 1 auto;
+    min-width: 0;
+    background: rgba(0,0,0,0.3);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 4px;
+    padding: 6px;
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.composition-row select:disabled { opacity: 0.6; }
+.composition-row input[type="number"] {
+    flex-shrink: 0;
+    background: rgba(0,0,0,0.3);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 4px;
+    padding: 6px 4px;
+    font-size: 13px;
+    text-align: center;
+}
+.composition-row input[type="number"]:disabled { opacity: 0.6; }
+
+/* Page Entraînement : grille de cases à cocher (thèmes travaillés à la séance) */
+.training-subcat-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 16px 0 6px;
+    color: var(--text-secondary);
+}
+.training-element-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 6px;
+}
+.training-element-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 13px;
+}
+.training-element-row label {
+    flex: 1;
+    cursor: pointer;
+}
+.training-element-detail-row td:first-child {
+    padding-left: 28px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-style: italic;
+}
+.training-element-row input[type="number"] {
+    width: 60px;
+    padding: 4px 6px;
+    font-size: 12px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(0,0,0,0.3);
+    color: #fff;
+}
+.training-session-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.training-session-card:last-child { border-bottom: none; }
+
+/* Valeur positive (vert) / négative (rouge) dans les tableaux comparatifs, quel que soit
+   le côté victoire/défaite : c'est le sens de la stat qui décide de la couleur. */
+.stat-pos, .stat-table tbody td.stat-pos { color: var(--positive); font-weight: 700; }
+.stat-neg, .stat-table tbody td.stat-neg { color: var(--negative); font-weight: 700; }
+/* Page Data Analyse : comparaison victoire/défaite par indicateur */
+.kpi-compare-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.kpi-compare-row:last-child { border-bottom: none; }
+.kpi-compare-label { font-size: 13px; font-weight: 600; }
+.kpi-compare-bar {
+    width: 100%;
+    height: 8px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.kpi-compare-fill { height: 100%; border-radius: 4px; }
+.kpi-compare-values { font-size: 12px; color: var(--text-secondary); }
+/* Mode démo : floute les noms de joueurs à l'écran (présentation à un club) sans
+   toucher aux données. Activé/désactivé via le bouton dans le menu ☰. */
+body.demo-mode .demo-blur {
+    filter: blur(6px);
+    user-select: none;
+}
+
+/* Comparaison d'une stat de match à la moyenne saison (hors ce match) : petite flèche
+   colorée à côté de la valeur, pour voir d'un coup d'œil si le match est bon ou mauvais. */
+.kpi-compare { font-size: 12px; font-weight: 700; margin-top: 3px; cursor: help; }
+.kpi-arrow { font-size: 13px; font-weight: 800; margin-left: 4px; cursor: help; }
+/* Tableau "vue d'ensemble individuelle" (page Joueurs d'un match) : groupes de colonnes
+   à la façon des rapports pro (ATTAQUE / ZONE DE CONTACT / DÉFENSE / RUCK / SCORE). */
+.players-overview thead tr.group-row th {
+    background: linear-gradient(180deg, #2b4a63, #16222c);
+    color: #ffffff;
+    text-align: center;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    padding: 8px 6px;
+    border-left: 2px solid rgba(255,255,255,0.18);
+}
+.players-overview thead tr.group-row th:first-child { background: transparent; border-left: none; }
+.players-overview thead tr.cols-row th { text-align: center; }
+.players-overview tbody td, .players-overview tfoot td { text-align: center; }
+.players-overview tbody td:first-child, .players-overview tfoot td:first-child { text-align: left; font-weight: 600; white-space: nowrap; }
+.players-overview .sep-l { border-left: 2px solid rgba(255,255,255,0.18); }
+/* Surlignage automatique du meilleur / pire joueur de chaque colonne clé (voir
+   compute_overview_highlights dans parser.py) : fait ressortir les extrêmes d'un coup
+   d'œil, sans avoir à trier colonne par colonne. */
+.players-overview td.stat-highlight-good { background: rgba(111,207,122,0.22); }
+.players-overview td.stat-highlight-bad { background: rgba(255,92,92,0.22); }
+
+.kpi-compare-up { color: var(--positive); }
+.kpi-compare-down { color: var(--negative); }
+.kpi-compare-flat { color: var(--text-secondary); }
+.radar-svg { width: 100%; max-width: 460px; height: auto; display: block; margin: 0 auto; }
+.radar-legend { display: flex; gap: 24px; justify-content: center; margin-bottom: 12px; font-size: 13px; color: var(--text-secondary); }
+.radar-legend-item { display: flex; align-items: center; gap: 6px; }
+.radar-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.mobile-page-link { display: none; }
+
+/* ---------- Espace Documents (plateforme du staff) ---------- */
+.docs-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; }
+.docs-breadcrumb { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+.docs-breadcrumb a { color: var(--own-color); font-weight: 600; }
+.docs-breadcrumb-sep { margin: 0 6px; opacity: 0.6; }
+.docs-breadcrumb-current { color: var(--text-primary); font-weight: 600; }
+
+.docs-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; align-items: flex-start; }
+.docs-action-panel summary { list-style: none; display: inline-block; }
+.docs-action-panel summary::-webkit-details-marker { display: none; }
+.docs-action-panel[open] { background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: var(--radius); padding: 12px 16px 16px; }
+.docs-form { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; min-width: 260px; }
+.docs-inline-form { display: flex; gap: 8px; align-items: center; }
+.docs-inline-form input { flex: 1; padding: 8px 10px; border: 1px solid rgba(255,255,255,0.25); border-radius: 6px; background: rgba(255,255,255,0.05); color: var(--text-primary); }
+.docs-hint { font-size: 12px; color: var(--text-secondary); }
+
+.docs-folder-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.docs-folder-card { display: flex; flex-direction: column; gap: 4px; background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: var(--radius); padding: 16px 18px; }
+.docs-folder-card:hover { background: rgba(255,255,255,0.12); }
+.docs-folder-icon { font-size: 24px; }
+.docs-folder-name { font-weight: 700; font-size: 15px; }
+.docs-folder-meta { font-size: 12px; color: var(--text-secondary); }
+
+.docs-table-card { padding: 8px 12px; }
+.docs-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.docs-table th { text-align: left; font-size: 12px; color: var(--text-secondary); font-weight: 600; padding: 10px 8px; border-bottom: 1px solid var(--bg-card-border); }
+.docs-table td { padding: 10px 8px; border-bottom: 1px solid rgba(255,255,255,0.08); vertical-align: middle; }
+.docs-table tr:last-child td { border-bottom: none; }
+.docs-td-icon { font-size: 18px; width: 32px; }
+.docs-td-name a { color: var(--text-primary); font-weight: 600; }
+.docs-td-name a:hover { color: var(--own-color); }
+.docs-td-sub { font-size: 11px; color: var(--text-secondary); max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.docs-td-by { font-size: 12px; color: var(--text-secondary); }
+.docs-td-actions { display: flex; gap: 6px; align-items: center; justify-content: flex-end; }
+.docs-mini-btn { background: rgba(255,255,255,0.08); border: 1px solid var(--bg-card-border); border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 13px; color: var(--text-primary); }
+.docs-mini-btn:hover { background: rgba(255,255,255,0.16); }
+.docs-mini-danger:hover { border-color: var(--negative); }
+.docs-delete-form { display: inline; }
+
+/* ---------- Calendrier du staff ---------- */
+.cal-form-row { display: flex; gap: 12px; }
+.cal-form-row .form-group { flex: 1; }
+.cal-month-card h2 { text-transform: capitalize; }
+.cal-event-list { display: flex; flex-direction: column; gap: 10px; }
+.cal-event-row {
+    display: flex; align-items: flex-start; gap: 16px;
+    background: rgba(255,255,255,0.05); border: 1px solid var(--bg-card-border);
+    border-radius: var(--radius); padding: 12px 16px;
+}
+.cal-event-row.cal-event-past { opacity: 0.5; }
+.cal-event-date { display: flex; flex-direction: column; align-items: center; min-width: 44px; }
+.cal-event-day { font-size: 20px; font-weight: 800; line-height: 1; }
+.cal-event-time { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+.cal-event-main { flex: 1; min-width: 0; }
+.cal-event-title { font-weight: 700; font-size: 14px; }
+.cal-event-desc { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+.cal-event-meta { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+.cal-event-actions { display: flex; gap: 6px; align-items: flex-start; flex-shrink: 0; }
+
+/* ---------- Cahier des charges (tableau à 3 colonnes) ---------- */
+.cc-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: start; }
+.cc-column { background: rgba(255,255,255,0.04); border: 1px solid var(--bg-card-border); border-radius: var(--radius); overflow: hidden; }
+.cc-column-header {
+    padding: 12px 16px; font-weight: 700; font-size: 13px; text-transform: uppercase;
+    letter-spacing: 0.4px; display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid var(--bg-card-border);
+}
+.cc-column-a_faire { color: var(--negative); }
+.cc-column-en_cours { color: var(--accent-gold); }
+.cc-column-fait { color: var(--positive); }
+.cc-column-count {
+    background: rgba(255,255,255,0.1); border-radius: 999px; padding: 2px 9px; font-size: 11px;
+}
+.cc-column-body { display: flex; flex-direction: column; gap: 10px; padding: 12px; min-height: 40px; }
+.cc-column-empty { font-size: 12px; color: var(--text-secondary); text-align: center; padding: 10px 0; }
+.cc-card { background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: 6px; padding: 12px 14px; }
+.cc-card-title { font-weight: 700; font-size: 13px; }
+.cc-card-desc { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+.cc-card-meta { font-size: 11px; color: var(--text-secondary); margin-top: 6px; }
+.cc-card-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; gap: 8px; }
+.cc-status-form select {
+    background: rgba(255,255,255,0.08); color: var(--text-primary); border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 5px; padding: 4px 6px; font-size: 12px;
+}
+@media (max-width: 900px) {
+    .cc-board { grid-template-columns: 1fr; }
+}
+
+/* Sous-menu imbriqué "🎥 Analyse vidéo" DANS le menu ☰ (regroupe toutes les pages qui
+   existaient avant l'ajout des espaces Documents/Calendrier/Cahier des charges). */
+.landing-dropdown-sub { position: relative; }
+.landing-dropdown-sub summary {
+    list-style: none; cursor: pointer; display: block; padding: 12px 16px;
+    color: #fff; font-size: 13px; font-weight: 600; user-select: none;
+}
+.landing-dropdown-sub summary::-webkit-details-marker { display: none; }
+.landing-dropdown-sub summary::after { content: " ▸"; float: right; opacity: 0.6; }
+.landing-dropdown-sub[open] summary::after { content: " ▾"; }
+.landing-dropdown-sub summary:hover { background: rgba(255,255,255,0.08); }
+.landing-dropdown-sub-content { display: flex; flex-direction: column; background: rgba(0,0,0,0.25); }
+.landing-dropdown-sub-content a { padding-left: 30px; font-size: 12.5px; }
+
+/* ===========================================================================
+   CALENDRIER INTERACTIF — vues Jour / Semaine / Mois façon iPhone, avec popup
+   au clic sur un jour pour ajouter/modifier/supprimer un événement.
+   =========================================================================== */
+.cal-toolbar {
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+    gap: 12px; margin-bottom: 18px;
+}
+.cal-toolbar-left, .cal-toolbar-right { display: flex; align-items: center; gap: 8px; }
+.cal-nav-btn {
+    background: rgba(255,255,255,0.08); border: 1px solid var(--bg-card-border); color: var(--text-primary);
+    border-radius: 6px; width: 34px; height: 34px; font-size: 16px; cursor: pointer; line-height: 1;
+}
+.cal-nav-btn:hover { background: rgba(255,255,255,0.16); }
+.cal-today-btn {
+    background: rgba(255,255,255,0.08); border: 1px solid var(--bg-card-border); color: var(--text-primary);
+    border-radius: 6px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.cal-today-btn:hover { background: rgba(255,255,255,0.16); }
+.cal-title { font-size: 19px; font-weight: 700; margin: 0 4px; text-transform: capitalize; }
+.cal-view-toggle { display: flex; border: 1px solid var(--bg-card-border); border-radius: 6px; overflow: hidden; }
+.cal-view-btn {
+    background: transparent; border: none; color: var(--text-secondary); padding: 8px 14px;
+    font-size: 13px; font-weight: 600; cursor: pointer; border-left: 1px solid var(--bg-card-border);
+}
+.cal-view-btn:first-child { border-left: none; }
+.cal-view-btn.active { background: var(--accent-gold); color: #1c1200; }
+.cal-view-btn:not(.active):hover { background: rgba(255,255,255,0.1); }
+
+/* --- Vue Mois --- */
+.cal-month-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 6px; }
+.cal-month-weekdays span {
+    text-align: center; font-size: 11px; font-weight: 700; color: var(--text-secondary);
+    text-transform: uppercase; letter-spacing: 0.04em;
+}
+.cal-month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.cal-day-cell {
+    background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: 8px;
+    min-height: 92px; padding: 6px; cursor: pointer; display: flex; flex-direction: column; gap: 4px;
+    transition: background 0.15s;
+}
+.cal-day-cell:hover { background: rgba(255,255,255,0.18); }
+.cal-day-cell.cal-day-outside { opacity: 0.35; }
+.cal-day-cell.cal-day-today { border-color: var(--accent-gold); box-shadow: 0 0 0 1px var(--accent-gold) inset; }
+.cal-day-number {
+    font-size: 12px; font-weight: 700; width: 22px; height: 22px; display: flex; align-items: center;
+    justify-content: center; border-radius: 50%;
+}
+.cal-day-today .cal-day-number { background: var(--accent-gold); color: #1c1200; }
+.cal-day-events { display: flex; flex-direction: column; gap: 3px; overflow: hidden; }
+.cal-event-chip {
+    font-size: 10.5px; background: rgba(79,127,214,0.35); border-radius: 4px; padding: 2px 5px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cal-event-chip-more { font-size: 10px; color: var(--text-secondary); padding-left: 5px; }
+@media (max-width: 700px) {
+    .cal-day-cell { min-height: 56px; }
+    .cal-event-chip { display: none; }
+    .cal-day-events::after { content: attr(data-count); font-size: 10px; color: var(--accent-gold); }
+}
+
+/* --- Vue Semaine --- */
+.cal-week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; align-items: start; }
+.cal-week-col { background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: 8px; min-height: 220px; cursor: pointer; }
+.cal-week-col.cal-day-today { border-color: var(--accent-gold); }
+.cal-week-col-header { text-align: center; padding: 10px 4px 6px; border-bottom: 1px solid var(--bg-card-border); }
+.cal-week-col-header .cal-week-day-name { font-size: 10.5px; color: var(--text-secondary); text-transform: uppercase; }
+.cal-week-col-header .cal-day-number { margin: 4px auto 0; }
+.cal-week-col-body { display: flex; flex-direction: column; gap: 5px; padding: 8px; }
+.cal-week-event {
+    background: rgba(79,127,214,0.35); border-radius: 5px; padding: 4px 6px; font-size: 11px; line-height: 1.3;
+}
+.cal-week-event-time { font-weight: 700; opacity: 0.85; }
+@media (max-width: 900px) {
+    .cal-week-grid { grid-template-columns: repeat(7, minmax(90px, 1fr)); overflow-x: auto; }
+}
+
+/* --- Vue Jour --- */
+.cal-day-view { display: flex; flex-direction: column; gap: 10px; }
+.cal-day-view-event {
+    display: flex; gap: 12px; align-items: flex-start; background: var(--bg-card);
+    border: 1px solid var(--bg-card-border); border-radius: 8px; padding: 12px 14px; cursor: pointer;
+}
+.cal-day-view-event:hover { background: rgba(255,255,255,0.18); }
+.cal-day-view-time { font-weight: 700; color: var(--accent-gold); min-width: 48px; font-size: 13px; }
+.cal-day-view-body .cal-event-title { font-weight: 700; font-size: 14px; }
+.cal-day-view-body .cal-event-desc { font-size: 12.5px; color: var(--text-secondary); margin-top: 3px; }
+.cal-day-view-body .cal-event-meta { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+.cal-day-view-add {
+    text-align: center; padding: 16px; border: 1px dashed var(--bg-card-border); border-radius: 8px;
+    color: var(--text-secondary); cursor: pointer; font-size: 13px;
+}
+.cal-day-view-add:hover { background: rgba(255,255,255,0.08); }
+
+/* --- Popup (façon iPhone) --- */
+.cal-modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 200;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.cal-modal {
+    background: #1c2b38; border: 1px solid var(--bg-card-border); border-radius: 12px;
+    width: 100%; max-width: 420px; max-height: 85vh; overflow-y: auto; padding: 20px;
+}
+.cal-modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.cal-modal-date-title { font-size: 16px; font-weight: 700; text-transform: capitalize; }
+.cal-modal-close {
+    background: rgba(255,255,255,0.08); border: none; color: var(--text-primary); width: 28px; height: 28px;
+    border-radius: 50%; cursor: pointer; font-size: 14px;
+}
+.cal-modal-close:hover { background: rgba(255,255,255,0.18); }
+.cal-modal-empty { font-size: 13px; color: var(--text-secondary); padding: 8px 0 16px; }
+.cal-modal-event-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.cal-modal-event-item { background: rgba(255,255,255,0.06); border-radius: 8px; padding: 10px 12px; }
+.cal-modal-event-item .cal-event-time { font-size: 11px; font-weight: 700; color: var(--accent-gold); }
+.cal-modal-event-item .cal-event-title { font-size: 13.5px; font-weight: 700; margin-top: 2px; }
+.cal-modal-event-item .cal-event-desc { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
+.cal-modal-event-item .cal-event-meta { font-size: 10.5px; color: var(--text-secondary); margin-top: 5px; }
+.cal-modal-event-actions { display: flex; gap: 8px; margin-top: 8px; }
+.cal-modal-add-title { font-size: 12.5px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px; }
+.cal-modal-edit-form { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
