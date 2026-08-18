@@ -1022,15 +1022,25 @@ body.demo-mode .demo-blur {
    existaient avant l'ajout des espaces Documents/Calendrier/Cahier des charges). */
 .landing-dropdown-sub { position: relative; }
 .landing-dropdown-sub summary {
-    list-style: none; cursor: pointer; display: block; padding: 12px 16px;
-    color: #fff; font-size: 13px; font-weight: 600; user-select: none;
+    list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; padding: 12px 16px; color: #fff; font-size: 13px; font-weight: 600; user-select: none;
 }
 .landing-dropdown-sub summary::-webkit-details-marker { display: none; }
-.landing-dropdown-sub summary::after { content: " ▸"; float: right; opacity: 0.6; }
-.landing-dropdown-sub[open] summary::after { content: " ▾"; }
+.landing-dropdown-sub summary::after {
+    content: "▸"; opacity: 0.6; flex-shrink: 0; display: inline-block;
+    transition: transform 0.2s ease;
+}
+.landing-dropdown-sub[open] summary::after { transform: rotate(90deg); }
 .landing-dropdown-sub summary:hover { background: rgba(255,255,255,0.08); }
-.landing-dropdown-sub-content { display: flex; flex-direction: column; background: rgba(0,0,0,0.25); }
-.landing-dropdown-sub-content a { padding-left: 30px; font-size: 12.5px; }
+/* Ouverture/fermeture animée en CSS pur (sans JS) : le contenu reste toujours dans le
+   flux (display: block, au lieu de dépendre du display:none par défaut de <details>),
+   et sa hauteur est animée via max-height plutôt que de basculer d'un coup. */
+.landing-dropdown-sub-content {
+    display: block; overflow: hidden; max-height: 0; background: rgba(0,0,0,0.25);
+    transition: max-height 0.25s ease;
+}
+.landing-dropdown-sub[open] .landing-dropdown-sub-content { max-height: 600px; }
+.landing-dropdown-sub-content a { display: block; padding-left: 30px; font-size: 12.5px; }
 
 /* ===========================================================================
    CALENDRIER INTERACTIF — vues Jour / Semaine / Mois façon iPhone, avec popup
