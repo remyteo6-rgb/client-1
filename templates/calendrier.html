@@ -1,7 +1,48 @@
-{% extends "base.html" %} {% block title %}Calendrier â€” Rugby Analytics{% endblock %} {% block content %}
-ðŸ—“ï¸ Calendrier du staff
-Ã‰vÃ©nements divers du staff â€” clique sur un jour pour voir ou ajouter un Ã©vÃ©nement.
-â€¹ â€º Aujourd'hui
-Jour Semaine Mois
+{% extends "base.html" %}
+{% block title %}Calendrier — Rugby Analytics{% endblock %}
+{% block content %}
+
+<div class="docs-header">
+    <div>
+        <h1>🗓️ Calendrier du staff</h1>
+        <p class="subtitle">Événements divers du staff — clique sur un jour pour voir ou ajouter un événement.</p>
+    </div>
+</div>
+
+<div class="cal-toolbar">
+    <div class="cal-toolbar-left">
+        <button type="button" class="cal-nav-btn" id="calPrevBtn">‹</button>
+        <button type="button" class="cal-nav-btn" id="calNextBtn">›</button>
+        <button type="button" class="cal-today-btn" id="calTodayBtn">Aujourd'hui</button>
+        <span class="cal-title" id="calTitle"></span>
+    </div>
+    <div class="cal-toolbar-right">
+        <div class="cal-view-toggle">
+            <button type="button" class="cal-view-btn" data-view="day">Jour</button>
+            <button type="button" class="cal-view-btn" data-view="week">Semaine</button>
+            <button type="button" class="cal-view-btn" data-view="month">Mois</button>
+        </div>
+    </div>
+</div>
+
+<div id="calMonthView" class="cal-view-panel" style="display:none;">
+    <div class="cal-month-weekdays">
+        <span>Lun</span><span>Mar</span><span>Mer</span><span>Jeu</span><span>Ven</span><span>Sam</span><span>Dim</span>
+    </div>
+    <div class="cal-month-grid" id="calMonthGrid"></div>
+</div>
+
+<div id="calWeekView" class="cal-view-panel" style="display:none;">
+    <div class="cal-week-grid" id="calWeekGrid"></div>
+</div>
+
+<div id="calDayView" class="cal-view-panel" style="display:none;">
+    <div class="cal-day-view" id="calDayList"></div>
+</div>
+
+<div id="calModalRoot"></div>
+
+<script>window.CAL_TODAY = "{{ today }}";</script>
+<script src="{{ url_for('static', filename='calendar.js') }}"></script>
 
 {% endblock %}
