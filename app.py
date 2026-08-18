@@ -6,7 +6,7 @@ import psycopg2
 import psycopg2.extras
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, flash, g, abort, session, Response
+from flask import Flask, render_template, request, redirect, url_for, flash, g, abort, session, Response, jsonify
 from parser import (
     parse_sportscode_xml, aggregate_match_stats, aggregate_zones, CATEGORY_SECTIONS,
     SECTION_ICONS, SECTION_HELP, CATEGORY_HELP, generate_highlights, compute_radar_metrics,
@@ -1554,94 +1554,98 @@ def _cal_can_edit(row):
     événements uniquement (comparaison sur created_by)."""
     return _doc_can_delete(dict(row))
 
+def _cal_event_json(row):
+    r = dict(row)
+    return {
+        "id": r["id"],
+        "title": r["title"],
+        "description": r.get("description") or "",
+        "event_date": r["event_date"],
+        "event_time": r.get("event_time") or "",
+        "created_by": r.get("created_by") or "",
+        "can_edit": _cal_can_edit(r),
+    }
+
 @app.route("/calendrier")
 def calendrier():
-    db = get_db()
-    rows = db.execute(
-        "SELECT * FROM calendar_events ORDER BY event_date ASC, COALESCE(event_time, '99:99') ASC, id ASC"
-    ).fetchall()
+    # La page est rendue côté client (vue Jour / Semaine / Mois interactive, façon iPhone) :
+    # ce endpoint ne fait que servir le squelette HTML + la date du jour. Les événements
+    # sont chargés en JSON via /calendrier/api/events selon la période affichée.
     today = datetime.utcnow().strftime("%Y-%m-%d")
-    events_by_month = {}
-    for r in rows:
-        r = dict(r)
-        r["can_edit"] = _cal_can_edit(r)
-        r["is_past"] = (r["event_date"] or "") < today
-        month_key = (r["event_date"] or "")[:7]  # "AAAA-MM"
-        events_by_month.setdefault(month_key, []).append(r)
-    # Libellés lisibles pour chaque mois présent (ex. "Août 2026"), triés chronologiquement.
-    MONTH_NAMES = ["", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet",
-                   "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
-    months = []
-    for key in sorted(events_by_month.keys()):
-        year, month = key.split("-")
-        months.append({
-            "key": key, "label": f"{MONTH_NAMES[int(month)]} {year}",
-            "events": events_by_month[key],
-        })
-    upcoming_count = sum(1 for r in rows if (r["event_date"] or "") >= today)
-    return render_template(
-        "calendrier.html", months=months, today=today,
-        upcoming_count=upcoming_count, total_count=len(rows),
-    )
+    return render_template("calendrier.html", today=today)
 
-@app.route("/calendrier/ajouter", methods=["POST"])
-def calendrier_add():
-    title = request.form.get("title", "").strip()
-    event_date = request.form.get("event_date", "").strip()
-    event_time = request.form.get("event_time", "").strip()
-    description = request.form.get("description", "").strip()
-    if not title or not event_date:
-        flash("Merci d'indiquer au moins un titre et une date.", "error")
+@app.route("/calendrier/api/events")
+def calendrier_api_events():
+    """Renvoie les événements dans une période [start, end] (AAAA-MM-JJ, bornes incluses).
+    Sans paramètres, renvoie tout (utilisé en secours)."""
+    start = request.args.get("start", "").strip()
+    end = request.args.get("end", "").strip()
+    db = get_db()
+    if start and end:
+        rows = db.execute(
+            "SELECT * FROM calendar_events WHERE event_date >= %s AND event_date <= %s "
+            "ORDER BY event_date ASC, COALESCE(event_time, '99:99') ASC, id ASC",
+            (start, end),
+        ).fetchall()
     else:
-        db = get_db()
-        db.execute(
-            """INSERT INTO calendar_events (title, description, event_date, event_time, created_by, created_at)
-               VALUES (%s, %s, %s, %s, %s, %s)""",
-            (title, description or None, event_date, event_time or None,
-             session.get("user_email", ""), datetime.utcnow().isoformat()),
-        )
-        db.commit()
-        flash("Événement ajouté au calendrier.", "success")
-    return redirect(url_for("calendrier"))
+        rows = db.execute(
+            "SELECT * FROM calendar_events ORDER BY event_date ASC, COALESCE(event_time, '99:99') ASC, id ASC"
+        ).fetchall()
+    return jsonify({"events": [_cal_event_json(r) for r in rows]})
 
-@app.route("/calendrier/<int:event_id>/modifier", methods=["POST"])
-def calendrier_edit(event_id):
+@app.route("/calendrier/api/ajouter", methods=["POST"])
+def calendrier_api_add():
+    data = request.get_json(silent=True) or request.form
+    title = (data.get("title") or "").strip()
+    event_date = (data.get("event_date") or "").strip()
+    event_time = (data.get("event_time") or "").strip()
+    description = (data.get("description") or "").strip()
+    if not title or not event_date:
+        return jsonify({"error": "Merci d'indiquer au moins un titre et une date."}), 400
+    db = get_db()
+    row = db.execute(
+        """INSERT INTO calendar_events (title, description, event_date, event_time, created_by, created_at)
+           VALUES (%s, %s, %s, %s, %s, %s) RETURNING *""",
+        (title, description or None, event_date, event_time or None,
+         session.get("user_email", ""), datetime.utcnow().isoformat()),
+    ).fetchone()
+    db.commit()
+    return jsonify({"event": _cal_event_json(row)})
+
+@app.route("/calendrier/api/<int:event_id>/modifier", methods=["POST"])
+def calendrier_api_edit(event_id):
     db = get_db()
     row = db.execute("SELECT * FROM calendar_events WHERE id = %s", (event_id,)).fetchone()
     if not row:
-        abort(404)
+        return jsonify({"error": "Introuvable."}), 404
     if not _cal_can_edit(row):
-        flash("Tu ne peux modifier que tes propres événements (ou demande à l'admin).", "error")
-        return redirect(url_for("calendrier"))
-    title = request.form.get("title", "").strip()
-    event_date = request.form.get("event_date", "").strip()
-    event_time = request.form.get("event_time", "").strip()
-    description = request.form.get("description", "").strip()
+        return jsonify({"error": "Tu ne peux modifier que tes propres événements (ou demande à l'admin)."}), 403
+    data = request.get_json(silent=True) or request.form
+    title = (data.get("title") or "").strip()
+    event_date = (data.get("event_date") or "").strip()
+    event_time = (data.get("event_time") or "").strip()
+    description = (data.get("description") or "").strip()
     if not title or not event_date:
-        flash("Merci d'indiquer au moins un titre et une date.", "error")
-    else:
-        db.execute(
-            """UPDATE calendar_events SET title = %s, description = %s, event_date = %s, event_time = %s
-               WHERE id = %s""",
-            (title, description or None, event_date, event_time or None, event_id),
-        )
-        db.commit()
-        flash("Événement modifié.", "success")
-    return redirect(url_for("calendrier"))
+        return jsonify({"error": "Merci d'indiquer au moins un titre et une date."}), 400
+    updated = db.execute(
+        """UPDATE calendar_events SET title = %s, description = %s, event_date = %s, event_time = %s
+           WHERE id = %s RETURNING *""",
+        (title, description or None, event_date, event_time or None, event_id),
+    ).fetchone()
+    db.commit()
+    return jsonify({"event": _cal_event_json(updated)})
 
-@app.route("/calendrier/<int:event_id>/supprimer", methods=["POST"])
-def calendrier_delete(event_id):
+@app.route("/calendrier/api/<int:event_id>/supprimer", methods=["POST"])
+def calendrier_api_delete(event_id):
     db = get_db()
     row = db.execute("SELECT * FROM calendar_events WHERE id = %s", (event_id,)).fetchone()
     if not row:
-        abort(404)
+        return jsonify({"error": "Introuvable."}), 404
     if not _cal_can_edit(row):
-        flash("Tu ne peux supprimer que tes propres événements (ou demande à l'admin).", "error")
-    else:
-        db.execute("DELETE FROM calendar_events WHERE id = %s", (event_id,))
-        db.commit()
-        flash("Événement supprimé.", "success")
-    return redirect(url_for("calendrier"))
+        return jsonify({"error": "Tu ne peux supprimer que tes propres événements (ou demande à l'admin)."}), 403
+    db.execute("DELETE FROM calendar_events WHERE id = %s", (event_id,))
+    db.commit()
+    return jsonify({"ok": True})
 
 # ---------------------------------------------------------------------------
 # CAHIER DES CHARGES — suivi de tâches/exigences du staff, en 3 colonnes
