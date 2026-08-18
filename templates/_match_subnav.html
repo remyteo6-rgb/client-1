@@ -7,22 +7,30 @@
                 {% if not demo_forced %}
                 <a href="#" id="demoModeToggle" onclick="toggleDemoMode(); return false;">🙈 Mode démo (flouter les noms)</a>
                 {% endif %}
-                <a href="{{ url_for('index') }}">📊 Matchs</a>
-                {% if enable_prod2 %}
-                <a href="{{ url_for('opponents') }}">🆚 Adversaires</a>
-                <a href="{{ url_for('opponents_trends') }}">📈 Tendances Pro D2</a>
-                <a href="{{ url_for('next_match') }}">🎯 Prochain match</a>
-                {% endif %}
-                <a href="{{ url_for('season') }}">📅 Bilan de saison</a>
-                <a href="{{ url_for('season_joueurs') }}">👥 Effectif</a>
+                <details class="landing-dropdown-sub">
+                    <summary>🎥 Analyse vidéo</summary>
+                    <div class="landing-dropdown-sub-content">
+                        <a href="{{ url_for('analyse_video') }}">Vue d'ensemble</a>
+                        <a href="{{ url_for('index') }}">📊 Matchs</a>
+                        {% if enable_prod2 %}
+                        <a href="{{ url_for('opponents') }}">🆚 Adversaires</a>
+                        <a href="{{ url_for('opponents_trends') }}">📈 Tendances Pro D2</a>
+                        <a href="{{ url_for('next_match') }}">🎯 Prochain match</a>
+                        {% endif %}
+                        <a href="{{ url_for('season') }}">📅 Bilan de saison</a>
+                        <a href="{{ url_for('season_joueurs') }}">👥 Effectif</a>
+                        {% if is_admin %}
+                        <a href="{{ url_for('upload') }}">+ Importer un XML</a>
+                        {% if enable_prod2 %}<a href="{{ url_for('prod2_import') }}">🏉 Importer rapport Pro D2</a>{% endif %}
+                        <a href="{{ url_for('export_data') }}">💾 Sauvegarder les données</a>
+                        <a href="{{ url_for('import_data') }}">📥 Restaurer une sauvegarde</a>
+                        {% endif %}
+                    </div>
+                </details>
                 {% if not demo_forced %}
                 <a href="{{ url_for('documents') }}">📁 Documents</a>
-                {% endif %}
-                {% if is_admin %}
-                <a href="{{ url_for('upload') }}">+ Importer un XML</a>
-                {% if enable_prod2 %}<a href="{{ url_for('prod2_import') }}">🏉 Importer rapport Pro D2</a>{% endif %}
-                <a href="{{ url_for('export_data') }}">💾 Sauvegarder les données</a>
-                <a href="{{ url_for('import_data') }}">📥 Restaurer une sauvegarde</a>
+                <a href="{{ url_for('calendrier') }}">🗓️ Calendrier</a>
+                <a href="{{ url_for('cahier_charges') }}">📋 Cahier des charges</a>
                 {% endif %}
                 {% if logged_in %}
                 <a href="{{ url_for('logout') }}">🔒 Se déconnecter</a>
