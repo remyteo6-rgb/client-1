@@ -158,8 +158,8 @@ const APP_SHELL = [
   "/static/sortable.js",
   "/static/calendar.js",
   "/static/logo.png",
-  "/static/icons/icon-192.png",
-  "/static/icons/icon-512.png",
+  "/static/icon-192.png",
+  "/static/icon-512.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -228,9 +228,9 @@ def pwa_manifest():
         "background_color": "#10181f",
         "theme_color": "#530d34",
         "icons": [
-            {"src": url_for("static", filename="icons/icon-192.png"), "sizes": "192x192", "type": "image/png", "purpose": "any"},
-            {"src": url_for("static", filename="icons/icon-512.png"), "sizes": "512x512", "type": "image/png", "purpose": "any"},
-            {"src": url_for("static", filename="icons/icon-maskable-512.png"), "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+            {"src": url_for("static", filename="icon-192.png"), "sizes": "192x192", "type": "image/png", "purpose": "any"},
+            {"src": url_for("static", filename="icon-512.png"), "sizes": "512x512", "type": "image/png", "purpose": "any"},
+            {"src": url_for("static", filename="icon-maskable-512.png"), "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
         ],
     }
     # mimetype précis (et pas juste application/json) : certains navigateurs sont
