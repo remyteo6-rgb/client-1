@@ -322,6 +322,7 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
 }
 .subnav-links a:hover { color: #fff; }
 .subnav-links a.active { color: #fff; border-bottom-color: var(--accent-gold); }
+
 /* Sous-menu "Secteurs ▾" dans la sous-nav : regroupe Attaque/Défense/Ruck/Touches/
    Mêlée/JAP/Transition (et Discipline/Rucks côté Adversaires) pour éviter d'avoir
    10+ onglets à plat sur une seule ligne. */
@@ -682,6 +683,7 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
     font-size: 14px;
     font-weight: 700;
 }
+
 /* Menu déroulant en haut à droite (accueil ET toutes les autres pages) */
 .landing-topmenu {
     position: fixed;
