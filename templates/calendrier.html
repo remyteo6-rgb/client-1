@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Calendrier — Rugby Analytics{% endblock %}
+{% block content %}
+
+<div class="docs-header">
+    <div>
+        <h1>🗓️ Calendrier du staff</h1>
+        <p class="subtitle">{{ upcoming_count }} événement{{ 's' if upcoming_count != 1 else '' }} à venir · {{ total_count }} au total</p>
+    </div>
+</div>
+
+<div class="docs-actions">
+    <details class="docs-action-panel">
+        <summary class="btn">＋ Ajouter un événement</summary>
+        <form method="POST" action="{{ url_for('calendrier_add') }}" class="docs-form">
+            <div class="form-group">
+                <label>Titre</label>
+                <input type="text" name="title" placeholder="ex. Réunion staff, Déplacement à Grenoble..." required>
+            </div>
+            <div class="cal-form-row">
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" name="event_date" required>
+                </div>
+                <div class="form-group">
+                    <label>Heure (optionnel)</label>
+                    <input type="time" name="event_time">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Détails (optionnel)</label>
+                <input type="text" name="description" placeholder="Lieu, précisions...">
+            </div>
+            <button type="submit" class="btn">Ajouter</button>
+        </form>
+    </details>
+</div>
+
+{% if months %}
+    {% for month in months %}
+    <div class="card cal-month-card">
+        <h2>{{ month.label }}</h2>
+        <div class="cal-event-list">
+            {% for ev in month.events %}
+            <div class="cal-event-row {{ 'cal-event-past' if ev.is_past else '' }}">
+                <div class="cal-event-date">
+                    <span class="cal-event-day">{{ ev.event_date[8:10] }}</span>
+                    {% if ev.event_time %}<span class="cal-event-time">{{ ev.event_time }}</span>{% endif %}
+                </div>
+                <div class="cal-event-main">
+                    <div class="cal-event-title">{{ ev.title }}</div>
+                    {% if ev.description %}<div class="cal-event-desc">{{ ev.description }}</div>{% endif %}
+                    <div class="cal-event-meta">Ajouté par {{ ev.created_by }}</div>
+                </div>
+                {% if ev.can_edit %}
+                <div class="cal-event-actions">
+                    <details class="docs-action-panel">
+                        <summary class="docs-mini-btn" title="Modifier">✏️</summary>
+                        <form method="POST" action="{{ url_for('calendrier_edit', event_id=ev.id) }}" class="docs-form">
+                            <div class="form-group">
+                                <label>Titre</label>
+                                <input type="text" name="title" value="{{ ev.title }}" required>
+                            </div>
+                            <div class="cal-form-row">
+                                <div class="form-group">
+                                    <label>Date</label>
+                                    <input type="date" name="event_date" value="{{ ev.event_date }}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Heure</label>
+                                    <input type="time" name="event_time" value="{{ ev.event_time or '' }}">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Détails</label>
+                                <input type="text" name="description" value="{{ ev.description or '' }}">
+                            </div>
+                            <button type="submit" class="btn btn-secondary">Enregistrer</button>
+                        </form>
+                    </details>
+                    <form method="POST" action="{{ url_for('calendrier_delete', event_id=ev.id) }}" class="docs-delete-form"
+                          onsubmit="return confirm('Supprimer « {{ ev.title|e }} » ?');">
+                        <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer">🗑️</button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+<div class="empty-state">
+    <p>Aucun événement pour le moment.</p>
+    <p>Ajoute une réunion, un déplacement ou tout autre rendez-vous avec le bouton ci-dessus.</p>
+</div>
+{% endif %}
+
+{% endblock %}
