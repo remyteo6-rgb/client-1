@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Gestion des joueurs — Rugby Analytics{% endblock %}
+{% block content %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>👥 Gestion des joueurs</h1>
+        <p class="subtitle">Comptes joueurs : chacun se connecte avec son email et choisit son mot de passe à la 1ère connexion. Un joueur connecté ne voit que son planning, les documents qu'on lui partage, et ses propres stats.</p>
+    </div>
+</div>
+
+<div class="docs-actions">
+    <details class="docs-action-panel">
+        <summary class="btn">📥 Importer un fichier Excel</summary>
+        <form method="POST" action="{{ url_for('admin_joueurs_importer') }}" enctype="multipart/form-data" class="docs-form">
+            <div class="form-group">
+                <label>Fichier .xlsx (colonnes « NOM Prénom », « Poste », « Mail »)</label>
+                <input type="file" name="fichier" accept=".xlsx" required>
+            </div>
+            <button type="submit" class="btn">Importer</button>
+            <p class="docs-hint">💡 Un joueur déjà présent (même email) est mis à jour plutôt que dupliqué. Le groupe (Avants/Trois-quarts) est proposé automatiquement à partir du poste — modifiable ensuite pour chaque joueur ci-dessous.</p>
+        </form>
+    </details>
+
+    <details class="docs-action-panel">
+        <summary class="btn btn-secondary">＋ Ajouter un joueur</summary>
+        <form method="POST" action="{{ url_for('admin_joueurs_ajouter') }}" class="docs-form">
+            <div class="form-group">
+                <label>Prénom</label>
+                <input type="text" name="first_name" required>
+            </div>
+            <div class="form-group">
+                <label>Nom</label>
+                <input type="text" name="last_name" required>
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" required>
+            </div>
+            <div class="form-group">
+                <label>Groupe</label>
+                <select name="group_id">
+                    <option value="">— Aucun —</option>
+                    {% for g in groups %}
+                    <option value="{{ g['id'] }}">{{ g['name'] }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn">Ajouter</button>
+        </form>
+    </details>
+
+    <details class="docs-action-panel">
+        <summary class="btn btn-secondary">⚙️ Groupes</summary>
+        <div class="docs-form">
+            <form method="POST" action="{{ url_for('admin_groupes_creer') }}" class="docs-inline-form">
+                <input type="text" name="name" placeholder="ex. Espoirs 1, Réserve...">
+                <button type="submit" class="btn btn-secondary">Créer</button>
+            </form>
+            {% for g in groups %}
+            <form method="POST" action="{{ url_for('admin_groupes_supprimer', group_id=g['id']) }}" class="docs-inline-form"
+                  onsubmit="return confirm('Supprimer le groupe « {{ g['name']|e }} » ? Les joueurs de ce groupe n\'auront plus de groupe.');" style="margin-top:6px;">
+                <span style="flex:1; padding:8px 0;">{{ g['name'] }}</span>
+                <button type="submit" class="btn btn-danger">Supprimer</button>
+            </form>
+            {% endfor %}
+        </div>
+    </details>
+</div>
+
+{% if players %}
+<div class="card docs-table-card">
+    <table class="docs-table">
+        <thead>
+            <tr>
+                <th>Nom</th>
+                <th>Email</th>
+                <th>Groupe</th>
+                <th>Statut</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for p in players %}
+            <tr>
+                <td class="docs-td-name">{{ p['first_name'] }} {{ p['last_name'] }}</td>
+                <td class="demo-sensitive">{{ p['email'] }}</td>
+                <td>
+                    <form method="POST" action="{{ url_for('admin_joueurs_groupe', player_id=p['id']) }}" class="docs-inline-form">
+                        <select name="group_id" onchange="this.form.submit()">
+                            <option value="">— Aucun —</option>
+                            {% for g in groups %}
+                            <option value="{{ g['id'] }}" {{ 'selected' if p['group_id']==g['id'] else '' }}>{{ g['name'] }}</option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                </td>
+                <td>{{ '✅ Mot de passe défini' if p['password_hash'] else '⏳ 1ère connexion en attente' }}</td>
+                <td class="docs-td-actions">
+                    {% set full_name = (p['first_name'] ~ ' ' ~ p['last_name'])|e %}
+                    <form method="POST" action="{{ url_for('admin_joueurs_reset_password', player_id=p['id']) }}" class="docs-inline-form"
+                          onsubmit="return confirm('Réinitialiser le mot de passe de {{ full_name }} ?');">
+                        <button type="submit" class="docs-mini-btn" title="Réinitialiser le mot de passe">🔑</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('admin_joueurs_supprimer', player_id=p['id']) }}" class="docs-inline-form"
+                          onsubmit="return confirm('Supprimer le compte de {{ full_name }} ?');">
+                        <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer le compte">🗑️</button>
+                    </form>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <p>Aucun joueur pour le moment.</p>
+    <p>Importe le fichier Excel du club ou ajoute un joueur à la main avec les boutons ci-dessus.</p>
+</div>
+{% endif %}
+
+{% endblock %}
