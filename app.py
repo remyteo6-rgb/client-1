@@ -2042,7 +2042,16 @@ CHARGES_STATUS_LABELS = {"a_faire": "À faire", "en_cours": "En cours", "fait": 
 def cahier_charges():
     db = get_db()
     joueur_id = request.args.get("joueur", type=int)
-    players = db.execute("SELECT * FROM players ORDER BY last_name, first_name").fetchall()
+    players = db.execute(
+        """SELECT p.*, g.name AS group_name FROM players p
+           LEFT JOIN player_groups g ON g.id = p.group_id
+           ORDER BY g.name NULLS LAST, p.last_name, p.first_name"""
+    ).fetchall()
+    # Regroupés par groupe (Avants/Trois-quarts...) pour une navigation plus lisible que
+    # 59 joueurs à plat — voir cahier_charges.html (barre de recherche + sections repliables).
+    grouped_players = {}
+    for p in players:
+        grouped_players.setdefault(p["group_name"] or "Sans groupe", []).append(p)
     selected_player = None
     if joueur_id:
         selected_player = db.execute("SELECT * FROM players WHERE id = %s", (joueur_id,)).fetchone()
@@ -2079,7 +2088,7 @@ def cahier_charges():
     return render_template(
         "cahier_charges.html", columns=columns, statuses=CHARGES_STATUSES,
         status_labels=CHARGES_STATUS_LABELS, total_count=len(rows),
-        players=players, selected_player=selected_player, joueur_id=joueur_id, docs=docs_view,
+        grouped_players=grouped_players, selected_player=selected_player, joueur_id=joueur_id, docs=docs_view,
     )
 
 @app.route("/cahier-des-charges/ajouter", methods=["POST"])
