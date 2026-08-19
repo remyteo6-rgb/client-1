@@ -5,14 +5,106 @@
 <div class="docs-header">
     <div>
         <h1>📋 Cahier des charges</h1>
-        <p class="subtitle">{{ total_count }} tâche{{ 's' if total_count != 1 else '' }} au total</p>
+        <p class="subtitle">
+            {% if selected_player %}
+                Suivi individuel de {{ selected_player['first_name'] }} {{ selected_player['last_name'] }} — {{ total_count }} tâche{{ 's' if total_count != 1 else '' }}. Cette liste n'est jamais visible par le joueur ; les documents déposés plus bas le sont.
+            {% else %}
+                {{ total_count }} tâche{{ 's' if total_count != 1 else '' }} au total (général, hors suivi individuel)
+            {% endif %}
+        </p>
     </div>
 </div>
 
+<div class="cc-tabs no-print">
+    <a href="{{ url_for('cahier_charges') }}" class="cc-tab {{ 'active' if not selected_player else '' }}">📋 Général</a>
+    {% for p in players %}
+    <a href="{{ url_for('cahier_charges', joueur=p['id']) }}" class="cc-tab {{ 'active' if selected_player and selected_player['id']==p['id'] else '' }}">{{ p['first_name'] }} {{ p['last_name'] }}</a>
+    {% endfor %}
+</div>
+
+{% if selected_player %}
 <div class="docs-actions">
     <details class="docs-action-panel">
-        <summary class="btn">＋ Ajouter une tâche</summary>
+        <summary class="btn">📁 Déposer un document pour {{ selected_player['first_name'] }}</summary>
+        <form method="POST" action="{{ url_for('cahier_charges_upload', player_id=selected_player['id']) }}" enctype="multipart/form-data" class="docs-form">
+            <div class="form-group">
+                <label>Fichiers (PDL, compte-rendu, vidéo perso... — 30 Mo max par fichier)</label>
+                <input type="file" name="files" multiple required>
+            </div>
+            <button type="submit" class="btn">Déposer</button>
+            <p class="docs-hint">💡 Ce document apparaît automatiquement dans « Mes documents » pour {{ selected_player['first_name'] }} — pas besoin de choisir un partage.</p>
+        </form>
+    </details>
+    <details class="docs-action-panel">
+        <summary class="btn btn-secondary">🔗 Ajouter un lien</summary>
+        <form method="POST" action="{{ url_for('cahier_charges_add_link', player_id=selected_player['id']) }}" class="docs-form">
+            <div class="form-group">
+                <label>Titre (optionnel)</label>
+                <input type="text" name="title" placeholder="Titre du lien">
+            </div>
+            <div class="form-group">
+                <label>Lien</label>
+                <input type="url" name="url" placeholder="https://..." required>
+            </div>
+            <button type="submit" class="btn">Ajouter</button>
+        </form>
+    </details>
+</div>
+
+{% if docs %}
+<div class="card docs-table-card">
+    <table class="docs-table">
+        <thead>
+            <tr><th></th><th>Nom</th><th>Déposé par</th><th>Date</th><th>Taille</th><th></th></tr>
+        </thead>
+        <tbody>
+            {% for d in docs %}
+            <tr>
+                <td class="docs-td-icon">{{ d['icon'] }}</td>
+                <td class="docs-td-name">
+                    {% if d['kind'] == 'link' %}
+                        <a href="{{ d['url'] }}" target="_blank" rel="noopener">{{ d['title'] }}</a>
+                        <div class="docs-td-sub">{{ d['url'] }}</div>
+                    {% elif d['inline'] %}
+                        <a href="{{ url_for('documents_preview', doc_id=d['id']) }}" target="_blank">{{ d['filename'] }}</a>
+                    {% else %}
+                        <a href="{{ url_for('documents_download', doc_id=d['id']) }}">{{ d['filename'] }}</a>
+                    {% endif %}
+                </td>
+                <td class="docs-td-by demo-sensitive">{{ d['uploaded_by'] }}</td>
+                <td>{{ d['date_human'] }}</td>
+                <td>{{ d['size_human'] }}</td>
+                <td class="docs-td-actions">
+                    {% if d['kind'] == 'file' %}
+                    <a class="docs-mini-btn" href="{{ url_for('documents_download', doc_id=d['id']) }}" title="Télécharger">⬇️</a>
+                    {% if d['inline'] %}
+                    <a class="docs-mini-btn" href="{{ url_for('documents_preview', doc_id=d['id']) }}" target="_blank" title="Aperçu">👁️</a>
+                    {% endif %}
+                    {% endif %}
+                    {% if d['can_delete'] %}
+                    <form method="POST" action="{{ url_for('cahier_charges_doc_delete', doc_id=d['id']) }}" class="docs-delete-form"
+                          onsubmit="return confirm('Supprimer « {{ (d['filename'] or d['title'])|e }} » ?');">
+                        <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer">🗑️</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <p>Aucun document déposé pour {{ selected_player['first_name'] }} pour le moment.</p>
+</div>
+{% endif %}
+{% endif %}
+
+<div class="docs-actions">
+    <details class="docs-action-panel">
+        <summary class="btn">＋ Ajouter une tâche{{ ' pour ' ~ selected_player['first_name'] if selected_player else '' }}</summary>
         <form method="POST" action="{{ url_for('cahier_charges_add') }}" class="docs-form">
+            <input type="hidden" name="player_id" value="{{ joueur_id or '' }}">
             <div class="form-group">
                 <label>Titre</label>
                 <input type="text" name="title" placeholder="ex. Ajouter les stats de mêlée fermée" required>
