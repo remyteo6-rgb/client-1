@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mes stats — {{ club_full_name }}</title>
+{% include "_pwa_head.html" %}
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ asset_version }}">
+</head>
+<body>
+<img src="{{ url_for('static', filename='logo.png') }}" class="body-watermark no-print" alt="">
+{% include "_player_nav.html" %}
+<main class="page">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-stack">
+            {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
+
+    <h1>📊 Mes statistiques</h1>
+    <p class="subtitle">Cumul sur {{ matches_played }} match{{ 's' if matches_played != 1 else '' }} joué{{ 's' if matches_played != 1 else '' }} (sur {{ total_matches }} match{{ 's' if total_matches != 1 else '' }} analysé{{ 's' if total_matches != 1 else '' }} cette saison).</p>
+
+    {% if not matched_name %}
+    <div class="empty-state">
+        <p>Aucune statistique trouvée pour ton nom pour le moment.</p>
+        <p>Si tu as déjà joué un match analysé, préviens le staff : ton nom n'a peut-être pas encore été codé dans Sportscode, ou l'orthographe diffère trop de celle du fichier joueurs.</p>
+    </div>
+    {% else %}
+    <div class="card section-block" style="display:block; padding:16px;">
+
+        <h3 style="font-size:13px; margin-bottom:8px; color:var(--text-secondary);">⚔️ Attaque</h3>
+        <table class="stat-table zebra-table">
+            <thead>
+                <tr>
+                    <th>Contact +/-</th><th>Total / %</th>
+                    <th>Duel +/-</th><th>Total / %</th>
+                    <th>Passes +/-</th><th>Total / %</th>
+                    <th>Offload +/-</th><th>Total / %</th>
+                    <th>PDB</th><th>Déf. battus</th><th>Break</th><th>Indice</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{ attack.contact_plus }} / {{ attack.contact_minus }}</td><td>{{ attack.contact_total }}{% if attack.contact_pct is not none %} ({{ attack.contact_pct }}%){% endif %}</td>
+                    <td>{{ attack.duel_plus }} / {{ attack.duel_minus }}</td><td>{{ attack.duel_total }}{% if attack.duel_pct is not none %} ({{ attack.duel_pct }}%){% endif %}</td>
+                    <td>{{ attack.passe_plus }} / {{ attack.passe_minus }}</td><td>{{ attack.passe_total }}{% if attack.passe_pct is not none %} ({{ attack.passe_pct }}%){% endif %}</td>
+                    <td>{{ attack.offload_plus }} / {{ attack.offload_minus }}</td><td>{{ attack.offload_total }}{% if attack.offload_pct is not none %} ({{ attack.offload_pct }}%){% endif %}</td>
+                    <td>{{ attack.pdb }}</td><td>{{ attack.def_battu }}</td><td>{{ attack.break }}</td>
+                    <td class="stat-own">{{ attack.points }}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 style="font-size:13px; margin:16px 0 8px; color:var(--text-secondary);">🛡️ Défense</h3>
+        <table class="stat-table zebra-table">
+            <thead>
+                <tr>
+                    <th>Dominant (+)</th><th>Neutre (=)</th><th>Passif (-)</th><th>Raté</th>
+                    <th>Total / %</th><th>Assist +/-</th><th>Discipline</th><th>Indice</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="stat-own">{{ defense.plaquage_dominant }}</td>
+                    <td>{{ defense.plaquage_neutre }}</td>
+                    <td>{{ defense.plaquage_passif }}</td>
+                    <td class="stat-adverse">{{ defense.plaquage_rate }}</td>
+                    <td>{{ defense.tackle_total }}{% if defense.tackle_pct is not none %} ({{ defense.tackle_pct }}%){% endif %}</td>
+                    <td>{{ defense.assist_plus }} / {{ defense.assist_minus }}</td>
+                    <td>{{ defense.discipline }}</td>
+                    <td class="stat-own">{{ defense.points }}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 style="font-size:13px; margin:16px 0 8px; color:var(--text-secondary);">🤝 Ruck</h3>
+        <table class="stat-table zebra-table">
+            <thead>
+                <tr>
+                    <th>1er homme +/-</th><th>2e homme +/-</th>
+                    <th>Ancreur +/-</th><th>Raseur +/-</th>
+                    <th>Gratteur +/- (%)</th><th>Contre-ruck +/- (%)</th><th>Indice</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{ ruck.arr1_plus }} / {{ ruck.arr1_minus }}</td>
+                    <td>{{ ruck.arr2_plus }} / {{ ruck.arr2_minus }}</td>
+                    <td>{{ ruck.ancreur_plus }} / {{ ruck.ancreur_minus }}</td>
+                    <td>{{ ruck.raseur_plus }} / {{ ruck.raseur_minus }}</td>
+                    <td>{{ ruck.gratteur_plus }} / {{ ruck.gratteur_minus }}{% if ruck.gratteur_pct is not none %} ({{ ruck.gratteur_pct }}%){% endif %}</td>
+                    <td>{{ ruck.contre_ruck_plus }} / {{ ruck.contre_ruck_minus }}{% if ruck.contre_ruck_pct is not none %} ({{ ruck.contre_ruck_pct }}%){% endif %}</td>
+                    <td class="stat-own">{{ ruck.points }}</td>
+                </tr>
+            </tbody>
+        </table>
+
+    </div>
+    {% endif %}
+</main>
+</body>
+</html>
