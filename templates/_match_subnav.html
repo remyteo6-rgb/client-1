@@ -20,6 +20,7 @@
                         <a href="{{ url_for('season') }}">📅 Bilan de saison</a>
                         <a href="{{ url_for('season_joueurs') }}">👥 Effectif</a>
                         {% if is_admin %}
+                        <a href="{{ url_for('admin_joueurs') }}">👥 Gestion des joueurs</a>
                         <a href="{{ url_for('upload') }}">+ Importer un XML</a>
                         {% if enable_prod2 %}<a href="{{ url_for('prod2_import') }}">🏉 Importer rapport Pro D2</a>{% endif %}
                         <a href="{{ url_for('export_data') }}">💾 Sauvegarder les données</a>
