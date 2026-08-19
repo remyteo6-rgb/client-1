@@ -2,10 +2,13 @@ import os
 import time
 import re
 import json
+import unicodedata
 import psycopg2
 import psycopg2.extras
+import openpyxl
 from datetime import datetime, timedelta
 from functools import wraps
+from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, render_template, request, redirect, url_for, flash, g, abort, session, Response, jsonify
 from parser import (
     parse_sportscode_xml, aggregate_match_stats, aggregate_zones, CATEGORY_SECTIONS,
@@ -123,6 +126,22 @@ def gate_optional_features():
     ):
         flash("Cet espace n'est pas accessible en mode démonstration.", "error")
         return redirect(url_for("landing"))
+# Un compte joueur n'a accès qu'à un petit sous-ensemble du site : son espace, le
+# calendrier (en lecture seule — les routes qui ajoutent/modifient/suppriment des
+# événements ne sont volontairement PAS dans cette liste), les documents qui lui sont
+# partagés, et ses propres stats. Liste blanche plutôt que liste noire : plus sûr,
+# ça ne dépend pas de penser à bloquer chaque nouvelle page d'analyse à l'avenir.
+PLAYER_ALLOWED_ENDPOINTS = {
+    "player_home", "logout", "static", "pwa_manifest", "pwa_service_worker",
+    "calendrier", "calendrier_api_events",
+    "player_documents", "player_document_download", "player_document_preview",
+    "player_stats",
+}
+@app.before_request
+def gate_player_access():
+    if session.get("is_player") and request.endpoint and request.endpoint not in PLAYER_ALLOWED_ENDPOINTS:
+        flash("Cette page n'est pas accessible depuis un compte joueur.", "error")
+        return redirect(url_for("player_home"))
 def admin_required(view):
     """Garde-fou pour les actions réservées à l'admin (import, suppression, validation
     composition, sauvegarde...). Le staff est bien connecté (passe le before_request
@@ -138,6 +157,7 @@ def admin_required(view):
 def inject_logged_in():
     return {
         "logged_in": session.get("logged_in", False), "is_admin": session.get("is_admin", False),
+        "is_player": session.get("is_player", False),
         "demo_forced": session.get("demo_forced", False),
         "user_email": session.get("user_email", ""),
         "club_name": CLUB_NAME, "club_full_name": CLUB_FULL_NAME,
@@ -268,6 +288,7 @@ def login():
             session.permanent = True
             session["logged_in"] = True
             session["is_admin"] = True
+            session["is_player"] = False
             session["demo_forced"] = False
             session["user_email"] = email
             flash("Connecté.", "success")
@@ -277,16 +298,56 @@ def login():
                 session.permanent = True
                 session["logged_in"] = True
                 session["is_admin"] = False
+                session["is_player"] = False
                 session["demo_forced"] = False
                 session["user_email"] = email
                 flash("Connecté.", "success")
                 return redirect(next_target)
+        # Comptes joueurs : pas de mot de passe défini au départ. À la toute première
+        # connexion, ce que le joueur tape dans le champ mot de passe DEVIENT son mot de
+        # passe (pas d'email de confirmation possible sans serveur mail configuré) — voir
+        # le message d'aide sur la page de connexion.
+        db = get_db()
+        player = db.execute("SELECT * FROM players WHERE email = %s", (email,)).fetchone()
+        if player:
+            if not password:
+                flash("Merci d'indiquer un mot de passe.", "error")
+                return render_template("login.html", next_url=next_url)
+            if not player["password_hash"]:
+                db.execute(
+                    "UPDATE players SET password_hash = %s WHERE id = %s",
+                    (generate_password_hash(password), player["id"]),
+                )
+                db.commit()
+                session.permanent = True
+                session["logged_in"] = True
+                session["is_admin"] = False
+                session["is_player"] = True
+                session["player_id"] = player["id"]
+                session["demo_forced"] = False
+                session["user_email"] = email
+                flash(f"Bienvenue {player['first_name']} ! Ton mot de passe vient d'être défini — ressers-t'en pour te reconnecter la prochaine fois.", "success")
+                return redirect(url_for("player_home"))
+            if check_password_hash(player["password_hash"], password):
+                session.permanent = True
+                session["logged_in"] = True
+                session["is_admin"] = False
+                session["is_player"] = True
+                session["player_id"] = player["id"]
+                session["demo_forced"] = False
+                session["user_email"] = email
+                flash("Connecté.", "success")
+                return redirect(url_for("player_home") if next_target == url_for("landing") else next_target)
+            flash("Email ou mot de passe incorrect.", "error")
+            return render_template("login.html", next_url=next_url)
         flash("Email ou mot de passe incorrect.", "error")
     return render_template("login.html", next_url=next_url)
 @app.route("/logout")
 def logout():
     session.pop("logged_in", None)
     session.pop("is_admin", None)
+    session.pop("is_player", None)
+    session.pop("player_id", None)
     session.pop("demo_forced", None)
     session.pop("user_email", None)
     flash("Déconnecté.", "success")
@@ -392,6 +453,28 @@ def init_db():
             updated_at TEXT NOT NULL
         )
     """)
+    # Comptes joueurs : espace limité (planning en lecture seule, documents qui leur sont
+    # partagés, leurs propres stats). Groupes (Avants/Trois-quarts...) génériques et gérables
+    # par l'admin, utilisés à la fois pour classer les joueurs et pour cibler le partage
+    # de documents.
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS player_groups (
+            id SERIAL PRIMARY KEY,
+            name TEXT UNIQUE NOT NULL,
+            created_at TEXT NOT NULL
+        )
+    """)
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS players (
+            id SERIAL PRIMARY KEY,
+            first_name TEXT NOT NULL,
+            last_name TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT,
+            group_id INTEGER REFERENCES player_groups(id) ON DELETE SET NULL,
+            created_at TEXT NOT NULL
+        )
+    """)
     # Espace Documents du staff : dossiers libres + fichiers stockés DANS la base
     # PostgreSQL (colonne BYTEA) pour survivre aux redéploiements Render (le disque
     # du plan gratuit n'est pas persistant). Les vidéos lourdes passent par des
@@ -420,6 +503,13 @@ def init_db():
             uploaded_at TEXT NOT NULL
         )
     """)
+    # Partage des documents avec les joueurs : ajouté après coup avec ALTER (la table
+    # documents existe déjà en prod) plutôt que dans le CREATE TABLE ci-dessus.
+    # visibility : 'staff' (comportement historique, réservé au staff) | 'players'
+    # (tous les joueurs) | 'group' (un groupe précis) | 'player' (un joueur précis).
+    db.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS visibility TEXT NOT NULL DEFAULT 'staff'")
+    db.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS shared_group_id INTEGER REFERENCES player_groups(id) ON DELETE SET NULL")
+    db.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS shared_player_id INTEGER REFERENCES players(id) ON DELETE SET NULL")
     # Calendrier du staff : événements divers (réunions, déplacements, rendez-vous...),
     # distincts des matchs/entraînements qui restent gérés ailleurs sur le site.
     db.execute("""
@@ -445,6 +535,12 @@ def init_db():
             updated_at TEXT
         )
     """)
+    # Groupes de joueurs par défaut (l'admin peut en ajouter d'autres ensuite).
+    for default_group in ("Avants", "Trois-quarts"):
+        db.execute(
+            "INSERT INTO player_groups (name, created_at) VALUES (%s, %s) ON CONFLICT (name) DO NOTHING",
+            (default_group, datetime.utcnow().isoformat()),
+        )
     db.commit()
     db.close()
 @app.route("/")
@@ -1452,7 +1548,7 @@ def documents(folder_id=None):
         ).fetchall()
         docs = db.execute(
             """SELECT id, folder_id, kind, filename, mimetype, size_bytes, url, title,
-                      uploaded_by, uploaded_at
+                      uploaded_by, uploaded_at, visibility, shared_group_id, shared_player_id
                FROM documents WHERE folder_id = %s
                ORDER BY uploaded_at DESC, id DESC""",
             (folder_id,),
@@ -1463,7 +1559,7 @@ def documents(folder_id=None):
         ).fetchall()
         docs = db.execute(
             """SELECT id, folder_id, kind, filename, mimetype, size_bytes, url, title,
-                      uploaded_by, uploaded_at
+                      uploaded_by, uploaded_at, visibility, shared_group_id, shared_player_id
                FROM documents WHERE folder_id IS NULL
                ORDER BY uploaded_at DESC, id DESC"""
         ).fetchall()
@@ -1477,6 +1573,12 @@ def documents(folder_id=None):
             "SELECT COUNT(*) AS n FROM doc_folders WHERE parent_id = %s", (sub["id"],)
         ).fetchone()["n"]
         counts[sub["id"]] = n_docs + n_dirs
+    groups = db.execute("SELECT id, name FROM player_groups ORDER BY name").fetchall()
+    players = db.execute(
+        "SELECT id, first_name, last_name FROM players ORDER BY last_name, first_name"
+    ).fetchall()
+    groups_by_id = {g["id"]: g["name"] for g in groups}
+    players_by_id = {p["id"]: f"{p['first_name']} {p['last_name']}" for p in players}
     docs_view = []
     for d in docs:
         d = dict(d)
@@ -1486,11 +1588,20 @@ def documents(folder_id=None):
         d["size_human"] = _human_size(d["size_bytes"])
         d["can_delete"] = _doc_can_delete(d)
         d["date_human"] = (d["uploaded_at"] or "")[:10]
+        if d["visibility"] == "players":
+            d["sharing_label"] = "👥 Tous les joueurs"
+        elif d["visibility"] == "group":
+            d["sharing_label"] = f"👥 Groupe : {groups_by_id.get(d['shared_group_id'], '?')}"
+        elif d["visibility"] == "player":
+            d["sharing_label"] = f"👤 {players_by_id.get(d['shared_player_id'], '?')}"
+        else:
+            d["sharing_label"] = None
         docs_view.append(d)
     return render_template(
         "documents.html", folder=folder, breadcrumb=breadcrumb,
         subfolders=subfolders, folder_counts=counts, docs=docs_view,
         can_delete_folder={s["id"]: _doc_can_delete(dict(s)) for s in subfolders},
+        player_groups=groups, players=players,
     )
 
 @app.route("/documents/dossier", methods=["POST"])
@@ -1509,6 +1620,22 @@ def documents_create_folder():
         flash(f"Dossier « {name} » créé.", "success")
     return redirect(url_for("documents", folder_id=parent_id) if parent_id else url_for("documents"))
 
+def _read_sharing_fields(form):
+    """Lit les 3 champs du formulaire de partage (documents.html) : 'visibility' vaut
+    'staff' (par défaut, comportement historique — jamais visible aux joueurs), 'players'
+    (tous les joueurs), 'group' (un groupe précis, avec shared_group_id) ou 'player' (un
+    joueur précis, avec shared_player_id)."""
+    visibility = form.get("visibility") or "staff"
+    if visibility not in ("staff", "players", "group", "player"):
+        visibility = "staff"
+    shared_group_id = form.get("shared_group_id") or None
+    shared_player_id = form.get("shared_player_id") or None
+    if visibility != "group":
+        shared_group_id = None
+    if visibility != "player":
+        shared_player_id = None
+    return visibility, shared_group_id, shared_player_id
+
 @app.route("/documents/upload", methods=["POST"])
 def documents_upload():
     folder_id = request.form.get("folder_id") or None
@@ -1516,6 +1643,7 @@ def documents_upload():
     if not files:
         flash("Merci de sélectionner au moins un fichier.", "error")
         return redirect(url_for("documents", folder_id=folder_id) if folder_id else url_for("documents"))
+    visibility, shared_group_id, shared_player_id = _read_sharing_fields(request.form)
     db = get_db()
     saved = 0
     for file in files:
@@ -1524,13 +1652,15 @@ def documents_upload():
             continue
         db.execute(
             """INSERT INTO documents
-               (folder_id, kind, filename, mimetype, size_bytes, data, uploaded_by, uploaded_at)
-               VALUES (%s, 'file', %s, %s, %s, %s, %s, %s)""",
+               (folder_id, kind, filename, mimetype, size_bytes, data, uploaded_by, uploaded_at,
+                visibility, shared_group_id, shared_player_id)
+               VALUES (%s, 'file', %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
             (
                 folder_id, file.filename,
                 file.mimetype or "application/octet-stream",
                 len(payload), psycopg2.Binary(payload),
                 session.get("user_email", ""), datetime.utcnow().isoformat(),
+                visibility, shared_group_id, shared_player_id,
             ),
         )
         saved += 1
@@ -1546,11 +1676,14 @@ def documents_add_link():
     if not url or not (url.startswith("http://") or url.startswith("https://")):
         flash("Merci de coller un lien complet (commençant par http:// ou https://).", "error")
     else:
+        visibility, shared_group_id, shared_player_id = _read_sharing_fields(request.form)
         db = get_db()
         db.execute(
-            """INSERT INTO documents (folder_id, kind, url, title, uploaded_by, uploaded_at)
-               VALUES (%s, 'link', %s, %s, %s, %s)""",
-            (folder_id, url, title or url, session.get("user_email", ""), datetime.utcnow().isoformat()),
+            """INSERT INTO documents (folder_id, kind, url, title, uploaded_by, uploaded_at,
+                                       visibility, shared_group_id, shared_player_id)
+               VALUES (%s, 'link', %s, %s, %s, %s, %s, %s, %s)""",
+            (folder_id, url, title or url, session.get("user_email", ""), datetime.utcnow().isoformat(),
+             visibility, shared_group_id, shared_player_id),
         )
         db.commit()
         flash("Lien ajouté.", "success")
@@ -1635,6 +1768,149 @@ def documents_rename_folder(folder_id):
         db.commit()
         flash("Dossier renommé.", "success")
     return redirect(url_for("documents", folder_id=folder_id))
+
+# ---------------------------------------------------------------------------
+# ESPACE JOUEUR — un joueur connecté n'a accès qu'à 3 pages : son planning (le
+# calendrier du staff, en lecture seule), les documents qui lui sont partagés
+# (par lui-même, par son groupe, ou par le staff pour tous les joueurs), et ses
+# propres statistiques individuelles cumulées sur la saison. Voir
+# PLAYER_ALLOWED_ENDPOINTS / gate_player_access() en haut du fichier pour le
+# garde-fou qui empêche l'accès à tout le reste du site.
+# ---------------------------------------------------------------------------
+def _normalize_name(s):
+    """Nettoie un nom pour une comparaison automatique fiable entre l'orthographe du
+    fichier Excel du club et celle tapée dans Sportscode (accents, casse, tirets,
+    espaces peuvent différer légèrement) : enlève les accents, passe en minuscules, ne
+    garde que lettres et chiffres."""
+    normalized = unicodedata.normalize("NFKD", s or "")
+    normalized = "".join(c for c in normalized if not unicodedata.combining(c))
+    return re.sub(r"[^a-z0-9]", "", normalized.lower())
+
+def _current_player(db):
+    """Renvoie la ligne 'players' du joueur actuellement connecté, ou None (compte
+    staff/admin, ou session invalide)."""
+    if not session.get("is_player"):
+        return None
+    return db.execute("SELECT * FROM players WHERE id = %s", (session.get("player_id"),)).fetchone()
+
+def _doc_visible_to_player(doc, player):
+    """Un document n'est visible à un joueur que si le staff l'a explicitement partagé
+    avec lui : avec tous les joueurs, avec son groupe, ou avec lui précisément. Jamais
+    les documents restés en visibilité 'staff' (comportement par défaut, historique)."""
+    vis = doc.get("visibility") or "staff"
+    if vis == "players":
+        return True
+    if vis == "group":
+        return player.get("group_id") is not None and doc.get("shared_group_id") == player.get("group_id")
+    if vis == "player":
+        return doc.get("shared_player_id") == player.get("id")
+    return False
+
+def _match_player_stats_name(player, instances):
+    """Correspondance automatique stricte entre le nom du joueur (fichier Excel du club)
+    et le nom codé dans Sportscode (qui ne contient que le NOM DE FAMILLE, voir
+    SQUAD_ROSTER dans parser.py). On compare les noms normalisés (sans accents/casse/
+    ponctuation) : si le nom de famille du joueur correspond à un nom codé dans les
+    matchs de la saison, on l'utilise. Sinon, la page affiche un message plutôt que des
+    statistiques erronées. NB : 2 joueurs qui partagent exactement le même nom de famille
+    ne peuvent pas être distingués automatiquement par ce système (rare, mais possible)."""
+    attack = compute_player_attack_table(instances)
+    defense = compute_player_defense_table(instances)
+    ruck = compute_player_ruck_table(instances)
+    coded_names = {r["name"] for r in attack["rows"]} | {r["name"] for r in defense["rows"]} | {r["name"] for r in ruck["rows"]}
+    target = _normalize_name(player["last_name"])
+    for coded in coded_names:
+        if _normalize_name(coded) == target:
+            return coded
+    return None
+
+@app.route("/mon-espace")
+def player_home():
+    db = get_db()
+    player = _current_player(db)
+    if not player:
+        abort(404)
+    return render_template("player_home.html", player=player)
+
+@app.route("/mes-documents")
+def player_documents():
+    db = get_db()
+    player = _current_player(db)
+    if not player:
+        abort(404)
+    docs = db.execute(
+        """SELECT id, kind, filename, mimetype, size_bytes, url, title, uploaded_by, uploaded_at
+           FROM documents
+           WHERE visibility = 'players'
+              OR (visibility = 'group' AND shared_group_id = %s)
+              OR (visibility = 'player' AND shared_player_id = %s)
+           ORDER BY uploaded_at DESC, id DESC""",
+        (player["group_id"], player["id"]),
+    ).fetchall()
+    docs_view = []
+    for d in docs:
+        d = dict(d)
+        d["icon"] = _doc_icon(d)
+        d["ext"] = _doc_ext(d["filename"])
+        d["inline"] = d["kind"] == "file" and d["ext"] in DOC_INLINE_EXTENSIONS
+        d["size_human"] = _human_size(d["size_bytes"])
+        d["date_human"] = (d["uploaded_at"] or "")[:10]
+        docs_view.append(d)
+    return render_template("player_documents.html", docs=docs_view, player=player)
+
+def _serve_player_document(doc_id, inline):
+    db = get_db()
+    player = _current_player(db)
+    if not player:
+        abort(404)
+    doc = db.execute("SELECT * FROM documents WHERE id = %s", (doc_id,)).fetchone()
+    if not doc or doc["kind"] != "file" or not _doc_visible_to_player(dict(doc), dict(player)):
+        abort(404)
+    data = bytes(doc["data"])
+    disposition = "inline" if inline else "attachment"
+    filename = (doc["filename"] or "document").replace('"', "")
+    return Response(
+        data,
+        mimetype=doc["mimetype"] or "application/octet-stream",
+        headers={
+            "Content-Disposition": f'{disposition}; filename="{filename}"',
+            "Content-Length": str(len(data)),
+        },
+    )
+
+@app.route("/mes-documents/<int:doc_id>/telecharger")
+def player_document_download(doc_id):
+    return _serve_player_document(doc_id, inline=False)
+
+@app.route("/mes-documents/<int:doc_id>/apercu")
+def player_document_preview(doc_id):
+    return _serve_player_document(doc_id, inline=True)
+
+@app.route("/mes-stats")
+def player_stats():
+    db = get_db()
+    player = _current_player(db)
+    if not player:
+        abort(404)
+    matches_with_instances, selected, selected_ids, qs = _season_context()
+    instances = _season_instances(selected)
+    matched_name = _match_player_stats_name(player, instances) if instances else None
+    attack_row = defense_row = ruck_row = None
+    matches_played = 0
+    if matched_name:
+        comparison = compute_player_comparison(instances, matched_name, matched_name)
+        attack_row = comparison["attack_rows"][0]
+        defense_row = comparison["defense_rows"][0]
+        ruck_row = comparison["ruck_rows"][0]
+        matches_played = sum(
+            1 for m in selected
+            if any(i["kind"] == "player" and i["code_raw"] == matched_name for i in m["instances"])
+        )
+    return render_template(
+        "player_stats.html", player=player, matched_name=matched_name,
+        attack=attack_row, defense=defense_row, ruck=ruck_row,
+        matches_played=matches_played, total_matches=len(matches_with_instances),
+    )
 
 # ---------------------------------------------------------------------------
 # ANALYSE VIDÉO — page d'entrée du pôle qui regroupe tout ce qui existait sur
@@ -1822,6 +2098,245 @@ def cahier_charges_delete(item_id):
         db.commit()
         flash("Tâche supprimée.", "success")
     return redirect(url_for("cahier_charges"))
+
+# ---------------------------------------------------------------------------
+# GESTION DES JOUEURS (ADMIN) — effectif (ajout manuel + import Excel), groupes
+# personnalisables (Avants/Trois-quarts par défaut, l'admin peut en créer
+# d'autres), et actions sur un joueur (changer de groupe, réinitialiser le mot
+# de passe, supprimer le compte). Réservé à l'admin (@admin_required) : le
+# staff est bien connecté mais ne gère pas les comptes joueurs.
+# ---------------------------------------------------------------------------
+# Postes de terrain -> catégorie (mêmes 7 catégories que SQUAD_ROSTER dans
+# parser.py). Ordre de test volontaire pour lever les ambiguïtés des postes
+# polyvalents saisis dans le fichier Excel du club (ex. "Pilier - Talonneur"
+# doit ressortir en Talonneur, "Pilier droit / 2ème ligne" doit ressortir en
+# Pilier) : on retient la 1ère catégorie qui correspond, dans cet ordre.
+def _classify_player_position(poste):
+    p = (poste or "").lower()
+    if "talonneur" in p:
+        return "Talonneur"
+    if "mêlée" in p or "melee" in p or "ouverture" in p:
+        return "Charnière"
+    if "pilier" in p:
+        return "Pilier"
+    has_l = bool(re.search(r"\bl\b", p)) or "ligne" in p
+    if "2" in p and has_l:
+        return "2ème ligne"
+    if "3" in p and has_l:
+        return "3ème ligne"
+    if "ailier" in p or "arrière" in p or "arriere" in p:
+        return "Ailier/Arrière"
+    if "centre" in p:
+        return "Centre"
+    return None
+
+# Regroupement par défaut avant/trois-quarts (convention rugby classique), utilisé
+# uniquement pour proposer un groupe de partage de documents à l'import — l'admin
+# peut ensuite réaffecter n'importe quel joueur à n'importe quel groupe à la main.
+_FORWARD_CATEGORIES = {"Pilier", "Talonneur", "2ème ligne", "3ème ligne"}
+
+def _default_group_name_for_category(cat):
+    if cat is None:
+        return None
+    return "Avants" if cat in _FORWARD_CATEGORIES else "Trois-quarts"
+
+def _split_player_name(full_name):
+    """Sépare 'NOM Prénom' (format du fichier Excel du club, nom de famille en
+    MAJUSCULES en tête) en (prénom, nom). Gère les noms de famille à plusieurs mots
+    (ex. 'PERDIGON LE NAOUR Oscar') et les prénoms composés (ex. 'FUKWAMOKO Mauricio
+    Lorenzo') : le nom de famille est la suite de mots ENTIÈREMENT EN MAJUSCULES en
+    début de chaîne, le reste est le prénom. Si toute la chaîne est en majuscules
+    (mauvaise saisie), le dernier mot est pris comme prénom par défaut."""
+    tokens = (full_name or "").split()
+    if not tokens:
+        return "", ""
+    idx = 0
+    while idx < len(tokens) and tokens[idx].isupper():
+        idx += 1
+    if idx == 0:
+        idx = 1
+    if idx >= len(tokens):
+        idx = max(1, len(tokens) - 1)
+    last = " ".join(tokens[:idx]).title()
+    first = " ".join(tokens[idx:])
+    return first, last
+
+@app.route("/admin/joueurs")
+@admin_required
+def admin_joueurs():
+    db = get_db()
+    groups = db.execute("SELECT * FROM player_groups ORDER BY name").fetchall()
+    players = db.execute(
+        """SELECT p.*, g.name AS group_name FROM players p
+           LEFT JOIN player_groups g ON g.id = p.group_id
+           ORDER BY p.last_name, p.first_name"""
+    ).fetchall()
+    return render_template("admin_joueurs.html", groups=groups, players=players)
+
+@app.route("/admin/joueurs/ajouter", methods=["POST"])
+@admin_required
+def admin_joueurs_ajouter():
+    first_name = request.form.get("first_name", "").strip()
+    last_name = request.form.get("last_name", "").strip()
+    email = request.form.get("email", "").strip().lower()
+    group_id = request.form.get("group_id") or None
+    if not first_name or not last_name or not email or "@" not in email:
+        flash("Merci de renseigner prénom, nom et un email valide.", "error")
+        return redirect(url_for("admin_joueurs"))
+    db = get_db()
+    existing = db.execute("SELECT id FROM players WHERE email = %s", (email,)).fetchone()
+    if existing:
+        flash("Un joueur avec cet email existe déjà.", "error")
+        return redirect(url_for("admin_joueurs"))
+    db.execute(
+        "INSERT INTO players (first_name, last_name, email, group_id, created_at) VALUES (%s, %s, %s, %s, %s)",
+        (first_name, last_name, email, group_id, datetime.utcnow().isoformat()),
+    )
+    db.commit()
+    flash(f"{first_name} {last_name} ajouté. Il pourra se connecter avec {email} et choisira son mot de passe à la 1ère connexion.", "success")
+    return redirect(url_for("admin_joueurs"))
+
+@app.route("/admin/joueurs/importer", methods=["POST"])
+@admin_required
+def admin_joueurs_importer():
+    file = request.files.get("fichier")
+    if not file or not file.filename:
+        flash("Merci de sélectionner un fichier Excel (.xlsx).", "error")
+        return redirect(url_for("admin_joueurs"))
+    try:
+        wb = openpyxl.load_workbook(file, data_only=True)
+        ws = wb.worksheets[0]
+    except Exception:
+        flash("Fichier Excel illisible. Vérifie que c'est bien un fichier .xlsx.", "error")
+        return redirect(url_for("admin_joueurs"))
+    # Repère la ligne d'en-têtes (contient "Mail" ou "Email") pour situer les colonnes
+    # NOM Prénom / Poste / Mail, plutôt que de figer des numéros de colonnes qui
+    # casseraient si le fichier du club change légèrement de mise en page.
+    header_row, col_nom, col_poste, col_mail = None, None, None, None
+    for r in range(1, min(ws.max_row, 10) + 1):
+        row_vals = [ws.cell(row=r, column=c).value for c in range(1, ws.max_column + 1)]
+        for c, v in enumerate(row_vals, start=1):
+            if not isinstance(v, str):
+                continue
+            low = v.strip().lower()
+            if "mail" in low:
+                col_mail = c
+            elif "poste" in low:
+                col_poste = c
+            elif "nom" in low and col_nom is None:
+                col_nom = c
+        if col_mail:
+            header_row = r
+            break
+    if not header_row or not col_nom or not col_mail:
+        flash("Colonnes attendues introuvables (il faut au moins une colonne « NOM Prénom » et une colonne « Mail »).", "error")
+        return redirect(url_for("admin_joueurs"))
+    db = get_db()
+    groups = {g["name"]: g["id"] for g in db.execute("SELECT id, name FROM player_groups").fetchall()}
+    created, updated, uncategorized = 0, 0, []
+    for r in range(header_row + 1, ws.max_row + 1):
+        nom_prenom = ws.cell(row=r, column=col_nom).value
+        mail = ws.cell(row=r, column=col_mail).value
+        poste = ws.cell(row=r, column=col_poste).value if col_poste else None
+        if not nom_prenom or not mail or "@" not in str(mail):
+            continue
+        email = str(mail).strip().lower()
+        first, last = _split_player_name(str(nom_prenom).strip())
+        if not last:
+            continue
+        cat = _classify_player_position(str(poste or ""))
+        if cat is None:
+            uncategorized.append(f"{first} {last}".strip())
+        group_name = _default_group_name_for_category(cat)
+        group_id = groups.get(group_name) if group_name else None
+        existing = db.execute("SELECT id, group_id FROM players WHERE email = %s", (email,)).fetchone()
+        if existing:
+            db.execute(
+                "UPDATE players SET first_name = %s, last_name = %s WHERE id = %s",
+                (first, last, existing["id"]),
+            )
+            updated += 1
+        else:
+            db.execute(
+                "INSERT INTO players (first_name, last_name, email, group_id, created_at) VALUES (%s, %s, %s, %s, %s)",
+                (first, last, email, group_id, datetime.utcnow().isoformat()),
+            )
+            created += 1
+    db.commit()
+    msg = f"Import terminé : {created} joueur{'s' if created != 1 else ''} ajouté{'s' if created != 1 else ''}, {updated} mis à jour."
+    if uncategorized:
+        msg += f" ⚠️ Poste non reconnu (groupe non assigné automatiquement) pour : {', '.join(uncategorized)}."
+    flash(msg, "success")
+    return redirect(url_for("admin_joueurs"))
+
+@app.route("/admin/joueurs/<int:player_id>/groupe", methods=["POST"])
+@admin_required
+def admin_joueurs_groupe(player_id):
+    db = get_db()
+    player = db.execute("SELECT * FROM players WHERE id = %s", (player_id,)).fetchone()
+    if not player:
+        abort(404)
+    group_id = request.form.get("group_id") or None
+    db.execute("UPDATE players SET group_id = %s WHERE id = %s", (group_id, player_id))
+    db.commit()
+    flash(f"Groupe mis à jour pour {player['first_name']} {player['last_name']}.", "success")
+    return redirect(url_for("admin_joueurs"))
+
+@app.route("/admin/joueurs/<int:player_id>/reinitialiser-mdp", methods=["POST"])
+@admin_required
+def admin_joueurs_reset_password(player_id):
+    db = get_db()
+    player = db.execute("SELECT * FROM players WHERE id = %s", (player_id,)).fetchone()
+    if not player:
+        abort(404)
+    db.execute("UPDATE players SET password_hash = NULL WHERE id = %s", (player_id,))
+    db.commit()
+    flash(f"Mot de passe réinitialisé pour {player['first_name']} {player['last_name']} : il en choisira un nouveau à sa prochaine connexion.", "success")
+    return redirect(url_for("admin_joueurs"))
+
+@app.route("/admin/joueurs/<int:player_id>/supprimer", methods=["POST"])
+@admin_required
+def admin_joueurs_supprimer(player_id):
+    db = get_db()
+    player = db.execute("SELECT * FROM players WHERE id = %s", (player_id,)).fetchone()
+    if not player:
+        abort(404)
+    db.execute("DELETE FROM players WHERE id = %s", (player_id,))
+    db.commit()
+    flash(f"Compte de {player['first_name']} {player['last_name']} supprimé.", "success")
+    return redirect(url_for("admin_joueurs"))
+
+@app.route("/admin/groupes/creer", methods=["POST"])
+@admin_required
+def admin_groupes_creer():
+    name = request.form.get("name", "").strip()
+    if not name:
+        flash("Merci d'indiquer un nom de groupe.", "error")
+        return redirect(url_for("admin_joueurs"))
+    db = get_db()
+    existing = db.execute("SELECT id FROM player_groups WHERE name = %s", (name,)).fetchone()
+    if existing:
+        flash(f"Le groupe « {name} » existe déjà.", "error")
+        return redirect(url_for("admin_joueurs"))
+    db.execute(
+        "INSERT INTO player_groups (name, created_at) VALUES (%s, %s)",
+        (name, datetime.utcnow().isoformat()),
+    )
+    db.commit()
+    flash(f"Groupe « {name} » créé.", "success")
+    return redirect(url_for("admin_joueurs"))
+
+@app.route("/admin/groupes/<int:group_id>/supprimer", methods=["POST"])
+@admin_required
+def admin_groupes_supprimer(group_id):
+    db = get_db()
+    group = db.execute("SELECT * FROM player_groups WHERE id = %s", (group_id,)).fetchone()
+    if not group:
+        abort(404)
+    db.execute("DELETE FROM player_groups WHERE id = %s", (group_id,))
+    db.commit()
+    flash(f"Groupe « {group['name']} » supprimé. Les joueurs de ce groupe n'ont plus de groupe assigné.", "success")
+    return redirect(url_for("admin_joueurs"))
 
 init_db()
 if __name__ == "__main__":
