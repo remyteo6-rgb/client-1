@@ -15,12 +15,47 @@
     </div>
 </div>
 
-<div class="cc-tabs no-print">
-    <a href="{{ url_for('cahier_charges') }}" class="cc-tab {{ 'active' if not selected_player else '' }}">📋 Général</a>
-    {% for p in players %}
-    <a href="{{ url_for('cahier_charges', joueur=p['id']) }}" class="cc-tab {{ 'active' if selected_player and selected_player['id']==p['id'] else '' }}">{{ p['first_name'] }} {{ p['last_name'] }}</a>
-    {% endfor %}
+<div class="cc-nav no-print">
+    <div class="cc-nav-top">
+        <a href="{{ url_for('cahier_charges') }}" class="cc-tab {{ 'active' if not selected_player else '' }}">📋 Général</a>
+        <input type="text" id="ccSearch" class="cc-search" placeholder="🔍 Rechercher un joueur..." oninput="ccFilterPlayers(this.value)">
+    </div>
+    <div class="cc-tabs-scroll" id="ccTabsScroll">
+        {% if grouped_players %}
+        {% for group_name, group_players in grouped_players.items() %}
+        <div class="cc-tab-group">
+            <div class="cc-tab-group-label">{{ group_name }} ({{ group_players|length }})</div>
+            <div class="cc-tab-group-row">
+                {% for p in group_players %}
+                <a href="{{ url_for('cahier_charges', joueur=p['id']) }}"
+                   class="cc-tab {{ 'active' if selected_player and selected_player['id']==p['id'] else '' }}"
+                   data-name="{{ (p['first_name'] ~ ' ' ~ p['last_name'])|lower }}">{{ p['first_name'] }} {{ p['last_name'] }}</a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="cc-tab-empty">Aucun joueur pour le moment — importe ton effectif depuis ☰ → Gestion des joueurs.</p>
+        {% endif %}
+    </div>
 </div>
+
+<script>
+function ccFilterPlayers(query) {
+    query = query.trim().toLowerCase();
+    document.querySelectorAll('#ccTabsScroll .cc-tab').forEach(function (el) {
+        var visible = !query || el.dataset.name.indexOf(query) !== -1;
+        el.style.display = visible ? '' : 'none';
+    });
+    document.querySelectorAll('#ccTabsScroll .cc-tab-group').forEach(function (group) {
+        var anyVisible = Array.prototype.some.call(
+            group.querySelectorAll('.cc-tab'),
+            function (el) { return el.style.display !== 'none'; }
+        );
+        group.style.display = anyVisible ? '' : 'none';
+    });
+}
+</script>
 
 {% if selected_player %}
 <div class="docs-actions">
