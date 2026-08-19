@@ -1902,19 +1902,22 @@ def compute_player_radar_svg(attack_rows, defense_rows, ruck_rows):
 
 # ---- Effectif de la saison (feuille de poste, pas de hiérarchie/statut) ------
 
+# Effectif Espoirs UBB 2026-2027 (mis à jour depuis le fichier Excel du club — voir
+# /admin/joueurs pour gérer les comptes joueurs). NB : Fukwamoko et Poigneau sont
+# chacun le nom de famille de 2 joueurs différents de l'effectif ; Sportscode ne
+# codant que le nom de famille, leurs statistiques individuelles ne peuvent pas être
+# distinguées automatiquement entre les deux homonymes (comparateur / stats indiv.).
 SQUAD_ROSTER = {
-    "Pilier": ["Thompson Stringer", "Gonzalez", "Martinez", "Kapanadze", "Falgoux", "Pupuma",
-               "Ciancio", "Mudariki", "Farrance", "Aouad", "Kodad", "Navarrete"],
-    "Talonneur": ["Martinez", "Strippoli", "Chauvin", "Moreno", "Leafa"],
-    "2ème ligne": ["Rey", "Van der Merwe", "Kpoku", "Motoc", "Olmstead", "Wolsink", "Fender"],
-    "3ème ligne": ["Vignolles", "Sarrasin", "Berenguel", "Bachelier", "Labadie", "Sirgel",
-                   "Dakuwaqa", "Laurans", "Blondin", "Bossorey", "Bergamaschi"],
-    "Charnière": ["Gimbert", "Rouet", "Idjellidaine", "Williams", "Barraque", "Ortolan",
-                  "Zamora", "Zelioli", "Asquini"],
-    "Centre": ["Septar", "Ezcurra", "Saili", "Morgan", "Lafond", "Flambart",
-               "Bielle-Biarrey", "Khaindrava"],
-    "Ailier/Arrière": ["Egiziano", "Rattez", "Nalaga", "Patilla", "Goutard", "Farnoux",
-                       "Provencel", "Niel", "Berger", "Castaignede"],
+    "Pilier": ["Alifanety", "Griffault", "Hattouma", "Masson", "Pargade", "Peters",
+               "Pouye Tokotuu", "Pouypoudat", "Suicmez", "Tambo-Fantcho"],
+    "Talonneur": ["Everitt", "Freynet", "Malinowski", "Thibeau"],
+    "2ème ligne": ["Augustyn", "Fukwamoko", "Girou", "Niuhina", "Salikikoro", "Schuster", "Zapedowski"],
+    "3ème ligne": ["Argenton", "Camara", "Coetzee", "Combrinck", "Fukwamoko", "Gardrat", "Gazzotti",
+                   "Heraud", "Ibsaiene", "Jacobs", "Silvain Pouvreau", "Trebuchaire", "Valette"],
+    "Charnière": ["Hutteau", "Laussucq", "Memet", "Poigneau", "Trillo", "Vaillier"],
+    "Centre": ["Drault", "Duguay", "Favrau", "Lee", "Said"],
+    "Ailier/Arrière": ["Avogadro", "Baronnet", "Bohn", "Delpeuch", "Erasmus", "Holisi", "Janiec",
+                       "Kuilagi", "Laharrague", "Larrey", "Mousques", "Perdigon Le Naour", "Reihana"],
 }
 SQUAD_POSITION_ORDER = list(SQUAD_ROSTER.keys())
 
