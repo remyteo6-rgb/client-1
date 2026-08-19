@@ -535,6 +535,10 @@ def init_db():
             updated_at TEXT
         )
     """)
+    # Onglet par joueur dans le cahier des charges : NULL = tâche générale (comportement
+    # historique) ; renseigné = suivi individuel propre à ce joueur (visible staff
+    # uniquement, jamais montré au joueur — voir cahier_charges()).
+    db.execute("ALTER TABLE charges_items ADD COLUMN IF NOT EXISTS player_id INTEGER REFERENCES players(id) ON DELETE CASCADE")
     # Groupes de joueurs par défaut (l'admin peut en ajouter d'autres ensuite).
     for default_group in ("Avants", "Trois-quarts"):
         db.execute(
@@ -2037,8 +2041,18 @@ CHARGES_STATUS_LABELS = {"a_faire": "À faire", "en_cours": "En cours", "fait": 
 @app.route("/cahier-des-charges")
 def cahier_charges():
     db = get_db()
+    joueur_id = request.args.get("joueur", type=int)
+    players = db.execute("SELECT * FROM players ORDER BY last_name, first_name").fetchall()
+    selected_player = None
+    if joueur_id:
+        selected_player = db.execute("SELECT * FROM players WHERE id = %s", (joueur_id,)).fetchone()
+        if not selected_player:
+            joueur_id = None
+    # IS NOT DISTINCT FROM plutôt que '=' : gère nativement le cas joueur_id=None (tâches
+    # générales du staff, sans joueur) sans avoir à écrire 2 requêtes différentes.
     rows = db.execute(
-        "SELECT * FROM charges_items ORDER BY created_at DESC, id DESC"
+        "SELECT * FROM charges_items WHERE player_id IS NOT DISTINCT FROM %s ORDER BY created_at DESC, id DESC",
+        (joueur_id,),
     ).fetchall()
     columns = {status: [] for status in CHARGES_STATUSES}
     for r in rows:
@@ -2046,27 +2060,45 @@ def cahier_charges():
         r["can_delete"] = _doc_can_delete(r)
         r["date_human"] = (r["created_at"] or "")[:10]
         columns.setdefault(r["status"], []).append(r)
+    docs_view = []
+    if selected_player:
+        docs = db.execute(
+            """SELECT * FROM documents WHERE shared_player_id = %s AND visibility = 'player'
+               ORDER BY uploaded_at DESC, id DESC""",
+            (joueur_id,),
+        ).fetchall()
+        for d in docs:
+            d = dict(d)
+            d["icon"] = _doc_icon(d)
+            d["ext"] = _doc_ext(d["filename"])
+            d["inline"] = d["kind"] == "file" and d["ext"] in DOC_INLINE_EXTENSIONS
+            d["size_human"] = _human_size(d["size_bytes"])
+            d["can_delete"] = _doc_can_delete(d)
+            d["date_human"] = (d["uploaded_at"] or "")[:10]
+            docs_view.append(d)
     return render_template(
         "cahier_charges.html", columns=columns, statuses=CHARGES_STATUSES,
         status_labels=CHARGES_STATUS_LABELS, total_count=len(rows),
+        players=players, selected_player=selected_player, joueur_id=joueur_id, docs=docs_view,
     )
 
 @app.route("/cahier-des-charges/ajouter", methods=["POST"])
 def cahier_charges_add():
     title = request.form.get("title", "").strip()
     description = request.form.get("description", "").strip()
+    player_id = request.form.get("player_id") or None
     if not title:
         flash("Merci d'indiquer au moins un titre.", "error")
     else:
         db = get_db()
         db.execute(
-            """INSERT INTO charges_items (title, description, status, created_by, created_at)
-               VALUES (%s, %s, 'a_faire', %s, %s)""",
-            (title, description or None, session.get("user_email", ""), datetime.utcnow().isoformat()),
+            """INSERT INTO charges_items (title, description, status, created_by, created_at, player_id)
+               VALUES (%s, %s, 'a_faire', %s, %s, %s)""",
+            (title, description or None, session.get("user_email", ""), datetime.utcnow().isoformat(), player_id),
         )
         db.commit()
         flash("Tâche ajoutée.", "success")
-    return redirect(url_for("cahier_charges"))
+    return redirect(url_for("cahier_charges", joueur=player_id))
 
 @app.route("/cahier-des-charges/<int:item_id>/statut", methods=["POST"])
 def cahier_charges_status(item_id):
@@ -2074,7 +2106,7 @@ def cahier_charges_status(item_id):
     if new_status not in CHARGES_STATUSES:
         abort(400)
     db = get_db()
-    row = db.execute("SELECT id FROM charges_items WHERE id = %s", (item_id,)).fetchone()
+    row = db.execute("SELECT * FROM charges_items WHERE id = %s", (item_id,)).fetchone()
     if not row:
         abort(404)
     db.execute(
@@ -2083,7 +2115,7 @@ def cahier_charges_status(item_id):
     )
     db.commit()
     flash(f"Tâche déplacée vers « {CHARGES_STATUS_LABELS[new_status]} ».", "success")
-    return redirect(url_for("cahier_charges"))
+    return redirect(url_for("cahier_charges", joueur=row["player_id"]))
 
 @app.route("/cahier-des-charges/<int:item_id>/supprimer", methods=["POST"])
 def cahier_charges_delete(item_id):
@@ -2091,13 +2123,84 @@ def cahier_charges_delete(item_id):
     row = db.execute("SELECT * FROM charges_items WHERE id = %s", (item_id,)).fetchone()
     if not row:
         abort(404)
+    player_id = row["player_id"]
     if not _doc_can_delete(dict(row)):
         flash("Tu ne peux supprimer que les tâches que tu as créées (ou demande à l'admin).", "error")
     else:
         db.execute("DELETE FROM charges_items WHERE id = %s", (item_id,))
         db.commit()
         flash("Tâche supprimée.", "success")
-    return redirect(url_for("cahier_charges"))
+    return redirect(url_for("cahier_charges", joueur=player_id))
+
+@app.route("/cahier-des-charges/joueur/<int:player_id>/document", methods=["POST"])
+def cahier_charges_upload(player_id):
+    db = get_db()
+    player = db.execute("SELECT * FROM players WHERE id = %s", (player_id,)).fetchone()
+    if not player:
+        abort(404)
+    files = [f for f in request.files.getlist("files") if f and f.filename]
+    if not files:
+        flash("Merci de sélectionner au moins un fichier.", "error")
+        return redirect(url_for("cahier_charges", joueur=player_id))
+    saved = 0
+    for file in files:
+        payload = file.read()
+        if not payload:
+            continue
+        db.execute(
+            """INSERT INTO documents
+               (kind, filename, mimetype, size_bytes, data, uploaded_by, uploaded_at,
+                visibility, shared_player_id)
+               VALUES ('file', %s, %s, %s, %s, %s, %s, 'player', %s)""",
+            (
+                file.filename, file.mimetype or "application/octet-stream",
+                len(payload), psycopg2.Binary(payload),
+                session.get("user_email", ""), datetime.utcnow().isoformat(), player_id,
+            ),
+        )
+        saved += 1
+    db.commit()
+    flash(
+        f"{saved} fichier{'s' if saved > 1 else ''} déposé{'s' if saved > 1 else ''} pour "
+        f"{player['first_name']} {player['last_name']} — visible par lui dans « Mes documents ».",
+        "success",
+    )
+    return redirect(url_for("cahier_charges", joueur=player_id))
+
+@app.route("/cahier-des-charges/joueur/<int:player_id>/lien", methods=["POST"])
+def cahier_charges_add_link(player_id):
+    db = get_db()
+    player = db.execute("SELECT * FROM players WHERE id = %s", (player_id,)).fetchone()
+    if not player:
+        abort(404)
+    title = request.form.get("title", "").strip()
+    url = request.form.get("url", "").strip()
+    if not url or not (url.startswith("http://") or url.startswith("https://")):
+        flash("Merci de coller un lien complet (commençant par http:// ou https://).", "error")
+    else:
+        db.execute(
+            """INSERT INTO documents (kind, url, title, uploaded_by, uploaded_at, visibility, shared_player_id)
+               VALUES ('link', %s, %s, %s, %s, 'player', %s)""",
+            (url, title or url, session.get("user_email", ""), datetime.utcnow().isoformat(), player_id),
+        )
+        db.commit()
+        flash(f"Lien ajouté — visible par {player['first_name']} dans « Mes documents ».", "success")
+    return redirect(url_for("cahier_charges", joueur=player_id))
+
+@app.route("/cahier-des-charges/document/<int:doc_id>/supprimer", methods=["POST"])
+def cahier_charges_doc_delete(doc_id):
+    db = get_db()
+    doc = db.execute("SELECT * FROM documents WHERE id = %s", (doc_id,)).fetchone()
+    if not doc:
+        abort(404)
+    player_id = doc["shared_player_id"]
+    if not _doc_can_delete(dict(doc)):
+        flash("Tu ne peux supprimer que tes propres dépôts (ou demande à l'admin).", "error")
+    else:
+        db.execute("DELETE FROM documents WHERE id = %s", (doc_id,))
+        db.commit()
+        flash("Document supprimé.", "success")
+    return redirect(url_for("cahier_charges", joueur=player_id))
 
 # ---------------------------------------------------------------------------
 # GESTION DES JOUEURS (ADMIN) — effectif (ajout manuel + import Excel), groupes
