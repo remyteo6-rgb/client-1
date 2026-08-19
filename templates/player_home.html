@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mon espace — {{ club_full_name }}</title>
+{% include "_pwa_head.html" %}
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ asset_version }}">
+</head>
+<body class="landing-body">
+
+{% include "_player_nav.html" %}
+
+<div class="landing-screen">
+    <img src="{{ url_for('static', filename='logo.png') }}" class="landing-logo" alt="{{ club_full_name }}">
+    <p class="landing-subtitle">Bonjour {{ player['first_name'] }} !</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-stack">
+            {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
+
+    <div class="landing-choice-row">
+        <a class="landing-choice-btn" href="{{ url_for('calendrier') }}">🗓️ Planning</a>
+        <a class="landing-choice-btn" href="{{ url_for('player_documents') }}">📁 Mes documents</a>
+        <a class="landing-choice-btn" href="{{ url_for('player_stats') }}">📊 Mes stats</a>
+    </div>
+</div>
+</body>
+</html>
