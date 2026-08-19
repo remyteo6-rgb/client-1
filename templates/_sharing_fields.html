@@ -1,0 +1,27 @@
+<div class="form-group">
+    <label>Partager avec</label>
+    <select name="visibility">
+        <option value="staff">🔒 Staff uniquement (par défaut, comme avant)</option>
+        <option value="players">👥 Tous les joueurs</option>
+        <option value="group">👥 Un groupe de joueurs précis (à choisir ci-dessous)</option>
+        <option value="player">👤 Un joueur précis (à choisir ci-dessous)</option>
+    </select>
+</div>
+<div class="form-group">
+    <label>Si « Un groupe précis »</label>
+    <select name="shared_group_id">
+        <option value="">—</option>
+        {% for g in player_groups %}
+        <option value="{{ g['id'] }}">{{ g['name'] }}</option>
+        {% endfor %}
+    </select>
+</div>
+<div class="form-group">
+    <label>Si « Un joueur précis »</label>
+    <select name="shared_player_id">
+        <option value="">—</option>
+        {% for p in players %}
+        <option value="{{ p['id'] }}">{{ p['first_name'] }} {{ p['last_name'] }}</option>
+        {% endfor %}
+    </select>
+</div>
