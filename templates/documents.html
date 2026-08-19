@@ -28,6 +28,7 @@
                 <label>Fichiers (PDF, présentation, image, Excel... — 30 Mo max par fichier)</label>
                 <input type="file" name="files" multiple required>
             </div>
+            {% include "_sharing_fields.html" %}
             <button type="submit" class="btn">Déposer ici</button>
             <p class="docs-hint">💡 Pour une vidéo lourde, préfère « Ajouter un lien » (Hudl, YouTube, Drive...).</p>
         </form>
@@ -45,6 +46,7 @@
                 <label>Lien (Hudl, YouTube, Drive...)</label>
                 <input type="url" name="url" placeholder="https://..." required>
             </div>
+            {% include "_sharing_fields.html" %}
             <button type="submit" class="btn">Ajouter</button>
         </form>
     </details>
@@ -117,7 +119,10 @@
                         <a href="{{ url_for('documents_download', doc_id=d['id']) }}">{{ d['filename'] }}</a>
                     {% endif %}
                 </td>
-                <td class="docs-td-by demo-sensitive">{{ d['uploaded_by'] }}</td>
+                <td class="docs-td-by demo-sensitive">
+                    {{ d['uploaded_by'] }}
+                    {% if d['sharing_label'] %}<div class="docs-td-sub">{{ d['sharing_label'] }}</div>{% endif %}
+                </td>
                 <td>{{ d['date_human'] }}</td>
                 <td>{{ d['size_human'] }}</td>
                 <td class="docs-td-actions">
