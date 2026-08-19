@@ -1,0 +1,18 @@
+<div class="subnav no-print">
+    <div class="subnav-inner">
+        <details class="subnav-dropdown">
+            <summary>☰</summary>
+            <div class="landing-dropdown-content">
+                <a href="{{ url_for('player_home') }}">🏠 Mon espace</a>
+                <a href="{{ url_for('calendrier') }}">🗓️ Planning</a>
+                <a href="{{ url_for('player_documents') }}">📁 Mes documents</a>
+                <a href="{{ url_for('player_stats') }}">📊 Mes stats</a>
+                <a href="{{ url_for('logout') }}">🔒 Se déconnecter</a>
+            </div>
+        </details>
+        <img src="{{ url_for('static', filename='logo.png') }}" class="subnav-logo" alt="{{ club_full_name }}">
+        {% if player %}
+        <span class="subnav-context">👤 {{ player['first_name'] }} {{ player['last_name'] }}</span>
+        {% endif %}
+    </div>
+</div>
