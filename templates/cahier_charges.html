@@ -421,6 +421,85 @@ function ccFilterPlayers(query) {
     <div class="empty-state"><p>Aucun point d'étape physique pour {{ selected_player['first_name'] }} pour le moment.</p></div>
     {% endif %}
 </div>
+
+<div class="ppid-section">
+    <div class="ppid-section-header">
+        <h2>📝 Cahier d'entretien</h2>
+        <details class="docs-action-panel">
+            <summary class="btn">＋ Nouvel entretien</summary>
+            <form method="POST" action="{{ url_for('ppid_entretien_add', player_id=selected_player['id']) }}" class="docs-form ppid-eval-form">
+                <div class="cal-form-row">
+                    <div class="form-group">
+                        <label>Date</label>
+                        <input type="date" name="entretien_date" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Type</label>
+                        <select name="entretien_type" required>
+                            {% for t in ppid_entretien_types %}
+                            <option value="{{ t }}">{{ t }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea name="notes" rows="4" placeholder="Ce qui a été dit, décidé, à retenir..."></textarea>
+                </div>
+                <button type="submit" class="btn">Enregistrer l'entretien</button>
+                <p class="docs-hint">💡 Visible par {{ selected_player['first_name'] }} dans « Mes évaluations », comme le reste du P.P.I.D.</p>
+            </form>
+        </details>
+    </div>
+
+    {% if entretiens %}
+    <div class="ppid-timeline">
+        {% for e in entretiens %}
+        <div class="ppid-eval-card">
+            <div class="ppid-eval-card-head">
+                <div>
+                    <span class="ppid-entretien-type">{{ e.entretien_type }}</span>
+                    <span class="ppid-eval-date">{{ e.date_human }}</span>
+                </div>
+                <div class="ppid-eval-card-actions">
+                    <form method="POST" action="{{ url_for('ppid_entretien_delete', entretien_id=e.id) }}" class="docs-delete-form"
+                          onsubmit="return confirm('Supprimer cet entretien ?');">
+                        <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer">🗑️</button>
+                    </form>
+                </div>
+            </div>
+            <details class="ppid-inline-edit">
+                <summary class="docs-mini-btn" title="Modifier">✏️ Modifier</summary>
+                <form method="POST" action="{{ url_for('ppid_entretien_edit', entretien_id=e.id) }}" class="docs-form ppid-eval-form">
+                    <div class="cal-form-row">
+                        <div class="form-group">
+                            <label>Date</label>
+                            <input type="date" name="entretien_date" value="{{ e.entretien_date }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Type</label>
+                            <select name="entretien_type" required>
+                                {% for t in ppid_entretien_types %}
+                                <option value="{{ t }}" {{ 'selected' if e.entretien_type==t else '' }}>{{ t }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Notes</label>
+                        <textarea name="notes" rows="4">{{ e.notes or '' }}</textarea>
+                    </div>
+                    <button type="submit" class="btn">Mettre à jour</button>
+                </form>
+            </details>
+            {% if e.notes %}<div class="ppid-callout ppid-entretien-notes">{{ e.notes }}</div>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state"><p>Aucun entretien enregistré pour {{ selected_player['first_name'] }} pour le moment.</p></div>
+    {% endif %}
+</div>
 {% endif %}
 
 <div class="docs-actions">
