@@ -22,7 +22,7 @@
     {% endwith %}
 
     <h1>🏉 Mes évaluations</h1>
-    <p class="subtitle">Ton P.P.I.D : le suivi individuel renseigné par le staff au fil de la saison. Pour la partie physique, tu peux renseigner toi-même ta colonne « auto-évaluation ».</p>
+    <p class="subtitle">Ton P.P.I.D : le suivi individuel renseigné par le staff au fil de la saison (évaluations et cahier d'entretien). Pour la partie physique, tu peux renseigner toi-même ta colonne « auto-évaluation ».</p>
 
     <h2 class="ppid-page-subtitle">Évaluation rugby</h2>
     {% if rugby_evals %}
@@ -105,6 +105,25 @@
     </div>
     {% else %}
     <div class="empty-state"><p>Aucune évaluation physique pour le moment.</p></div>
+    {% endif %}
+
+    <h2 class="ppid-page-subtitle">Cahier d'entretien</h2>
+    {% if entretiens %}
+    <div class="ppid-timeline">
+        {% for e in entretiens %}
+        <div class="ppid-eval-card">
+            <div class="ppid-eval-card-head">
+                <div>
+                    <span class="ppid-entretien-type">{{ e.entretien_type }}</span>
+                    <span class="ppid-eval-date">{{ e.date_human }}</span>
+                </div>
+            </div>
+            {% if e.notes %}<div class="ppid-callout ppid-entretien-notes">{{ e.notes }}</div>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state"><p>Aucun entretien enregistré pour le moment.</p></div>
     {% endif %}
 </main>
 </body>
