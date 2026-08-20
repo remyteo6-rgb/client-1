@@ -21,16 +21,38 @@
         {% endif %}
     {% endwith %}
 
-    <h1>🏉 Mes évaluations</h1>
-    <p class="subtitle">Ton P.P.I.D : le suivi individuel renseigné par le staff au fil de la saison (évaluations et cahier d'entretien). Pour la partie physique, tu peux renseigner toi-même ta colonne « auto-évaluation ».</p>
+    <div class="ppid-player-header">
+        <div class="ppid-avatar">{{ (player['first_name'][:1] ~ player['last_name'][:1])|upper }}</div>
+        <div class="ppid-player-header-info">
+            <div class="ppid-player-name">🏉 Mes évaluations</div>
+            <div class="ppid-player-badges">
+                {% if player['ppid_position'] %}<span class="ppid-badge">{{ player['ppid_position'] }}</span>{% endif %}
+                {% if not player['ppid_position'] %}<span class="ppid-badge ppid-badge-warn">Poste PPID non réglé par le staff</span>{% endif %}
+            </div>
+        </div>
+    </div>
+    <p class="subtitle">Ton P.P.I.D : le suivi individuel renseigné par le staff au fil de la saison (évaluations et cahier d'entretien), classé du plus récent au plus ancien. Pour la partie physique, tu peux renseigner toi-même ta colonne « auto-évaluation ».</p>
 
-    <h2 class="ppid-page-subtitle">Évaluation rugby</h2>
-    {% if rugby_evals %}
-    <div class="ppid-timeline">
-        {% for ev in rugby_evals %}
-        <div class="ppid-eval-card">
+    {% if player['ppid_position'] %}
+    <div class="ppid-criteria-card">
+        <h3>📐 Mes critères clés — {{ player['ppid_position'] }}</h3>
+        <ul class="ppid-criteria-list">
+            {% for row_label in ppid_profil_rows %}
+            <li>{{ ppid_profil_par_poste[row_label][player['ppid_position']] }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if ppid_timeline %}
+    <div class="ppid-timeline ppid-timeline-merged">
+        {% for item in ppid_timeline %}
+        {% if item.type == 'rugby' %}
+        {% set ev = item.data %}
+        <div class="ppid-eval-card ppid-card-rugby">
             <div class="ppid-eval-card-head">
                 <div>
+                    <span class="ppid-entretien-type ppid-type-rugby">🏉 Évaluation rugby</span>
                     <strong>{{ ev.period_label }}</strong>
                     {% if ev.date_human %}<span class="ppid-eval-date">{{ ev.date_human }}</span>{% endif %}
                 </div>
@@ -48,19 +70,12 @@
             {% if ev.objectifs %}<div class="ppid-callout"><strong>🎯 Objectifs —</strong> {{ ev.objectifs }}</div>{% endif %}
             {% if ev.entrainements %}<div class="ppid-callout"><strong>🏋️ Entraînements spécifiques —</strong> {{ ev.entrainements }}</div>{% endif %}
         </div>
-        {% endfor %}
-    </div>
-    {% else %}
-    <div class="empty-state"><p>Aucune évaluation rugby pour le moment.</p></div>
-    {% endif %}
-
-    <h2 class="ppid-page-subtitle">Évaluation physique</h2>
-    {% if physical_evals %}
-    <div class="ppid-timeline">
-        {% for ev in physical_evals %}
-        <div class="ppid-eval-card">
+        {% elif item.type == 'physical' %}
+        {% set ev = item.data %}
+        <div class="ppid-eval-card ppid-card-physical">
             <div class="ppid-eval-card-head">
                 <div>
+                    <span class="ppid-entretien-type ppid-type-physical">💪 Évaluation physique</span>
                     <strong>{{ ev.period_label }}</strong>
                     {% if ev.date_human %}<span class="ppid-eval-date">{{ ev.date_human }}</span>{% endif %}
                 </div>
@@ -101,29 +116,22 @@
             {% if ev.axe_musculation %}<div class="ppid-callout"><strong>🏋️ Musculation —</strong> {{ ev.axe_musculation }}</div>{% endif %}
             {% if ev.axe_terrain %}<div class="ppid-callout"><strong>🏃 Terrain —</strong> {{ ev.axe_terrain }}</div>{% endif %}
         </div>
-        {% endfor %}
-    </div>
-    {% else %}
-    <div class="empty-state"><p>Aucune évaluation physique pour le moment.</p></div>
-    {% endif %}
-
-    <h2 class="ppid-page-subtitle">Cahier d'entretien</h2>
-    {% if entretiens %}
-    <div class="ppid-timeline">
-        {% for e in entretiens %}
-        <div class="ppid-eval-card">
+        {% else %}
+        {% set e = item.data %}
+        <div class="ppid-eval-card ppid-card-entretien">
             <div class="ppid-eval-card-head">
                 <div>
-                    <span class="ppid-entretien-type">{{ e.entretien_type }}</span>
+                    <span class="ppid-entretien-type ppid-type-entretien">📝 {{ e.entretien_type }}</span>
                     <span class="ppid-eval-date">{{ e.date_human }}</span>
                 </div>
             </div>
             {% if e.notes %}<div class="ppid-callout ppid-entretien-notes">{{ e.notes }}</div>{% endif %}
         </div>
+        {% endif %}
         {% endfor %}
     </div>
     {% else %}
-    <div class="empty-state"><p>Aucun entretien enregistré pour le moment.</p></div>
+    <div class="empty-state"><p>Rien d'enregistré pour le moment — reviens après ta prochaine évaluation avec le staff.</p></div>
     {% endif %}
 </main>
 </body>
