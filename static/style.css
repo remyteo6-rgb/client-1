@@ -1045,6 +1045,69 @@ body.demo-mode .demo-blur {
 .cc-tab:hover { background: rgba(255,255,255,0.14); color: var(--text-primary); }
 .cc-tab.active { background: var(--own-color); border-color: var(--own-color); color: #fff; }
 
+/* ---------- P.P.I.D (profil par poste / évaluation rugby / évaluation physique) ---------- */
+.ppid-page-subtitle { font-size: 16px; margin: 24px 0 12px; }
+.ppid-section { margin-bottom: 26px; }
+.ppid-section-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.ppid-section-header h2 { font-size: 16px; }
+.ppid-profil-panel[open] { padding-bottom: 16px; }
+.ppid-profil-wrap { margin-top: 12px; }
+.ppid-profil-scroll { overflow-x: auto; border: 1px solid var(--bg-card-border); border-radius: var(--radius); }
+.ppid-profil-table { border-collapse: collapse; width: 100%; font-size: 12px; min-width: 900px; }
+.ppid-profil-table th, .ppid-profil-table td { padding: 8px 10px; border: 1px solid var(--bg-card-border); text-align: left; vertical-align: top; }
+.ppid-profil-table thead th { background: rgba(255,255,255,0.06); font-weight: 700; text-align: center; white-space: nowrap; }
+.ppid-row-label { font-weight: 700; color: var(--text-secondary); white-space: nowrap; background: rgba(255,255,255,0.03); }
+.ppid-profil-table td, .ppid-profil-table th.ppid-col-active, .ppid-profil-table td.ppid-col-active { }
+.ppid-col-active { background: rgba(79,127,214,0.22) !important; color: var(--text-primary); }
+.ppid-profil-table thead th.ppid-col-active { background: var(--own-color) !important; color: #fff; }
+
+.ppid-eval-form { max-width: 640px; }
+.ppid-cat-grid { display: flex; flex-direction: column; gap: 10px; }
+.ppid-cat-row { background: rgba(255,255,255,0.04); border: 1px solid var(--bg-card-border); border-radius: 6px; padding: 8px 10px; }
+.ppid-cat-row label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+.ppid-cat-inputs { display: flex; gap: 8px; flex-wrap: wrap; }
+.ppid-cat-inputs select { flex-shrink: 0; }
+.ppid-cat-inputs input[type="text"] { flex: 1; min-width: 160px; }
+.ppid-cat-row select, .ppid-cat-row input[type="text"] {
+    background: rgba(255,255,255,0.08); color: var(--text-primary); border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 5px; padding: 6px 8px; font-size: 12.5px;
+}
+
+.ppid-timeline { display: flex; flex-direction: column; gap: 14px; }
+.ppid-eval-card { background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: var(--radius); padding: 14px 16px; }
+.ppid-eval-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.ppid-eval-date { font-size: 11.5px; color: var(--text-secondary); margin-left: 8px; }
+.ppid-eval-card-actions { display: flex; align-items: flex-start; gap: 6px; }
+.ppid-inline-edit { margin-bottom: 12px; }
+.ppid-inline-edit summary { list-style: none; cursor: pointer; display: inline-block; }
+.ppid-inline-edit summary::-webkit-details-marker { display: none; }
+.ppid-inline-edit[open] summary { margin-bottom: 10px; }
+.ppid-inline-edit[open] { background: rgba(255,255,255,0.03); border: 1px solid var(--bg-card-border); border-radius: var(--radius); padding: 10px 12px; }
+
+.ppid-pill-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.ppid-pill-item { background: rgba(255,255,255,0.03); border: 1px solid var(--bg-card-border); border-radius: 6px; padding: 8px 10px; }
+.ppid-pill-pair { display: flex; gap: 6px; flex-wrap: wrap; }
+.ppid-pill {
+    display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px;
+    background: rgba(255,255,255,0.1); color: var(--text-secondary); white-space: nowrap;
+}
+.ppid-pill-exl { background: rgba(111,207,122,0.22); color: var(--positive); }
+.ppid-pill-bien { background: rgba(79,127,214,0.22); color: #9db8f0; }
+.ppid-pill-moy { background: rgba(249,162,64,0.22); color: var(--accent-gold); }
+.ppid-pill-empty { opacity: 0.5; }
+.ppid-pill-label { font-size: 11.5px; color: var(--text-secondary); margin-top: 6px; }
+.ppid-pill-comment { font-size: 11.5px; color: var(--text-primary); margin-top: 4px; font-style: italic; }
+
+.ppid-callout {
+    margin-top: 10px; padding: 8px 12px; border-radius: 6px; background: rgba(255,255,255,0.04);
+    border-left: 3px solid var(--own-color); font-size: 12.5px; color: var(--text-secondary);
+}
+.ppid-callout strong { color: var(--text-primary); }
+
+@media (max-width: 640px) {
+    .ppid-pill-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+}
+
 /* Sous-menu imbriqué "🎥 Analyse vidéo" DANS le menu ☰ (regroupe toutes les pages qui
    existaient avant l'ajout des espaces Documents/Calendrier/Cahier des charges). */
 .landing-dropdown-sub { position: relative; }
