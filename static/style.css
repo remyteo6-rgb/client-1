@@ -1155,6 +1155,16 @@ body.demo-mode .demo-blur {
 .ppid-add-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .ppid-add-trigger { flex-shrink: 0; }
 
+.ppid-filter-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.ppid-filter-chip {
+    padding: 6px 14px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+    background: rgba(255,255,255,0.06); border: 1px solid var(--bg-card-border);
+    color: var(--text-secondary); cursor: pointer; white-space: nowrap;
+}
+.ppid-filter-chip:hover { background: rgba(255,255,255,0.14); color: var(--text-primary); }
+.ppid-filter-chip.active { background: var(--own-color); border-color: var(--own-color); color: #fff; }
+.ppid-filter-count { opacity: 0.75; margin-left: 2px; }
+
 .ppid-timeline-merged .ppid-eval-card { position: relative; border-left: 3px solid var(--bg-card-border); }
 .ppid-card-rugby { border-left-color: var(--own-color); }
 .ppid-card-physical { border-left-color: var(--positive); }
