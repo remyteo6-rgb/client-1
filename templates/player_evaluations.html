@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mes évaluations — {{ club_full_name }}</title>
+{% include "_pwa_head.html" %}
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ asset_version }}">
+</head>
+<body>
+<img src="{{ url_for('static', filename='logo.png') }}" class="body-watermark no-print" alt="">
+{% include "_player_nav.html" %}
+<main class="page">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-stack">
+            {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
+
+    <h1>🏉 Mes évaluations</h1>
+    <p class="subtitle">Ton P.P.I.D : le suivi individuel renseigné par le staff au fil de la saison. Pour la partie physique, tu peux renseigner toi-même ta colonne « auto-évaluation ».</p>
+
+    <h2 class="ppid-page-subtitle">Évaluation rugby</h2>
+    {% if rugby_evals %}
+    <div class="ppid-timeline">
+        {% for ev in rugby_evals %}
+        <div class="ppid-eval-card">
+            <div class="ppid-eval-card-head">
+                <div>
+                    <strong>{{ ev.period_label }}</strong>
+                    {% if ev.date_human %}<span class="ppid-eval-date">{{ ev.date_human }}</span>{% endif %}
+                </div>
+            </div>
+            <div class="ppid-pill-grid">
+                {% for key, label in ppid_rugby_categories %}
+                {% set note = ev.ratings[key].get('note') %}
+                <div class="ppid-pill-item">
+                    <span class="ppid-pill {{ 'ppid-pill-exl' if note=='EXL' else ('ppid-pill-bien' if note=='BIEN' else ('ppid-pill-moy' if note=='MOY' else 'ppid-pill-empty')) }}">{{ note or '—' }}</span>
+                    <div class="ppid-pill-label">{{ label }}</div>
+                    {% if ev.ratings[key].get('commentaire') %}<div class="ppid-pill-comment">{{ ev.ratings[key].get('commentaire') }}</div>{% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% if ev.objectifs %}<div class="ppid-callout"><strong>🎯 Objectifs —</strong> {{ ev.objectifs }}</div>{% endif %}
+            {% if ev.entrainements %}<div class="ppid-callout"><strong>🏋️ Entraînements spécifiques —</strong> {{ ev.entrainements }}</div>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state"><p>Aucune évaluation rugby pour le moment.</p></div>
+    {% endif %}
+
+    <h2 class="ppid-page-subtitle">Évaluation physique</h2>
+    {% if physical_evals %}
+    <div class="ppid-timeline">
+        {% for ev in physical_evals %}
+        <div class="ppid-eval-card">
+            <div class="ppid-eval-card-head">
+                <div>
+                    <strong>{{ ev.period_label }}</strong>
+                    {% if ev.date_human %}<span class="ppid-eval-date">{{ ev.date_human }}</span>{% endif %}
+                </div>
+            </div>
+            <details class="ppid-inline-edit">
+                <summary class="docs-mini-btn" title="Renseigner mon auto-évaluation">✏️ Mon auto-évaluation</summary>
+                <form method="POST" action="{{ url_for('player_ppid_auto_update', eval_id=ev.id) }}" class="docs-form ppid-eval-form">
+                    <div class="ppid-cat-grid">
+                        {% for key, label in ppid_physical_categories %}
+                        <div class="ppid-cat-row">
+                            <label>{{ label }} <span class="docs-hint">(coach : {{ ev.ratings[key].get('coach') or '—' }})</span></label>
+                            <select name="auto__{{ key }}">
+                                <option value="">— Mon auto-évaluation —</option>
+                                {% for n in ppid_physical_notes %}
+                                <option value="{{ n }}" {{ 'selected' if ev.ratings[key].get('auto')==n else '' }}>{{ n }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <button type="submit" class="btn">Enregistrer mon auto-évaluation</button>
+                </form>
+            </details>
+            <div class="ppid-pill-grid">
+                {% for key, label in ppid_physical_categories %}
+                {% set coach = ev.ratings[key].get('coach') %}
+                {% set auto = ev.ratings[key].get('auto') %}
+                <div class="ppid-pill-item">
+                    <div class="ppid-pill-pair">
+                        <span class="ppid-pill {{ 'ppid-pill-exl' if coach=='Excellent' else ('ppid-pill-bien' if coach=='Bien' else ('ppid-pill-moy' if coach=='Moyen' else 'ppid-pill-empty')) }}" title="Note coach">🧑‍🏫 {{ coach or '—' }}</span>
+                        <span class="ppid-pill {{ 'ppid-pill-exl' if auto=='Excellent' else ('ppid-pill-bien' if auto=='Bien' else ('ppid-pill-moy' if auto=='Moyen' else 'ppid-pill-empty')) }}" title="Mon auto-évaluation">🙋 {{ auto or '—' }}</span>
+                    </div>
+                    <div class="ppid-pill-label">{{ label }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            {% if ev.commentaires %}<div class="ppid-callout"><strong>📝 Commentaires —</strong> {{ ev.commentaires }}</div>{% endif %}
+            {% if ev.axe_musculation %}<div class="ppid-callout"><strong>🏋️ Musculation —</strong> {{ ev.axe_musculation }}</div>{% endif %}
+            {% if ev.axe_terrain %}<div class="ppid-callout"><strong>🏃 Terrain —</strong> {{ ev.axe_terrain }}</div>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state"><p>Aucune évaluation physique pour le moment.</p></div>
+    {% endif %}
+</main>
+</body>
+</html>
