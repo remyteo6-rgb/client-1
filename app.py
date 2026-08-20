@@ -584,6 +584,22 @@ def init_db():
             updated_at TEXT
         )
     """)
+    # Cahier d'entretien : journal chronologique des briefings, retours/préparations de
+    # match et entretiens individuels avec le joueur (page 2 du cahier papier du club).
+    # Distinct du suivi de tâches (charges_items, staff uniquement) : ici, rédigé par le
+    # staff mais VISIBLE par le joueur (voir player_evaluations()), comme le reste du PPID.
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS ppid_entretiens (
+            id SERIAL PRIMARY KEY,
+            player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+            entretien_date TEXT NOT NULL,
+            entretien_type TEXT NOT NULL,
+            notes TEXT,
+            created_by TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT
+        )
+    """)
     # Groupes de joueurs par défaut (l'admin peut en ajouter d'autres ensuite).
     for default_group in ("Avants", "Trois-quarts"):
         db.execute(
@@ -1983,8 +1999,15 @@ def player_evaluations():
             (player["id"],),
         ).fetchall()
     ]
+    entretiens = [
+        _ppid_entretien_row_view(r) for r in db.execute(
+            "SELECT * FROM ppid_entretiens WHERE player_id = %s ORDER BY entretien_date DESC, id DESC",
+            (player["id"],),
+        ).fetchall()
+    ]
     return render_template(
         "player_evaluations.html", player=player, rugby_evals=rugby_evals, physical_evals=physical_evals,
+        entretiens=entretiens,
         ppid_rugby_categories=_ppid_rugby_categories_for_position(player.get("ppid_position")),
         ppid_physical_categories=PPID_PHYSICAL_CATEGORIES,
         ppid_physical_notes=PPID_PHYSICAL_NOTES,
@@ -2159,6 +2182,8 @@ PPID_PHYSICAL_CATEGORIES = [
 ]
 PPID_PHYSICAL_NOTES = ["Moyen", "Bien", "Excellent"]
 
+PPID_ENTRETIEN_TYPES = ["Briefing", "Retour de match", "Préparation de match", "Entretien individuel", "Autre"]
+
 # Tableau de référence "Profil par poste" du cahier papier : les critères
 # d'auto-évaluation attendus, déclinés par poste. Contenu générique du club, identique
 # pour tout le monde — seule la colonne du poste PPID du joueur sélectionné est mise en
@@ -2255,6 +2280,11 @@ def _ppid_physical_row_view(row):
     r["date_human"] = r.get("eval_date") or (r.get("created_at") or "")[:10]
     return r
 
+def _ppid_entretien_row_view(row):
+    r = dict(row)
+    r["date_human"] = r.get("entretien_date") or (r.get("created_at") or "")[:10]
+    return r
+
 def _ppid_rugby_ratings_from_form(form):
     ratings = {}
     for key in PPID_RUGBY_CATEGORY_KEYS:
@@ -2327,7 +2357,7 @@ def cahier_charges():
         r["date_human"] = (r["created_at"] or "")[:10]
         columns.setdefault(r["status"], []).append(r)
     docs_view = []
-    rugby_evals, physical_evals = [], []
+    rugby_evals, physical_evals, entretiens = [], [], []
     if selected_player:
         docs = db.execute(
             """SELECT * FROM documents WHERE shared_player_id = %s AND visibility = 'player'
@@ -2355,16 +2385,22 @@ def cahier_charges():
                 (joueur_id,),
             ).fetchall()
         ]
+        entretiens = [
+            _ppid_entretien_row_view(r) for r in db.execute(
+                "SELECT * FROM ppid_entretiens WHERE player_id = %s ORDER BY entretien_date DESC, id DESC",
+                (joueur_id,),
+            ).fetchall()
+        ]
     return render_template(
         "cahier_charges.html", columns=columns, statuses=CHARGES_STATUSES,
         status_labels=CHARGES_STATUS_LABELS, total_count=len(rows),
         grouped_players=grouped_players, selected_player=selected_player, joueur_id=joueur_id, docs=docs_view,
-        rugby_evals=rugby_evals, physical_evals=physical_evals,
+        rugby_evals=rugby_evals, physical_evals=physical_evals, entretiens=entretiens,
         ppid_positions=PPID_POSITIONS,
         ppid_rugby_categories=_ppid_rugby_categories_for_position(selected_player.get("ppid_position") if selected_player else None),
         ppid_rugby_notes=PPID_RUGBY_NOTES, ppid_physical_categories=PPID_PHYSICAL_CATEGORIES,
         ppid_physical_notes=PPID_PHYSICAL_NOTES, ppid_profil_rows=PPID_PROFIL_ROWS,
-        ppid_profil_par_poste=PPID_PROFIL_PAR_POSTE,
+        ppid_profil_par_poste=PPID_PROFIL_PAR_POSTE, ppid_entretien_types=PPID_ENTRETIEN_TYPES,
     )
 
 @app.route("/cahier-des-charges/ajouter", methods=["POST"])
@@ -2601,6 +2637,57 @@ def ppid_physical_delete(eval_id):
     db.execute("DELETE FROM ppid_physical_evals WHERE id = %s", (eval_id,))
     db.commit()
     flash("Point d'étape physique supprimé.", "success")
+    return redirect(url_for("cahier_charges", joueur=row["player_id"]))
+
+@app.route("/cahier-des-charges/joueur/<int:player_id>/entretien/ajouter", methods=["POST"])
+def ppid_entretien_add(player_id):
+    db = get_db()
+    player = db.execute("SELECT * FROM players WHERE id = %s", (player_id,)).fetchone()
+    if not player:
+        abort(404)
+    entretien_date = request.form.get("entretien_date", "").strip()
+    entretien_type = request.form.get("entretien_type", "").strip()
+    notes = request.form.get("notes", "").strip()
+    if not entretien_date or entretien_type not in PPID_ENTRETIEN_TYPES:
+        flash("Merci d'indiquer une date et un type d'entretien valides.", "error")
+        return redirect(url_for("cahier_charges", joueur=player_id))
+    db.execute(
+        """INSERT INTO ppid_entretiens (player_id, entretien_date, entretien_type, notes, created_by, created_at)
+           VALUES (%s, %s, %s, %s, %s, %s)""",
+        (player_id, entretien_date, entretien_type, notes or None, session.get("user_email", ""), datetime.utcnow().isoformat()),
+    )
+    db.commit()
+    flash(f"Entretien ajouté au cahier de {player['first_name']} — visible par lui dans « Mes évaluations ».", "success")
+    return redirect(url_for("cahier_charges", joueur=player_id))
+
+@app.route("/cahier-des-charges/entretien/<int:entretien_id>/modifier", methods=["POST"])
+def ppid_entretien_edit(entretien_id):
+    db = get_db()
+    row = db.execute("SELECT * FROM ppid_entretiens WHERE id = %s", (entretien_id,)).fetchone()
+    if not row:
+        abort(404)
+    entretien_date = request.form.get("entretien_date", "").strip() or row["entretien_date"]
+    entretien_type = request.form.get("entretien_type", "").strip()
+    if entretien_type not in PPID_ENTRETIEN_TYPES:
+        entretien_type = row["entretien_type"]
+    notes = request.form.get("notes", "").strip()
+    db.execute(
+        "UPDATE ppid_entretiens SET entretien_date = %s, entretien_type = %s, notes = %s, updated_at = %s WHERE id = %s",
+        (entretien_date, entretien_type, notes or None, datetime.utcnow().isoformat(), entretien_id),
+    )
+    db.commit()
+    flash("Entretien mis à jour.", "success")
+    return redirect(url_for("cahier_charges", joueur=row["player_id"]))
+
+@app.route("/cahier-des-charges/entretien/<int:entretien_id>/supprimer", methods=["POST"])
+def ppid_entretien_delete(entretien_id):
+    db = get_db()
+    row = db.execute("SELECT * FROM ppid_entretiens WHERE id = %s", (entretien_id,)).fetchone()
+    if not row:
+        abort(404)
+    db.execute("DELETE FROM ppid_entretiens WHERE id = %s", (entretien_id,))
+    db.commit()
+    flash("Entretien supprimé.", "success")
     return redirect(url_for("cahier_charges", joueur=row["player_id"]))
 
 # ---------------------------------------------------------------------------
