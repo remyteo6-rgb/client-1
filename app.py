@@ -123,6 +123,7 @@ def gate_optional_features():
         request.endpoint.startswith("documents")
         or request.endpoint.startswith("calendrier")
         or request.endpoint.startswith("cahier_charges")
+        or request.endpoint.startswith("ppid_")
     ):
         flash("Cet espace n'est pas accessible en mode démonstration.", "error")
         return redirect(url_for("landing"))
@@ -136,6 +137,7 @@ PLAYER_ALLOWED_ENDPOINTS = {
     "calendrier", "calendrier_api_events",
     "player_documents", "player_document_download", "player_document_preview",
     "player_stats",
+    "player_evaluations", "player_ppid_auto_update",
 }
 @app.before_request
 def gate_player_access():
@@ -539,6 +541,49 @@ def init_db():
     # historique) ; renseigné = suivi individuel propre à ce joueur (visible staff
     # uniquement, jamais montré au joueur — voir cahier_charges()).
     db.execute("ALTER TABLE charges_items ADD COLUMN IF NOT EXISTS player_id INTEGER REFERENCES players(id) ON DELETE CASCADE")
+    # P.P.I.D (Projet Personnalisé Individuel du joueur) : reprise numérique du cahier
+    # d'entraînement papier du club (mêmes 3 briques : profil par poste, évaluation rugby,
+    # évaluation physique). ppid_position est plus fin que group_id (Avants/Trois-quarts) —
+    # ex. "3LC" vs "3LA" — et sert uniquement à mettre en évidence la bonne colonne du
+    # tableau de référence "Profil par poste" ; renseigné à la main par l'admin.
+    db.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS ppid_position TEXT")
+    # Une ligne = un point d'étape (3 à 4 par saison, comme sur le cahier papier) : notes
+    # + commentaires par catégorie technique (JSON en texte plutôt qu'une colonne par
+    # catégorie, pour ne pas avoir à migrer le schéma si les catégories évoluent un jour),
+    # plus objectifs et entraînements spécifiques pour la période.
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS ppid_rugby_evals (
+            id SERIAL PRIMARY KEY,
+            player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+            period_label TEXT NOT NULL,
+            eval_date TEXT,
+            ratings TEXT NOT NULL DEFAULT '{}',
+            objectifs TEXT,
+            entrainements TEXT,
+            created_by TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT
+        )
+    """)
+    # Même principe pour le physique, avec deux notes par catégorie et par période
+    # (coach / auto-évaluation) stockées ensemble dans le même JSON : le staff renseigne
+    # "coach", le joueur renseigne lui-même "auto" depuis son espace (voir
+    # ppid_physical_auto_update()) — jamais l'inverse.
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS ppid_physical_evals (
+            id SERIAL PRIMARY KEY,
+            player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+            period_label TEXT NOT NULL,
+            eval_date TEXT,
+            ratings TEXT NOT NULL DEFAULT '{}',
+            commentaires TEXT,
+            axe_musculation TEXT,
+            axe_terrain TEXT,
+            created_by TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT
+        )
+    """)
     # Groupes de joueurs par défaut (l'admin peut en ajouter d'autres ensuite).
     for default_group in ("Avants", "Trois-quarts"):
         db.execute(
@@ -1916,6 +1961,54 @@ def player_stats():
         matches_played=matches_played, total_matches=len(matches_with_instances),
     )
 
+@app.route("/mes-evaluations")
+def player_evaluations():
+    """P.P.I.D du joueur connecté : historique rugby + physique renseigné par le staff, et
+    formulaire pour sa propre auto-évaluation physique (seule partie modifiable côté
+    joueur — voir player_ppid_auto_update). Reprend numériquement ce que le club envoyait
+    jusque-là par WhatsApp/Hudl."""
+    db = get_db()
+    player = _current_player(db)
+    if not player:
+        abort(404)
+    rugby_evals = [
+        _ppid_rugby_row_view(r) for r in db.execute(
+            "SELECT * FROM ppid_rugby_evals WHERE player_id = %s ORDER BY eval_date DESC NULLS LAST, id DESC",
+            (player["id"],),
+        ).fetchall()
+    ]
+    physical_evals = [
+        _ppid_physical_row_view(r) for r in db.execute(
+            "SELECT * FROM ppid_physical_evals WHERE player_id = %s ORDER BY eval_date DESC NULLS LAST, id DESC",
+            (player["id"],),
+        ).fetchall()
+    ]
+    return render_template(
+        "player_evaluations.html", player=player, rugby_evals=rugby_evals, physical_evals=physical_evals,
+        ppid_rugby_categories=PPID_RUGBY_CATEGORIES, ppid_physical_categories=PPID_PHYSICAL_CATEGORIES,
+        ppid_physical_notes=PPID_PHYSICAL_NOTES,
+    )
+
+@app.route("/mes-evaluations/physique/<int:eval_id>/auto", methods=["POST"])
+def player_ppid_auto_update(eval_id):
+    db = get_db()
+    player = _current_player(db)
+    if not player:
+        abort(404)
+    row = db.execute(
+        "SELECT * FROM ppid_physical_evals WHERE id = %s AND player_id = %s", (eval_id, player["id"]),
+    ).fetchone()
+    if not row:
+        abort(404)
+    ratings = _ppid_physical_auto_ratings_from_form(request.form, row["ratings"])
+    db.execute(
+        "UPDATE ppid_physical_evals SET ratings = %s, updated_at = %s WHERE id = %s",
+        (ratings, datetime.utcnow().isoformat(), eval_id),
+    )
+    db.commit()
+    flash("Ton auto-évaluation a été enregistrée.", "success")
+    return redirect(url_for("player_evaluations"))
+
 # ---------------------------------------------------------------------------
 # ANALYSE VIDÉO — page d'entrée du pôle qui regroupe tout ce qui existait sur
 # le site avant l'ajout des espaces Documents / Calendrier / Cahier des charges
@@ -2038,6 +2131,154 @@ def calendrier_api_delete(event_id):
 CHARGES_STATUSES = ["a_faire", "en_cours", "fait"]
 CHARGES_STATUS_LABELS = {"a_faire": "À faire", "en_cours": "En cours", "fait": "Fait"}
 
+# ---------------------------------------------------------------------------
+# P.P.I.D — reprise numérique, plus lisible et visuelle, du cahier d'entraînement
+# individuel papier du club (profil par poste / évaluation rugby / évaluation
+# physique), intégrée dans l'onglet de chaque joueur au Cahier des charges.
+# ---------------------------------------------------------------------------
+PPID_POSITIONS = ["Pilier", "Talon", "2L", "3LC", "3LA", "9", "10", "12-13", "11-14", "15"]
+
+PPID_RUGBY_CATEGORIES = [
+    ("melee_fermee", "Mêlée fermée"),
+    ("technique_touche", "Technique de lift sur touche / coup d'envoi / coup de renvoi"),
+    ("plaquer_contest", "Plaquer / Contest / CR"),
+    ("soutenir_rucker", "Soutenir / Rucker"),
+    ("duel_off", "Duel off"),
+    ("habilite_technique", "Habileté technique"),
+    ("se_deplacer", "Se déplacer / Enchaîner les actions"),
+    ("comprehension_systeme", "Compréhension système"),
+    ("durete_etat_esprit", "Dureté / État d'esprit"),
+]
+PPID_RUGBY_NOTES = ["MOY", "BIEN", "EXL"]
+
+PPID_PHYSICAL_CATEGORIES = [
+    ("capacite_entrainer", "Capacité à s'entraîner / Rustisité"),
+    ("poids_composition", "Poids / Composition corporelle"),
+    ("force", "Force"),
+    ("puissance", "Puissance"),
+    ("vitesse", "Vitesse"),
+    ("conditionning", "Conditionning / Énergétique"),
+]
+PPID_PHYSICAL_NOTES = ["Moyen", "Bien", "Excellent"]
+
+# Tableau de référence "Profil par poste" du cahier papier : les critères
+# d'auto-évaluation attendus, déclinés par poste. Contenu générique du club, identique
+# pour tout le monde — seule la colonne du poste PPID du joueur sélectionné est mise en
+# évidence (voir cahier_charges.html). Transcrit depuis le cahier papier du club ; si une
+# case ne correspond pas exactement à l'original, elle se corrige en un message.
+PPID_PROFIL_PAR_POSTE = {
+    "Mêlée fermée": {
+        "Pilier": "Mêlée fermée", "Talon": "Lancer", "2L": "Sauter / lifter / touche / CE et CR",
+        "3LC": "Mêlée : gestion du ballon", "3LA": "Soutenir / rucker", "9": "Transmission",
+        "10": "Lecture", "12-13": "Lecture off", "11-14": "Duel / franchissement",
+        "15": "Gestion du 3ème rideau / CA",
+    },
+    "Technique de lift sur touche, coup d'envoi et coup de renvoi": {
+        "Pilier": "Technique de lift sur touche, coup d'envoi et coup de renvoi", "Talon": "Mêlée fermée",
+        "2L": "Mêlée fermée", "3LC": "Assure la continuité", "3LA": "Plaquer / contest / défendre",
+        "9": "Colle au ballon", "10": "Stratégie", "12-13": "Duel off / franchissement",
+        "11-14": "Gestion des contre-attaques", "15": "Compréhension système",
+    },
+    "Plaquer / Contest": {
+        "Pilier": "Plaquer / contest", "Talon": "Plaquer / contest / défendre", "2L": "Contest / plaquer",
+        "3LC": "Gagner les contacts / jouer les duels / franchir", "3LA": "Plaquage / circulation défensive",
+        "9": "Circulation déf. / plaquer / contest / défendre", "10": "Lecture défense",
+        "12-13": "1 contre 1 déf.", "11-14": "Plaquer / contest", "15": "Duel / franchissement",
+    },
+    "Soutenir / Rucker": {
+        "Pilier": "Soutenir / rucker", "Talon": "Soutenir / rucker", "2L": "Défense de maul",
+        "3LC": "Sauter / lifter / lecture touche", "3LA": "Assure la continuité", "9": "Stratégie",
+        "10": "Transmission", "12-13": "Habileté technique (main / pied)", "11-14": "Soutenir / ruck aérien",
+        "15": "Duel / franchissement",
+    },
+    "Duel off": {
+        "Pilier": "Duel off", "Talon": "Défense de maul", "2L": "Sauter / lifter / lecture touche",
+        "3LC": "Assure la continuité", "3LA": "Duel off",
+        "9": "Jeu au pied / sortie de camp et pression", "10": "Jeu au pied (pression / occupation / CE / CR / drop)",
+        "12-13": "Communication", "11-14": "Soutenir / ruck offensif", "15": "Habileté technique (mains / pied)",
+    },
+    "Habileté technique": {
+        "Pilier": "Habileté technique", "Talon": "Duel off / porteur de balle", "2L": "Duel off / franchissement",
+        "3LC": "Habileté technique", "3LA": "Se déplacer / enchaîner les tâches", "9": "Habileté technique",
+        "10": "Gestion contre-attaque", "12-13": "Se déplacer / enchaîner les tâches",
+        "11-14": "Habileté technique (mains / pied)", "15": "Réception / duel aérien",
+    },
+    "Se déplacer / Enchaîner les actions": {
+        "Pilier": "Se déplacer / enchaîner les tâches", "Talon": "Se déplacer / enchaîner les tâches",
+        "2L": "Habileté technique", "3LC": "Se déplacer / enchaîner les tâches", "3LA": "Leadership",
+        "9": "Gestion contre-attaque", "10": "Se déplacer / enchaîner les tâches",
+        "12-13": "Compréhension système", "11-14": "Compréhension système", "15": "Se déplacer / enchaîner les actions",
+    },
+    "Compréhension système": {
+        "Pilier": "Compréhension système", "Talon": "Compréhension système", "2L": "Compréhension système",
+        "3LC": "Se déplacer / enchaîner les tâches", "3LA": "Compréhension système", "9": "Soutenir / rucker",
+        "10": "Se déplacer / enchaîner les tâches", "12-13": "Compréhension système",
+        "11-14": "Compréhension système", "15": "Se déplacer / enchaîner les actions",
+    },
+}
+PPID_PROFIL_ROWS = list(PPID_PROFIL_PAR_POSTE.keys())
+
+def _ppid_ratings_view(raw, categories):
+    """Décode le JSON de notes stocké en texte, en garantissant une entrée pour chaque
+    catégorie connue (au cas où de nouvelles catégories seraient ajoutées après coup)."""
+    try:
+        data = json.loads(raw) if raw else {}
+    except (TypeError, ValueError):
+        data = {}
+    return {key: data.get(key) or {} for key, _label in categories}
+
+def _ppid_rugby_row_view(row):
+    r = dict(row)
+    r["ratings"] = _ppid_ratings_view(r.get("ratings"), PPID_RUGBY_CATEGORIES)
+    r["date_human"] = r.get("eval_date") or (r.get("created_at") or "")[:10]
+    return r
+
+def _ppid_physical_row_view(row):
+    r = dict(row)
+    r["ratings"] = _ppid_ratings_view(r.get("ratings"), PPID_PHYSICAL_CATEGORIES)
+    r["date_human"] = r.get("eval_date") or (r.get("created_at") or "")[:10]
+    return r
+
+def _ppid_rugby_ratings_from_form(form):
+    ratings = {}
+    for key, _label in PPID_RUGBY_CATEGORIES:
+        note = (form.get(f"note__{key}") or "").strip()
+        commentaire = (form.get(f"commentaire__{key}") or "").strip()
+        if note or commentaire:
+            ratings[key] = {"note": note or None, "commentaire": commentaire or None}
+    return json.dumps(ratings, ensure_ascii=False)
+
+def _ppid_physical_coach_ratings_from_form(form, existing_raw):
+    """Fusionne les notes 'coach' saisies par le staff avec les 'auto' déjà présentes
+    (remplies par le joueur) : le formulaire staff ne doit jamais écraser l'auto-évaluation
+    du joueur, et inversement (voir ppid_physical_auto_update)."""
+    existing = _ppid_ratings_view(existing_raw, PPID_PHYSICAL_CATEGORIES)
+    ratings = {}
+    for key, _label in PPID_PHYSICAL_CATEGORIES:
+        coach = (form.get(f"coach__{key}") or "").strip()
+        entry = dict(existing.get(key) or {})
+        if coach:
+            entry["coach"] = coach
+        elif "coach" in entry:
+            del entry["coach"]
+        if entry:
+            ratings[key] = entry
+    return json.dumps(ratings, ensure_ascii=False)
+
+def _ppid_physical_auto_ratings_from_form(form, existing_raw):
+    existing = _ppid_ratings_view(existing_raw, PPID_PHYSICAL_CATEGORIES)
+    ratings = {}
+    for key, _label in PPID_PHYSICAL_CATEGORIES:
+        auto = (form.get(f"auto__{key}") or "").strip()
+        entry = dict(existing.get(key) or {})
+        if auto:
+            entry["auto"] = auto
+        elif "auto" in entry:
+            del entry["auto"]
+        if entry:
+            ratings[key] = entry
+    return json.dumps(ratings, ensure_ascii=False)
+
 @app.route("/cahier-des-charges")
 def cahier_charges():
     db = get_db()
@@ -2070,6 +2311,7 @@ def cahier_charges():
         r["date_human"] = (r["created_at"] or "")[:10]
         columns.setdefault(r["status"], []).append(r)
     docs_view = []
+    rugby_evals, physical_evals = [], []
     if selected_player:
         docs = db.execute(
             """SELECT * FROM documents WHERE shared_player_id = %s AND visibility = 'player'
@@ -2085,10 +2327,27 @@ def cahier_charges():
             d["can_delete"] = _doc_can_delete(d)
             d["date_human"] = (d["uploaded_at"] or "")[:10]
             docs_view.append(d)
+        rugby_evals = [
+            _ppid_rugby_row_view(r) for r in db.execute(
+                "SELECT * FROM ppid_rugby_evals WHERE player_id = %s ORDER BY eval_date DESC NULLS LAST, id DESC",
+                (joueur_id,),
+            ).fetchall()
+        ]
+        physical_evals = [
+            _ppid_physical_row_view(r) for r in db.execute(
+                "SELECT * FROM ppid_physical_evals WHERE player_id = %s ORDER BY eval_date DESC NULLS LAST, id DESC",
+                (joueur_id,),
+            ).fetchall()
+        ]
     return render_template(
         "cahier_charges.html", columns=columns, statuses=CHARGES_STATUSES,
         status_labels=CHARGES_STATUS_LABELS, total_count=len(rows),
         grouped_players=grouped_players, selected_player=selected_player, joueur_id=joueur_id, docs=docs_view,
+        rugby_evals=rugby_evals, physical_evals=physical_evals,
+        ppid_positions=PPID_POSITIONS, ppid_rugby_categories=PPID_RUGBY_CATEGORIES,
+        ppid_rugby_notes=PPID_RUGBY_NOTES, ppid_physical_categories=PPID_PHYSICAL_CATEGORIES,
+        ppid_physical_notes=PPID_PHYSICAL_NOTES, ppid_profil_rows=PPID_PROFIL_ROWS,
+        ppid_profil_par_poste=PPID_PROFIL_PAR_POSTE,
     )
 
 @app.route("/cahier-des-charges/ajouter", methods=["POST"])
@@ -2211,6 +2470,122 @@ def cahier_charges_doc_delete(doc_id):
         flash("Document supprimé.", "success")
     return redirect(url_for("cahier_charges", joueur=player_id))
 
+@app.route("/cahier-des-charges/joueur/<int:player_id>/evaluation-rugby/ajouter", methods=["POST"])
+def ppid_rugby_add(player_id):
+    db = get_db()
+    player = db.execute("SELECT * FROM players WHERE id = %s", (player_id,)).fetchone()
+    if not player:
+        abort(404)
+    period_label = request.form.get("period_label", "").strip()
+    if not period_label:
+        flash("Merci d'indiquer un intitulé de période (ex. « Novembre - Janvier »).", "error")
+        return redirect(url_for("cahier_charges", joueur=player_id))
+    eval_date = request.form.get("eval_date", "").strip() or None
+    ratings = _ppid_rugby_ratings_from_form(request.form)
+    objectifs = request.form.get("objectifs", "").strip() or None
+    entrainements = request.form.get("entrainements", "").strip() or None
+    db.execute(
+        """INSERT INTO ppid_rugby_evals
+           (player_id, period_label, eval_date, ratings, objectifs, entrainements, created_by, created_at)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+        (player_id, period_label, eval_date, ratings, objectifs, entrainements,
+         session.get("user_email", ""), datetime.utcnow().isoformat()),
+    )
+    db.commit()
+    flash(f"Point d'étape rugby ajouté pour {player['first_name']} {player['last_name']}.", "success")
+    return redirect(url_for("cahier_charges", joueur=player_id))
+
+@app.route("/cahier-des-charges/evaluation-rugby/<int:eval_id>/modifier", methods=["POST"])
+def ppid_rugby_edit(eval_id):
+    db = get_db()
+    row = db.execute("SELECT * FROM ppid_rugby_evals WHERE id = %s", (eval_id,)).fetchone()
+    if not row:
+        abort(404)
+    period_label = request.form.get("period_label", "").strip() or row["period_label"]
+    eval_date = request.form.get("eval_date", "").strip() or None
+    ratings = _ppid_rugby_ratings_from_form(request.form)
+    objectifs = request.form.get("objectifs", "").strip() or None
+    entrainements = request.form.get("entrainements", "").strip() or None
+    db.execute(
+        """UPDATE ppid_rugby_evals SET period_label = %s, eval_date = %s, ratings = %s,
+           objectifs = %s, entrainements = %s, updated_at = %s WHERE id = %s""",
+        (period_label, eval_date, ratings, objectifs, entrainements, datetime.utcnow().isoformat(), eval_id),
+    )
+    db.commit()
+    flash("Point d'étape rugby mis à jour.", "success")
+    return redirect(url_for("cahier_charges", joueur=row["player_id"]))
+
+@app.route("/cahier-des-charges/evaluation-rugby/<int:eval_id>/supprimer", methods=["POST"])
+def ppid_rugby_delete(eval_id):
+    db = get_db()
+    row = db.execute("SELECT * FROM ppid_rugby_evals WHERE id = %s", (eval_id,)).fetchone()
+    if not row:
+        abort(404)
+    db.execute("DELETE FROM ppid_rugby_evals WHERE id = %s", (eval_id,))
+    db.commit()
+    flash("Point d'étape rugby supprimé.", "success")
+    return redirect(url_for("cahier_charges", joueur=row["player_id"]))
+
+@app.route("/cahier-des-charges/joueur/<int:player_id>/evaluation-physique/ajouter", methods=["POST"])
+def ppid_physical_add(player_id):
+    db = get_db()
+    player = db.execute("SELECT * FROM players WHERE id = %s", (player_id,)).fetchone()
+    if not player:
+        abort(404)
+    period_label = request.form.get("period_label", "").strip()
+    if not period_label:
+        flash("Merci d'indiquer un intitulé de période (ex. « Novembre - Janvier »).", "error")
+        return redirect(url_for("cahier_charges", joueur=player_id))
+    eval_date = request.form.get("eval_date", "").strip() or None
+    ratings = _ppid_physical_coach_ratings_from_form(request.form, "{}")
+    commentaires = request.form.get("commentaires", "").strip() or None
+    axe_musculation = request.form.get("axe_musculation", "").strip() or None
+    axe_terrain = request.form.get("axe_terrain", "").strip() or None
+    db.execute(
+        """INSERT INTO ppid_physical_evals
+           (player_id, period_label, eval_date, ratings, commentaires, axe_musculation, axe_terrain,
+            created_by, created_at)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+        (player_id, period_label, eval_date, ratings, commentaires, axe_musculation, axe_terrain,
+         session.get("user_email", ""), datetime.utcnow().isoformat()),
+    )
+    db.commit()
+    flash(f"Point d'étape physique ajouté pour {player['first_name']} {player['last_name']}.", "success")
+    return redirect(url_for("cahier_charges", joueur=player_id))
+
+@app.route("/cahier-des-charges/evaluation-physique/<int:eval_id>/modifier", methods=["POST"])
+def ppid_physical_edit(eval_id):
+    db = get_db()
+    row = db.execute("SELECT * FROM ppid_physical_evals WHERE id = %s", (eval_id,)).fetchone()
+    if not row:
+        abort(404)
+    period_label = request.form.get("period_label", "").strip() or row["period_label"]
+    eval_date = request.form.get("eval_date", "").strip() or None
+    ratings = _ppid_physical_coach_ratings_from_form(request.form, row["ratings"])
+    commentaires = request.form.get("commentaires", "").strip() or None
+    axe_musculation = request.form.get("axe_musculation", "").strip() or None
+    axe_terrain = request.form.get("axe_terrain", "").strip() or None
+    db.execute(
+        """UPDATE ppid_physical_evals SET period_label = %s, eval_date = %s, ratings = %s,
+           commentaires = %s, axe_musculation = %s, axe_terrain = %s, updated_at = %s WHERE id = %s""",
+        (period_label, eval_date, ratings, commentaires, axe_musculation, axe_terrain,
+         datetime.utcnow().isoformat(), eval_id),
+    )
+    db.commit()
+    flash("Point d'étape physique mis à jour.", "success")
+    return redirect(url_for("cahier_charges", joueur=row["player_id"]))
+
+@app.route("/cahier-des-charges/evaluation-physique/<int:eval_id>/supprimer", methods=["POST"])
+def ppid_physical_delete(eval_id):
+    db = get_db()
+    row = db.execute("SELECT * FROM ppid_physical_evals WHERE id = %s", (eval_id,)).fetchone()
+    if not row:
+        abort(404)
+    db.execute("DELETE FROM ppid_physical_evals WHERE id = %s", (eval_id,))
+    db.commit()
+    flash("Point d'étape physique supprimé.", "success")
+    return redirect(url_for("cahier_charges", joueur=row["player_id"]))
+
 # ---------------------------------------------------------------------------
 # GESTION DES JOUEURS (ADMIN) — effectif (ajout manuel + import Excel), groupes
 # personnalisables (Avants/Trois-quarts par défaut, l'admin peut en créer
@@ -2283,7 +2658,7 @@ def admin_joueurs():
            LEFT JOIN player_groups g ON g.id = p.group_id
            ORDER BY p.last_name, p.first_name"""
     ).fetchall()
-    return render_template("admin_joueurs.html", groups=groups, players=players)
+    return render_template("admin_joueurs.html", groups=groups, players=players, ppid_positions=PPID_POSITIONS)
 
 @app.route("/admin/joueurs/ajouter", methods=["POST"])
 @admin_required
@@ -2392,6 +2767,21 @@ def admin_joueurs_groupe(player_id):
     db.execute("UPDATE players SET group_id = %s WHERE id = %s", (group_id, player_id))
     db.commit()
     flash(f"Groupe mis à jour pour {player['first_name']} {player['last_name']}.", "success")
+    return redirect(url_for("admin_joueurs"))
+
+@app.route("/admin/joueurs/<int:player_id>/poste-ppid", methods=["POST"])
+@admin_required
+def admin_joueurs_poste_ppid(player_id):
+    db = get_db()
+    player = db.execute("SELECT * FROM players WHERE id = %s", (player_id,)).fetchone()
+    if not player:
+        abort(404)
+    poste = request.form.get("ppid_position") or None
+    if poste and poste not in PPID_POSITIONS:
+        abort(400)
+    db.execute("UPDATE players SET ppid_position = %s WHERE id = %s", (poste, player_id))
+    db.commit()
+    flash(f"Poste PPID mis à jour pour {player['first_name']} {player['last_name']}.", "success")
     return redirect(url_for("admin_joueurs"))
 
 @app.route("/admin/joueurs/<int:player_id>/reinitialiser-mdp", methods=["POST"])
