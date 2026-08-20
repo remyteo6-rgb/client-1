@@ -47,6 +47,7 @@
                 </select>
             </div>
             <button type="submit" class="btn">Ajouter</button>
+            <p class="docs-hint">💡 Le poste PPID (Pilier, 9, 3LC...) se règle ensuite dans le tableau ci-dessous — il sert au P.P.I.D dans l'onglet du joueur au Cahier des charges.</p>
         </form>
     </details>
 
@@ -76,6 +77,7 @@
                 <th>Nom</th>
                 <th>Email</th>
                 <th>Groupe</th>
+                <th>Poste PPID</th>
                 <th>Statut</th>
                 <th></th>
             </tr>
@@ -91,6 +93,16 @@
                             <option value="">— Aucun —</option>
                             {% for g in groups %}
                             <option value="{{ g['id'] }}" {{ 'selected' if p['group_id']==g['id'] else '' }}>{{ g['name'] }}</option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                </td>
+                <td>
+                    <form method="POST" action="{{ url_for('admin_joueurs_poste_ppid', player_id=p['id']) }}" class="docs-inline-form">
+                        <select name="ppid_position" onchange="this.form.submit()">
+                            <option value="">— Aucun —</option>
+                            {% for pos in ppid_positions %}
+                            <option value="{{ pos }}" {{ 'selected' if p['ppid_position']==pos else '' }}>{{ pos }}</option>
                             {% endfor %}
                         </select>
                     </form>
