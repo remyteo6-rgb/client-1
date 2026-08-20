@@ -1985,7 +1985,8 @@ def player_evaluations():
     ]
     return render_template(
         "player_evaluations.html", player=player, rugby_evals=rugby_evals, physical_evals=physical_evals,
-        ppid_rugby_categories=PPID_RUGBY_CATEGORIES, ppid_physical_categories=PPID_PHYSICAL_CATEGORIES,
+        ppid_rugby_categories=_ppid_rugby_categories_for_position(player.get("ppid_position")),
+        ppid_physical_categories=PPID_PHYSICAL_CATEGORIES,
         ppid_physical_notes=PPID_PHYSICAL_NOTES,
     )
 
@@ -2138,16 +2139,13 @@ CHARGES_STATUS_LABELS = {"a_faire": "À faire", "en_cours": "En cours", "fait": 
 # ---------------------------------------------------------------------------
 PPID_POSITIONS = ["Pilier", "Talon", "2L", "3LC", "3LA", "9", "10", "12-13", "11-14", "15"]
 
-PPID_RUGBY_CATEGORIES = [
-    ("melee_fermee", "Mêlée fermée"),
-    ("technique_touche", "Technique de lift sur touche / coup d'envoi / coup de renvoi"),
-    ("plaquer_contest", "Plaquer / Contest / CR"),
-    ("soutenir_rucker", "Soutenir / Rucker"),
-    ("duel_off", "Duel off"),
-    ("habilite_technique", "Habileté technique"),
-    ("se_deplacer", "Se déplacer / Enchaîner les actions"),
-    ("comprehension_systeme", "Compréhension système"),
-    ("durete_etat_esprit", "Dureté / État d'esprit"),
+# Clés techniques des 9 critères d'évaluation rugby (stockage en base, stables dans le
+# temps) : les 8 premières correspondent 1-pour-1 aux 8 lignes de PPID_PROFIL_PAR_POSTE
+# (même ordre), la 9ème ("dureté / état d'esprit") est générique et hors grille de poste.
+# Les LIBELLÉS affichés, eux, ne sont plus fixes : voir _ppid_rugby_categories_for_position().
+PPID_RUGBY_CATEGORY_KEYS = [
+    "melee_fermee", "technique_touche", "plaquer_contest", "soutenir_rucker", "duel_off",
+    "habilite_technique", "se_deplacer", "comprehension_systeme", "durete_etat_esprit",
 ]
 PPID_RUGBY_NOTES = ["MOY", "BIEN", "EXL"]
 
@@ -2218,30 +2216,48 @@ PPID_PROFIL_PAR_POSTE = {
 }
 PPID_PROFIL_ROWS = list(PPID_PROFIL_PAR_POSTE.keys())
 
-def _ppid_ratings_view(raw, categories):
+def _ppid_rugby_categories_for_position(position):
+    """Personnalise les libellés des 9 critères d'évaluation rugby selon le poste PPID du
+    joueur : au lieu d'imposer les mêmes 9 intitulés génériques à tout le monde (illisible
+    quand on doit remplir 59 fiches), chaque poste voit directement SES critères, repris de
+    sa colonne dans le tableau de référence « Profil par poste » (ex. un 9 voit « Transmission »
+    là où un Pilier voit « Mêlée fermée » — même case techniquement, sens différent pour son
+    poste). Sans poste PPID réglé pour ce joueur, on retombe sur les intitulés génériques
+    (les lignes du tableau de référence) plutôt que de deviner."""
+    categories = []
+    for key, row_label in zip(PPID_RUGBY_CATEGORY_KEYS, PPID_PROFIL_ROWS):
+        if position and position in PPID_POSITIONS:
+            label = PPID_PROFIL_PAR_POSTE[row_label].get(position) or row_label
+        else:
+            label = row_label
+        categories.append((key, label))
+    categories.append(("durete_etat_esprit", "Dureté / État d'esprit"))
+    return categories
+
+def _ppid_ratings_view(raw, category_keys):
     """Décode le JSON de notes stocké en texte, en garantissant une entrée pour chaque
     catégorie connue (au cas où de nouvelles catégories seraient ajoutées après coup)."""
     try:
         data = json.loads(raw) if raw else {}
     except (TypeError, ValueError):
         data = {}
-    return {key: data.get(key) or {} for key, _label in categories}
+    return {key: data.get(key) or {} for key in category_keys}
 
 def _ppid_rugby_row_view(row):
     r = dict(row)
-    r["ratings"] = _ppid_ratings_view(r.get("ratings"), PPID_RUGBY_CATEGORIES)
+    r["ratings"] = _ppid_ratings_view(r.get("ratings"), PPID_RUGBY_CATEGORY_KEYS)
     r["date_human"] = r.get("eval_date") or (r.get("created_at") or "")[:10]
     return r
 
 def _ppid_physical_row_view(row):
     r = dict(row)
-    r["ratings"] = _ppid_ratings_view(r.get("ratings"), PPID_PHYSICAL_CATEGORIES)
+    r["ratings"] = _ppid_ratings_view(r.get("ratings"), [key for key, _label in PPID_PHYSICAL_CATEGORIES])
     r["date_human"] = r.get("eval_date") or (r.get("created_at") or "")[:10]
     return r
 
 def _ppid_rugby_ratings_from_form(form):
     ratings = {}
-    for key, _label in PPID_RUGBY_CATEGORIES:
+    for key in PPID_RUGBY_CATEGORY_KEYS:
         note = (form.get(f"note__{key}") or "").strip()
         commentaire = (form.get(f"commentaire__{key}") or "").strip()
         if note or commentaire:
@@ -2344,7 +2360,8 @@ def cahier_charges():
         status_labels=CHARGES_STATUS_LABELS, total_count=len(rows),
         grouped_players=grouped_players, selected_player=selected_player, joueur_id=joueur_id, docs=docs_view,
         rugby_evals=rugby_evals, physical_evals=physical_evals,
-        ppid_positions=PPID_POSITIONS, ppid_rugby_categories=PPID_RUGBY_CATEGORIES,
+        ppid_positions=PPID_POSITIONS,
+        ppid_rugby_categories=_ppid_rugby_categories_for_position(selected_player.get("ppid_position") if selected_player else None),
         ppid_rugby_notes=PPID_RUGBY_NOTES, ppid_physical_categories=PPID_PHYSICAL_CATEGORIES,
         ppid_physical_notes=PPID_PHYSICAL_NOTES, ppid_profil_rows=PPID_PROFIL_ROWS,
         ppid_profil_par_poste=PPID_PROFIL_PAR_POSTE,
@@ -2617,6 +2634,44 @@ def _classify_player_position(poste):
         return "Centre"
     return None
 
+# Classification plus fine (10 postes du P.P.I.D — voir PPID_POSITIONS) que
+# _classify_player_position ci-dessus (7 catégories, seulement pour Avants/Trois-quarts) :
+# réutilise le même texte « Poste » du fichier Excel du club pour pré-remplir le poste PPID
+# à l'import, plutôt que de faire régler les ~60 joueurs un par un à la main. Peut renvoyer
+# None quand le texte ne permet pas de trancher (ex. « 3ème ligne » seul, sans « aile » ni
+# « centre », ou « Charnière » seul, sans « mêlée » ni « ouverture ») : le poste reste alors
+# à régler manuellement pour ce joueur (voir le message de fin d'import).
+def _classify_ppid_position(poste):
+    p = (poste or "").lower()
+    has_melee = "mêlée" in p or "melee" in p
+    has_ouverture = "ouverture" in p
+    if has_melee and not has_ouverture:
+        return "9"
+    if has_ouverture and not has_melee:
+        return "10"
+    if "talonneur" in p:
+        return "Talon"
+    if "pilier" in p:
+        return "Pilier"
+    has_l = bool(re.search(r"\bl\b", p)) or "ligne" in p
+    if "2" in p and has_l:
+        return "2L"
+    if "3" in p and has_l:
+        if "centre" in p:
+            return "3LC"
+        if "aile" in p:
+            return "3LA"
+        return None
+    has_ailier = "ailier" in p or "aile" in p
+    has_arriere = "arrière" in p or "arriere" in p
+    if has_ailier and not has_arriere:
+        return "11-14"
+    if has_arriere and not has_ailier:
+        return "15"
+    if "centre" in p:
+        return "12-13"
+    return None
+
 # Regroupement par défaut avant/trois-quarts (convention rugby classique), utilisé
 # uniquement pour proposer un groupe de partage de documents à l'import — l'admin
 # peut ensuite réaffecter n'importe quel joueur à n'importe quel groupe à la main.
@@ -2720,7 +2775,7 @@ def admin_joueurs_importer():
         return redirect(url_for("admin_joueurs"))
     db = get_db()
     groups = {g["name"]: g["id"] for g in db.execute("SELECT id, name FROM player_groups").fetchall()}
-    created, updated, uncategorized = 0, 0, []
+    created, updated, uncategorized, ppid_unresolved = 0, 0, [], []
     for r in range(header_row + 1, ws.max_row + 1):
         nom_prenom = ws.cell(row=r, column=col_nom).value
         mail = ws.cell(row=r, column=col_mail).value
@@ -2736,23 +2791,41 @@ def admin_joueurs_importer():
             uncategorized.append(f"{first} {last}".strip())
         group_name = _default_group_name_for_category(cat)
         group_id = groups.get(group_name) if group_name else None
+        # Poste PPID (plus fin que le groupe Avants/Trois-quarts) déduit du même texte
+        # « Poste » du fichier Excel — voir _classify_ppid_position. Repéré séparément de
+        # `cat` ci-dessus : un joueur peut être correctement classé Avant/Trois-quarts
+        # (cat non None) tout en restant ambigu pour le poste PPID précis (ex. « 3ème
+        # ligne » sans préciser aile/centre), et inversement.
+        ppid_pos = _classify_ppid_position(str(poste or ""))
+        if ppid_pos is None:
+            ppid_unresolved.append(f"{first} {last}".strip())
         existing = db.execute("SELECT id, group_id FROM players WHERE email = %s", (email,)).fetchone()
         if existing:
+            # COALESCE(ppid_position, ...) : ne remplit que si le poste n'a encore jamais
+            # été réglé, pour ne jamais écraser une correction manuelle faite par l'admin
+            # depuis la page Gestion des joueurs à un import précédent.
             db.execute(
-                "UPDATE players SET first_name = %s, last_name = %s WHERE id = %s",
-                (first, last, existing["id"]),
+                "UPDATE players SET first_name = %s, last_name = %s, ppid_position = COALESCE(ppid_position, %s) WHERE id = %s",
+                (first, last, ppid_pos, existing["id"]),
             )
             updated += 1
         else:
             db.execute(
-                "INSERT INTO players (first_name, last_name, email, group_id, created_at) VALUES (%s, %s, %s, %s, %s)",
-                (first, last, email, group_id, datetime.utcnow().isoformat()),
+                """INSERT INTO players (first_name, last_name, email, group_id, ppid_position, created_at)
+                   VALUES (%s, %s, %s, %s, %s, %s)""",
+                (first, last, email, group_id, ppid_pos, datetime.utcnow().isoformat()),
             )
             created += 1
     db.commit()
     msg = f"Import terminé : {created} joueur{'s' if created != 1 else ''} ajouté{'s' if created != 1 else ''}, {updated} mis à jour."
     if uncategorized:
         msg += f" ⚠️ Poste non reconnu (groupe non assigné automatiquement) pour : {', '.join(uncategorized)}."
+    if ppid_unresolved:
+        msg += (
+            f" ⚠️ Poste PPID pas assez précis pour distinguer automatiquement (ex. « 3ème ligne » sans aile/centre, "
+            f"« Charnière » sans mêlée/ouverture) — à régler à la main dans le tableau ci-dessous pour : "
+            f"{', '.join(ppid_unresolved)}."
+        )
     flash(msg, "success")
     return redirect(url_for("admin_joueurs"))
 
