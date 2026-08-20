@@ -1115,6 +1115,60 @@ body.demo-mode .demo-blur {
     .ppid-pill-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 }
 
+/* ---------- P.P.I.D — en-tête joueur / carte critères / timeline unifiée ---------- */
+.ppid-player-header {
+    display: flex; align-items: center; gap: 16px; margin-bottom: 18px; padding: 16px 18px;
+    background: linear-gradient(135deg, rgba(79,127,214,0.16), rgba(255,255,255,0.03));
+    border: 1px solid var(--bg-card-border); border-radius: var(--radius);
+}
+.ppid-avatar {
+    flex-shrink: 0; width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-size: 18px; font-weight: 800; color: #fff;
+    background: linear-gradient(135deg, var(--own-color), #3a5fb0);
+}
+.ppid-player-header-info { min-width: 0; }
+.ppid-player-name { font-size: 19px; font-weight: 700; color: var(--text-primary); }
+.ppid-player-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.ppid-badge {
+    display: inline-block; font-size: 11.5px; font-weight: 700; padding: 4px 11px; border-radius: 999px;
+    background: rgba(79,127,214,0.25); color: #9db8f0;
+}
+.ppid-badge-muted { background: rgba(255,255,255,0.08); color: var(--text-secondary); }
+.ppid-badge-warn { background: rgba(249,162,64,0.2); color: var(--accent-gold); }
+
+.ppid-criteria-card {
+    background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: var(--radius);
+    padding: 16px 18px; margin-bottom: 24px;
+}
+.ppid-criteria-card h3 { font-size: 14.5px; margin-bottom: 10px; }
+.ppid-criteria-list { list-style: none; display: flex; flex-direction: column; gap: 7px; margin: 0 0 10px; padding: 0; }
+.ppid-criteria-list li {
+    font-size: 13px; color: var(--text-primary); padding: 8px 12px; border-radius: 6px;
+    background: rgba(111,207,122,0.08); border-left: 3px solid var(--positive);
+}
+.ppid-full-grid { margin-top: 8px; }
+.ppid-full-grid summary { list-style: none; cursor: pointer; font-size: 12px; color: var(--text-secondary); }
+.ppid-full-grid summary::-webkit-details-marker { display: none; }
+.ppid-full-grid summary:hover { color: var(--text-primary); }
+.ppid-full-grid[open] summary { margin-bottom: 10px; }
+
+.ppid-add-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.ppid-add-trigger { flex-shrink: 0; }
+
+.ppid-timeline-merged .ppid-eval-card { position: relative; border-left: 3px solid var(--bg-card-border); }
+.ppid-card-rugby { border-left-color: var(--own-color); }
+.ppid-card-physical { border-left-color: var(--positive); }
+.ppid-card-entretien { border-left-color: var(--accent-gold); }
+.ppid-type-rugby { background: rgba(79,127,214,0.2); color: #9db8f0; }
+.ppid-type-physical { background: rgba(111,207,122,0.2); color: var(--positive); }
+.ppid-type-entretien { background: rgba(249,162,64,0.2); color: var(--accent-gold); }
+
+@media (max-width: 640px) {
+    .ppid-player-header { flex-direction: column; align-items: flex-start; text-align: left; }
+    .ppid-add-row { flex-direction: column; }
+    .ppid-add-row .ppid-add-trigger { width: 100%; }
+}
+
 /* Sous-menu imbriqué "🎥 Analyse vidéo" DANS le menu ☰ (regroupe toutes les pages qui
    existaient avant l'ajout des espaces Documents/Calendrier/Cahier des charges). */
 .landing-dropdown-sub { position: relative; }
