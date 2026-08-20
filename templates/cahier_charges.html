@@ -136,90 +136,181 @@ function ccFilterPlayers(query) {
 {% endif %}
 
 {% if selected_player %}
-<div class="ppid-section">
-    <details class="docs-action-panel ppid-profil-panel">
-        <summary class="btn btn-secondary">📐 Profil par poste — grille de référence{{ ' (' ~ selected_player['ppid_position'] ~ ')' if selected_player['ppid_position'] else '' }}</summary>
-        <div class="ppid-profil-wrap">
-            {% if not selected_player['ppid_position'] %}
-            <p class="docs-hint">💡 Poste PPID non renseigné pour {{ selected_player['first_name'] }} — règle-le depuis ☰ → Gestion des joueurs pour mettre sa colonne en évidence ci-dessous.</p>
-            {% endif %}
-            <div class="ppid-profil-scroll">
-                <table class="ppid-profil-table">
-                    <thead>
-                        <tr>
-                            <th></th>
-                            {% for pos in ppid_positions %}
-                            <th class="{{ 'ppid-col-active' if selected_player['ppid_position']==pos else '' }}">{{ pos }}</th>
-                            {% endfor %}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for row_label in ppid_profil_rows %}
-                        <tr>
-                            <th class="ppid-row-label">{{ row_label }}</th>
-                            {% for pos in ppid_positions %}
-                            <td class="{{ 'ppid-col-active' if selected_player['ppid_position']==pos else '' }}">{{ ppid_profil_par_poste[row_label][pos] }}</td>
-                            {% endfor %}
-                        </tr>
+<div class="ppid-player-header">
+    <div class="ppid-avatar">{{ (selected_player['first_name'][:1] ~ selected_player['last_name'][:1])|upper }}</div>
+    <div class="ppid-player-header-info">
+        <div class="ppid-player-name">{{ selected_player['first_name'] }} {{ selected_player['last_name'] }}</div>
+        <div class="ppid-player-badges">
+            {% if selected_player['ppid_position'] %}<span class="ppid-badge">{{ selected_player['ppid_position'] }}</span>{% endif %}
+            {% if selected_player['group_name'] %}<span class="ppid-badge ppid-badge-muted">{{ selected_player['group_name'] }}</span>{% endif %}
+            {% if not selected_player['ppid_position'] %}<span class="ppid-badge ppid-badge-warn">Poste PPID non réglé</span>{% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="ppid-criteria-card">
+    <h3>📐 Ses critères clés{{ ' — ' ~ selected_player['ppid_position'] if selected_player['ppid_position'] else '' }}</h3>
+    {% if selected_player['ppid_position'] %}
+    <ul class="ppid-criteria-list">
+        {% for row_label in ppid_profil_rows %}
+        <li>{{ ppid_profil_par_poste[row_label][selected_player['ppid_position']] }}</li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="docs-hint">💡 Poste PPID non renseigné pour {{ selected_player['first_name'] }} — règle-le depuis ☰ → Gestion des joueurs pour voir ses critères personnalisés ici.</p>
+    {% endif %}
+    <details class="ppid-full-grid">
+        <summary>Voir la grille complète (tous les postes)</summary>
+        <div class="ppid-profil-scroll">
+            <table class="ppid-profil-table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        {% for pos in ppid_positions %}
+                        <th class="{{ 'ppid-col-active' if selected_player['ppid_position']==pos else '' }}">{{ pos }}</th>
                         {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row_label in ppid_profil_rows %}
+                    <tr>
+                        <th class="ppid-row-label">{{ row_label }}</th>
+                        {% for pos in ppid_positions %}
+                        <td class="{{ 'ppid-col-active' if selected_player['ppid_position']==pos else '' }}">{{ ppid_profil_par_poste[row_label][pos] }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </details>
 </div>
 
 <div class="ppid-section">
     <div class="ppid-section-header">
-        <h2>🏉 Évaluation rugby</h2>
-        <details class="docs-action-panel">
-            <summary class="btn">＋ Nouveau point d'étape</summary>
-            <form method="POST" action="{{ url_for('ppid_rugby_add', player_id=selected_player['id']) }}" class="docs-form ppid-eval-form">
-                <div class="cal-form-row">
-                    <div class="form-group">
-                        <label>Période</label>
-                        <input type="text" name="period_label" placeholder="ex. Novembre - Janvier" required>
+        <h2>📋 Historique complet</h2>
+        <div class="ppid-add-row">
+            <details class="docs-action-panel ppid-add-trigger">
+                <summary class="btn">＋ Point d'étape rugby</summary>
+                <form method="POST" action="{{ url_for('ppid_rugby_add', player_id=selected_player['id']) }}" class="docs-form ppid-eval-form">
+                    <div class="cal-form-row">
+                        <div class="form-group">
+                            <label>Période</label>
+                            <input type="text" name="period_label" placeholder="ex. Novembre - Janvier" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Date du bilan</label>
+                            <input type="date" name="eval_date">
+                        </div>
+                    </div>
+                    <div class="ppid-cat-grid">
+                        {% for key, label in ppid_rugby_categories %}
+                        <div class="ppid-cat-row">
+                            <label>{{ label }}</label>
+                            <div class="ppid-cat-inputs">
+                                <select name="note__{{ key }}">
+                                    <option value="">— Note —</option>
+                                    {% for n in ppid_rugby_notes %}
+                                    <option value="{{ n }}">{{ n }}</option>
+                                    {% endfor %}
+                                </select>
+                                <input type="text" name="commentaire__{{ key }}" placeholder="Commentaire (optionnel)">
+                            </div>
+                        </div>
+                        {% endfor %}
                     </div>
                     <div class="form-group">
-                        <label>Date du bilan</label>
-                        <input type="date" name="eval_date">
+                        <label>Objectifs pour la période</label>
+                        <input type="text" name="objectifs" placeholder="ex. Se mettre au niveau de la mêlée fermée...">
                     </div>
-                </div>
-                <div class="ppid-cat-grid">
-                    {% for key, label in ppid_rugby_categories %}
-                    <div class="ppid-cat-row">
-                        <label>{{ label }}</label>
-                        <div class="ppid-cat-inputs">
-                            <select name="note__{{ key }}">
-                                <option value="">— Note —</option>
-                                {% for n in ppid_rugby_notes %}
+                    <div class="form-group">
+                        <label>Entraînements spécifiques / intervenants</label>
+                        <input type="text" name="entrainements" placeholder="ex. Socle commun rugby, musculation JB Poux...">
+                    </div>
+                    <button type="submit" class="btn">Enregistrer le point d'étape</button>
+                </form>
+            </details>
+            <details class="docs-action-panel ppid-add-trigger">
+                <summary class="btn">＋ Point d'étape physique</summary>
+                <form method="POST" action="{{ url_for('ppid_physical_add', player_id=selected_player['id']) }}" class="docs-form ppid-eval-form">
+                    <div class="cal-form-row">
+                        <div class="form-group">
+                            <label>Période</label>
+                            <input type="text" name="period_label" placeholder="ex. Novembre - Janvier" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Date du bilan</label>
+                            <input type="date" name="eval_date">
+                        </div>
+                    </div>
+                    <div class="ppid-cat-grid">
+                        {% for key, label in ppid_physical_categories %}
+                        <div class="ppid-cat-row">
+                            <label>{{ label }}</label>
+                            <select name="coach__{{ key }}">
+                                <option value="">— Note coach —</option>
+                                {% for n in ppid_physical_notes %}
                                 <option value="{{ n }}">{{ n }}</option>
                                 {% endfor %}
                             </select>
-                            <input type="text" name="commentaire__{{ key }}" placeholder="Commentaire (optionnel)">
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <p class="docs-hint">💡 L'auto-évaluation de {{ selected_player['first_name'] }} sera renseignée par lui-même depuis « Mes évaluations » — pas besoin de la saisir ici.</p>
+                    <div class="form-group">
+                        <label>Commentaires</label>
+                        <input type="text" name="commentaires" placeholder="Commentaires libres">
+                    </div>
+                    <div class="cal-form-row">
+                        <div class="form-group">
+                            <label>Axe de travail — Musculation</label>
+                            <input type="text" name="axe_musculation">
+                        </div>
+                        <div class="form-group">
+                            <label>Axe de travail — Terrain</label>
+                            <input type="text" name="axe_terrain">
                         </div>
                     </div>
-                    {% endfor %}
-                </div>
-                <div class="form-group">
-                    <label>Objectifs pour la période</label>
-                    <input type="text" name="objectifs" placeholder="ex. Se mettre au niveau de la mêlée fermée...">
-                </div>
-                <div class="form-group">
-                    <label>Entraînements spécifiques / intervenants</label>
-                    <input type="text" name="entrainements" placeholder="ex. Socle commun rugby, musculation JB Poux...">
-                </div>
-                <button type="submit" class="btn">Enregistrer le point d'étape</button>
-            </form>
-        </details>
+                    <button type="submit" class="btn">Enregistrer le point d'étape</button>
+                </form>
+            </details>
+            <details class="docs-action-panel ppid-add-trigger">
+                <summary class="btn">＋ Entretien</summary>
+                <form method="POST" action="{{ url_for('ppid_entretien_add', player_id=selected_player['id']) }}" class="docs-form ppid-eval-form">
+                    <div class="cal-form-row">
+                        <div class="form-group">
+                            <label>Date</label>
+                            <input type="date" name="entretien_date" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Type</label>
+                            <select name="entretien_type" required>
+                                {% for t in ppid_entretien_types %}
+                                <option value="{{ t }}">{{ t }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Notes</label>
+                        <textarea name="notes" rows="4" placeholder="Ce qui a été dit, décidé, à retenir..."></textarea>
+                    </div>
+                    <button type="submit" class="btn">Enregistrer l'entretien</button>
+                    <p class="docs-hint">💡 Visible par {{ selected_player['first_name'] }} dans « Mes évaluations », comme le reste du P.P.I.D.</p>
+                </form>
+            </details>
+        </div>
     </div>
 
-    {% if rugby_evals %}
-    <div class="ppid-timeline">
-        {% for ev in rugby_evals %}
-        <div class="ppid-eval-card">
+    {% if ppid_timeline %}
+    <div class="ppid-timeline ppid-timeline-merged">
+        {% for item in ppid_timeline %}
+        {% if item.type == 'rugby' %}
+        {% set ev = item.data %}
+        <div class="ppid-eval-card ppid-card-rugby">
             <div class="ppid-eval-card-head">
                 <div>
+                    <span class="ppid-entretien-type ppid-type-rugby">🏉 Évaluation rugby</span>
                     <strong>{{ ev.period_label }}</strong>
                     {% if ev.date_human %}<span class="ppid-eval-date">{{ ev.date_human }}</span>{% endif %}
                 </div>
@@ -283,68 +374,12 @@ function ccFilterPlayers(query) {
             {% if ev.objectifs %}<div class="ppid-callout"><strong>🎯 Objectifs —</strong> {{ ev.objectifs }}</div>{% endif %}
             {% if ev.entrainements %}<div class="ppid-callout"><strong>🏋️ Entraînements spécifiques —</strong> {{ ev.entrainements }}</div>{% endif %}
         </div>
-        {% endfor %}
-    </div>
-    {% else %}
-    <div class="empty-state"><p>Aucun point d'étape rugby pour {{ selected_player['first_name'] }} pour le moment.</p></div>
-    {% endif %}
-</div>
-
-<div class="ppid-section">
-    <div class="ppid-section-header">
-        <h2>💪 Évaluation physique</h2>
-        <details class="docs-action-panel">
-            <summary class="btn">＋ Nouveau point d'étape</summary>
-            <form method="POST" action="{{ url_for('ppid_physical_add', player_id=selected_player['id']) }}" class="docs-form ppid-eval-form">
-                <div class="cal-form-row">
-                    <div class="form-group">
-                        <label>Période</label>
-                        <input type="text" name="period_label" placeholder="ex. Novembre - Janvier" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Date du bilan</label>
-                        <input type="date" name="eval_date">
-                    </div>
-                </div>
-                <div class="ppid-cat-grid">
-                    {% for key, label in ppid_physical_categories %}
-                    <div class="ppid-cat-row">
-                        <label>{{ label }}</label>
-                        <select name="coach__{{ key }}">
-                            <option value="">— Note coach —</option>
-                            {% for n in ppid_physical_notes %}
-                            <option value="{{ n }}">{{ n }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    {% endfor %}
-                </div>
-                <p class="docs-hint">💡 L'auto-évaluation de {{ selected_player['first_name'] }} sera renseignée par lui-même depuis « Mes évaluations » — pas besoin de la saisir ici.</p>
-                <div class="form-group">
-                    <label>Commentaires</label>
-                    <input type="text" name="commentaires" placeholder="Commentaires libres">
-                </div>
-                <div class="cal-form-row">
-                    <div class="form-group">
-                        <label>Axe de travail — Musculation</label>
-                        <input type="text" name="axe_musculation">
-                    </div>
-                    <div class="form-group">
-                        <label>Axe de travail — Terrain</label>
-                        <input type="text" name="axe_terrain">
-                    </div>
-                </div>
-                <button type="submit" class="btn">Enregistrer le point d'étape</button>
-            </form>
-        </details>
-    </div>
-
-    {% if physical_evals %}
-    <div class="ppid-timeline">
-        {% for ev in physical_evals %}
-        <div class="ppid-eval-card">
+        {% elif item.type == 'physical' %}
+        {% set ev = item.data %}
+        <div class="ppid-eval-card ppid-card-physical">
             <div class="ppid-eval-card-head">
                 <div>
+                    <span class="ppid-entretien-type ppid-type-physical">💪 Évaluation physique</span>
                     <strong>{{ ev.period_label }}</strong>
                     {% if ev.date_human %}<span class="ppid-eval-date">{{ ev.date_human }}</span>{% endif %}
                 </div>
@@ -415,50 +450,12 @@ function ccFilterPlayers(query) {
             {% if ev.axe_musculation %}<div class="ppid-callout"><strong>🏋️ Musculation —</strong> {{ ev.axe_musculation }}</div>{% endif %}
             {% if ev.axe_terrain %}<div class="ppid-callout"><strong>🏃 Terrain —</strong> {{ ev.axe_terrain }}</div>{% endif %}
         </div>
-        {% endfor %}
-    </div>
-    {% else %}
-    <div class="empty-state"><p>Aucun point d'étape physique pour {{ selected_player['first_name'] }} pour le moment.</p></div>
-    {% endif %}
-</div>
-
-<div class="ppid-section">
-    <div class="ppid-section-header">
-        <h2>📝 Cahier d'entretien</h2>
-        <details class="docs-action-panel">
-            <summary class="btn">＋ Nouvel entretien</summary>
-            <form method="POST" action="{{ url_for('ppid_entretien_add', player_id=selected_player['id']) }}" class="docs-form ppid-eval-form">
-                <div class="cal-form-row">
-                    <div class="form-group">
-                        <label>Date</label>
-                        <input type="date" name="entretien_date" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Type</label>
-                        <select name="entretien_type" required>
-                            {% for t in ppid_entretien_types %}
-                            <option value="{{ t }}">{{ t }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Notes</label>
-                    <textarea name="notes" rows="4" placeholder="Ce qui a été dit, décidé, à retenir..."></textarea>
-                </div>
-                <button type="submit" class="btn">Enregistrer l'entretien</button>
-                <p class="docs-hint">💡 Visible par {{ selected_player['first_name'] }} dans « Mes évaluations », comme le reste du P.P.I.D.</p>
-            </form>
-        </details>
-    </div>
-
-    {% if entretiens %}
-    <div class="ppid-timeline">
-        {% for e in entretiens %}
-        <div class="ppid-eval-card">
+        {% else %}
+        {% set e = item.data %}
+        <div class="ppid-eval-card ppid-card-entretien">
             <div class="ppid-eval-card-head">
                 <div>
-                    <span class="ppid-entretien-type">{{ e.entretien_type }}</span>
+                    <span class="ppid-entretien-type ppid-type-entretien">📝 {{ e.entretien_type }}</span>
                     <span class="ppid-eval-date">{{ e.date_human }}</span>
                 </div>
                 <div class="ppid-eval-card-actions">
@@ -494,10 +491,11 @@ function ccFilterPlayers(query) {
             </details>
             {% if e.notes %}<div class="ppid-callout ppid-entretien-notes">{{ e.notes }}</div>{% endif %}
         </div>
+        {% endif %}
         {% endfor %}
     </div>
     {% else %}
-    <div class="empty-state"><p>Aucun entretien enregistré pour {{ selected_player['first_name'] }} pour le moment.</p></div>
+    <div class="empty-state"><p>Rien d'enregistré pour {{ selected_player['first_name'] }} pour le moment — utilise les boutons ci-dessus pour commencer.</p></div>
     {% endif %}
 </div>
 {% endif %}
