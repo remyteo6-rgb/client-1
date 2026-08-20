@@ -7,7 +7,7 @@
         <h1>📋 Cahier des charges</h1>
         <p class="subtitle">
             {% if selected_player %}
-                Suivi individuel de {{ selected_player['first_name'] }} {{ selected_player['last_name'] }} — {{ total_count }} tâche{{ 's' if total_count != 1 else '' }}. Cette liste n'est jamais visible par le joueur ; les documents déposés plus bas le sont.
+                Suivi individuel de {{ selected_player['first_name'] }} {{ selected_player['last_name'] }} — {{ total_count }} tâche{{ 's' if total_count != 1 else '' }} dans la liste « À faire / En cours / Fait » tout en bas (jamais visible par le joueur). Les documents déposés et le P.P.I.D (profil, évaluations rugby et physique) sont eux visibles par {{ selected_player['first_name'] }} dans son espace.
             {% else %}
                 {{ total_count }} tâche{{ 's' if total_count != 1 else '' }} au total (général, hors suivi individuel)
             {% endif %}
@@ -133,6 +133,294 @@ function ccFilterPlayers(query) {
     <p>Aucun document déposé pour {{ selected_player['first_name'] }} pour le moment.</p>
 </div>
 {% endif %}
+{% endif %}
+
+{% if selected_player %}
+<div class="ppid-section">
+    <details class="docs-action-panel ppid-profil-panel">
+        <summary class="btn btn-secondary">📐 Profil par poste — grille de référence{{ ' (' ~ selected_player['ppid_position'] ~ ')' if selected_player['ppid_position'] else '' }}</summary>
+        <div class="ppid-profil-wrap">
+            {% if not selected_player['ppid_position'] %}
+            <p class="docs-hint">💡 Poste PPID non renseigné pour {{ selected_player['first_name'] }} — règle-le depuis ☰ → Gestion des joueurs pour mettre sa colonne en évidence ci-dessous.</p>
+            {% endif %}
+            <div class="ppid-profil-scroll">
+                <table class="ppid-profil-table">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            {% for pos in ppid_positions %}
+                            <th class="{{ 'ppid-col-active' if selected_player['ppid_position']==pos else '' }}">{{ pos }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row_label in ppid_profil_rows %}
+                        <tr>
+                            <th class="ppid-row-label">{{ row_label }}</th>
+                            {% for pos in ppid_positions %}
+                            <td class="{{ 'ppid-col-active' if selected_player['ppid_position']==pos else '' }}">{{ ppid_profil_par_poste[row_label][pos] }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </details>
+</div>
+
+<div class="ppid-section">
+    <div class="ppid-section-header">
+        <h2>🏉 Évaluation rugby</h2>
+        <details class="docs-action-panel">
+            <summary class="btn">＋ Nouveau point d'étape</summary>
+            <form method="POST" action="{{ url_for('ppid_rugby_add', player_id=selected_player['id']) }}" class="docs-form ppid-eval-form">
+                <div class="cal-form-row">
+                    <div class="form-group">
+                        <label>Période</label>
+                        <input type="text" name="period_label" placeholder="ex. Novembre - Janvier" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Date du bilan</label>
+                        <input type="date" name="eval_date">
+                    </div>
+                </div>
+                <div class="ppid-cat-grid">
+                    {% for key, label in ppid_rugby_categories %}
+                    <div class="ppid-cat-row">
+                        <label>{{ label }}</label>
+                        <div class="ppid-cat-inputs">
+                            <select name="note__{{ key }}">
+                                <option value="">— Note —</option>
+                                {% for n in ppid_rugby_notes %}
+                                <option value="{{ n }}">{{ n }}</option>
+                                {% endfor %}
+                            </select>
+                            <input type="text" name="commentaire__{{ key }}" placeholder="Commentaire (optionnel)">
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="form-group">
+                    <label>Objectifs pour la période</label>
+                    <input type="text" name="objectifs" placeholder="ex. Se mettre au niveau de la mêlée fermée...">
+                </div>
+                <div class="form-group">
+                    <label>Entraînements spécifiques / intervenants</label>
+                    <input type="text" name="entrainements" placeholder="ex. Socle commun rugby, musculation JB Poux...">
+                </div>
+                <button type="submit" class="btn">Enregistrer le point d'étape</button>
+            </form>
+        </details>
+    </div>
+
+    {% if rugby_evals %}
+    <div class="ppid-timeline">
+        {% for ev in rugby_evals %}
+        <div class="ppid-eval-card">
+            <div class="ppid-eval-card-head">
+                <div>
+                    <strong>{{ ev.period_label }}</strong>
+                    {% if ev.date_human %}<span class="ppid-eval-date">{{ ev.date_human }}</span>{% endif %}
+                </div>
+                <div class="ppid-eval-card-actions">
+                    <form method="POST" action="{{ url_for('ppid_rugby_delete', eval_id=ev.id) }}" class="docs-delete-form"
+                          onsubmit="return confirm('Supprimer ce point d\'étape ?');">
+                        <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer">🗑️</button>
+                    </form>
+                </div>
+            </div>
+            <details class="ppid-inline-edit">
+                <summary class="docs-mini-btn" title="Modifier">✏️ Modifier</summary>
+                <form method="POST" action="{{ url_for('ppid_rugby_edit', eval_id=ev.id) }}" class="docs-form ppid-eval-form">
+                    <div class="cal-form-row">
+                        <div class="form-group">
+                            <label>Période</label>
+                            <input type="text" name="period_label" value="{{ ev.period_label }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Date du bilan</label>
+                            <input type="date" name="eval_date" value="{{ ev.eval_date or '' }}">
+                        </div>
+                    </div>
+                    <div class="ppid-cat-grid">
+                        {% for key, label in ppid_rugby_categories %}
+                        <div class="ppid-cat-row">
+                            <label>{{ label }}</label>
+                            <div class="ppid-cat-inputs">
+                                <select name="note__{{ key }}">
+                                    <option value="">— Note —</option>
+                                    {% for n in ppid_rugby_notes %}
+                                    <option value="{{ n }}" {{ 'selected' if ev.ratings[key].get('note')==n else '' }}>{{ n }}</option>
+                                    {% endfor %}
+                                </select>
+                                <input type="text" name="commentaire__{{ key }}" value="{{ ev.ratings[key].get('commentaire') or '' }}" placeholder="Commentaire (optionnel)">
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="form-group">
+                        <label>Objectifs pour la période</label>
+                        <input type="text" name="objectifs" value="{{ ev.objectifs or '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Entraînements spécifiques / intervenants</label>
+                        <input type="text" name="entrainements" value="{{ ev.entrainements or '' }}">
+                    </div>
+                    <button type="submit" class="btn">Mettre à jour</button>
+                </form>
+            </details>
+            <div class="ppid-pill-grid">
+                {% for key, label in ppid_rugby_categories %}
+                {% set note = ev.ratings[key].get('note') %}
+                <div class="ppid-pill-item">
+                    <span class="ppid-pill {{ 'ppid-pill-exl' if note=='EXL' else ('ppid-pill-bien' if note=='BIEN' else ('ppid-pill-moy' if note=='MOY' else 'ppid-pill-empty')) }}">{{ note or '—' }}</span>
+                    <div class="ppid-pill-label">{{ label }}</div>
+                    {% if ev.ratings[key].get('commentaire') %}<div class="ppid-pill-comment">{{ ev.ratings[key].get('commentaire') }}</div>{% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% if ev.objectifs %}<div class="ppid-callout"><strong>🎯 Objectifs —</strong> {{ ev.objectifs }}</div>{% endif %}
+            {% if ev.entrainements %}<div class="ppid-callout"><strong>🏋️ Entraînements spécifiques —</strong> {{ ev.entrainements }}</div>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state"><p>Aucun point d'étape rugby pour {{ selected_player['first_name'] }} pour le moment.</p></div>
+    {% endif %}
+</div>
+
+<div class="ppid-section">
+    <div class="ppid-section-header">
+        <h2>💪 Évaluation physique</h2>
+        <details class="docs-action-panel">
+            <summary class="btn">＋ Nouveau point d'étape</summary>
+            <form method="POST" action="{{ url_for('ppid_physical_add', player_id=selected_player['id']) }}" class="docs-form ppid-eval-form">
+                <div class="cal-form-row">
+                    <div class="form-group">
+                        <label>Période</label>
+                        <input type="text" name="period_label" placeholder="ex. Novembre - Janvier" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Date du bilan</label>
+                        <input type="date" name="eval_date">
+                    </div>
+                </div>
+                <div class="ppid-cat-grid">
+                    {% for key, label in ppid_physical_categories %}
+                    <div class="ppid-cat-row">
+                        <label>{{ label }}</label>
+                        <select name="coach__{{ key }}">
+                            <option value="">— Note coach —</option>
+                            {% for n in ppid_physical_notes %}
+                            <option value="{{ n }}">{{ n }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endfor %}
+                </div>
+                <p class="docs-hint">💡 L'auto-évaluation de {{ selected_player['first_name'] }} sera renseignée par lui-même depuis « Mes évaluations » — pas besoin de la saisir ici.</p>
+                <div class="form-group">
+                    <label>Commentaires</label>
+                    <input type="text" name="commentaires" placeholder="Commentaires libres">
+                </div>
+                <div class="cal-form-row">
+                    <div class="form-group">
+                        <label>Axe de travail — Musculation</label>
+                        <input type="text" name="axe_musculation">
+                    </div>
+                    <div class="form-group">
+                        <label>Axe de travail — Terrain</label>
+                        <input type="text" name="axe_terrain">
+                    </div>
+                </div>
+                <button type="submit" class="btn">Enregistrer le point d'étape</button>
+            </form>
+        </details>
+    </div>
+
+    {% if physical_evals %}
+    <div class="ppid-timeline">
+        {% for ev in physical_evals %}
+        <div class="ppid-eval-card">
+            <div class="ppid-eval-card-head">
+                <div>
+                    <strong>{{ ev.period_label }}</strong>
+                    {% if ev.date_human %}<span class="ppid-eval-date">{{ ev.date_human }}</span>{% endif %}
+                </div>
+                <div class="ppid-eval-card-actions">
+                    <form method="POST" action="{{ url_for('ppid_physical_delete', eval_id=ev.id) }}" class="docs-delete-form"
+                          onsubmit="return confirm('Supprimer ce point d\'étape ?');">
+                        <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer">🗑️</button>
+                    </form>
+                </div>
+            </div>
+            <details class="ppid-inline-edit">
+                <summary class="docs-mini-btn" title="Modifier">✏️ Modifier</summary>
+                <form method="POST" action="{{ url_for('ppid_physical_edit', eval_id=ev.id) }}" class="docs-form ppid-eval-form">
+                    <div class="cal-form-row">
+                        <div class="form-group">
+                            <label>Période</label>
+                            <input type="text" name="period_label" value="{{ ev.period_label }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Date du bilan</label>
+                            <input type="date" name="eval_date" value="{{ ev.eval_date or '' }}">
+                        </div>
+                    </div>
+                    <div class="ppid-cat-grid">
+                        {% for key, label in ppid_physical_categories %}
+                        <div class="ppid-cat-row">
+                            <label>{{ label }} <span class="docs-hint">(auto : {{ ev.ratings[key].get('auto') or '—' }})</span></label>
+                            <select name="coach__{{ key }}">
+                                <option value="">— Note coach —</option>
+                                {% for n in ppid_physical_notes %}
+                                <option value="{{ n }}" {{ 'selected' if ev.ratings[key].get('coach')==n else '' }}>{{ n }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="form-group">
+                        <label>Commentaires</label>
+                        <input type="text" name="commentaires" value="{{ ev.commentaires or '' }}">
+                    </div>
+                    <div class="cal-form-row">
+                        <div class="form-group">
+                            <label>Axe de travail — Musculation</label>
+                            <input type="text" name="axe_musculation" value="{{ ev.axe_musculation or '' }}">
+                        </div>
+                        <div class="form-group">
+                            <label>Axe de travail — Terrain</label>
+                            <input type="text" name="axe_terrain" value="{{ ev.axe_terrain or '' }}">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn">Mettre à jour</button>
+                </form>
+            </details>
+            <div class="ppid-pill-grid">
+                {% for key, label in ppid_physical_categories %}
+                {% set coach = ev.ratings[key].get('coach') %}
+                {% set auto = ev.ratings[key].get('auto') %}
+                <div class="ppid-pill-item">
+                    <div class="ppid-pill-pair">
+                        <span class="ppid-pill {{ 'ppid-pill-exl' if coach=='Excellent' else ('ppid-pill-bien' if coach=='Bien' else ('ppid-pill-moy' if coach=='Moyen' else 'ppid-pill-empty')) }}" title="Note coach">🧑‍🏫 {{ coach or '—' }}</span>
+                        <span class="ppid-pill {{ 'ppid-pill-exl' if auto=='Excellent' else ('ppid-pill-bien' if auto=='Bien' else ('ppid-pill-moy' if auto=='Moyen' else 'ppid-pill-empty')) }}" title="Auto-évaluation joueur">🙋 {{ auto or '—' }}</span>
+                    </div>
+                    <div class="ppid-pill-label">{{ label }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            {% if ev.commentaires %}<div class="ppid-callout"><strong>📝 Commentaires —</strong> {{ ev.commentaires }}</div>{% endif %}
+            {% if ev.axe_musculation %}<div class="ppid-callout"><strong>🏋️ Musculation —</strong> {{ ev.axe_musculation }}</div>{% endif %}
+            {% if ev.axe_terrain %}<div class="ppid-callout"><strong>🏃 Terrain —</strong> {{ ev.axe_terrain }}</div>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state"><p>Aucun point d'étape physique pour {{ selected_player['first_name'] }} pour le moment.</p></div>
+    {% endif %}
+</div>
 {% endif %}
 
 <div class="docs-actions">
