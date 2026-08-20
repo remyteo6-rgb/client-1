@@ -2007,10 +2007,12 @@ def player_evaluations():
     ]
     return render_template(
         "player_evaluations.html", player=player, rugby_evals=rugby_evals, physical_evals=physical_evals,
-        entretiens=entretiens,
+        entretiens=entretiens, ppid_timeline=_ppid_timeline(rugby_evals, physical_evals, entretiens),
         ppid_rugby_categories=_ppid_rugby_categories_for_position(player.get("ppid_position")),
         ppid_physical_categories=PPID_PHYSICAL_CATEGORIES,
         ppid_physical_notes=PPID_PHYSICAL_NOTES,
+        ppid_profil_rows=PPID_PROFIL_ROWS,
+        ppid_profil_par_poste=PPID_PROFIL_PAR_POSTE,
     )
 
 @app.route("/mes-evaluations/physique/<int:eval_id>/auto", methods=["POST"])
@@ -2285,6 +2287,20 @@ def _ppid_entretien_row_view(row):
     r["date_human"] = r.get("entretien_date") or (r.get("created_at") or "")[:10]
     return r
 
+def _ppid_timeline(rugby_evals, physical_evals, entretiens):
+    """Fusionne les 3 flux du P.P.I.D (évaluation rugby, évaluation physique, cahier
+    d'entretien) en une seule chronologie triée par date décroissante — pour voir d'un
+    coup tout ce qui concerne un joueur plutôt que de parcourir 3 sections séparées."""
+    items = []
+    for ev in rugby_evals:
+        items.append({"type": "rugby", "sort_key": ev.get("eval_date") or (ev.get("created_at") or ""), "data": ev})
+    for ev in physical_evals:
+        items.append({"type": "physical", "sort_key": ev.get("eval_date") or (ev.get("created_at") or ""), "data": ev})
+    for e in entretiens:
+        items.append({"type": "entretien", "sort_key": e.get("entretien_date") or (e.get("created_at") or ""), "data": e})
+    items.sort(key=lambda it: it["sort_key"] or "", reverse=True)
+    return items
+
 def _ppid_rugby_ratings_from_form(form):
     ratings = {}
     for key in PPID_RUGBY_CATEGORY_KEYS:
@@ -2341,7 +2357,12 @@ def cahier_charges():
         grouped_players.setdefault(p["group_name"] or "Sans groupe", []).append(p)
     selected_player = None
     if joueur_id:
-        selected_player = db.execute("SELECT * FROM players WHERE id = %s", (joueur_id,)).fetchone()
+        selected_player = db.execute(
+            """SELECT p.*, g.name AS group_name FROM players p
+               LEFT JOIN player_groups g ON g.id = p.group_id
+               WHERE p.id = %s""",
+            (joueur_id,),
+        ).fetchone()
         if not selected_player:
             joueur_id = None
     # IS NOT DISTINCT FROM plutôt que '=' : gère nativement le cas joueur_id=None (tâches
@@ -2396,6 +2417,7 @@ def cahier_charges():
         status_labels=CHARGES_STATUS_LABELS, total_count=len(rows),
         grouped_players=grouped_players, selected_player=selected_player, joueur_id=joueur_id, docs=docs_view,
         rugby_evals=rugby_evals, physical_evals=physical_evals, entretiens=entretiens,
+        ppid_timeline=_ppid_timeline(rugby_evals, physical_evals, entretiens),
         ppid_positions=PPID_POSITIONS,
         ppid_rugby_categories=_ppid_rugby_categories_for_position(selected_player.get("ppid_position") if selected_player else None),
         ppid_rugby_notes=PPID_RUGBY_NOTES, ppid_physical_categories=PPID_PHYSICAL_CATEGORIES,
