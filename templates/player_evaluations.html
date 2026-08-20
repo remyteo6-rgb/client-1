@@ -45,11 +45,20 @@
     {% endif %}
 
     {% if ppid_timeline %}
-    <div class="ppid-timeline ppid-timeline-merged">
+    {% set rugby_count = ppid_timeline|selectattr('type','equalto','rugby')|list|length %}
+    {% set physical_count = ppid_timeline|selectattr('type','equalto','physical')|list|length %}
+    {% set entretien_count = ppid_timeline|selectattr('type','equalto','entretien')|list|length %}
+    <div class="ppid-filter-row" id="ppidFilterRow">
+        <button type="button" class="ppid-filter-chip active" data-ppid-filter="all">Tous <span class="ppid-filter-count">{{ ppid_timeline|length }}</span></button>
+        <button type="button" class="ppid-filter-chip" data-ppid-filter="rugby">🏉 Rugby <span class="ppid-filter-count">{{ rugby_count }}</span></button>
+        <button type="button" class="ppid-filter-chip" data-ppid-filter="physical">💪 Physique <span class="ppid-filter-count">{{ physical_count }}</span></button>
+        <button type="button" class="ppid-filter-chip" data-ppid-filter="entretien">📝 Entretiens <span class="ppid-filter-count">{{ entretien_count }}</span></button>
+    </div>
+    <div class="ppid-timeline ppid-timeline-merged" id="ppidTimelineMerged">
         {% for item in ppid_timeline %}
         {% if item.type == 'rugby' %}
         {% set ev = item.data %}
-        <div class="ppid-eval-card ppid-card-rugby">
+        <div class="ppid-eval-card ppid-card-rugby" data-ppid-type="rugby">
             <div class="ppid-eval-card-head">
                 <div>
                     <span class="ppid-entretien-type ppid-type-rugby">🏉 Évaluation rugby</span>
@@ -72,7 +81,7 @@
         </div>
         {% elif item.type == 'physical' %}
         {% set ev = item.data %}
-        <div class="ppid-eval-card ppid-card-physical">
+        <div class="ppid-eval-card ppid-card-physical" data-ppid-type="physical">
             <div class="ppid-eval-card-head">
                 <div>
                     <span class="ppid-entretien-type ppid-type-physical">💪 Évaluation physique</span>
@@ -118,7 +127,7 @@
         </div>
         {% else %}
         {% set e = item.data %}
-        <div class="ppid-eval-card ppid-card-entretien">
+        <div class="ppid-eval-card ppid-card-entretien" data-ppid-type="entretien">
             <div class="ppid-eval-card-head">
                 <div>
                     <span class="ppid-entretien-type ppid-type-entretien">📝 {{ e.entretien_type }}</span>
@@ -130,6 +139,28 @@
         {% endif %}
         {% endfor %}
     </div>
+    <div class="empty-state" id="ppidFilterEmpty" style="display:none;"><p>Rien à afficher pour ce filtre.</p></div>
+    <script>
+    (function () {
+        var chips = document.querySelectorAll('#ppidFilterRow .ppid-filter-chip');
+        var cards = document.querySelectorAll('#ppidTimelineMerged [data-ppid-type]');
+        var emptyState = document.getElementById('ppidFilterEmpty');
+        chips.forEach(function (chip) {
+            chip.addEventListener('click', function () {
+                chips.forEach(function (c) { c.classList.remove('active'); });
+                chip.classList.add('active');
+                var filter = chip.dataset.ppidFilter;
+                var visibleCount = 0;
+                cards.forEach(function (card) {
+                    var show = filter === 'all' || card.dataset.ppidType === filter;
+                    card.style.display = show ? '' : 'none';
+                    if (show) visibleCount++;
+                });
+                emptyState.style.display = visibleCount === 0 ? '' : 'none';
+            });
+        });
+    })();
+    </script>
     {% else %}
     <div class="empty-state"><p>Rien d'enregistré pour le moment — reviens après ta prochaine évaluation avec le staff.</p></div>
     {% endif %}
