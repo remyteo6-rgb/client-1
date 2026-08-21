@@ -1,0 +1,33 @@
+{#
+    Petit set d'icônes SVG sobres pour le P.P.I.D (profil par poste / évaluations / cahier
+    d'entretien), à la place des emojis — plus cohérent visuellement d'un navigateur/OS à
+    l'autre, et un rendu plus "outil pro" que des emojis. Toutes héritent la couleur du texte
+    environnant (stroke="currentColor") : elles s'adaptent automatiquement au badge/bouton
+    dans lequel elles sont utilisées, sans classe de couleur à gérer en plus.
+#}
+
+{% macro rugby(size=15, cls='') %}<svg class="ppid-icon {{ cls }}" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="9.5" ry="6" transform="rotate(-42 12 12)"/><line x1="6" y1="18" x2="18" y2="6"/><line x1="8" y1="10.5" x2="10" y2="8.5"/><line x1="14" y1="15.5" x2="16" y2="13.5"/></svg>{% endmacro %}
+
+{% macro physical(size=15, cls='') %}<svg class="ppid-icon {{ cls }}" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="6.5" y1="12" x2="17.5" y2="12"/><rect x="1.5" y="9" width="3" height="6" rx="1"/><rect x="19.5" y="9" width="3" height="6" rx="1"/><rect x="5" y="7" width="2.4" height="10" rx="1"/><rect x="16.6" y="7" width="2.4" height="10" rx="1"/></svg>{% endmacro %}
+
+{% macro entretien(size=15, cls='') %}<svg class="ppid-icon {{ cls }}" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="12" rx="2"/><line x1="7.5" y1="8" x2="16.5" y2="8"/><line x1="7.5" y1="11.5" x2="13.5" y2="11.5"/><path d="M9 16v3.2l4-3.2"/></svg>{% endmacro %}
+
+{% macro edit(size=13, cls='') %}<svg class="ppid-icon {{ cls }}" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>{% endmacro %}
+
+{% macro delete(size=14, cls='') %}<svg class="ppid-icon {{ cls }}" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>{% endmacro %}
+
+{% macro add(size=13, cls='') %}<svg class="ppid-icon {{ cls }}" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>{% endmacro %}
+
+{% macro target(size=15, cls='') %}<svg class="ppid-icon {{ cls }}" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>{% endmacro %}
+
+{% macro training(size=15, cls='') %}<svg class="ppid-icon {{ cls }}" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 6"/><polyline points="15 6 21 6 21 12"/></svg>{% endmacro %}
+
+{% macro note(size=15, cls='') %}<svg class="ppid-icon {{ cls }}" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M15 3v5h5"/><line x1="8" y1="12.5" x2="16" y2="12.5"/><line x1="8" y1="16" x2="13" y2="16"/></svg>{% endmacro %}
+
+{% macro user_solid(size=12, cls='') %}<svg class="ppid-icon {{ cls }}" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="7.5" r="4.2"/><path d="M4 21a8 8 0 0 1 16 0Z"/></svg>{% endmacro %}
+
+{% macro user_outline(size=12, cls='') %}<svg class="ppid-icon {{ cls }}" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7.5" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg>{% endmacro %}
+
+{% macro criteria(size=15, cls='') %}<svg class="ppid-icon {{ cls }}" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="4.5" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="4.5" cy="18" r="1.3" fill="currentColor" stroke="none"/><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/></svg>{% endmacro %}
+
+{% macro history(size=16, cls='') %}<svg class="ppid-icon {{ cls }}" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14.5"/></svg>{% endmacro %}
