@@ -2005,6 +2005,8 @@ def player_evaluations():
             (player["id"],),
         ).fetchall()
     ]
+    _ppid_compute_trends(rugby_evals, PPID_RUGBY_CATEGORY_KEYS, lambda r: r.get("note"))
+    _ppid_compute_trends(physical_evals, [key for key, _label in PPID_PHYSICAL_CATEGORIES], lambda r: r.get("coach"))
     return render_template(
         "player_evaluations.html", player=player, rugby_evals=rugby_evals, physical_evals=physical_evals,
         entretiens=entretiens, ppid_timeline=_ppid_timeline(rugby_evals, physical_evals, entretiens),
@@ -2183,6 +2185,9 @@ PPID_PHYSICAL_CATEGORIES = [
     ("conditionning", "Conditionning / Énergétique"),
 ]
 PPID_PHYSICAL_NOTES = ["Moyen", "Bien", "Excellent"]
+# Rang numérique des notes des 2 échelles (rugby ET physique), pour calculer les flèches de
+# progression d'un critère entre 2 évaluations successives — voir _ppid_compute_trends().
+PPID_NOTE_RANK = {"MOY": 1, "BIEN": 2, "EXL": 3, "Moyen": 1, "Bien": 2, "Excellent": 3}
 
 PPID_ENTRETIEN_TYPES = ["Briefing", "Retour de match", "Préparation de match", "Entretien individuel", "Autre"]
 
@@ -2286,6 +2291,30 @@ def _ppid_entretien_row_view(row):
     r = dict(row)
     r["date_human"] = r.get("entretien_date") or (r.get("created_at") or "")[:10]
     return r
+
+def _ppid_compute_trends(evals, category_keys, value_getter):
+    """La « flèche du temps » demandée par le manager : pour chaque évaluation d'une série
+    (rugby OU physique, pour un même joueur), calcule la tendance de chaque critère par
+    rapport à l'évaluation précédente de LA MÊME série — on ne lit plus chaque évaluation
+    isolément, la progression du joueur dans la durée saute aux yeux. Écrit le résultat dans
+    eval['trends'][key] = 'up' | 'down' | 'flat' | None (None = pas de valeur précédente
+    comparable, typiquement la toute première évaluation du joueur sur ce critère). Modifie
+    les dicts en place : rugby_evals/physical_evals sont ensuite réutilisés tels quels par
+    _ppid_timeline, donc les tendances y sont automatiquement disponibles aussi."""
+    chronological = sorted(evals, key=lambda e: e.get("eval_date") or (e.get("created_at") or ""))
+    last_rank = {}
+    for ev in chronological:
+        trends = {}
+        for key in category_keys:
+            rank = PPID_NOTE_RANK.get(value_getter(ev["ratings"].get(key) or {}))
+            prev = last_rank.get(key)
+            if rank is not None and prev is not None:
+                trends[key] = "up" if rank > prev else ("down" if rank < prev else "flat")
+            else:
+                trends[key] = None
+            if rank is not None:
+                last_rank[key] = rank
+        ev["trends"] = trends
 
 def _ppid_timeline(rugby_evals, physical_evals, entretiens):
     """Fusionne les 3 flux du P.P.I.D (évaluation rugby, évaluation physique, cahier
@@ -2412,6 +2441,8 @@ def cahier_charges():
                 (joueur_id,),
             ).fetchall()
         ]
+        _ppid_compute_trends(rugby_evals, PPID_RUGBY_CATEGORY_KEYS, lambda r: r.get("note"))
+        _ppid_compute_trends(physical_evals, [key for key, _label in PPID_PHYSICAL_CATEGORIES], lambda r: r.get("coach"))
     return render_template(
         "cahier_charges.html", columns=columns, statuses=CHARGES_STATUSES,
         status_labels=CHARGES_STATUS_LABELS, total_count=len(rows),
