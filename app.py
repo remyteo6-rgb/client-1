@@ -2316,10 +2316,34 @@ def _ppid_compute_trends(evals, category_keys, value_getter):
                 last_rank[key] = rank
         ev["trends"] = trends
 
+PPID_MONTHS_FR_ABBR = [
+    "Janv.", "Févr.", "Mars", "Avr.", "Mai", "Juin",
+    "Juil.", "Août", "Sept.", "Oct.", "Nov.", "Déc.",
+]
+
+def _ppid_month_label(date_str):
+    """Convertit une date ISO ('2026-08-15' ou '2026-08-15T10:00:00') en repère de mois
+    court pour l'axe temporel ('Août 26') — retourne None si la date est absente/invalide
+    (l'axe n'affiche alors pas de repère pour cette entrée plutôt que de deviner)."""
+    if not date_str or len(date_str) < 7:
+        return None
+    try:
+        year, month = int(date_str[0:4]), int(date_str[5:7])
+    except ValueError:
+        return None
+    if not (1 <= month <= 12):
+        return None
+    return f"{PPID_MONTHS_FR_ABBR[month - 1]} {year % 100:02d}"
+
 def _ppid_timeline(rugby_evals, physical_evals, entretiens):
     """Fusionne les 3 flux du P.P.I.D (évaluation rugby, évaluation physique, cahier
     d'entretien) en une seule chronologie triée par date décroissante — pour voir d'un
-    coup tout ce qui concerne un joueur plutôt que de parcourir 3 sections séparées."""
+    coup tout ce qui concerne un joueur plutôt que de parcourir 3 sections séparées.
+    Chaque entrée porte aussi son repère de mois ('month_label', ex. 'Août 26') pour l'axe
+    temporel gradué par mois demandé par le manager. On calcule le repère sur CHAQUE entrée
+    (pas seulement la première du mois) : c'est le JS côté template qui décide, au moment de
+    l'affichage, sur quelle carte le faire apparaître — nécessaire pour que le regroupement
+    par mois reste correct même quand les filtres par type masquent certaines entrées."""
     items = []
     for ev in rugby_evals:
         items.append({"type": "rugby", "sort_key": ev.get("eval_date") or (ev.get("created_at") or ""), "data": ev})
@@ -2328,6 +2352,8 @@ def _ppid_timeline(rugby_evals, physical_evals, entretiens):
     for e in entretiens:
         items.append({"type": "entretien", "sort_key": e.get("entretien_date") or (e.get("created_at") or ""), "data": e})
     items.sort(key=lambda it: it["sort_key"] or "", reverse=True)
+    for it in items:
+        it["month_label"] = _ppid_month_label(it["sort_key"])
     return items
 
 def _ppid_rugby_ratings_from_form(form):
