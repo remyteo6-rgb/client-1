@@ -1192,29 +1192,40 @@ body.demo-mode .demo-blur {
 .ppid-filter-chip.active { background: var(--own-color); border-color: var(--own-color); color: #fff; }
 .ppid-filter-count { opacity: 0.75; margin-left: 2px; }
 
-/* Axe temporel visuel de la timeline fusionnée : une ligne verticale relie les entrées dans
-   l'ordre, chacune marquée d'un point coloré par type — la « flèche du temps » demandée par
-   le manager pour que la chronologie du suivi se lise d'un coup d'œil, pas seulement par un
-   tri de dates. Le point/la ligne s'adaptent automatiquement quand les filtres par type
-   masquent des cartes (display:none ne compte pas dans la hauteur du conteneur). */
-.ppid-timeline-merged { position: relative; padding-left: 26px; }
+/* Axe temporel de la timeline fusionnée, gradué par mois : une ligne verticale sobre relie
+   les entrées dans l'ordre, chacune marquée d'un point coloré par type, et le mois (« Août
+   26 »...) s'affiche à gauche de la ligne face à la première carte de chaque mois — la
+   « flèche du temps » demandée par le manager, lisible comme une vraie règle graduée plutôt
+   qu'un simple tri de dates. Le regroupement par mois est recalculé en JS à chaque filtre
+   (voir cahier_charges.html/player_evaluations.html) pour rester juste même quand des cartes
+   sont masquées ; ici, .is-month-start est la classe que le JS bascule pour afficher/masquer
+   le repère sur la bonne carte. */
+.ppid-timeline-merged { position: relative; padding-left: 82px; }
 .ppid-timeline-merged::before {
-    content: ''; position: absolute; left: 5px; top: 4px; bottom: 4px; width: 2px;
-    background: linear-gradient(to bottom, rgba(255,255,255,0.24), rgba(255,255,255,0.04));
+    content: ''; position: absolute; left: 59px; top: 4px; bottom: 4px; width: 2px;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.24), rgba(255,255,255,0.05));
 }
 .ppid-timeline-merged .ppid-eval-card { position: relative; }
 .ppid-timeline-merged .ppid-eval-card::before {
-    content: ''; position: absolute; left: -26px; top: 20px; width: 12px; height: 12px;
+    content: ''; position: absolute; left: -29px; top: 20px; width: 14px; height: 14px;
     border-radius: 50%; background: #10181f; border: 2px solid var(--bg-card-border); z-index: 1;
 }
 .ppid-card-rugby::before { border-color: var(--own-color); box-shadow: 0 0 0 3px rgba(79,127,214,0.18); }
 .ppid-card-physical::before { border-color: var(--positive); box-shadow: 0 0 0 3px rgba(111,207,122,0.18); }
 .ppid-card-entretien::before { border-color: var(--accent-gold); box-shadow: 0 0 0 3px rgba(249,162,64,0.18); }
 
+.ppid-month-marker-label {
+    display: none; position: absolute; left: -78px; top: 21px; width: 46px; text-align: right;
+    font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px;
+    color: var(--text-primary); opacity: 0.8; line-height: 1.2;
+}
+.ppid-timeline-merged .ppid-eval-card.is-month-start .ppid-month-marker-label { display: block; }
+
 @media (max-width: 640px) {
-    .ppid-timeline-merged { padding-left: 20px; }
-    .ppid-timeline-merged::before { left: 4px; }
-    .ppid-timeline-merged .ppid-eval-card::before { left: -20px; width: 10px; height: 10px; top: 18px; }
+    .ppid-timeline-merged { padding-left: 58px; }
+    .ppid-timeline-merged::before { left: 39px; }
+    .ppid-timeline-merged .ppid-eval-card::before { left: -21px; width: 10px; height: 10px; top: 18px; }
+    .ppid-month-marker-label { left: -58px; width: 34px; font-size: 9.5px; top: 19px; }
 }
 .ppid-type-rugby { background: rgba(79,127,214,0.2); color: #9db8f0; }
 .ppid-type-physical { background: rgba(111,207,122,0.2); color: var(--positive); }
