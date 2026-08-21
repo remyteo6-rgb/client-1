@@ -382,7 +382,8 @@
         {% for item in ppid_timeline %}
         {% if item.type == 'rugby' %}
         {% set ev = item.data %}
-        <div class="ppid-eval-card ppid-card-rugby" data-ppid-type="rugby">
+        <div class="ppid-eval-card ppid-card-rugby" data-ppid-type="rugby" data-ppid-month="{{ item.month_label or '' }}">
+            <span class="ppid-month-marker-label">{{ item.month_label }}</span>
             <div class="ppid-eval-card-head">
                 <div>
                     <span class="ppid-entretien-type ppid-type-rugby">🏉 Évaluation rugby</span>
@@ -456,7 +457,8 @@
         </div>
         {% elif item.type == 'physical' %}
         {% set ev = item.data %}
-        <div class="ppid-eval-card ppid-card-physical" data-ppid-type="physical">
+        <div class="ppid-eval-card ppid-card-physical" data-ppid-type="physical" data-ppid-month="{{ item.month_label or '' }}">
+            <span class="ppid-month-marker-label">{{ item.month_label }}</span>
             <div class="ppid-eval-card-head">
                 <div>
                     <span class="ppid-entretien-type ppid-type-physical">💪 Évaluation physique</span>
@@ -537,7 +539,8 @@
         </div>
         {% else %}
         {% set e = item.data %}
-        <div class="ppid-eval-card ppid-card-entretien" data-ppid-type="entretien">
+        <div class="ppid-eval-card ppid-card-entretien" data-ppid-type="entretien" data-ppid-month="{{ item.month_label or '' }}">
+            <span class="ppid-month-marker-label">{{ item.month_label }}</span>
             <div class="ppid-eval-card-head">
                 <div>
                     <span class="ppid-entretien-type ppid-type-entretien">📝 {{ e.entretien_type }}</span>
@@ -585,6 +588,28 @@
         var chips = document.querySelectorAll('#ppidFilterRow .ppid-filter-chip');
         var cards = document.querySelectorAll('#ppidTimelineMerged [data-ppid-type]');
         var emptyState = document.getElementById('ppidFilterEmpty');
+
+        // Axe temporel gradué par mois : n'affiche le repère de mois (« Août 26 »...) que
+        // sur la première carte VISIBLE de chaque mois — recalculé à chaque changement de
+        // filtre pour que le regroupement par mois reste juste même quand des cartes sont
+        // masquées (sinon un repère pourrait se retrouver orphelin, ou un mois sans repère).
+        function updateMonthMarkers() {
+            var lastMonth = null;
+            cards.forEach(function (card) {
+                if (card.style.display === 'none') {
+                    card.classList.remove('is-month-start');
+                    return;
+                }
+                var month = card.dataset.ppidMonth;
+                if (month && month !== lastMonth) {
+                    card.classList.add('is-month-start');
+                    lastMonth = month;
+                } else {
+                    card.classList.remove('is-month-start');
+                }
+            });
+        }
+
         chips.forEach(function (chip) {
             chip.addEventListener('click', function () {
                 chips.forEach(function (c) { c.classList.remove('active'); });
@@ -597,8 +622,11 @@
                     if (show) visibleCount++;
                 });
                 emptyState.style.display = visibleCount === 0 ? '' : 'none';
+                updateMonthMarkers();
             });
         });
+
+        updateMonthMarkers();
     })();
     </script>
     {% else %}
