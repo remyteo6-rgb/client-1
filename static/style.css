@@ -1124,6 +1124,14 @@ body.demo-mode .demo-blur {
 .ppid-pill-label { font-size: 11.5px; color: var(--text-secondary); margin-top: 6px; }
 .ppid-pill-comment { font-size: 11.5px; color: var(--text-primary); margin-top: 4px; font-style: italic; }
 
+/* Flèches de progression : comparent chaque critère à l'évaluation précédente de la même
+   série (rugby ou physique) — la « flèche du temps » demandée par le manager pour suivre
+   la progression d'un joueur dans la durée sans avoir à comparer les cartes à la main. */
+.ppid-trend { display: inline-block; font-size: 12px; font-weight: 800; margin-left: 4px; }
+.ppid-trend-up { color: var(--positive); }
+.ppid-trend-down { color: var(--negative); }
+.ppid-trend-flat { color: var(--text-secondary); }
+
 .ppid-callout {
     margin-top: 10px; padding: 8px 12px; border-radius: 6px; background: rgba(255,255,255,0.04);
     border-left: 3px solid var(--own-color); font-size: 12.5px; color: var(--text-secondary);
@@ -1184,10 +1192,30 @@ body.demo-mode .demo-blur {
 .ppid-filter-chip.active { background: var(--own-color); border-color: var(--own-color); color: #fff; }
 .ppid-filter-count { opacity: 0.75; margin-left: 2px; }
 
-.ppid-timeline-merged .ppid-eval-card { position: relative; border-left: 3px solid var(--bg-card-border); }
-.ppid-card-rugby { border-left-color: var(--own-color); }
-.ppid-card-physical { border-left-color: var(--positive); }
-.ppid-card-entretien { border-left-color: var(--accent-gold); }
+/* Axe temporel visuel de la timeline fusionnée : une ligne verticale relie les entrées dans
+   l'ordre, chacune marquée d'un point coloré par type — la « flèche du temps » demandée par
+   le manager pour que la chronologie du suivi se lise d'un coup d'œil, pas seulement par un
+   tri de dates. Le point/la ligne s'adaptent automatiquement quand les filtres par type
+   masquent des cartes (display:none ne compte pas dans la hauteur du conteneur). */
+.ppid-timeline-merged { position: relative; padding-left: 26px; }
+.ppid-timeline-merged::before {
+    content: ''; position: absolute; left: 5px; top: 4px; bottom: 4px; width: 2px;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.24), rgba(255,255,255,0.04));
+}
+.ppid-timeline-merged .ppid-eval-card { position: relative; }
+.ppid-timeline-merged .ppid-eval-card::before {
+    content: ''; position: absolute; left: -26px; top: 20px; width: 12px; height: 12px;
+    border-radius: 50%; background: #10181f; border: 2px solid var(--bg-card-border); z-index: 1;
+}
+.ppid-card-rugby::before { border-color: var(--own-color); box-shadow: 0 0 0 3px rgba(79,127,214,0.18); }
+.ppid-card-physical::before { border-color: var(--positive); box-shadow: 0 0 0 3px rgba(111,207,122,0.18); }
+.ppid-card-entretien::before { border-color: var(--accent-gold); box-shadow: 0 0 0 3px rgba(249,162,64,0.18); }
+
+@media (max-width: 640px) {
+    .ppid-timeline-merged { padding-left: 20px; }
+    .ppid-timeline-merged::before { left: 4px; }
+    .ppid-timeline-merged .ppid-eval-card::before { left: -20px; width: 10px; height: 10px; top: 18px; }
+}
 .ppid-type-rugby { background: rgba(79,127,214,0.2); color: #9db8f0; }
 .ppid-type-physical { background: rgba(111,207,122,0.2); color: var(--positive); }
 .ppid-type-entretien { background: rgba(249,162,64,0.2); color: var(--accent-gold); }
