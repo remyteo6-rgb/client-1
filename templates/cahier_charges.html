@@ -439,8 +439,13 @@
             <div class="ppid-pill-grid">
                 {% for key, label in ppid_rugby_categories %}
                 {% set note = ev.ratings[key].get('note') %}
+                {% set trend = ev.trends[key] if ev.trends else None %}
                 <div class="ppid-pill-item">
                     <span class="ppid-pill {{ 'ppid-pill-exl' if note=='EXL' else ('ppid-pill-bien' if note=='BIEN' else ('ppid-pill-moy' if note=='MOY' else 'ppid-pill-empty')) }}">{{ note or '—' }}</span>
+                    {% if trend == 'up' %}<span class="ppid-trend ppid-trend-up" title="Progression vs l'évaluation précédente">↗</span>
+                    {% elif trend == 'down' %}<span class="ppid-trend ppid-trend-down" title="Recul vs l'évaluation précédente">↘</span>
+                    {% elif trend == 'flat' %}<span class="ppid-trend ppid-trend-flat" title="Stable vs l'évaluation précédente">→</span>
+                    {% endif %}
                     <div class="ppid-pill-label">{{ label }}</div>
                     {% if ev.ratings[key].get('commentaire') %}<div class="ppid-pill-comment">{{ ev.ratings[key].get('commentaire') }}</div>{% endif %}
                 </div>
@@ -512,9 +517,14 @@
                 {% for key, label in ppid_physical_categories %}
                 {% set coach = ev.ratings[key].get('coach') %}
                 {% set auto = ev.ratings[key].get('auto') %}
+                {% set trend = ev.trends[key] if ev.trends else None %}
                 <div class="ppid-pill-item">
                     <div class="ppid-pill-pair">
                         <span class="ppid-pill {{ 'ppid-pill-exl' if coach=='Excellent' else ('ppid-pill-bien' if coach=='Bien' else ('ppid-pill-moy' if coach=='Moyen' else 'ppid-pill-empty')) }}" title="Note coach">🧑‍🏫 {{ coach or '—' }}</span>
+                        {% if trend == 'up' %}<span class="ppid-trend ppid-trend-up" title="Progression vs l'évaluation précédente (note coach)">↗</span>
+                        {% elif trend == 'down' %}<span class="ppid-trend ppid-trend-down" title="Recul vs l'évaluation précédente (note coach)">↘</span>
+                        {% elif trend == 'flat' %}<span class="ppid-trend ppid-trend-flat" title="Stable vs l'évaluation précédente (note coach)">→</span>
+                        {% endif %}
                         <span class="ppid-pill {{ 'ppid-pill-exl' if auto=='Excellent' else ('ppid-pill-bien' if auto=='Bien' else ('ppid-pill-moy' if auto=='Moyen' else 'ppid-pill-empty')) }}" title="Auto-évaluation joueur">🙋 {{ auto or '—' }}</span>
                     </div>
                     <div class="ppid-pill-label">{{ label }}</div>
