@@ -31,8 +31,8 @@
                 {% if not demo_forced %}
                 <a href="{{ url_for('documents') }}">📁 Documents</a>
                 <a href="{{ url_for('calendrier') }}">🗓️ Calendrier</a>
-                <a href="{{ url_for('cahier_charges') }}">📋 Cahier des charges</a>
                 {% endif %}
+                <a href="{{ url_for('cahier_charges') }}">📋 Cahier des charges</a>
                 {% if logged_in %}
                 <a href="{{ url_for('logout') }}">🔒 Se déconnecter</a>
                 {% else %}
