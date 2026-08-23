@@ -116,14 +116,20 @@ def gate_optional_features():
     if not ENABLE_JIFF and request.endpoint in JIFF_ENDPOINTS:
         flash("Cette fonctionnalité n'est pas activée sur ce site.", "error")
         return redirect(url_for("landing"))
-    # Les espaces Documents / Calendrier / Cahier des charges contiennent des informations
-    # internes au staff : ils sont totalement invisibles pour les visiteurs du lien de
-    # démonstration.
+    # Les espaces Documents / Calendrier contiennent des informations internes au staff :
+    # ils restent totalement invisibles pour les visiteurs du lien de démonstration. Le
+    # Cahier des charges (dont le P.P.I.D) est, lui, consultable en démo — pour montrer la
+    # fonctionnalité — mais uniquement en lecture : toute action qui modifie des données
+    # réelles (tâches, documents, évaluations PPID...) reste bloquée, quel que soit le
+    # préfixe de la page qui la déclenche.
+    demo_blocked_prefixes = ("documents", "calendrier", "ppid_")
+    demo_blocked_actions = {
+        "cahier_charges_add", "cahier_charges_status", "cahier_charges_delete",
+        "cahier_charges_upload", "cahier_charges_add_link", "cahier_charges_doc_delete",
+    }
     if session.get("demo_forced") and request.endpoint and (
-        request.endpoint.startswith("documents")
-        or request.endpoint.startswith("calendrier")
-        or request.endpoint.startswith("cahier_charges")
-        or request.endpoint.startswith("ppid_")
+        request.endpoint.startswith(demo_blocked_prefixes)
+        or request.endpoint in demo_blocked_actions
     ):
         flash("Cet espace n'est pas accessible en mode démonstration.", "error")
         return redirect(url_for("landing"))
