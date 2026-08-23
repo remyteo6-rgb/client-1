@@ -14,14 +14,13 @@
 
 <div class="landing-screen">
     <img src="{{ url_for('static', filename='logo.png') }}" class="landing-logo" alt="{{ club_full_name }}">
-    <p class="landing-subtitle">{{ club_full_name }}</p>
 
     <div class="landing-choice-row">
         <a class="landing-choice-btn" href="{{ url_for('analyse_video') }}">🎥 Analyse vidéo</a>
+        <a class="landing-choice-btn" href="{{ url_for('cahier_charges') }}">📋 Cahier des charges</a>
         {% if not demo_forced %}
         <a class="landing-choice-btn" href="{{ url_for('documents') }}">📁 Documents</a>
         <a class="landing-choice-btn" href="{{ url_for('calendrier') }}">🗓️ Calendrier</a>
-        <a class="landing-choice-btn" href="{{ url_for('cahier_charges') }}">📋 Cahier des charges</a>
         {% endif %}
     </div>
 </div>
