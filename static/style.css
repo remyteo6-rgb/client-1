@@ -1153,16 +1153,17 @@ body.demo-mode .demo-blur {
     .ppid-card-columns.has-side {
         flex-direction: row;
         align-items: flex-start;
+        gap: 22px;
     }
     .ppid-card-columns.has-side .ppid-card-col-main {
-        flex: 1 1 56%;
+        flex: 1 1 50%;
+        min-width: 0;
         order: 1;
     }
     .ppid-card-columns.has-side .ppid-card-col-side {
-        flex: 1 1 38%;
-        max-width: 360px;
+        flex: 1 1 50%;
+        min-width: 0;
         order: 2;
-        margin-left: auto;
     }
 }
 
