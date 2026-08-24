@@ -1134,6 +1134,22 @@ body.demo-mode .demo-blur {
 .ppid-pill-empty { opacity: 0.5; }
 .ppid-pill-comment { font-size: 11.5px; color: var(--text-primary); margin-top: 3px; font-style: italic; padding-left: 2px; }
 
+/* Mise en page à 2 colonnes du bilan (demande coach) : les critères notés d'un côté, les
+   objectifs / axes de travail de l'autre, plutôt qu'empilés — pour que la carte reste
+   équilibrée sur sa largeur au lieu d'avoir tout le contenu (et les flèches de progression)
+   collé à gauche avec un grand vide à droite. Repasse en 1 colonne (empilé) en dessous de
+   700px, et .has-side n'est ajouté que s'il y a effectivement un objectif/commentaire à
+   afficher — sinon les critères notés gardent toute la largeur de la carte. */
+.ppid-card-columns { display: flex; flex-direction: column; gap: 10px 22px; }
+.ppid-card-col-main { min-width: 0; }
+.ppid-card-col-side { display: flex; flex-direction: column; gap: 8px; }
+.ppid-card-col-side .ppid-callout { margin-top: 0; }
+@media (min-width: 700px) {
+    .ppid-card-columns.has-side { flex-direction: row; align-items: flex-start; }
+    .ppid-card-columns.has-side .ppid-card-col-main { flex: 1 1 0; }
+    .ppid-card-columns.has-side .ppid-card-col-side { flex: 0 1 300px; }
+}
+
 /* Flèches de progression : comparent chaque critère à l'évaluation précédente de la même
    série (rugby ou physique) — la « flèche du temps » demandée par le manager pour suivre
    la progression d'un joueur dans la durée sans avoir à comparer les cartes à la main. */
@@ -1189,6 +1205,28 @@ body.demo-mode .demo-blur {
 .ppid-full-grid summary::-webkit-details-marker { display: none; }
 .ppid-full-grid summary:hover { color: var(--text-primary); }
 .ppid-full-grid[open] summary { margin-bottom: 10px; }
+
+/* Bilan global : résumé compact du joueur sur ses 3 suivis PPID (rugby / physique /
+   entretiens) affiché sous les critères clés — pour voir d'un coup d'œil où en est le joueur
+   sans avoir à parcourir toute la timeline en dessous. */
+.ppid-bilan-card {
+    background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: var(--radius);
+    padding: 16px 18px; margin-bottom: 24px;
+}
+.ppid-bilan-card h3 { font-size: 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 7px; }
+.ppid-bilan-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 20px; }
+.ppid-bilan-tile + .ppid-bilan-tile { border-left: 1px solid var(--bg-card-border); padding-left: 20px; }
+.ppid-bilan-tile-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.ppid-bilan-count { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+.ppid-bilan-latest { font-size: 12.5px; color: var(--text-primary); margin-bottom: 8px; }
+.ppid-bilan-pills { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
+.ppid-bilan-trends { display: flex; gap: 10px; }
+.ppid-bilan-trends .ppid-trend { margin-left: 0; font-size: 12.5px; font-weight: 700; }
+.ppid-bilan-empty { font-size: 12.5px; color: var(--text-secondary); }
+@media (max-width: 700px) {
+    .ppid-bilan-grid { grid-template-columns: 1fr; gap: 14px 0; }
+    .ppid-bilan-tile + .ppid-bilan-tile { border-left: none; padding-left: 2px; border-top: 1px solid var(--bg-card-border); padding-top: 14px; }
+}
 
 .ppid-add-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .ppid-add-trigger { flex-shrink: 0; }
