@@ -2281,21 +2281,43 @@ def _ppid_ratings_view(raw, category_keys):
         data = {}
     return {key: data.get(key) or {} for key in category_keys}
 
+PPID_MONTHS_FR_FULL = [
+    "janvier", "février", "mars", "avril", "mai", "juin",
+    "juillet", "août", "septembre", "octobre", "novembre", "décembre",
+]
+
+def _ppid_date_human(date_str):
+    """Formate une date ISO ('2026-08-15') en date lisible en français ('15 août 2026') —
+    demande du manager pour que les dates des suivis PPID soient claires d'un coup d'œil sur
+    les cartes, plutôt que le format ISO brut (peu lisible, ambigu jour/mois pour un lecteur
+    non technique). Retourne la valeur d'origine telle quelle si elle ne ressemble pas à une
+    date ISO complète, pour ne jamais planter ni afficher n'importe quoi sur une donnée
+    inattendue."""
+    if not date_str or len(date_str) < 10:
+        return date_str
+    try:
+        year, month, day = int(date_str[0:4]), int(date_str[5:7]), int(date_str[8:10])
+    except ValueError:
+        return date_str
+    if not (1 <= month <= 12):
+        return date_str
+    return f"{day} {PPID_MONTHS_FR_FULL[month - 1]} {year}"
+
 def _ppid_rugby_row_view(row):
     r = dict(row)
     r["ratings"] = _ppid_ratings_view(r.get("ratings"), PPID_RUGBY_CATEGORY_KEYS)
-    r["date_human"] = r.get("eval_date") or (r.get("created_at") or "")[:10]
+    r["date_human"] = _ppid_date_human(r.get("eval_date") or (r.get("created_at") or "")[:10])
     return r
 
 def _ppid_physical_row_view(row):
     r = dict(row)
     r["ratings"] = _ppid_ratings_view(r.get("ratings"), [key for key, _label in PPID_PHYSICAL_CATEGORIES])
-    r["date_human"] = r.get("eval_date") or (r.get("created_at") or "")[:10]
+    r["date_human"] = _ppid_date_human(r.get("eval_date") or (r.get("created_at") or "")[:10])
     return r
 
 def _ppid_entretien_row_view(row):
     r = dict(row)
-    r["date_human"] = r.get("entretien_date") or (r.get("created_at") or "")[:10]
+    r["date_human"] = _ppid_date_human(r.get("entretien_date") or (r.get("created_at") or "")[:10])
     return r
 
 def _ppid_compute_trends(evals, category_keys, value_getter):
