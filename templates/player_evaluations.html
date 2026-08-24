@@ -65,30 +65,38 @@
                 <div>
                     <span class="ppid-entretien-type ppid-type-rugby">{{ ppid_icons.rugby(12) }} Évaluation rugby</span>
                     <strong>{{ ev.period_label }}</strong>
-                    {% if ev.date_human %}<span class="ppid-eval-date">{{ ev.date_human }}</span>{% endif %}
+                    {% if ev.date_human %}<span class="ppid-eval-date">{{ ppid_icons.calendar(12) }} {{ ev.date_human }}</span>{% endif %}
                 </div>
             </div>
-            <div class="ppid-pill-grid">
-                {% for key, label in ppid_rugby_categories %}
-                {% set note = ev.ratings[key].get('note') %}
-                {% set trend = ev.trends[key] if ev.trends else None %}
-                <div class="ppid-pill-item">
-                    <div class="ppid-pill-row">
-                        <span class="ppid-pill-label">{{ label }}</span>
-                        <span class="ppid-pill-value">
-                            <span class="ppid-pill {{ 'ppid-pill-exl' if note=='EXL' else ('ppid-pill-bien' if note=='BIEN' else ('ppid-pill-moy' if note=='MOY' else 'ppid-pill-empty')) }}">{{ note or '—' }}</span>
-                            {% if trend == 'up' %}<span class="ppid-trend ppid-trend-up" title="Progression vs l'évaluation précédente">↗</span>
-                            {% elif trend == 'down' %}<span class="ppid-trend ppid-trend-down" title="Recul vs l'évaluation précédente">↘</span>
-                            {% elif trend == 'flat' %}<span class="ppid-trend ppid-trend-flat" title="Stable vs l'évaluation précédente">→</span>
-                            {% endif %}
-                        </span>
+            <div class="ppid-card-columns{{ ' has-side' if (ev.objectifs or ev.entrainements) else '' }}">
+                <div class="ppid-card-col-main">
+                    <div class="ppid-pill-grid">
+                        {% for key, label in ppid_rugby_categories %}
+                        {% set note = ev.ratings[key].get('note') %}
+                        {% set trend = ev.trends[key] if ev.trends else None %}
+                        <div class="ppid-pill-item">
+                            <div class="ppid-pill-row">
+                                <span class="ppid-pill-label">{{ label }}</span>
+                                <span class="ppid-pill-value">
+                                    <span class="ppid-pill {{ 'ppid-pill-exl' if note=='EXL' else ('ppid-pill-bien' if note=='BIEN' else ('ppid-pill-moy' if note=='MOY' else 'ppid-pill-empty')) }}">{{ note or '—' }}</span>
+                                    {% if trend == 'up' %}<span class="ppid-trend ppid-trend-up" title="Progression vs l'évaluation précédente">↗</span>
+                                    {% elif trend == 'down' %}<span class="ppid-trend ppid-trend-down" title="Recul vs l'évaluation précédente">↘</span>
+                                    {% elif trend == 'flat' %}<span class="ppid-trend ppid-trend-flat" title="Stable vs l'évaluation précédente">→</span>
+                                    {% endif %}
+                                </span>
+                            </div>
+                            {% if ev.ratings[key].get('commentaire') %}<div class="ppid-pill-comment">{{ ev.ratings[key].get('commentaire') }}</div>{% endif %}
+                        </div>
+                        {% endfor %}
                     </div>
-                    {% if ev.ratings[key].get('commentaire') %}<div class="ppid-pill-comment">{{ ev.ratings[key].get('commentaire') }}</div>{% endif %}
                 </div>
-                {% endfor %}
+                {% if ev.objectifs or ev.entrainements %}
+                <div class="ppid-card-col-side">
+                    {% if ev.objectifs %}<div class="ppid-callout"><strong>{{ ppid_icons.target(13) }} Objectifs —</strong> {{ ev.objectifs }}</div>{% endif %}
+                    {% if ev.entrainements %}<div class="ppid-callout"><strong>{{ ppid_icons.training(13) }} Entraînements spécifiques —</strong> {{ ev.entrainements }}</div>{% endif %}
+                </div>
+                {% endif %}
             </div>
-            {% if ev.objectifs %}<div class="ppid-callout"><strong>{{ ppid_icons.target(13) }} Objectifs —</strong> {{ ev.objectifs }}</div>{% endif %}
-            {% if ev.entrainements %}<div class="ppid-callout"><strong>{{ ppid_icons.training(13) }} Entraînements spécifiques —</strong> {{ ev.entrainements }}</div>{% endif %}
         </div>
         {% elif item.type == 'physical' %}
         {% set ev = item.data %}
@@ -98,7 +106,7 @@
                 <div>
                     <span class="ppid-entretien-type ppid-type-physical">{{ ppid_icons.physical(12) }} Évaluation physique</span>
                     <strong>{{ ev.period_label }}</strong>
-                    {% if ev.date_human %}<span class="ppid-eval-date">{{ ev.date_human }}</span>{% endif %}
+                    {% if ev.date_human %}<span class="ppid-eval-date">{{ ppid_icons.calendar(12) }} {{ ev.date_human }}</span>{% endif %}
                 </div>
             </div>
             <details class="ppid-inline-edit">
@@ -120,29 +128,37 @@
                     <button type="submit" class="btn">Enregistrer mon auto-évaluation</button>
                 </form>
             </details>
-            <div class="ppid-pill-grid">
-                {% for key, label in ppid_physical_categories %}
-                {% set coach = ev.ratings[key].get('coach') %}
-                {% set auto = ev.ratings[key].get('auto') %}
-                {% set trend = ev.trends[key] if ev.trends else None %}
-                <div class="ppid-pill-item">
-                    <div class="ppid-pill-row">
-                        <span class="ppid-pill-label">{{ label }}</span>
-                        <span class="ppid-pill-value">
-                            <span class="ppid-pill {{ 'ppid-pill-exl' if coach=='Excellent' else ('ppid-pill-bien' if coach=='Bien' else ('ppid-pill-moy' if coach=='Moyen' else 'ppid-pill-empty')) }}" title="Note coach">{{ ppid_icons.user_solid(11) }} {{ coach or '—' }}</span>
-                            {% if trend == 'up' %}<span class="ppid-trend ppid-trend-up" title="Progression vs l'évaluation précédente (note coach)">↗</span>
-                            {% elif trend == 'down' %}<span class="ppid-trend ppid-trend-down" title="Recul vs l'évaluation précédente (note coach)">↘</span>
-                            {% elif trend == 'flat' %}<span class="ppid-trend ppid-trend-flat" title="Stable vs l'évaluation précédente (note coach)">→</span>
-                            {% endif %}
-                            <span class="ppid-pill {{ 'ppid-pill-exl' if auto=='Excellent' else ('ppid-pill-bien' if auto=='Bien' else ('ppid-pill-moy' if auto=='Moyen' else 'ppid-pill-empty')) }}" title="Mon auto-évaluation">{{ ppid_icons.user_outline(11) }} {{ auto or '—' }}</span>
-                        </span>
+            <div class="ppid-card-columns{{ ' has-side' if (ev.commentaires or ev.axe_musculation or ev.axe_terrain) else '' }}">
+                <div class="ppid-card-col-main">
+                    <div class="ppid-pill-grid">
+                        {% for key, label in ppid_physical_categories %}
+                        {% set coach = ev.ratings[key].get('coach') %}
+                        {% set auto = ev.ratings[key].get('auto') %}
+                        {% set trend = ev.trends[key] if ev.trends else None %}
+                        <div class="ppid-pill-item">
+                            <div class="ppid-pill-row">
+                                <span class="ppid-pill-label">{{ label }}</span>
+                                <span class="ppid-pill-value">
+                                    <span class="ppid-pill {{ 'ppid-pill-exl' if coach=='Excellent' else ('ppid-pill-bien' if coach=='Bien' else ('ppid-pill-moy' if coach=='Moyen' else 'ppid-pill-empty')) }}" title="Note coach">{{ ppid_icons.user_solid(11) }} {{ coach or '—' }}</span>
+                                    {% if trend == 'up' %}<span class="ppid-trend ppid-trend-up" title="Progression vs l'évaluation précédente (note coach)">↗</span>
+                                    {% elif trend == 'down' %}<span class="ppid-trend ppid-trend-down" title="Recul vs l'évaluation précédente (note coach)">↘</span>
+                                    {% elif trend == 'flat' %}<span class="ppid-trend ppid-trend-flat" title="Stable vs l'évaluation précédente (note coach)">→</span>
+                                    {% endif %}
+                                    <span class="ppid-pill {{ 'ppid-pill-exl' if auto=='Excellent' else ('ppid-pill-bien' if auto=='Bien' else ('ppid-pill-moy' if auto=='Moyen' else 'ppid-pill-empty')) }}" title="Mon auto-évaluation">{{ ppid_icons.user_outline(11) }} {{ auto or '—' }}</span>
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
                     </div>
                 </div>
-                {% endfor %}
+                {% if ev.commentaires or ev.axe_musculation or ev.axe_terrain %}
+                <div class="ppid-card-col-side">
+                    {% if ev.commentaires %}<div class="ppid-callout"><strong>{{ ppid_icons.note(13) }} Commentaires —</strong> {{ ev.commentaires }}</div>{% endif %}
+                    {% if ev.axe_musculation %}<div class="ppid-callout"><strong>{{ ppid_icons.training(13) }} Musculation —</strong> {{ ev.axe_musculation }}</div>{% endif %}
+                    {% if ev.axe_terrain %}<div class="ppid-callout"><strong>{{ ppid_icons.training(13) }} Terrain —</strong> {{ ev.axe_terrain }}</div>{% endif %}
+                </div>
+                {% endif %}
             </div>
-            {% if ev.commentaires %}<div class="ppid-callout"><strong>{{ ppid_icons.note(13) }} Commentaires —</strong> {{ ev.commentaires }}</div>{% endif %}
-            {% if ev.axe_musculation %}<div class="ppid-callout"><strong>{{ ppid_icons.training(13) }} Musculation —</strong> {{ ev.axe_musculation }}</div>{% endif %}
-            {% if ev.axe_terrain %}<div class="ppid-callout"><strong>{{ ppid_icons.training(13) }} Terrain —</strong> {{ ev.axe_terrain }}</div>{% endif %}
         </div>
         {% else %}
         {% set e = item.data %}
@@ -151,7 +167,7 @@
             <div class="ppid-eval-card-head">
                 <div>
                     <span class="ppid-entretien-type ppid-type-entretien">{{ ppid_icons.entretien(12) }} {{ e.entretien_type }}</span>
-                    <span class="ppid-eval-date">{{ e.date_human }}</span>
+                    <span class="ppid-eval-date">{{ ppid_icons.calendar(12) }} {{ e.date_human }}</span>
                 </div>
             </div>
             {% if e.notes %}<div class="ppid-callout ppid-entretien-notes">{{ e.notes }}</div>{% endif %}
