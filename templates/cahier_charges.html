@@ -255,6 +255,69 @@
     </details>
 </div>
 
+<div class="ppid-bilan-card">
+    <h3>{{ ppid_icons.chart(16) }} Bilan global</h3>
+    <div class="ppid-bilan-grid">
+        <div class="ppid-bilan-tile">
+            <div class="ppid-bilan-tile-head">
+                <span class="ppid-entretien-type ppid-type-rugby">{{ ppid_icons.rugby(12) }} Rugby</span>
+                <span class="ppid-bilan-count">{{ ppid_bilan.rugby.count }} suivi{{ 's' if ppid_bilan.rugby.count != 1 else '' }}</span>
+            </div>
+            {% if ppid_bilan.rugby.latest %}
+            <div class="ppid-bilan-latest">{{ ppid_bilan.rugby.latest.period_label }}{% if ppid_bilan.rugby.latest.date_human %} · {{ ppid_bilan.rugby.latest.date_human }}{% endif %}</div>
+            <div class="ppid-bilan-pills">
+                {% if ppid_bilan.rugby.note_counts.exl %}<span class="ppid-pill ppid-pill-exl">{{ ppid_bilan.rugby.note_counts.exl }} EXL</span>{% endif %}
+                {% if ppid_bilan.rugby.note_counts.bien %}<span class="ppid-pill ppid-pill-bien">{{ ppid_bilan.rugby.note_counts.bien }} BIEN</span>{% endif %}
+                {% if ppid_bilan.rugby.note_counts.moy %}<span class="ppid-pill ppid-pill-moy">{{ ppid_bilan.rugby.note_counts.moy }} MOY</span>{% endif %}
+            </div>
+            {% if ppid_bilan.rugby.trend_counts %}
+            <div class="ppid-bilan-trends" title="Évolution des critères notés depuis le bilan précédent">
+                {% if ppid_bilan.rugby.trend_counts.up %}<span class="ppid-trend ppid-trend-up">↗ {{ ppid_bilan.rugby.trend_counts.up }}</span>{% endif %}
+                {% if ppid_bilan.rugby.trend_counts.flat %}<span class="ppid-trend ppid-trend-flat">→ {{ ppid_bilan.rugby.trend_counts.flat }}</span>{% endif %}
+                {% if ppid_bilan.rugby.trend_counts.down %}<span class="ppid-trend ppid-trend-down">↘ {{ ppid_bilan.rugby.trend_counts.down }}</span>{% endif %}
+            </div>
+            {% endif %}
+            {% else %}
+            <p class="ppid-bilan-empty">Aucun point d'étape enregistré.</p>
+            {% endif %}
+        </div>
+        <div class="ppid-bilan-tile">
+            <div class="ppid-bilan-tile-head">
+                <span class="ppid-entretien-type ppid-type-physical">{{ ppid_icons.physical(12) }} Physique</span>
+                <span class="ppid-bilan-count">{{ ppid_bilan.physical.count }} suivi{{ 's' if ppid_bilan.physical.count != 1 else '' }}</span>
+            </div>
+            {% if ppid_bilan.physical.latest %}
+            <div class="ppid-bilan-latest">{{ ppid_bilan.physical.latest.period_label }}{% if ppid_bilan.physical.latest.date_human %} · {{ ppid_bilan.physical.latest.date_human }}{% endif %}</div>
+            <div class="ppid-bilan-pills">
+                {% if ppid_bilan.physical.note_counts.exl %}<span class="ppid-pill ppid-pill-exl">{{ ppid_bilan.physical.note_counts.exl }} EXL</span>{% endif %}
+                {% if ppid_bilan.physical.note_counts.bien %}<span class="ppid-pill ppid-pill-bien">{{ ppid_bilan.physical.note_counts.bien }} BIEN</span>{% endif %}
+                {% if ppid_bilan.physical.note_counts.moy %}<span class="ppid-pill ppid-pill-moy">{{ ppid_bilan.physical.note_counts.moy }} MOY</span>{% endif %}
+            </div>
+            {% if ppid_bilan.physical.trend_counts %}
+            <div class="ppid-bilan-trends" title="Évolution des critères notés par le coach depuis le bilan précédent">
+                {% if ppid_bilan.physical.trend_counts.up %}<span class="ppid-trend ppid-trend-up">↗ {{ ppid_bilan.physical.trend_counts.up }}</span>{% endif %}
+                {% if ppid_bilan.physical.trend_counts.flat %}<span class="ppid-trend ppid-trend-flat">→ {{ ppid_bilan.physical.trend_counts.flat }}</span>{% endif %}
+                {% if ppid_bilan.physical.trend_counts.down %}<span class="ppid-trend ppid-trend-down">↘ {{ ppid_bilan.physical.trend_counts.down }}</span>{% endif %}
+            </div>
+            {% endif %}
+            {% else %}
+            <p class="ppid-bilan-empty">Aucun point d'étape enregistré.</p>
+            {% endif %}
+        </div>
+        <div class="ppid-bilan-tile">
+            <div class="ppid-bilan-tile-head">
+                <span class="ppid-entretien-type ppid-type-entretien">{{ ppid_icons.entretien(12) }} Entretiens</span>
+                <span class="ppid-bilan-count">{{ ppid_bilan.entretien.count }} suivi{{ 's' if ppid_bilan.entretien.count != 1 else '' }}</span>
+            </div>
+            {% if ppid_bilan.entretien.latest %}
+            <div class="ppid-bilan-latest">{{ ppid_bilan.entretien.latest.entretien_type }}{% if ppid_bilan.entretien.latest.date_human %} · {{ ppid_bilan.entretien.latest.date_human }}{% endif %}</div>
+            {% else %}
+            <p class="ppid-bilan-empty">Aucun entretien enregistré.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
 <div class="ppid-section">
     <div class="ppid-section-header">
         <h2>{{ ppid_icons.history(18) }} Historique complet</h2>
