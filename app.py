@@ -2322,6 +2322,48 @@ def _ppid_compute_trends(evals, category_keys, value_getter):
                 last_rank[key] = rank
         ev["trends"] = trends
 
+def _ppid_bilan_stats(evals, category_keys, value_getter):
+    """Petit résumé d'une série d'évaluations (rugby OU physique) pour le bilan global du
+    joueur : nombre total de bilans, le plus récent, la répartition des notes sur CE dernier
+    bilan (photo du niveau actuel du joueur, sans avoir à relire chaque critère un par un), et
+    — s'il existe un bilan précédent pour comparer — le nombre de critères en progression /
+    stable / en recul (réutilise les tendances déjà calculées par _ppid_compute_trends, donc
+    aucun recalcul). evals doit déjà être trié du plus récent au plus ancien."""
+    if not evals:
+        return {"count": 0, "latest": None, "note_counts": None, "trend_counts": None}
+    latest = evals[0]
+    note_counts = {"exl": 0, "bien": 0, "moy": 0}
+    for key in category_keys:
+        rank = PPID_NOTE_RANK.get(value_getter(latest["ratings"].get(key) or {}))
+        if rank == 3:
+            note_counts["exl"] += 1
+        elif rank == 2:
+            note_counts["bien"] += 1
+        elif rank == 1:
+            note_counts["moy"] += 1
+    trends = latest.get("trends") or {}
+    trend_counts = None
+    if any(v is not None for v in trends.values()):
+        trend_counts = {"up": 0, "down": 0, "flat": 0}
+        for v in trends.values():
+            if v in trend_counts:
+                trend_counts[v] += 1
+    return {"count": len(evals), "latest": latest, "note_counts": note_counts, "trend_counts": trend_counts}
+
+def _ppid_bilan_global(rugby_evals, physical_evals, entretiens):
+    """Bilan global affiché en haut du Cahier des charges (sous les critères clés) : un
+    résumé compact du joueur sur ses 3 suivis PPID (rugby / physique / entretiens) en un coup
+    d'œil, plutôt que d'avoir à parcourir toute la timeline pour se faire une idée. rugby_evals
+    et physical_evals doivent déjà porter leurs 'trends' (voir _ppid_compute_trends), et les 3
+    listes doivent déjà être triées du plus récent au plus ancien (ordre des requêtes SQL)."""
+    return {
+        "rugby": _ppid_bilan_stats(rugby_evals, PPID_RUGBY_CATEGORY_KEYS, lambda r: r.get("note")),
+        "physical": _ppid_bilan_stats(
+            physical_evals, [key for key, _label in PPID_PHYSICAL_CATEGORIES], lambda r: r.get("coach")
+        ),
+        "entretien": {"count": len(entretiens), "latest": entretiens[0] if entretiens else None},
+    }
+
 PPID_MONTHS_FR_ABBR = [
     "Janv.", "Févr.", "Mars", "Avr.", "Mai", "Juin",
     "Juil.", "Août", "Sept.", "Oct.", "Nov.", "Déc.",
@@ -2481,6 +2523,7 @@ def cahier_charges():
         grouped_players=grouped_players, selected_player=selected_player, joueur_id=joueur_id, docs=docs_view,
         rugby_evals=rugby_evals, physical_evals=physical_evals, entretiens=entretiens,
         ppid_timeline=_ppid_timeline(rugby_evals, physical_evals, entretiens),
+        ppid_bilan=_ppid_bilan_global(rugby_evals, physical_evals, entretiens) if selected_player else None,
         ppid_positions=PPID_POSITIONS,
         ppid_rugby_categories=_ppid_rugby_categories_for_position(selected_player.get("ppid_position") if selected_player else None),
         ppid_rugby_notes=PPID_RUGBY_NOTES, ppid_physical_categories=PPID_PHYSICAL_CATEGORIES,
