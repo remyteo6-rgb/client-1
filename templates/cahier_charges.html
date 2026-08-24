@@ -456,7 +456,7 @@
                 <div>
                     <span class="ppid-entretien-type ppid-type-rugby">{{ ppid_icons.rugby(12) }} Évaluation rugby</span>
                     <strong>{{ ev.period_label }}</strong>
-                    {% if ev.date_human %}<span class="ppid-eval-date">{{ ev.date_human }}</span>{% endif %}
+                    {% if ev.date_human %}<span class="ppid-eval-date">{{ ppid_icons.calendar(12) }} {{ ev.date_human }}</span>{% endif %}
                 </div>
                 {% if not demo_forced %}
                 <div class="ppid-eval-card-actions">
@@ -547,7 +547,7 @@
                 <div>
                     <span class="ppid-entretien-type ppid-type-physical">{{ ppid_icons.physical(12) }} Évaluation physique</span>
                     <strong>{{ ev.period_label }}</strong>
-                    {% if ev.date_human %}<span class="ppid-eval-date">{{ ev.date_human }}</span>{% endif %}
+                    {% if ev.date_human %}<span class="ppid-eval-date">{{ ppid_icons.calendar(12) }} {{ ev.date_human }}</span>{% endif %}
                 </div>
                 {% if not demo_forced %}
                 <div class="ppid-eval-card-actions">
@@ -642,7 +642,7 @@
             <div class="ppid-eval-card-head">
                 <div>
                     <span class="ppid-entretien-type ppid-type-entretien">{{ ppid_icons.entretien(12) }} {{ e.entretien_type }}</span>
-                    <span class="ppid-eval-date">{{ e.date_human }}</span>
+                    <span class="ppid-eval-date">{{ ppid_icons.calendar(12) }} {{ e.date_human }}</span>
                 </div>
                 {% if not demo_forced %}
                 <div class="ppid-eval-card-actions">
