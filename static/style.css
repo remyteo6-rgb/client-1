@@ -1101,7 +1101,13 @@ body.demo-mode .demo-blur {
 .ppid-timeline { display: flex; flex-direction: column; gap: 14px; }
 .ppid-eval-card { background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: var(--radius); padding: 14px 16px; }
 .ppid-eval-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-.ppid-eval-date { font-size: 11px; color: var(--text-secondary); margin-left: 8px; }
+/* Date du suivi mise en évidence (demande manager) : un badge à part, plus grand et bien
+   contrasté, plutôt qu'un petit texte gris noyé à côté de l'intitulé de la période. */
+.ppid-eval-date {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 700;
+    color: var(--text-primary); background: rgba(255,255,255,0.08); border-radius: 999px;
+    padding: 3px 10px; margin-left: 8px;
+}
 .ppid-entretien-type {
     display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px;
     background: rgba(249,162,64,0.2); color: var(--accent-gold);
@@ -1134,20 +1140,30 @@ body.demo-mode .demo-blur {
 .ppid-pill-empty { opacity: 0.5; }
 .ppid-pill-comment { font-size: 11.5px; color: var(--text-primary); margin-top: 3px; font-style: italic; padding-left: 2px; }
 
-/* Mise en page à 2 colonnes du bilan (demande coach) : les critères notés d'un côté, les
-   objectifs / axes de travail de l'autre, plutôt qu'empilés — pour que la carte reste
-   équilibrée sur sa largeur au lieu d'avoir tout le contenu (et les flèches de progression)
-   collé à gauche avec un grand vide à droite. Repasse en 1 colonne (empilé) en dessous de
-   700px, et .has-side n'est ajouté que s'il y a effectivement un objectif/commentaire à
-   afficher — sinon les critères notés gardent toute la largeur de la carte. */
+/* Les critères notés (bilan) restent à gauche et les objectifs / axes de travail sont
+   affichés à droite à partir d'une largeur d'écran suffisante, pour que la carte soit
+   équilibrée sans que les objectifs ne passent à gauche. En dessous de 700px (mobile),
+   pas assez de place pour 2 colonnes : tout reste empilé, bilan d'abord puis objectifs. */
 .ppid-card-columns { display: flex; flex-direction: column; gap: 10px 22px; }
 .ppid-card-col-main { min-width: 0; }
 .ppid-card-col-side { display: flex; flex-direction: column; gap: 8px; }
 .ppid-card-col-side .ppid-callout { margin-top: 0; }
+
 @media (min-width: 700px) {
-    .ppid-card-columns.has-side { flex-direction: row; align-items: flex-start; }
-    .ppid-card-columns.has-side .ppid-card-col-main { flex: 1 1 0; }
-    .ppid-card-columns.has-side .ppid-card-col-side { flex: 0 1 300px; }
+    .ppid-card-columns.has-side {
+        flex-direction: row;
+        align-items: flex-start;
+    }
+    .ppid-card-columns.has-side .ppid-card-col-main {
+        flex: 1 1 56%;
+        order: 1;
+    }
+    .ppid-card-columns.has-side .ppid-card-col-side {
+        flex: 1 1 38%;
+        max-width: 360px;
+        order: 2;
+        margin-left: auto;
+    }
 }
 
 /* Flèches de progression : comparent chaque critère à l'évaluation précédente de la même
