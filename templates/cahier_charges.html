@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% import "_ppid_icons.html" as ppid_icons %}
-{% block title %}Cahier des charges — Rugby Analytics{% endblock %}
+{% block title %}Cahier d'entraînement — Rugby Analytics{% endblock %}
 {% block content %}
 
 <div class="docs-header">
     <div>
-        <h1>📋 Cahier des charges</h1>
+        <h1>📋 Cahier d'entraînement</h1>
         <p class="subtitle">
             {% if selected_player %}
                 Suivi individuel de {{ selected_player['first_name'] }} {{ selected_player['last_name'] }} — {{ total_count }} tâche{{ 's' if total_count != 1 else '' }} dans la liste « À faire / En cours / Fait » tout en bas (jamais visible par le joueur). Les documents déposés et le P.P.I.D (profil, évaluations rugby et physique) sont eux visibles par {{ selected_player['first_name'] }} dans son espace.
@@ -436,301 +436,266 @@
         {% endif %}
     </div>
 
-    {% if ppid_timeline %}
-    {% set rugby_count = ppid_timeline|selectattr('type','equalto','rugby')|list|length %}
-    {% set physical_count = ppid_timeline|selectattr('type','equalto','physical')|list|length %}
-    {% set entretien_count = ppid_timeline|selectattr('type','equalto','entretien')|list|length %}
-    <div class="ppid-filter-row" id="ppidFilterRow">
-        <button type="button" class="ppid-filter-chip active" data-ppid-filter="all">Tous <span class="ppid-filter-count">{{ ppid_timeline|length }}</span></button>
-        <button type="button" class="ppid-filter-chip" data-ppid-filter="rugby">{{ ppid_icons.rugby(13) }} Rugby <span class="ppid-filter-count">{{ rugby_count }}</span></button>
-        <button type="button" class="ppid-filter-chip" data-ppid-filter="physical">{{ ppid_icons.physical(13) }} Physique <span class="ppid-filter-count">{{ physical_count }}</span></button>
-        <button type="button" class="ppid-filter-chip" data-ppid-filter="entretien">{{ ppid_icons.entretien(13) }} Entretiens <span class="ppid-filter-count">{{ entretien_count }}</span></button>
-    </div>
-    <div class="ppid-timeline ppid-timeline-merged" id="ppidTimelineMerged">
-        {% for item in ppid_timeline %}
-        {% if item.type == 'rugby' %}
-        {% set ev = item.data %}
-        <div class="ppid-eval-card ppid-card-rugby" data-ppid-type="rugby" data-ppid-month="{{ item.month_label or '' }}">
-            <span class="ppid-month-marker-label">{{ item.month_label }}</span>
-            <div class="ppid-eval-card-head">
-                <div>
-                    <span class="ppid-entretien-type ppid-type-rugby">{{ ppid_icons.rugby(12) }} Évaluation rugby</span>
-                    <strong>{{ ev.period_label }}</strong>
-                    {% if ev.date_human %}<span class="ppid-eval-date">{{ ppid_icons.calendar(12) }} {{ ev.date_human }}</span>{% endif %}
-                </div>
-                {% if not demo_forced %}
-                <div class="ppid-eval-card-actions">
-                    <form method="POST" action="{{ url_for('ppid_rugby_delete', eval_id=ev.id) }}" class="docs-delete-form"
-                          onsubmit="return confirm('Supprimer ce point d\'étape ?');">
-                        <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer">{{ ppid_icons.delete(14) }}</button>
-                    </form>
-                </div>
-                {% endif %}
-            </div>
-            {% if not demo_forced %}
-            <details class="ppid-inline-edit">
-                <summary class="docs-mini-btn" title="Modifier">{{ ppid_icons.edit(13) }} Modifier</summary>
-                <form method="POST" action="{{ url_for('ppid_rugby_edit', eval_id=ev.id) }}" class="docs-form ppid-eval-form">
-                    <div class="cal-form-row">
-                        <div class="form-group">
-                            <label>Période</label>
-                            <input type="text" name="period_label" value="{{ ev.period_label }}" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Date du bilan</label>
-                            <input type="date" name="eval_date" value="{{ ev.eval_date or '' }}">
-                        </div>
-                    </div>
-                    <div class="ppid-cat-grid">
-                        {% for key, label in ppid_rugby_categories %}
-                        <div class="ppid-cat-row">
-                            <label>{{ label }}</label>
-                            <div class="ppid-cat-inputs">
-                                <select name="note__{{ key }}">
-                                    <option value="">— Note —</option>
-                                    {% for n in ppid_rugby_notes %}
-                                    <option value="{{ n }}" {{ 'selected' if ev.ratings[key].get('note')==n else '' }}>{{ n }}</option>
-                                    {% endfor %}
-                                </select>
-                                <input type="text" name="commentaire__{{ key }}" value="{{ ev.ratings[key].get('commentaire') or '' }}" placeholder="Commentaire (optionnel)">
+    {% if rugby_evals or physical_evals or entretiens %}
+
+    {% if rugby_evals %}
+    <div class="ppid-grid-section">
+        <h3>{{ ppid_icons.rugby(16) }} Évaluation rugby</h3>
+        <div class="ppid-grid-wrap">
+            <table class="ppid-grid">
+                <thead>
+                    <tr>
+                        <th class="ppid-grid-corner">Critères</th>
+                        {% for ev in rugby_evals_asc %}
+                        <th class="ppid-grid-colhead">
+                            <div class="ppid-grid-period">{{ ev.period_label }}</div>
+                            {% if ev.date_human %}<div class="ppid-eval-date">{{ ppid_icons.calendar(11) }} {{ ev.date_human }}</div>{% endif %}
+                            {% if not demo_forced %}
+                            <div class="ppid-grid-colactions">
+                                <details class="ppid-inline-edit">
+                                    <summary class="docs-mini-btn" title="Modifier">{{ ppid_icons.edit(12) }}</summary>
+                                    <form method="POST" action="{{ url_for('ppid_rugby_edit', eval_id=ev.id) }}" class="docs-form ppid-eval-form">
+                                        <div class="cal-form-row">
+                                            <div class="form-group">
+                                                <label>Période</label>
+                                                <input type="text" name="period_label" value="{{ ev.period_label }}" required>
+                                            </div>
+                                            <div class="form-group">
+                                                <label>Date du bilan</label>
+                                                <input type="date" name="eval_date" value="{{ ev.eval_date or '' }}">
+                                            </div>
+                                        </div>
+                                        <div class="ppid-cat-grid">
+                                            {% for key, label in ppid_rugby_categories %}
+                                            <div class="ppid-cat-row">
+                                                <label>{{ label }}</label>
+                                                <div class="ppid-cat-inputs">
+                                                    <select name="note__{{ key }}">
+                                                        <option value="">— Note —</option>
+                                                        {% for n in ppid_rugby_notes %}
+                                                        <option value="{{ n }}" {{ 'selected' if ev.ratings[key].get('note')==n else '' }}>{{ n }}</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                    <input type="text" name="commentaire__{{ key }}" value="{{ ev.ratings[key].get('commentaire') or '' }}" placeholder="Commentaire (optionnel)">
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Objectifs pour la période</label>
+                                            <input type="text" name="objectifs" value="{{ ev.objectifs or '' }}">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Entraînements spécifiques / intervenants</label>
+                                            <input type="text" name="entrainements" value="{{ ev.entrainements or '' }}">
+                                        </div>
+                                        <button type="submit" class="btn">Mettre à jour</button>
+                                    </form>
+                                </details>
+                                <form method="POST" action="{{ url_for('ppid_rugby_delete', eval_id=ev.id) }}" class="docs-delete-form"
+                                      onsubmit="return confirm('Supprimer ce point d\'étape ?');">
+                                    <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer">{{ ppid_icons.delete(12) }}</button>
+                                </form>
                             </div>
-                        </div>
+                            {% endif %}
+                        </th>
                         {% endfor %}
-                    </div>
-                    <div class="form-group">
-                        <label>Objectifs pour la période</label>
-                        <input type="text" name="objectifs" value="{{ ev.objectifs or '' }}">
-                    </div>
-                    <div class="form-group">
-                        <label>Entraînements spécifiques / intervenants</label>
-                        <input type="text" name="entrainements" value="{{ ev.entrainements or '' }}">
-                    </div>
-                    <button type="submit" class="btn">Mettre à jour</button>
-                </form>
-            </details>
-            {% endif %}
-            <div class="ppid-card-columns{{ ' has-side' if (ev.objectifs or ev.entrainements) else '' }}">
-                <div class="ppid-card-col-main">
-                    <div class="ppid-pill-grid">
-                        {% for key, label in ppid_rugby_categories %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for key, label in ppid_rugby_categories %}
+                    <tr>
+                        <th class="ppid-grid-rowlabel">{{ label }}</th>
+                        {% for ev in rugby_evals_asc %}
                         {% set note = ev.ratings[key].get('note') %}
                         {% set trend = ev.trends[key] if ev.trends else None %}
-                        <div class="ppid-pill-item">
-                            <div class="ppid-pill-row">
-                                <span class="ppid-pill-label">{{ label }}</span>
-                                <span class="ppid-pill-value">
-                                    <span class="ppid-pill {{ 'ppid-pill-exl' if note=='EXL' else ('ppid-pill-bien' if note=='BIEN' else ('ppid-pill-moy' if note=='MOY' else 'ppid-pill-empty')) }}">{{ note or '—' }}</span>
-                                    {% if trend == 'up' %}<span class="ppid-trend ppid-trend-up" title="Progression vs l'évaluation précédente">↗</span>
-                                    {% elif trend == 'down' %}<span class="ppid-trend ppid-trend-down" title="Recul vs l'évaluation précédente">↘</span>
-                                    {% elif trend == 'flat' %}<span class="ppid-trend ppid-trend-flat" title="Stable vs l'évaluation précédente">→</span>
-                                    {% endif %}
-                                </span>
-                            </div>
-                            {% if ev.ratings[key].get('commentaire') %}<div class="ppid-pill-comment">{{ ev.ratings[key].get('commentaire') }}</div>{% endif %}
-                        </div>
+                        <td class="ppid-grid-cell">
+                            <span class="ppid-pill {{ 'ppid-pill-exl' if note=='EXL' else ('ppid-pill-bien' if note=='BIEN' else ('ppid-pill-moy' if note=='MOY' else 'ppid-pill-empty')) }}">{{ note or '—' }}</span>
+                            {% if trend == 'up' %}<span class="ppid-trend ppid-trend-up" title="Progression vs la période précédente">↗</span>
+                            {% elif trend == 'down' %}<span class="ppid-trend ppid-trend-down" title="Recul vs la période précédente">↘</span>
+                            {% elif trend == 'flat' %}<span class="ppid-trend ppid-trend-flat" title="Stable vs la période précédente">→</span>
+                            {% endif %}
+                            {% if ev.ratings[key].get('commentaire') %}<div class="ppid-grid-comment">{{ ev.ratings[key].get('commentaire') }}</div>{% endif %}
+                        </td>
                         {% endfor %}
-                    </div>
-                </div>
-                {% if ev.objectifs or ev.entrainements %}
-                <div class="ppid-card-col-side">
-                    {% if ev.objectifs %}<div class="ppid-callout"><strong>{{ ppid_icons.target(13) }} Objectifs —</strong> {{ ev.objectifs }}</div>{% endif %}
-                    {% if ev.entrainements %}<div class="ppid-callout"><strong>{{ ppid_icons.training(13) }} Entraînements spécifiques —</strong> {{ ev.entrainements }}</div>{% endif %}
-                </div>
-                {% endif %}
-            </div>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="ppid-grid-extra">
+                        <th class="ppid-grid-rowlabel">{{ ppid_icons.target(13) }} Objectifs</th>
+                        {% for ev in rugby_evals_asc %}<td class="ppid-grid-extra-cell">{{ ev.objectifs or '—' }}</td>{% endfor %}
+                    </tr>
+                    <tr class="ppid-grid-extra">
+                        <th class="ppid-grid-rowlabel">{{ ppid_icons.training(13) }} Entraînements spécifiques</th>
+                        {% for ev in rugby_evals_asc %}<td class="ppid-grid-extra-cell">{{ ev.entrainements or '—' }}</td>{% endfor %}
+                    </tr>
+                </tfoot>
+            </table>
         </div>
-        {% elif item.type == 'physical' %}
-        {% set ev = item.data %}
-        <div class="ppid-eval-card ppid-card-physical" data-ppid-type="physical" data-ppid-month="{{ item.month_label or '' }}">
-            <span class="ppid-month-marker-label">{{ item.month_label }}</span>
-            <div class="ppid-eval-card-head">
-                <div>
-                    <span class="ppid-entretien-type ppid-type-physical">{{ ppid_icons.physical(12) }} Évaluation physique</span>
-                    <strong>{{ ev.period_label }}</strong>
-                    {% if ev.date_human %}<span class="ppid-eval-date">{{ ppid_icons.calendar(12) }} {{ ev.date_human }}</span>{% endif %}
-                </div>
-                {% if not demo_forced %}
-                <div class="ppid-eval-card-actions">
-                    <form method="POST" action="{{ url_for('ppid_physical_delete', eval_id=ev.id) }}" class="docs-delete-form"
-                          onsubmit="return confirm('Supprimer ce point d\'étape ?');">
-                        <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer">{{ ppid_icons.delete(14) }}</button>
-                    </form>
-                </div>
-                {% endif %}
-            </div>
-            {% if not demo_forced %}
-            <details class="ppid-inline-edit">
-                <summary class="docs-mini-btn" title="Modifier">{{ ppid_icons.edit(13) }} Modifier</summary>
-                <form method="POST" action="{{ url_for('ppid_physical_edit', eval_id=ev.id) }}" class="docs-form ppid-eval-form">
-                    <div class="cal-form-row">
-                        <div class="form-group">
-                            <label>Période</label>
-                            <input type="text" name="period_label" value="{{ ev.period_label }}" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Date du bilan</label>
-                            <input type="date" name="eval_date" value="{{ ev.eval_date or '' }}">
-                        </div>
-                    </div>
-                    <div class="ppid-cat-grid">
-                        {% for key, label in ppid_physical_categories %}
-                        <div class="ppid-cat-row">
-                            <label>{{ label }} <span class="docs-hint">(auto : {{ ev.ratings[key].get('auto') or '—' }})</span></label>
-                            <select name="coach__{{ key }}">
-                                <option value="">— Note coach —</option>
-                                {% for n in ppid_physical_notes %}
-                                <option value="{{ n }}" {{ 'selected' if ev.ratings[key].get('coach')==n else '' }}>{{ n }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
+    </div>
+    {% endif %}
+
+    {% if physical_evals %}
+    <div class="ppid-grid-section">
+        <h3>{{ ppid_icons.physical(16) }} Évaluation physique</h3>
+        <div class="ppid-grid-wrap">
+            <table class="ppid-grid">
+                <thead>
+                    <tr>
+                        <th class="ppid-grid-corner">Critères</th>
+                        {% for ev in physical_evals_asc %}
+                        <th class="ppid-grid-colhead">
+                            <div class="ppid-grid-period">{{ ev.period_label }}</div>
+                            {% if ev.date_human %}<div class="ppid-eval-date">{{ ppid_icons.calendar(11) }} {{ ev.date_human }}</div>{% endif %}
+                            {% if not demo_forced %}
+                            <div class="ppid-grid-colactions">
+                                <details class="ppid-inline-edit">
+                                    <summary class="docs-mini-btn" title="Modifier">{{ ppid_icons.edit(12) }}</summary>
+                                    <form method="POST" action="{{ url_for('ppid_physical_edit', eval_id=ev.id) }}" class="docs-form ppid-eval-form">
+                                        <div class="cal-form-row">
+                                            <div class="form-group">
+                                                <label>Période</label>
+                                                <input type="text" name="period_label" value="{{ ev.period_label }}" required>
+                                            </div>
+                                            <div class="form-group">
+                                                <label>Date du bilan</label>
+                                                <input type="date" name="eval_date" value="{{ ev.eval_date or '' }}">
+                                            </div>
+                                        </div>
+                                        <div class="ppid-cat-grid">
+                                            {% for key, label in ppid_physical_categories %}
+                                            <div class="ppid-cat-row">
+                                                <label>{{ label }} <span class="docs-hint">(auto : {{ ev.ratings[key].get('auto') or '—' }})</span></label>
+                                                <select name="coach__{{ key }}">
+                                                    <option value="">— Note coach —</option>
+                                                    {% for n in ppid_physical_notes %}
+                                                    <option value="{{ n }}" {{ 'selected' if ev.ratings[key].get('coach')==n else '' }}>{{ n }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Commentaires</label>
+                                            <input type="text" name="commentaires" value="{{ ev.commentaires or '' }}">
+                                        </div>
+                                        <div class="cal-form-row">
+                                            <div class="form-group">
+                                                <label>Axe de travail — Musculation</label>
+                                                <input type="text" name="axe_musculation" value="{{ ev.axe_musculation or '' }}">
+                                            </div>
+                                            <div class="form-group">
+                                                <label>Axe de travail — Terrain</label>
+                                                <input type="text" name="axe_terrain" value="{{ ev.axe_terrain or '' }}">
+                                            </div>
+                                        </div>
+                                        <button type="submit" class="btn">Mettre à jour</button>
+                                    </form>
+                                </details>
+                                <form method="POST" action="{{ url_for('ppid_physical_delete', eval_id=ev.id) }}" class="docs-delete-form"
+                                      onsubmit="return confirm('Supprimer ce point d\'étape ?');">
+                                    <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer">{{ ppid_icons.delete(12) }}</button>
+                                </form>
+                            </div>
+                            {% endif %}
+                        </th>
                         {% endfor %}
-                    </div>
-                    <div class="form-group">
-                        <label>Commentaires</label>
-                        <input type="text" name="commentaires" value="{{ ev.commentaires or '' }}">
-                    </div>
-                    <div class="cal-form-row">
-                        <div class="form-group">
-                            <label>Axe de travail — Musculation</label>
-                            <input type="text" name="axe_musculation" value="{{ ev.axe_musculation or '' }}">
-                        </div>
-                        <div class="form-group">
-                            <label>Axe de travail — Terrain</label>
-                            <input type="text" name="axe_terrain" value="{{ ev.axe_terrain or '' }}">
-                        </div>
-                    </div>
-                    <button type="submit" class="btn">Mettre à jour</button>
-                </form>
-            </details>
-            {% endif %}
-            <div class="ppid-card-columns{{ ' has-side' if (ev.commentaires or ev.axe_musculation or ev.axe_terrain) else '' }}">
-                <div class="ppid-card-col-main">
-                    <div class="ppid-pill-grid">
-                        {% for key, label in ppid_physical_categories %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for key, label in ppid_physical_categories %}
+                    <tr>
+                        <th class="ppid-grid-rowlabel">{{ label }}</th>
+                        {% for ev in physical_evals_asc %}
                         {% set coach = ev.ratings[key].get('coach') %}
                         {% set auto = ev.ratings[key].get('auto') %}
                         {% set trend = ev.trends[key] if ev.trends else None %}
-                        <div class="ppid-pill-item">
-                            <div class="ppid-pill-row">
-                                <span class="ppid-pill-label">{{ label }}</span>
-                                <span class="ppid-pill-value">
-                                    <span class="ppid-pill {{ 'ppid-pill-exl' if coach=='Excellent' else ('ppid-pill-bien' if coach=='Bien' else ('ppid-pill-moy' if coach=='Moyen' else 'ppid-pill-empty')) }}" title="Note coach">{{ ppid_icons.user_solid(11) }} {{ coach or '—' }}</span>
-                                    {% if trend == 'up' %}<span class="ppid-trend ppid-trend-up" title="Progression vs l'évaluation précédente (note coach)">↗</span>
-                                    {% elif trend == 'down' %}<span class="ppid-trend ppid-trend-down" title="Recul vs l'évaluation précédente (note coach)">↘</span>
-                                    {% elif trend == 'flat' %}<span class="ppid-trend ppid-trend-flat" title="Stable vs l'évaluation précédente (note coach)">→</span>
-                                    {% endif %}
-                                    <span class="ppid-pill {{ 'ppid-pill-exl' if auto=='Excellent' else ('ppid-pill-bien' if auto=='Bien' else ('ppid-pill-moy' if auto=='Moyen' else 'ppid-pill-empty')) }}" title="Auto-évaluation joueur">{{ ppid_icons.user_outline(11) }} {{ auto or '—' }}</span>
-                                </span>
-                            </div>
-                        </div>
+                        <td class="ppid-grid-cell">
+                            <span class="ppid-pill {{ 'ppid-pill-exl' if coach=='Excellent' else ('ppid-pill-bien' if coach=='Bien' else ('ppid-pill-moy' if coach=='Moyen' else 'ppid-pill-empty')) }}" title="Note coach">{{ ppid_icons.user_solid(11) }} {{ coach or '—' }}</span>
+                            {% if trend == 'up' %}<span class="ppid-trend ppid-trend-up" title="Progression vs la période précédente (note coach)">↗</span>
+                            {% elif trend == 'down' %}<span class="ppid-trend ppid-trend-down" title="Recul vs la période précédente (note coach)">↘</span>
+                            {% elif trend == 'flat' %}<span class="ppid-trend ppid-trend-flat" title="Stable vs la période précédente (note coach)">→</span>
+                            {% endif %}
+                            <br>
+                            <span class="ppid-pill {{ 'ppid-pill-exl' if auto=='Excellent' else ('ppid-pill-bien' if auto=='Bien' else ('ppid-pill-moy' if auto=='Moyen' else 'ppid-pill-empty')) }}" title="Auto-évaluation joueur">{{ ppid_icons.user_outline(11) }} {{ auto or '—' }}</span>
+                        </td>
                         {% endfor %}
-                    </div>
-                </div>
-                {% if ev.commentaires or ev.axe_musculation or ev.axe_terrain %}
-                <div class="ppid-card-col-side">
-                    {% if ev.commentaires %}<div class="ppid-callout"><strong>{{ ppid_icons.note(13) }} Commentaires —</strong> {{ ev.commentaires }}</div>{% endif %}
-                    {% if ev.axe_musculation %}<div class="ppid-callout"><strong>{{ ppid_icons.training(13) }} Musculation —</strong> {{ ev.axe_musculation }}</div>{% endif %}
-                    {% if ev.axe_terrain %}<div class="ppid-callout"><strong>{{ ppid_icons.training(13) }} Terrain —</strong> {{ ev.axe_terrain }}</div>{% endif %}
-                </div>
-                {% endif %}
-            </div>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="ppid-grid-extra">
+                        <th class="ppid-grid-rowlabel">{{ ppid_icons.note(13) }} Commentaires</th>
+                        {% for ev in physical_evals_asc %}<td class="ppid-grid-extra-cell">{{ ev.commentaires or '—' }}</td>{% endfor %}
+                    </tr>
+                    <tr class="ppid-grid-extra">
+                        <th class="ppid-grid-rowlabel">{{ ppid_icons.training(13) }} Musculation</th>
+                        {% for ev in physical_evals_asc %}<td class="ppid-grid-extra-cell">{{ ev.axe_musculation or '—' }}</td>{% endfor %}
+                    </tr>
+                    <tr class="ppid-grid-extra">
+                        <th class="ppid-grid-rowlabel">{{ ppid_icons.training(13) }} Terrain</th>
+                        {% for ev in physical_evals_asc %}<td class="ppid-grid-extra-cell">{{ ev.axe_terrain or '—' }}</td>{% endfor %}
+                    </tr>
+                </tfoot>
+            </table>
         </div>
-        {% else %}
-        {% set e = item.data %}
-        <div class="ppid-eval-card ppid-card-entretien" data-ppid-type="entretien" data-ppid-month="{{ item.month_label or '' }}">
-            <span class="ppid-month-marker-label">{{ item.month_label }}</span>
-            <div class="ppid-eval-card-head">
-                <div>
-                    <span class="ppid-entretien-type ppid-type-entretien">{{ ppid_icons.entretien(12) }} {{ e.entretien_type }}</span>
-                    <span class="ppid-eval-date">{{ ppid_icons.calendar(12) }} {{ e.date_human }}</span>
+    </div>
+    {% endif %}
+
+    {% if entretiens %}
+    <div class="ppid-grid-section">
+        <h3>{{ ppid_icons.entretien(16) }} Entretiens</h3>
+        <div class="ppid-timeline">
+            {% for e in entretiens %}
+            <div class="ppid-eval-card ppid-card-entretien">
+                <div class="ppid-eval-card-head">
+                    <div>
+                        <span class="ppid-entretien-type ppid-type-entretien">{{ ppid_icons.entretien(12) }} {{ e.entretien_type }}</span>
+                        <span class="ppid-eval-date">{{ ppid_icons.calendar(12) }} {{ e.date_human }}</span>
+                    </div>
+                    {% if not demo_forced %}
+                    <div class="ppid-eval-card-actions">
+                        <form method="POST" action="{{ url_for('ppid_entretien_delete', entretien_id=e.id) }}" class="docs-delete-form"
+                              onsubmit="return confirm('Supprimer cet entretien ?');">
+                            <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer">{{ ppid_icons.delete(14) }}</button>
+                        </form>
+                    </div>
+                    {% endif %}
                 </div>
                 {% if not demo_forced %}
-                <div class="ppid-eval-card-actions">
-                    <form method="POST" action="{{ url_for('ppid_entretien_delete', entretien_id=e.id) }}" class="docs-delete-form"
-                          onsubmit="return confirm('Supprimer cet entretien ?');">
-                        <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer">{{ ppid_icons.delete(14) }}</button>
+                <details class="ppid-inline-edit">
+                    <summary class="docs-mini-btn" title="Modifier">{{ ppid_icons.edit(13) }} Modifier</summary>
+                    <form method="POST" action="{{ url_for('ppid_entretien_edit', entretien_id=e.id) }}" class="docs-form ppid-eval-form">
+                        <div class="cal-form-row">
+                            <div class="form-group">
+                                <label>Date</label>
+                                <input type="date" name="entretien_date" value="{{ e.entretien_date }}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Type</label>
+                                <select name="entretien_type" required>
+                                    {% for t in ppid_entretien_types %}
+                                    <option value="{{ t }}" {{ 'selected' if e.entretien_type==t else '' }}>{{ t }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Notes</label>
+                            <textarea name="notes" rows="4">{{ e.notes or '' }}</textarea>
+                        </div>
+                        <button type="submit" class="btn">Mettre à jour</button>
                     </form>
-                </div>
+                </details>
                 {% endif %}
+                {% if e.notes %}<div class="ppid-callout ppid-entretien-notes">{{ e.notes }}</div>{% endif %}
             </div>
-            {% if not demo_forced %}
-            <details class="ppid-inline-edit">
-                <summary class="docs-mini-btn" title="Modifier">{{ ppid_icons.edit(13) }} Modifier</summary>
-                <form method="POST" action="{{ url_for('ppid_entretien_edit', entretien_id=e.id) }}" class="docs-form ppid-eval-form">
-                    <div class="cal-form-row">
-                        <div class="form-group">
-                            <label>Date</label>
-                            <input type="date" name="entretien_date" value="{{ e.entretien_date }}" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Type</label>
-                            <select name="entretien_type" required>
-                                {% for t in ppid_entretien_types %}
-                                <option value="{{ t }}" {{ 'selected' if e.entretien_type==t else '' }}>{{ t }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Notes</label>
-                        <textarea name="notes" rows="4">{{ e.notes or '' }}</textarea>
-                    </div>
-                    <button type="submit" class="btn">Mettre à jour</button>
-                </form>
-            </details>
-            {% endif %}
-            {% if e.notes %}<div class="ppid-callout ppid-entretien-notes">{{ e.notes }}</div>{% endif %}
+            {% endfor %}
         </div>
-        {% endif %}
-        {% endfor %}
     </div>
-    <div class="empty-state" id="ppidFilterEmpty" style="display:none;"><p>Rien à afficher pour ce filtre.</p></div>
-    <script>
-    (function () {
-        var chips = document.querySelectorAll('#ppidFilterRow .ppid-filter-chip');
-        var cards = document.querySelectorAll('#ppidTimelineMerged [data-ppid-type]');
-        var emptyState = document.getElementById('ppidFilterEmpty');
+    {% endif %}
 
-        // Axe temporel gradué par mois : n'affiche le repère de mois (« Août 26 »...) que
-        // sur la première carte VISIBLE de chaque mois — recalculé à chaque changement de
-        // filtre pour que le regroupement par mois reste juste même quand des cartes sont
-        // masquées (sinon un repère pourrait se retrouver orphelin, ou un mois sans repère).
-        function updateMonthMarkers() {
-            var lastMonth = null;
-            cards.forEach(function (card) {
-                if (card.style.display === 'none') {
-                    card.classList.remove('is-month-start');
-                    return;
-                }
-                var month = card.dataset.ppidMonth;
-                if (month && month !== lastMonth) {
-                    card.classList.add('is-month-start');
-                    lastMonth = month;
-                } else {
-                    card.classList.remove('is-month-start');
-                }
-            });
-        }
-
-        chips.forEach(function (chip) {
-            chip.addEventListener('click', function () {
-                chips.forEach(function (c) { c.classList.remove('active'); });
-                chip.classList.add('active');
-                var filter = chip.dataset.ppidFilter;
-                var visibleCount = 0;
-                cards.forEach(function (card) {
-                    var show = filter === 'all' || card.dataset.ppidType === filter;
-                    card.style.display = show ? '' : 'none';
-                    if (show) visibleCount++;
-                });
-                emptyState.style.display = visibleCount === 0 ? '' : 'none';
-                updateMonthMarkers();
-            });
-        });
-
-        updateMonthMarkers();
-    })();
-    </script>
     {% else %}
     <div class="empty-state"><p>Rien d'enregistré pour {{ selected_player['first_name'] }} pour le moment — utilise les boutons ci-dessus pour commencer.</p></div>
     {% endif %}
