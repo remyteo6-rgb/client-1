@@ -64,6 +64,14 @@
                     </tr>
                 </thead>
                 <tbody>
+                    <tr class="ppid-grid-highlight">
+                        <th class="ppid-grid-rowlabel">{{ ppid_icons.target(13) }} Objectifs</th>
+                        {% for ev in rugby_evals_asc %}<td class="ppid-grid-highlight-cell">{{ ev.objectifs or '—' }}</td>{% endfor %}
+                    </tr>
+                    <tr class="ppid-grid-highlight">
+                        <th class="ppid-grid-rowlabel">{{ ppid_icons.training(13) }} Entraînements spécifiques</th>
+                        {% for ev in rugby_evals_asc %}<td class="ppid-grid-highlight-cell">{{ ev.entrainements or '—' }}</td>{% endfor %}
+                    </tr>
                     {% for key, label in ppid_rugby_categories %}
                     <tr>
                         <th class="ppid-grid-rowlabel">{{ label }}</th>
@@ -82,16 +90,6 @@
                     </tr>
                     {% endfor %}
                 </tbody>
-                <tfoot>
-                    <tr class="ppid-grid-extra">
-                        <th class="ppid-grid-rowlabel">{{ ppid_icons.target(13) }} Objectifs</th>
-                        {% for ev in rugby_evals_asc %}<td class="ppid-grid-extra-cell">{{ ev.objectifs or '—' }}</td>{% endfor %}
-                    </tr>
-                    <tr class="ppid-grid-extra">
-                        <th class="ppid-grid-rowlabel">{{ ppid_icons.training(13) }} Entraînements spécifiques</th>
-                        {% for ev in rugby_evals_asc %}<td class="ppid-grid-extra-cell">{{ ev.entrainements or '—' }}</td>{% endfor %}
-                    </tr>
-                </tfoot>
             </table>
         </div>
     </div>
@@ -135,6 +133,18 @@
                     </tr>
                 </thead>
                 <tbody>
+                    <tr class="ppid-grid-highlight">
+                        <th class="ppid-grid-rowlabel">{{ ppid_icons.note(13) }} Commentaires</th>
+                        {% for ev in physical_evals_asc %}<td class="ppid-grid-highlight-cell">{{ ev.commentaires or '—' }}</td>{% endfor %}
+                    </tr>
+                    <tr class="ppid-grid-highlight">
+                        <th class="ppid-grid-rowlabel">{{ ppid_icons.training(13) }} Musculation</th>
+                        {% for ev in physical_evals_asc %}<td class="ppid-grid-highlight-cell">{{ ev.axe_musculation or '—' }}</td>{% endfor %}
+                    </tr>
+                    <tr class="ppid-grid-highlight">
+                        <th class="ppid-grid-rowlabel">{{ ppid_icons.training(13) }} Terrain</th>
+                        {% for ev in physical_evals_asc %}<td class="ppid-grid-highlight-cell">{{ ev.axe_terrain or '—' }}</td>{% endfor %}
+                    </tr>
                     {% for key, label in ppid_physical_categories %}
                     <tr>
                         <th class="ppid-grid-rowlabel">{{ label }}</th>
@@ -155,20 +165,6 @@
                     </tr>
                     {% endfor %}
                 </tbody>
-                <tfoot>
-                    <tr class="ppid-grid-extra">
-                        <th class="ppid-grid-rowlabel">{{ ppid_icons.note(13) }} Commentaires</th>
-                        {% for ev in physical_evals_asc %}<td class="ppid-grid-extra-cell">{{ ev.commentaires or '—' }}</td>{% endfor %}
-                    </tr>
-                    <tr class="ppid-grid-extra">
-                        <th class="ppid-grid-rowlabel">{{ ppid_icons.training(13) }} Musculation</th>
-                        {% for ev in physical_evals_asc %}<td class="ppid-grid-extra-cell">{{ ev.axe_musculation or '—' }}</td>{% endfor %}
-                    </tr>
-                    <tr class="ppid-grid-extra">
-                        <th class="ppid-grid-rowlabel">{{ ppid_icons.training(13) }} Terrain</th>
-                        {% for ev in physical_evals_asc %}<td class="ppid-grid-extra-cell">{{ ev.axe_terrain or '—' }}</td>{% endfor %}
-                    </tr>
-                </tfoot>
             </table>
         </div>
     </div>
