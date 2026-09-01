@@ -1292,10 +1292,45 @@ body.demo-mode .demo-blur {
 .ppid-grid-row-entrainements th, .ppid-grid-row-entrainements td { font-weight: 800; }
 
 /* Entretiens intégrés directement dans le tableau rugby, sous la ligne Objectifs — une seule
-   cellule fusionnée (colspan sur toutes les colonnes de période) plutôt qu'une section à part. */
+   cellule fusionnée (colspan sur toutes les colonnes de période) plutôt qu'une section à part.
+   Pour rester lisible même avec beaucoup d'entretiens (10+) : chaque entretien est une ligne
+   repliée d'une hauteur (type, date, aperçu de la note tronqué) qui se déplie au clic pour
+   afficher la note complète et, côté staff, modifier/supprimer. Seuls les 3 plus récents sont
+   affichés d'emblée, le reste est derrière un "+ N autres entretiens" — la cellule garde une
+   taille maîtrisée quel que soit l'historique du joueur. */
 .ppid-grid-entretien-cell { background: rgba(249,162,64,0.06); }
-.ppid-timeline-compact { gap: 10px; }
-.ppid-timeline-compact .ppid-eval-card { padding: 10px 12px; }
+
+.ppid-entretien-list { display: flex; flex-direction: column; }
+.ppid-entretien-row { border-bottom: 1px solid var(--bg-card-border); }
+.ppid-entretien-list .ppid-entretien-row:last-child { border-bottom: none; }
+.ppid-entretien-row-summary {
+    list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px;
+    padding: 7px 2px; flex-wrap: nowrap;
+}
+.ppid-entretien-row-summary::-webkit-details-marker { display: none; }
+.ppid-entretien-row-summary::before {
+    content: "▸"; font-size: 9px; color: var(--text-secondary); flex-shrink: 0;
+    transition: transform 0.15s ease;
+}
+.ppid-entretien-row[open] > .ppid-entretien-row-summary::before { transform: rotate(90deg); }
+.ppid-entretien-row-summary .ppid-entretien-type { flex-shrink: 0; }
+.ppid-entretien-row-summary .ppid-eval-date { flex-shrink: 0; margin-left: 0; }
+.ppid-entretien-note-preview {
+    flex: 1; min-width: 40px; color: var(--text-secondary); font-size: 12px; font-weight: 400;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ppid-entretien-row[open] .ppid-entretien-note-preview { display: none; }
+.ppid-entretien-row .ppid-entretien-notes { margin: 0 0 8px 17px; font-size: 12.5px; }
+.ppid-entretien-row-actions { display: flex; gap: 6px; margin: 0 0 10px 17px; }
+
+.ppid-entretien-more { margin-top: 6px; }
+.ppid-entretien-more > summary {
+    list-style: none; cursor: pointer; font-size: 12px; font-weight: 600;
+    color: var(--own-color); padding: 4px 2px;
+}
+.ppid-entretien-more > summary::-webkit-details-marker { display: none; }
+.ppid-entretien-more > summary:hover { text-decoration: underline; }
+.ppid-entretien-more[open] > summary { margin-bottom: 4px; }
 
 @media (max-width: 700px) {
     .ppid-grid-corner, .ppid-grid-rowlabel { min-width: 130px; font-size: 11.5px; }
