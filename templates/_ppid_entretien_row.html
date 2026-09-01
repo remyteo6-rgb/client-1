@@ -1,0 +1,44 @@
+{# Une ligne compacte pour un entretien (utilisée dans la liste "Entretiens" du tableau rugby,
+   voir cahier_charges.html / player_evaluations.html). Repliée par défaut sur une seule ligne
+   (type, date, aperçu de la note tronqué) ; cliquer dessus déplie la note complète et, côté
+   staff, les actions modifier/supprimer — pour rester lisible même avec beaucoup d'entretiens. #}
+<details class="ppid-entretien-row">
+    <summary class="ppid-entretien-row-summary">
+        <span class="ppid-entretien-type ppid-type-entretien">{{ ppid_icons.entretien(11) }} {{ e.entretien_type }}</span>
+        <span class="ppid-eval-date">{{ ppid_icons.calendar(11) }} {{ e.date_human }}</span>
+        {% if e.notes %}<span class="ppid-entretien-note-preview">{{ e.notes }}</span>{% endif %}
+    </summary>
+    {% if e.notes %}<div class="ppid-callout ppid-entretien-notes">{{ e.notes }}</div>{% endif %}
+    {% if ppid_entretien_editable %}
+    <div class="ppid-entretien-row-actions">
+        <details class="ppid-inline-edit">
+            <summary class="docs-mini-btn" title="Modifier">{{ ppid_icons.edit(12) }} Modifier</summary>
+            <form method="POST" action="{{ url_for('ppid_entretien_edit', entretien_id=e.id) }}" class="docs-form ppid-eval-form">
+                <div class="cal-form-row">
+                    <div class="form-group">
+                        <label>Date</label>
+                        <input type="date" name="entretien_date" value="{{ e.entretien_date }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Type</label>
+                        <select name="entretien_type" required>
+                            {% for t in ppid_entretien_types %}
+                            <option value="{{ t }}" {{ 'selected' if e.entretien_type==t else '' }}>{{ t }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea name="notes" rows="4">{{ e.notes or '' }}</textarea>
+                </div>
+                <button type="submit" class="btn">Mettre à jour</button>
+            </form>
+        </details>
+        <form method="POST" action="{{ url_for('ppid_entretien_delete', entretien_id=e.id) }}" class="docs-delete-form"
+              onsubmit="return confirm('Supprimer cet entretien ?');">
+            <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer">{{ ppid_icons.delete(12) }} Supprimer</button>
+        </form>
+    </div>
+    {% endif %}
+</details>
