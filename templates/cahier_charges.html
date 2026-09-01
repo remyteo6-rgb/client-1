@@ -440,11 +440,65 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr class="ppid-grid-highlight">
+                    <tr class="ppid-grid-highlight ppid-grid-row-objectifs">
                         <th class="ppid-grid-rowlabel">{{ ppid_icons.target(13) }} Objectifs</th>
                         {% for ev in rugby_evals_asc %}<td class="ppid-grid-highlight-cell">{{ ev.objectifs or '—' }}</td>{% endfor %}
                     </tr>
-                    <tr class="ppid-grid-highlight">
+                    {% if entretiens %}
+                    <tr class="ppid-grid-highlight ppid-grid-row-entretiens">
+                        <th class="ppid-grid-rowlabel">{{ ppid_icons.entretien(13) }} Entretiens</th>
+                        <td class="ppid-grid-highlight-cell ppid-grid-entretien-cell" colspan="{{ rugby_evals_asc|length }}">
+                            <div class="ppid-timeline ppid-timeline-compact">
+                                {% for e in entretiens %}
+                                <div class="ppid-eval-card ppid-card-entretien">
+                                    <div class="ppid-eval-card-head">
+                                        <div>
+                                            <span class="ppid-entretien-type ppid-type-entretien">{{ ppid_icons.entretien(12) }} {{ e.entretien_type }}</span>
+                                            <span class="ppid-eval-date">{{ ppid_icons.calendar(12) }} {{ e.date_human }}</span>
+                                        </div>
+                                        {% if not demo_forced %}
+                                        <div class="ppid-eval-card-actions">
+                                            <form method="POST" action="{{ url_for('ppid_entretien_delete', entretien_id=e.id) }}" class="docs-delete-form"
+                                                  onsubmit="return confirm('Supprimer cet entretien ?');">
+                                                <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer">{{ ppid_icons.delete(14) }}</button>
+                                            </form>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    {% if not demo_forced %}
+                                    <details class="ppid-inline-edit">
+                                        <summary class="docs-mini-btn" title="Modifier">{{ ppid_icons.edit(13) }} Modifier</summary>
+                                        <form method="POST" action="{{ url_for('ppid_entretien_edit', entretien_id=e.id) }}" class="docs-form ppid-eval-form">
+                                            <div class="cal-form-row">
+                                                <div class="form-group">
+                                                    <label>Date</label>
+                                                    <input type="date" name="entretien_date" value="{{ e.entretien_date }}" required>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label>Type</label>
+                                                    <select name="entretien_type" required>
+                                                        {% for t in ppid_entretien_types %}
+                                                        <option value="{{ t }}" {{ 'selected' if e.entretien_type==t else '' }}>{{ t }}</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label>Notes</label>
+                                                <textarea name="notes" rows="4">{{ e.notes or '' }}</textarea>
+                                            </div>
+                                            <button type="submit" class="btn">Mettre à jour</button>
+                                        </form>
+                                    </details>
+                                    {% endif %}
+                                    {% if e.notes %}<div class="ppid-callout ppid-entretien-notes">{{ e.notes }}</div>{% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    <tr class="ppid-grid-highlight ppid-grid-row-entrainements">
                         <th class="ppid-grid-rowlabel">{{ ppid_icons.training(13) }} Entraînements spécifiques</th>
                         {% for ev in rugby_evals_asc %}<td class="ppid-grid-highlight-cell">{{ ev.entrainements or '—' }}</td>{% endfor %}
                     </tr>
@@ -576,7 +630,7 @@
     </div>
     {% endif %}
 
-    {% if entretiens %}
+    {% if entretiens and not rugby_evals %}
     <div class="ppid-grid-section">
         <h3>{{ ppid_icons.entretien(16) }} Entretiens</h3>
         <div class="ppid-timeline">
