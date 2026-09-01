@@ -1286,6 +1286,17 @@ body.demo-mode .demo-blur {
 .ppid-grid-highlight th { font-size: 13.5px; font-weight: 800; }
 .ppid-grid-highlight:last-of-type th, .ppid-grid-highlight:last-of-type td { border-bottom: 2px solid var(--own-color); }
 
+/* Objectifs en rouge, Entraînements spécifiques en gras — pour que le manager repère ces deux
+   lignes en un coup d'œil dans le tableau. */
+.ppid-grid-row-objectifs th, .ppid-grid-row-objectifs td { color: var(--negative); }
+.ppid-grid-row-entrainements th, .ppid-grid-row-entrainements td { font-weight: 800; }
+
+/* Entretiens intégrés directement dans le tableau rugby, sous la ligne Objectifs — une seule
+   cellule fusionnée (colspan sur toutes les colonnes de période) plutôt qu'une section à part. */
+.ppid-grid-entretien-cell { background: rgba(249,162,64,0.06); }
+.ppid-timeline-compact { gap: 10px; }
+.ppid-timeline-compact .ppid-eval-card { padding: 10px 12px; }
+
 @media (max-width: 700px) {
     .ppid-grid-corner, .ppid-grid-rowlabel { min-width: 130px; font-size: 11.5px; }
     .ppid-grid-colhead { min-width: 160px; }
