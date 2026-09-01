@@ -64,11 +64,31 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr class="ppid-grid-highlight">
+                    <tr class="ppid-grid-highlight ppid-grid-row-objectifs">
                         <th class="ppid-grid-rowlabel">{{ ppid_icons.target(13) }} Objectifs</th>
                         {% for ev in rugby_evals_asc %}<td class="ppid-grid-highlight-cell">{{ ev.objectifs or '—' }}</td>{% endfor %}
                     </tr>
-                    <tr class="ppid-grid-highlight">
+                    {% if entretiens %}
+                    <tr class="ppid-grid-highlight ppid-grid-row-entretiens">
+                        <th class="ppid-grid-rowlabel">{{ ppid_icons.entretien(13) }} Entretiens</th>
+                        <td class="ppid-grid-highlight-cell ppid-grid-entretien-cell" colspan="{{ rugby_evals_asc|length }}">
+                            <div class="ppid-timeline ppid-timeline-compact">
+                                {% for e in entretiens %}
+                                <div class="ppid-eval-card ppid-card-entretien">
+                                    <div class="ppid-eval-card-head">
+                                        <div>
+                                            <span class="ppid-entretien-type ppid-type-entretien">{{ ppid_icons.entretien(12) }} {{ e.entretien_type }}</span>
+                                            <span class="ppid-eval-date">{{ ppid_icons.calendar(12) }} {{ e.date_human }}</span>
+                                        </div>
+                                    </div>
+                                    {% if e.notes %}<div class="ppid-callout ppid-entretien-notes">{{ e.notes }}</div>{% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    <tr class="ppid-grid-highlight ppid-grid-row-entrainements">
                         <th class="ppid-grid-rowlabel">{{ ppid_icons.training(13) }} Entraînements spécifiques</th>
                         {% for ev in rugby_evals_asc %}<td class="ppid-grid-highlight-cell">{{ ev.entrainements or '—' }}</td>{% endfor %}
                     </tr>
@@ -170,7 +190,7 @@
     </div>
     {% endif %}
 
-    {% if entretiens %}
+    {% if entretiens and not rugby_evals %}
     <div class="ppid-grid-section">
         <h3>{{ ppid_icons.entretien(16) }} Entretiens</h3>
         <div class="ppid-timeline">
