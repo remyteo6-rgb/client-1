@@ -2013,8 +2013,13 @@ def player_evaluations():
     ]
     _ppid_compute_trends(rugby_evals, PPID_RUGBY_CATEGORY_KEYS, lambda r: r.get("note"))
     _ppid_compute_trends(physical_evals, [key for key, _label in PPID_PHYSICAL_CATEGORIES], lambda r: r.get("coach"))
+    # Voir cahier_charges() : mêmes tableaux croisés critères × périodes, ordre chronologique
+    # croissant pour les colonnes (gauche = le plus ancien, comme dans le fichier du manager).
+    rugby_evals_asc = sorted(rugby_evals, key=lambda e: e.get("eval_date") or (e.get("created_at") or ""))
+    physical_evals_asc = sorted(physical_evals, key=lambda e: e.get("eval_date") or (e.get("created_at") or ""))
     return render_template(
         "player_evaluations.html", player=player, rugby_evals=rugby_evals, physical_evals=physical_evals,
+        rugby_evals_asc=rugby_evals_asc, physical_evals_asc=physical_evals_asc,
         entretiens=entretiens, ppid_timeline=_ppid_timeline(rugby_evals, physical_evals, entretiens),
         ppid_rugby_categories=_ppid_rugby_categories_for_position(player.get("ppid_position")),
         ppid_physical_categories=PPID_PHYSICAL_CATEGORIES,
@@ -2539,11 +2544,18 @@ def cahier_charges():
         ]
         _ppid_compute_trends(rugby_evals, PPID_RUGBY_CATEGORY_KEYS, lambda r: r.get("note"))
         _ppid_compute_trends(physical_evals, [key for key, _label in PPID_PHYSICAL_CATEGORIES], lambda r: r.get("coach"))
+    # Tableaux croisés critères × périodes (demande du manager, format identique à son fichier
+    # Excel) : les colonnes vont de la période la plus ancienne à la plus récente (gauche à
+    # droite), donc tri croissant — à l'inverse de rugby_evals/physical_evals (tri décroissant,
+    # utilisé ailleurs pour le bilan global où on veut le plus récent en premier).
+    rugby_evals_asc = sorted(rugby_evals, key=lambda e: e.get("eval_date") or (e.get("created_at") or ""))
+    physical_evals_asc = sorted(physical_evals, key=lambda e: e.get("eval_date") or (e.get("created_at") or ""))
     return render_template(
         "cahier_charges.html", columns=columns, statuses=CHARGES_STATUSES,
         status_labels=CHARGES_STATUS_LABELS, total_count=len(rows),
         grouped_players=grouped_players, selected_player=selected_player, joueur_id=joueur_id, docs=docs_view,
         rugby_evals=rugby_evals, physical_evals=physical_evals, entretiens=entretiens,
+        rugby_evals_asc=rugby_evals_asc, physical_evals_asc=physical_evals_asc,
         ppid_timeline=_ppid_timeline(rugby_evals, physical_evals, entretiens),
         ppid_bilan=_ppid_bilan_global(rugby_evals, physical_evals, entretiens) if selected_player else None,
         ppid_positions=PPID_POSITIONS,
