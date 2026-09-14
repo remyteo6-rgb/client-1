@@ -24,7 +24,8 @@ from parser import (
     group_training_sessions_by_period, compute_win_loss_analysis, compute_match_kpis,
    PHASE_ICONS, PHASE_HELP, compute_event_timing_multi, compute_match_baseline,
     compute_sector_baselines, compute_player_season_baselines, build_player_cards,
-    attach_overview_highlights,
+    attach_overview_highlights, compute_momentum, render_momentum_svg,
+    compute_possession_log, compute_zone_gold_log,
 )
 from parser_ubb import parse_ubb_xml, compute_ubb_overview
 from prod2 import (
@@ -659,7 +660,7 @@ def upload():
         (
             datetime.utcnow().isoformat(),
             request.form.get("match_date") or None,
-            request.form.get("own_team") or parsed["own_team_tag"],
+            request.form.get("own_team") or parsed["own_team_tag"] or "Union Bordeaux Begles",
             opponent,
             request.form.get("competition") or None,
             request.form.get("venue") or None,
@@ -793,17 +794,26 @@ def match_detail(match_id):
     phase_timing = None
     dashboard = None
     baseline = None
+    momentum = None
+    momentum_svg = None
     if match["instances"]:
         score = compute_score(match["instances"])
         phase_timing = compute_phase_timing(match["instances"])
         dashboard = compute_overview_dashboard(match["instances"], score)
         matches_with_instances, _, _, _ = _season_context()
         baseline = compute_match_baseline(matches_with_instances, exclude_id=match_id)
+        # Courbe momentum : demande un modèle de tagging spécifique (voir parser.py,
+        # section MOMENTUM) — un match codé avec un autre gabarit renvoie quand même un
+        # résultat, mais avec des indicateurs à 0 et une alerte de conformité dans
+        # momentum['alerts'] plutôt qu'un chiffre silencieusement faux.
+        momentum = compute_momentum(match["instances"], libelle=match["opponent"])
+        if momentum:
+            momentum_svg = render_momentum_svg(momentum)
     return render_template(
         "match.html", match=match, sections=sections, top_players=top_players,
         highlights=highlights, radar=radar, score=score, phase_timing=phase_timing,
         phase_icons=PHASE_ICONS, phase_help=PHASE_HELP, dashboard=dashboard,
-        baseline=baseline,
+        baseline=baseline, momentum=momentum, momentum_svg=momentum_svg,
         has_instances=not _no_instances_guard(match),
     )
 @app.route("/match/<int:match_id>/attaque")
@@ -961,6 +971,55 @@ def match_transition(match_id):
         return redirect(url_for("match_detail", match_id=match_id))
     transition = compute_transition_sector(match["instances"])
     return render_template("match_transition.html", match=match, data=transition)
+@app.route("/match/<int:match_id>/possessions")
+def match_possessions(match_id):
+    match = _get_match_or_404(match_id)
+    if _no_instances_guard(match):
+        flash("Ce match a été importé avant la mise à jour détaillée par secteur : réimporte le fichier XML pour voir cette page.", "error")
+        return redirect(url_for("match_detail", match_id=match_id))
+    possessions = compute_possession_log(match["instances"])
+    return render_template("match_possessions.html", match=match, data=possessions)
+@app.route("/match/<int:match_id>/zone-gold")
+def match_zone_gold(match_id):
+    match = _get_match_or_404(match_id)
+    if _no_instances_guard(match):
+        flash("Ce match a été importé avant la mise à jour détaillée par secteur : réimporte le fichier XML pour voir cette page.", "error")
+        return redirect(url_for("match_detail", match_id=match_id))
+    manual = match.get("manual_stats") or {}
+    own_points = manual.get("score_own_manual")
+    adverse_points = manual.get("score_adverse_manual")
+    score_source = "manual" if (own_points is not None or adverse_points is not None) else None
+    if own_points is None and adverse_points is None:
+        # Le score calculé automatiquement ne marche que pour l'ancienne convention
+        # de tagging numérotée ; pour la nouvelle convention (codes "UBB Essai" etc.)
+        # il faut le saisir à la main tant que ce n'est pas encore branché.
+        auto_score = compute_score(match["instances"])
+        if auto_score["own"] or auto_score["adverse"]:
+            own_points, adverse_points = auto_score["own"], auto_score["adverse"]
+            score_source = "auto"
+    zone_gold = compute_zone_gold_log(match["instances"], own_points=own_points, adverse_points=adverse_points)
+    return render_template("match_zone_gold.html", match=match, data=zone_gold,
+                           manual=manual, score_source=score_source)
+@app.route("/match/<int:match_id>/zone-gold/manual", methods=["POST"])
+@admin_required
+def match_zone_gold_manual(match_id):
+    match = _get_match_or_404(match_id)
+    manual = match.get("manual_stats") or {}
+    def _to_int(raw):
+        raw = (raw or "").strip()
+        if raw == "":
+            return None
+        try:
+            return int(raw)
+        except ValueError:
+            return None
+    manual["score_own_manual"] = _to_int(request.form.get("score_own_manual"))
+    manual["score_adverse_manual"] = _to_int(request.form.get("score_adverse_manual"))
+    db = get_db()
+    db.execute("UPDATE matches SET manual_stats_json = %s WHERE id = %s", (json.dumps(manual), match_id))
+    db.commit()
+    flash("Score du match enregistré.", "success")
+    return redirect(url_for("match_zone_gold", match_id=match_id))
 @app.route("/admin/export")
 @admin_required
 def export_data():
