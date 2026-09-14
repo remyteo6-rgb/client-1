@@ -138,7 +138,13 @@ def parse_sportscode_xml(path, own_team_label=None):
             "labels": labels,
         })
 
-    # Determine the literal own-team tag word used in the coding window (e.g. "Nice")
+    # Determine the literal own-team tag word used in the coding window (e.g. "Nice"
+    # sur les anciens exports — un reliquat du club d'origine pour lequel ce site a
+    # été construit avant d'être repris par UBB). Si aucun code numéroté n'est
+    # trouvé du tout (nouvelle convention de tagging 2026, ex: "UBB Essai"), on ne
+    # peut rien détecter honnêtement : on renvoie None plutôt qu'un "Nice" par
+    # défaut trompeur, à charge de l'appelant de choisir un nom d'équipe correct
+    # (voir app.py, route /upload : repli sur le vrai nom du club).
     detected_tag = own_team_label
     if not detected_tag:
         tag_counts = defaultdict(int)
@@ -151,7 +157,7 @@ def parse_sportscode_xml(path, own_team_label=None):
                 if tokens and tokens[-1] not in SIDE_ADVERSE_TOKENS and tokens[-1] != "Adverse":
                     if tokens[-1].lower() not in ("adverse", "adv"):
                         tag_counts[tokens[-1]] += code_catalog[code]
-        detected_tag = max(tag_counts, key=tag_counts.get) if tag_counts else "Nice"
+        detected_tag = max(tag_counts, key=tag_counts.get) if tag_counts else None
 
     return {
         "own_team_tag": detected_tag,
@@ -1370,6 +1376,315 @@ def compute_occupation_by_period(instances):
         }
     return result
 
+
+# ===========================================================================
+# MOMENTUM — porté à l'identique du script "suivi_saison.py" développé à part
+# par Téo (même constantes, mêmes formules : ne pas modifier les poids/seuils
+# ci-dessous sans re-valider sur le match de référence qui a servi à les
+# régler). Le modèle : cinq familles de codes symétriques, toutes exprimées
+# en points espérés, lissées dans le temps puis comparées à une échelle FIXE
+# (±3.5) pour que les matchs restent comparables entre eux d'une journée à
+# l'autre. Un "temps fort" est une séquence d'au moins 2 minutes où le
+# momentum reste au-dessus du seuil ; il est "converti" si l'équipe marque
+# pendant la séquence ou dans les 90 secondes qui suivent.
+#
+# Contrainte importante : ce calcul lit les codes Sportscode BRUTS
+# (match["instances"][i]["code_raw"]) selon la convention de tagging utilisée
+# pour ce modèle ("01 - Possession", "UBB PDB" / "ADV PDB", "Possession
+# Gold/Rumble/Cop/Rouge", "Défense <zone>", "UBB Ruck <zone>", "Marque" avec
+# un label groupe "Type de marque"). Un match importé avec une autre
+# convention de tagging (ex. la voie rapide "Importer un match UBB", ou
+# l'ancien gabarit "N - Catégorie Côté") n'aura simplement aucun de ces codes
+# reconnus : compute_momentum() renvoie alors un résultat avec des indicateurs
+# à 0 et une alerte de conformité l'explique (voir "alerts" dans le retour),
+# plutôt qu'un chiffre silencieusement faux.
+# ===========================================================================
+
+MOMENTUM_EQUIPE = "UBB"
+MOMENTUM_ZONES = {"Gold": 11.0, "Rumble": 36.0, "Cop": 64.0, "Rouge": 89.0}
+
+
+def _momentum_ep(m):
+    """Points espérés d'une possession à m mètres de la ligne adverse."""
+    return max(4.2 * math.exp(-m / 28.0) - 0.2, -0.2)
+
+
+MOMENTUM_CODE_POSSESSION = {"01 - Possession": +1, "02 - Possesion": -1}
+MOMENTUM_POIDS_POSSESSION = 0.30
+MOMENTUM_POIDS_PDB = -2.0
+MOMENTUM_POIDS_PENALITE = -2.0
+MOMENTUM_CODES_PDB_TPL = {"{E} PDB": +1, "ADV PDB": -1}
+MOMENTUM_CODES_PENALITE_TPL = {"{E} Penalités concedées": +1, "ADV Penalités concedées": -1}
+MOMENTUM_VALEUR_POINTS = {"Essai": 5, "Transformation": 2, "Pénalité": 3, "Drop": 3}
+MOMENTUM_CODE_MARQUE = "Marque"
+
+MOMENTUM_BIN, MOMENTUM_DEMI_VIE = 30.0, 90.0
+MOMENTUM_POIDS_ETAT = 0.80
+MOMENTUM_POIDS_TRANSIT = 1.50
+MOMENTUM_AMORTI_ESSAI = 0.30
+MOMENTUM_SEUIL_TF, MOMENTUM_DUREE_TF = 0.80, 120.0
+MOMENTUM_FENETRE_CONV = 90.0
+MOMENTUM_ECHELLE = 3.50
+MOMENTUM_TROU_MI_TEMPS = 300.0
+
+
+def _momentum_periodes(inst):
+    """Détecte les 2 mi-temps via la plus grande coupure temporelle du flux codé."""
+    d1, f2 = inst[0]["s"], max(x["e"] for x in inst)
+    trous = [(b["s"] - a["e"], a["e"], b["s"]) for a, b in zip(inst, inst[1:])
+             if b["s"] - a["e"] > MOMENTUM_TROU_MI_TEMPS]
+    if not trous:
+        return d1, f2, f2, f2
+    _, f1, d2 = max(trous)
+    return d1, f1, d2, f2
+
+
+def compute_momentum(instances, equipe=MOMENTUM_EQUIPE, libelle=""):
+    """Calcule le momentum minute par minute d'un match : renvoie un dict avec le
+    signal lissé (r["sig"]), les temps forts détectés (r["tf"]), les essais marqués
+    (r["marques"]), le score recalculé depuis les codes "Marque", et les indicateurs
+    de synthèse (temps forts créés/subis, essais hors temps fort, possession...).
+
+    `instances` : la liste brute d'un match tel que stockée par l'appli (mêmes champs
+    que parse_sportscode_xml : start/end/code_raw/labels). Renvoie None si le match
+    n'a pas assez d'événements horodatés pour construire une chronologie (import sans
+    XML, ou moins de 2 instances)."""
+    inst = sorted(
+        (
+            {"s": i["start"], "e": i["end"], "c": i.get("code_raw") or "",
+             "L": [(l.get("group"), l.get("text")) for l in i.get("labels") or []]}
+            for i in instances
+        ),
+        key=lambda x: x["s"],
+    )
+    if len(inst) < 2:
+        return None
+    _k = lambda s: s.replace("{E}", equipe)
+    codes_pdb = {_k(a): v for a, v in MOMENTUM_CODES_PDB_TPL.items()}
+    codes_penalite = {_k(a): v for a, v in MOMENTUM_CODES_PENALITE_TPL.items()}
+
+    d1, f1, d2, f2 = _momentum_periodes(inst)
+    duree1 = f1 - d1
+    if duree1 <= 0:
+        return None
+    tj = lambda t: t - d1 if t <= f1 else duree1 + (t - d2)
+    pause = lambda t: f1 < t < d2
+    N = int(tj(f2) / MOMENTUM_BIN) + 1
+    bin_mt = int(duree1 / MOMENTUM_BIN)
+
+    # ---- 5. points : score et marqueurs (codes "Marque" + label "Type de marque")
+    marques, score, sans_type = [], {equipe: 0, "ADV": 0}, 0
+    for x in inst:
+        if MOMENTUM_CODE_MARQUE not in x["c"] or pause(x["s"]):
+            continue
+        eq = equipe if equipe in x["c"] else "ADV"
+        types = [t for g, t in x["L"] if g == "Type de marque" and t in MOMENTUM_VALEUR_POINTS]
+        if not types:
+            types = ["Essai"]; sans_type += 1
+        for t in types:
+            score[eq] += MOMENTUM_VALEUR_POINTS[t]
+            if t == "Transformation":
+                continue
+            tt = tj(x["s"])
+            if not any(m["equipe"] == eq and tt - m["t"] < 60 for m in marques):
+                marques.append({"t": tt, "equipe": eq, "type": t})
+    bins_marque = {int(m["t"] / MOMENTUM_BIN) for m in marques}
+
+    # ---- 1. occupation : état territorial maintenu (zones Gold/Rumble/Cop/Rouge)
+    obs = []
+    for x in inst:
+        if pause(x["s"]):
+            continue
+        for z, m in MOMENTUM_ZONES.items():
+            if x["c"] in (f"Possession {z}", f"{equipe} Ruck {z}"):
+                obs.append((tj(x["s"]), _momentum_ep(m))); break
+            if x["c"] == f"Défense {z}":
+                obs.append((tj(x["s"]), -_momentum_ep(100.0 - m))); break
+    obs.sort()
+    terr, cur, k = [], 0.0, 0
+    for b in range(N):
+        while k < len(obs) and obs[k][0] < (b + 1) * MOMENTUM_BIN:
+            cur = obs[k][1]; k += 1
+        terr.append(cur)
+
+    # ---- 2. possession : secondes signées par tranche
+    poss, sec = [0.0] * N, {equipe: 0.0, "ADV": 0.0}
+    for x in inst:
+        s = next((v for p, v in MOMENTUM_CODE_POSSESSION.items() if x["c"].startswith(p)), 0)
+        if not s or pause(x["s"]):
+            continue
+        sec[equipe if s > 0 else "ADV"] += x["e"] - x["s"]
+        t = x["s"]
+        while t < x["e"]:
+            b = min(max(int(tj(t) / MOMENTUM_BIN), 0), N - 1)
+            pas = MOMENTUM_BIN - (tj(t) % MOMENTUM_BIN)
+            if pas < 1e-6:
+                pas = MOMENTUM_BIN
+            nxt = min(x["e"], t + pas)
+            if nxt <= t:
+                break
+            poss[b] += s * (nxt - t); t = nxt
+
+    # ---- 3 et 4 : pertes de balle et pénalités concédées, en points
+    ev = [0.0] * N
+    cpt = {"pdb_pour": 0, "pdb_contre": 0, "pen_pour": 0, "pen_contre": 0}
+    for x in inst:
+        if pause(x["s"]):
+            continue
+        b = min(int(tj(x["s"]) / MOMENTUM_BIN), N - 1)
+        if x["c"] in codes_pdb:
+            s = codes_pdb[x["c"]]; ev[b] += MOMENTUM_POIDS_PDB * s
+            cpt["pdb_pour" if s > 0 else "pdb_contre"] += 1
+        if x["c"] in codes_penalite:
+            s = codes_penalite[x["c"]]; ev[b] += MOMENTUM_POIDS_PENALITE * s
+            cpt["pen_pour" if s > 0 else "pen_contre"] += 1
+
+    # ---- signal, en points espérés absolus, puis lissage (demi-vie 90s)
+    dt = [0.0] + [terr[b] - terr[b - 1] for b in range(1, N)]
+    if bin_mt < N:
+        dt[bin_mt] = 0.0
+    brut = [ev[b] + MOMENTUM_POIDS_ETAT * terr[b] + MOMENTUM_POIDS_TRANSIT * dt[b]
+            + MOMENTUM_POIDS_POSSESSION * (poss[b] / MOMENTUM_BIN) for b in range(N)]
+    alpha = 1 - 0.5 ** (MOMENTUM_BIN / MOMENTUM_DEMI_VIE)
+    sig, acc = [], 0.0
+    for b, v in enumerate(brut):
+        if b == bin_mt:
+            acc = 0.0
+        if b - 1 in bins_marque:
+            acc *= MOMENTUM_AMORTI_ESSAI
+        acc = alpha * v + (1 - alpha) * acc
+        sig.append(acc)
+
+    # ---- temps forts, conversion, et essais tombés en dehors de tout temps fort
+    tf, i = [], 0
+    while i < N:
+        s = 1 if sig[i] > MOMENTUM_SEUIL_TF else (-1 if sig[i] < -MOMENTUM_SEUIL_TF else 0)
+        if s == 0:
+            i += 1; continue
+        j = i
+        while j < N and (sig[j] > MOMENTUM_SEUIL_TF if s > 0 else sig[j] < -MOMENTUM_SEUIL_TF):
+            j += 1
+        if (j - i) * MOMENTUM_BIN >= MOMENTUM_DUREE_TF:
+            eq = equipe if s > 0 else "ADV"
+            tf.append({"debut": i * MOMENTUM_BIN, "fin": j * MOMENTUM_BIN, "equipe": eq,
+                       "pic": max(sig[i:j], key=abs), "periode": 1 if i < bin_mt else 2,
+                       "converti": any(m["equipe"] == eq and i * MOMENTUM_BIN <= m["t"] <= j * MOMENTUM_BIN + MOMENTUM_FENETRE_CONV
+                                       for m in marques)})
+        i = j
+    couvert = {round(m["t"], 1) for t in tf for m in marques
+               if m["equipe"] == t["equipe"] and t["debut"] <= m["t"] <= t["fin"] + MOMENTUM_FENETRE_CONV}
+
+    def _compte(eq):
+        e = [t for t in tf if t["equipe"] == eq]
+        c = sum(t["converti"] for t in e)
+        return len(e), c, (100.0 * c / len(e) if e else 0.0)
+
+    n_c, k_c, p_c = _compte(equipe)
+    n_s, k_s, p_s = _compte("ADV")
+    moy = lambda v, a, b: (sum(v[a:b]) / (b - a)) if b > a else 0.0
+    tot_sec = sec[equipe] + sec["ADV"]
+
+    r = {
+        "libelle": libelle, "equipe": equipe, "N": N, "bin_mt": bin_mt, "bin": MOMENTUM_BIN,
+        "echelle": MOMENTUM_ECHELLE, "duree_mt1": duree1 / 60.0,
+        "sig": sig, "terr": terr, "marques": marques, "tf": tf,
+        "score_pour": score[equipe], "score_contre": score["ADV"],
+        "marques_sans_type": sans_type,
+        "essais_pour": sum(1 for m in marques if m["equipe"] == equipe),
+        "essais_contre": sum(1 for m in marques if m["equipe"] == "ADV"),
+        "essais_pour_hors_tf": sum(1 for m in marques if m["equipe"] == equipe
+                                   and round(m["t"], 1) not in couvert),
+        "essais_contre_hors_tf": sum(1 for m in marques if m["equipe"] == "ADV"
+                                     and round(m["t"], 1) not in couvert),
+        "tf_crees": n_c, "tf_convertis": k_c, "taux_cree": p_c,
+        "tf_subis": n_s, "tf_encaisses": k_s, "taux_subi": p_s,
+        "possession": 100.0 * sec[equipe] / tot_sec if tot_sec else 0.0,
+        "momentum_mt1": moy(sig, 0, bin_mt), "momentum_mt2": moy(sig, bin_mt, N),
+        "ecart_mt": moy(sig, bin_mt, N) - moy(sig, 0, bin_mt),
+        **cpt,
+    }
+    r["alerts"] = _momentum_controls(inst, r, equipe)
+    return r
+
+
+def _momentum_controls(inst, r, equipe):
+    """Conformité du tagging, famille par famille — une dérive de codage se lit
+    exactement comme une dérive de performance, donc on la signale plutôt que de
+    laisser un indicateur silencieusement faux ou vide."""
+    al = []
+    vues = {z for z in MOMENTUM_ZONES for x in inst
+            if x["c"] in (f"Possession {z}", f"Défense {z}", f"{equipe} Ruck {z}")}
+    if set(MOMENTUM_ZONES) - vues:
+        al.append("occupation : zones jamais taguées avec ce modèle — vérifie que ce match "
+                  "utilise bien le gabarit de tagging du suivi momentum")
+    if r["possession"] and (r["possession"] < 25 or r["possession"] > 75):
+        al.append(f"possession : {r['possession']:.0f} % — invraisemblable, codes de durée incomplets ?")
+    if r["pdb_pour"] + r["pdb_contre"] < 8:
+        al.append(f"pertes de balle : {r['pdb_pour']+r['pdb_contre']} au total, saisie partielle")
+    if r["pen_pour"] + r["pen_contre"] < 8:
+        al.append(f"pénalités : {r['pen_pour']+r['pen_contre']} au total, saisie partielle")
+    if r["score_pour"] + r["score_contre"] == 0:
+        al.append("points : aucune marque taguée (code \"Marque\") — le score momentum reste à 0-0")
+    if r["marques_sans_type"]:
+        al.append(f"points : {r['marques_sans_type']} marque(s) sans type — comptées comme essais, "
+                  f"vérifie le score {r['score_pour']}-{r['score_contre']}")
+    if r["duree_mt1"] < 30 or r["duree_mt1"] > 55:
+        al.append(f"périodes : 1re mi-temps de {r['duree_mt1']:.0f} min, mi-temps mal détectée ?")
+    return al
+
+
+def render_momentum_svg(r):
+    """SVG de la courbe momentum (barres vertes/rouges par tranche de 30s, temps forts
+    encadrés au-dessus/en-dessous, essais marqués "E"), pensé pour être intégré dans une
+    page HTML : contrairement au script d'origine, le titre et la ligne de stats ne sont
+    PAS dessinés dans le SVG (le gabarit les affiche en HTML autour), donc le cadrage
+    (viewBox) est simplement recentré sur la zone du graphique."""
+    n = r["N"]
+    BIN = r["bin"]
+    ECHELLE = r["echelle"]
+    EQUIPE = r["equipe"]
+    VERT, ROUGE, TRAIT = "#1f7a5c", "#a8321f", "#d3dacf"
+    X0, P = 62.0, max(3.0, min(9.0, 1080.0 / n))
+    BW, W = P * 0.78, 62 + n * P + 50
+    AT, AB, MH = 250.0, 272.0, 140.0
+    bx = lambda i: X0 + i * P
+    o = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 40 {W:.0f} 520" '
+         f'width="{W:.0f}" height="520" role="img" aria-label="Courbe de momentum">',
+         '<g transform="translate(0,40)">',
+         f'<rect x="{X0-4:.0f}" y="{AT}" width="{n*P+8:.0f}" height="{AB-AT}" fill="#e5eae3" stroke="{TRAIT}"/>']
+    for i, v in enumerate(r["sig"]):
+        h = min(abs(v) / ECHELLE, 1.0) * MH
+        if h < 0.6:
+            continue
+        o.append(f'<rect x="{bx(i):.1f}" y="{(AT-h) if v>=0 else AB:.1f}" width="{BW:.1f}" '
+                 f'height="{h:.1f}" fill="{VERT if v>=0 else ROUGE}"/>')
+    for t in r["tf"]:
+        y = AT - MH - 14 if t["equipe"] == EQUIPE else AB + MH + 6
+        o.append(f'<rect x="{bx(t["debut"]/BIN):.1f}" y="{y:.1f}" '
+                 f'width="{(t["fin"]-t["debut"])/BIN*P:.1f}" height="8" '
+                 f'fill="{VERT if t["equipe"]==EQUIPE else ROUGE}" '
+                 f'opacity="{0.95 if t["converti"] else 0.28}"/>')
+    o.append(f'<line x1="{bx(r["bin_mt"])-P/2:.1f}" y1="92" x2="{bx(r["bin_mt"])-P/2:.1f}" '
+             f'y2="430" stroke="#6b766a" stroke-dasharray="4 4"/>')
+    for m in r["marques"]:
+        x = bx(m["t"] / BIN) + BW / 2
+        haut = m["equipe"] == EQUIPE
+        c, cy = (VERT, 116) if haut else (ROUGE, 406)
+        o.append(f'<line x1="{x:.1f}" y1="{AT if haut else AB}" x2="{x:.1f}" '
+                 f'y2="{cy+10 if haut else cy-10}" stroke="{c}" stroke-width="1.5"/>'
+                 f'<circle cx="{x:.1f}" cy="{cy}" r="9" fill="{c}"/>'
+                 f'<text x="{x:.1f}" y="{cy+4}" text-anchor="middle" fill="#fff" '
+                 f'font-family="monospace" font-size="9" font-weight="700">E</text>')
+    for mn in range(0, int(n * BIN / 60) + 1, 10):
+        o.append(f'<text x="{bx(mn*60/BIN)+BW/2:.1f}" y="{AT+15:.0f}" text-anchor="middle" '
+                 f'fill="#3b453a" font-family="monospace" font-size="10" font-weight="700">{mn}</text>')
+    o.append(f'<text x="{X0}" y="{AT-MH-26:.0f}" fill="{VERT}" font-family="monospace" font-size="11" '
+             f'font-weight="700">{EQUIPE}</text>'
+             f'<text x="{X0}" y="{AB+MH+34:.0f}" fill="{ROUGE}" font-family="monospace" font-size="11" '
+             f'font-weight="700">ADVERSAIRE</text></g></svg>')
+    return "".join(o)
+
+
 def compute_match_baseline(matches_with_instances, exclude_id=None):
     """Moyennes 'saison' (tous les autres matchs, hors celui affiché) pour comparer les
     stats d'un match à ce que l'équipe fait habituellement — sert à voir d'un coup d'œil
@@ -2111,6 +2426,205 @@ def compute_transition_sector(instances):
                 "zone": {"Proche": None, "Milieu": None, "Large": None},  # pas encore codé dans le XML
             }
     return result
+
+
+# ---- Nos possessions (nouvelle convention de tagging 2026, façon rapport vidéo) ----
+# À partir de la saison 2026-2027, le club tague ses possessions avec un code dédié
+# "01 - Possession UBB" qui porte, en labels, l'origine (touche, mêlée, contre-attaque...),
+# le nombre de phases et le résultat de la possession. Ceci est indépendant de l'ancienne
+# convention numérotée "<n> - Catégorie Côté" : on relit ici le code brut et les labels
+# directement, donc ça ne touche à rien pour les matchs importés avec l'ancien système.
+
+POSSESSION_LOG_CODE = "01 - Possession UBB"
+
+# L'analyste a tagué l'origine sous plusieurs noms de groupe légèrement différents
+# (coquilles / renommages en cours de saison) : on les traite comme équivalents.
+POSSESSION_ORIGIN_GROUPS = {
+    "Origine Franchissements", "Origine Break et Marques",
+    "Origine possession", "Origine possesions",
+}
+POSSESSION_RESULT_GROUP = "Résultats Lancements"
+POSSESSION_PHASE_GROUP = "Phases de Jeu"
+POSSESSION_QUARTER_GROUPS = {"Quart temps", "TEMPS"}
+
+# Ordre d'affichage façon rapport vidéo (les origines non listées ici, ou absentes du
+# match, sont ajoutées à la suite dans l'ordre où elles apparaissent).
+POSSESSION_ORIGIN_ORDER = [
+    "Coup d'envoi", "Touches", "Mêlées", "Contre Attaque",
+    "Turnovers", "Pénalités Jouée Vite", "Pénalités à la main",
+]
+POSSESSION_ORIGIN_NON_TAGUEE = "Origine non taguée"
+
+POSSESSION_RESULT_CLASS = {
+    "Essai": "pos", "Pénalité Pour": "pos",
+    "Pénalité Contre": "neg", "Perdu conquête": "neg", "Ballon Perdu Contact": "neg",
+    "Ballon Perdu En-Avants": "neg", "Tranfert Pression": "neg",
+    "Jeu au Pied": "neu", "JAP Manqué": "neu", "Sortie de Camp": "neu",
+}
+
+PHASE_NUMBER_RE = re.compile(r"\d+")
+
+
+def compute_possession_log(instances, code=POSSESSION_LOG_CODE):
+    """Journal des possessions propres (façon tableau 'Nos possessions' du rapport
+    vidéo), regroupées par origine, avec numéro de phase et résultat, séparées par
+    mi-temps. Renvoie None si ce match n'a pas été tagué avec ce nouveau code
+    (ex : matchs importés avant la saison 2026-2027)."""
+    rows = [inst for inst in instances if inst.get("code_raw") == code]
+    if not rows:
+        return None
+
+    sections = defaultdict(lambda: {"half1": [], "half2": []})
+    with_origin = 0
+    with_result = 0
+    with_phase = 0
+
+    for inst in rows:
+        origin = result = phase = half = None
+        for lab in inst.get("labels") or []:
+            grp = lab.get("group")
+            txt = (lab.get("text") or "").strip()
+            if not txt:
+                continue
+            if grp in POSSESSION_ORIGIN_GROUPS and origin is None:
+                origin = txt
+            elif grp == POSSESSION_RESULT_GROUP and result is None:
+                result = txt
+            elif grp == POSSESSION_PHASE_GROUP and phase is None:
+                m = PHASE_NUMBER_RE.search(txt)
+                if m:
+                    phase = int(m.group())
+            elif grp in POSSESSION_QUARTER_GROUPS and half is None:
+                m = re.match(r"(\d+)\s*-\s*\d+", txt)
+                if m:
+                    half = 1 if int(m.group(1)) < 40 else 2
+
+        if origin is not None:
+            with_origin += 1
+        if result is not None:
+            with_result += 1
+        if phase is not None:
+            with_phase += 1
+
+        bucket = sections[origin or POSSESSION_ORIGIN_NON_TAGUEE]
+        target = bucket["half1"] if (half or 1) == 1 else bucket["half2"]
+        target.append({
+            "start": inst.get("start"),
+            "phase": phase,
+            "result": result,
+            "result_class": POSSESSION_RESULT_CLASS.get(result, "neu") if result else None,
+        })
+
+    for bucket in sections.values():
+        bucket["half1"].sort(key=lambda r: r["start"])
+        bucket["half2"].sort(key=lambda r: r["start"])
+
+    ordered_names = [n for n in POSSESSION_ORIGIN_ORDER if n in sections]
+    ordered_names += [n for n in sections if n not in ordered_names and n != POSSESSION_ORIGIN_NON_TAGUEE]
+    if POSSESSION_ORIGIN_NON_TAGUEE in sections:
+        ordered_names.append(POSSESSION_ORIGIN_NON_TAGUEE)
+
+    total = len(rows)
+    return {
+        "sections": [(name, sections[name]) for name in ordered_names],
+        "total": total,
+        "coverage": {
+            "origin": with_origin,
+            "result": with_result,
+            "phase": with_phase,
+        },
+    }
+
+
+# ---- Zone Gold (entrées en zone des 22m, nouvelle convention de tagging) -----
+# Même logique que "Nos possessions" : on relit le code brut et les labels
+# directement (rien ne dépend du classificateur catégorie/côté de l'ancienne
+# convention numérotée), donc c'est indépendant des matchs déjà importés.
+#
+# La convention de tags a déjà changé une fois cette saison (ex: "01 - Possession
+# UBB" -> "UBB POSSESSION") et peut encore bouger : on reconnaît les codes de
+# façon tolérante (casse/accents ignorés) plutôt que par correspondance exacte,
+# pour limiter la casse si l'analyste renomme légèrement ses codes.
+
+def _normalize_tag(text):
+    """Casse et accents neutralisés, espaces normalisés — pour comparer les noms
+    de codes/groupes de labels sans être sensible aux petites variations de
+    frappe (ex: 'Gold' / 'GOLD' / ' Gold ')."""
+    if not text:
+        return ""
+    nfkd = unicodedata.normalize("NFKD", text)
+    ascii_text = "".join(c for c in nfkd if not unicodedata.combining(c))
+    return " ".join(ascii_text.upper().split())
+
+
+ZONE_GOLD_RESULT_GROUPS = {"RESULTAT Z.MARQUE", "RESULTATS Z.MARQUE", "RESULTAT ZONE MARQUE", "RESULTAT Z MARQUE"}
+
+ZONE_GOLD_RESULT_CLASS = {
+    "ESSAI": "pos", "PENALITE POUR": "pos",
+    "BALLON PERDU": "neg", "PENALITE CONTRE": "neg",
+}
+
+
+def compute_zone_gold_log(instances, own_points=None, adverse_points=None):
+    """Journal des entrées en zone Gold (22m adverse pour nous / notre 22m pour
+    l'adversaire), façon page 'Zone Gold' du rapport vidéo : liste des entrées
+    avec résultat, + comparatif nombre d'entrées / ballons perdus / % efficacité
+    / points par entrée pour les deux équipes.
+
+    Ne reconnaît que les codes dont un des "mots" est GOLD et qui portent un
+    label de résultat (groupe contenant "Resultat Z.Marque" ou une variante
+    proche) — les tags de zone sans résultat (simple occupation de terrain) sont
+    ignorés. Renvoie None si rien de tel n'est tagué dans ce match (ancienne
+    convention, ou pas encore taggé).
+
+    own_points / adverse_points : score final de chaque équipe si connu, pour
+    calculer les points par entrée — laisser à None si indisponible plutôt que
+    d'afficher un chiffre faux.
+    """
+    own_rows, adv_rows = [], []
+    for inst in instances:
+        tokens = _normalize_tag(inst.get("code_raw")).split()
+        if "GOLD" not in tokens:
+            continue
+        is_adverse = tokens[-1] in ("A", "ADV", "ADVERSE")
+        result = None
+        for lab in inst.get("labels") or []:
+            if _normalize_tag(lab.get("group")) in ZONE_GOLD_RESULT_GROUPS:
+                result = (lab.get("text") or "").strip()
+                break
+        if result is None:
+            continue  # tag d'occupation de zone, pas une entrée avec résultat
+        row = {
+            "start": inst.get("start"),
+            "result": result,
+            "result_class": ZONE_GOLD_RESULT_CLASS.get(_normalize_tag(result), "neu"),
+        }
+        (adv_rows if is_adverse else own_rows).append(row)
+
+    if not own_rows and not adv_rows:
+        return None
+
+    own_rows.sort(key=lambda r: r["start"])
+    adv_rows.sort(key=lambda r: r["start"])
+
+    def _summary(rows, points):
+        total = len(rows)
+        lost = sum(1 for r in rows if r["result_class"] == "neg")
+        positive = sum(1 for r in rows if r["result_class"] == "pos")
+        return {
+            "rows": rows,
+            "total": total,
+            "ballons_perdus": lost,
+            "efficacite": round(100 * positive / total, 1) if total else None,
+            "points_par_entree": round(points / total, 2) if (points and total) else None,
+        }
+
+    return {
+        "own": _summary(own_rows, own_points),
+        "adverse": _summary(adv_rows, adverse_points),
+    }
+
+
     # ---- Entraînement (suivi du volume par thème, saisie manuelle) ---------------
 # Taxonomie fournie par Téo (grille de suivi du coach) : 5 grandes catégories, chacune
 # divisée en sous-catégories, chacune listant des éléments précis travaillés à l'entraînement.
