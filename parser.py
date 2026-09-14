@@ -449,6 +449,46 @@ def compute_score(instances):
     return {"own": own, "adverse": adv, "own_tries": own_tries, "adverse_tries": adv_tries}
 
 
+def _new_convention_side(tokens):
+    """Détecte le côté (own/adverse) pour la nouvelle convention de tagging à partir
+    des tokens normalisés d'un code : préfixe UBB/ADV en tête (ex: "UBB Essai"), ou
+    suffixe "A" en fin pour les codes de zone sans préfixe (ex: "GOLD A"). Renvoie
+    'own' par défaut si rien ne l'indique clairement (mieux vaut sur-compter chez
+    nous que rater un essai à cause d'un tag ambigu)."""
+    if not tokens:
+        return "own"
+    if tokens[0] == "UBB":
+        return "own"
+    if tokens[0] in ("ADV", "ADVERSE"):
+        return "adverse"
+    if tokens[-1] in ("A", "ADV", "ADVERSE"):
+        return "adverse"
+    return "own"
+
+
+def compute_new_convention_tries(instances):
+    """Nombre d'essais marqués, calculé de façon fiable pour la nouvelle convention
+    de tagging (un code "UBB Essai" / "ADV Essai" taggé = un essai marqué, sans
+    ambiguïté possible — contrairement aux transformations/pénalités/drops dont on
+    ne peut pas distinguer la réussite de l'échec avec cette convention, donc on ne
+    les compte pas ici). Renvoie None si aucun tel code n'existe dans ce match
+    (ancienne convention, ou pas encore taggé) plutôt qu'un faux 0-0."""
+    own_tries = adv_tries = 0
+    found = False
+    for inst in instances:
+        tokens = _normalize_tag(inst.get("code_raw")).split()
+        if "ESSAI" not in tokens:
+            continue
+        found = True
+        if _new_convention_side(tokens) == "own":
+            own_tries += 1
+        else:
+            adv_tries += 1
+    if not found:
+        return None
+    return {"own_tries": own_tries, "adverse_tries": adv_tries}
+
+
 PHASE_TAGS = ["EXIT", "PRESSION", "ACTION", "RAID"]
 PHASE_ICONS = {"EXIT": "🚪", "PRESSION": "🧱", "ACTION": "⚡", "RAID": "🏃"}
 PHASE_HELP = {

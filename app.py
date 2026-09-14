@@ -25,7 +25,7 @@ from parser import (
    PHASE_ICONS, PHASE_HELP, compute_event_timing_multi, compute_match_baseline,
     compute_sector_baselines, compute_player_season_baselines, build_player_cards,
     attach_overview_highlights, compute_momentum, render_momentum_svg,
-    compute_possession_log, compute_zone_gold_log,
+    compute_possession_log, compute_zone_gold_log, compute_new_convention_tries,
 )
 from parser_ubb import parse_ubb_xml, compute_ubb_overview
 from prod2 import (
@@ -791,6 +791,8 @@ def match_detail(match_id):
     highlights = generate_highlights(match["stats"], match["own_team"], match["opponent"])
     radar = compute_radar_metrics(match["stats"])
     score = None
+    score_source = None
+    score_needs_manual = False
     phase_timing = None
     dashboard = None
     baseline = None
@@ -798,8 +800,23 @@ def match_detail(match_id):
     momentum_svg = None
     if match["instances"]:
         score = compute_score(match["instances"])
+        own_points, adverse_points, score_source, own_tries, adverse_tries = _resolve_match_score(match)
+        if score_source:
+            # Score indisponible via l'ancien calcul (nouvelle convention de tagging) :
+            # on prend le score saisi à la main / recalculé, et le nombre d'essais
+            # fiable (voir compute_new_convention_tries) plutôt que le "0-0" trompeur.
+            score = {"own": own_points or 0, "adverse": adverse_points or 0,
+                     "own_tries": own_tries, "adverse_tries": adverse_tries}
+        elif score["own"] == 0 and score["adverse"] == 0 and (own_tries or adverse_tries):
+            # Des essais sont tagués (nouvelle convention) mais aucun score n'a
+            # encore été saisi à la main : on le signale plutôt que d'afficher un
+            # 0-0 qui laisserait croire que le match s'est vraiment terminé 0-0.
+            score_needs_manual = True
         phase_timing = compute_phase_timing(match["instances"])
         dashboard = compute_overview_dashboard(match["instances"], score)
+        if score_source or score_needs_manual:
+            dashboard["score_detail"]["own"]["tries"] = own_tries
+            dashboard["score_detail"]["adverse"]["tries"] = adverse_tries
         matches_with_instances, _, _, _ = _season_context()
         baseline = compute_match_baseline(matches_with_instances, exclude_id=match_id)
         # Courbe momentum : demande un modèle de tagging spécifique (voir parser.py,
@@ -814,6 +831,8 @@ def match_detail(match_id):
         highlights=highlights, radar=radar, score=score, phase_timing=phase_timing,
         phase_icons=PHASE_ICONS, phase_help=PHASE_HELP, dashboard=dashboard,
         baseline=baseline, momentum=momentum, momentum_svg=momentum_svg,
+        score_source=score_source, score_needs_manual=score_needs_manual,
+        manual=match.get("manual_stats") or {},
         has_instances=not _no_instances_guard(match),
     )
 @app.route("/match/<int:match_id>/attaque")
@@ -979,30 +998,47 @@ def match_possessions(match_id):
         return redirect(url_for("match_detail", match_id=match_id))
     possessions = compute_possession_log(match["instances"])
     return render_template("match_possessions.html", match=match, data=possessions)
+def _resolve_match_score(match):
+    """Score du match + comment on l'a obtenu ('manual' | 'auto' | None), en
+    tentant dans l'ordre : saisie manuelle (staff), puis calcul automatique via
+    l'ancienne convention de tagging numérotée. Utilisé par la fiche match et par
+    Zone Gold pour rester cohérents entre eux.
+
+    Renvoie (own_points, adverse_points, score_source, own_tries, adverse_tries).
+    Les essais sont recalculés séparément via compute_new_convention_tries quand
+    disponible (fiable même sans score manuel), sinon on retombe sur ceux du
+    calcul automatique."""
+    manual = match.get("manual_stats") or {}
+    own_points = manual.get("score_own_manual")
+    adverse_points = manual.get("score_adverse_manual")
+    score_source = "manual" if (own_points is not None or adverse_points is not None) else None
+    auto_score = compute_score(match["instances"])
+    if own_points is None and adverse_points is None:
+        # Le score calculé automatiquement ne marche que pour l'ancienne convention
+        # de tagging numérotée ; pour la nouvelle convention (codes "UBB Essai" etc.)
+        # il faut le saisir à la main tant que ce n'est pas encore branché.
+        if auto_score["own"] or auto_score["adverse"]:
+            own_points, adverse_points = auto_score["own"], auto_score["adverse"]
+            score_source = "auto"
+    new_tries = compute_new_convention_tries(match["instances"])
+    if new_tries:
+        own_tries, adverse_tries = new_tries["own_tries"], new_tries["adverse_tries"]
+    else:
+        own_tries, adverse_tries = auto_score["own_tries"], auto_score["adverse_tries"]
+    return own_points, adverse_points, score_source, own_tries, adverse_tries
 @app.route("/match/<int:match_id>/zone-gold")
 def match_zone_gold(match_id):
     match = _get_match_or_404(match_id)
     if _no_instances_guard(match):
         flash("Ce match a été importé avant la mise à jour détaillée par secteur : réimporte le fichier XML pour voir cette page.", "error")
         return redirect(url_for("match_detail", match_id=match_id))
-    manual = match.get("manual_stats") or {}
-    own_points = manual.get("score_own_manual")
-    adverse_points = manual.get("score_adverse_manual")
-    score_source = "manual" if (own_points is not None or adverse_points is not None) else None
-    if own_points is None and adverse_points is None:
-        # Le score calculé automatiquement ne marche que pour l'ancienne convention
-        # de tagging numérotée ; pour la nouvelle convention (codes "UBB Essai" etc.)
-        # il faut le saisir à la main tant que ce n'est pas encore branché.
-        auto_score = compute_score(match["instances"])
-        if auto_score["own"] or auto_score["adverse"]:
-            own_points, adverse_points = auto_score["own"], auto_score["adverse"]
-            score_source = "auto"
+    own_points, adverse_points, score_source, _, _ = _resolve_match_score(match)
     zone_gold = compute_zone_gold_log(match["instances"], own_points=own_points, adverse_points=adverse_points)
     return render_template("match_zone_gold.html", match=match, data=zone_gold,
-                           manual=manual, score_source=score_source)
-@app.route("/match/<int:match_id>/zone-gold/manual", methods=["POST"])
+                           manual=match.get("manual_stats") or {}, score_source=score_source)
+@app.route("/match/<int:match_id>/score/manual", methods=["POST"])
 @admin_required
-def match_zone_gold_manual(match_id):
+def match_score_manual(match_id):
     match = _get_match_or_404(match_id)
     manual = match.get("manual_stats") or {}
     def _to_int(raw):
@@ -1019,7 +1055,8 @@ def match_zone_gold_manual(match_id):
     db.execute("UPDATE matches SET manual_stats_json = %s WHERE id = %s", (json.dumps(manual), match_id))
     db.commit()
     flash("Score du match enregistré.", "success")
-    return redirect(url_for("match_zone_gold", match_id=match_id))
+    next_url = request.form.get("next") or url_for("match_zone_gold", match_id=match_id)
+    return redirect(next_url)
 @app.route("/admin/export")
 @admin_required
 def export_data():
