@@ -32,7 +32,7 @@
                 <a href="{{ url_for('documents') }}">📁 Documents</a>
                 <a href="{{ url_for('calendrier') }}">🗓️ Calendrier</a>
                 {% endif %}
-                <a href="{{ url_for('cahier_charges') }}">📋 Cahier des charges</a>
+                <a href="{{ url_for('cahier_charges') }}">📋 Cahier d'entraînement</a>
                 {% if logged_in %}
                 <a href="{{ url_for('logout') }}">🔒 Se déconnecter</a>
                 {% else %}
@@ -50,8 +50,8 @@
         {% endif %}
 
         {% if match is defined %}
-        {% set sector_keys = ['attaque', 'defense', 'transition', 'ruck', 'touches', 'melee', 'jap'] %}
-        {% set page_labels = {'overview': "Vue d'ensemble", 'attaque': 'Attaque', 'defense': 'Défense', 'transition': 'Transition', 'ruck': 'Ruck', 'touches': 'Touches', 'melee': 'Mêlée', 'jap': 'Jeu au pied', 'joueurs': 'Joueurs', 'composition': 'Composition'} %}
+        {% set sector_keys = ['attaque', 'defense', 'transition', 'possessions', 'zone_gold', 'ruck', 'touches', 'melee', 'jap'] %}
+        {% set page_labels = {'overview': "Vue d'ensemble", 'attaque': 'Attaque', 'defense': 'Défense', 'transition': 'Transition', 'possessions': 'Nos possessions', 'zone_gold': 'Zone Gold', 'ruck': 'Ruck', 'touches': 'Touches', 'melee': 'Mêlée', 'jap': 'Jeu au pied', 'joueurs': 'Joueurs', 'composition': 'Composition'} %}
         <div class="subnav-links">
             <a href="{{ url_for('match_detail', match_id=match['id']) }}" class="{{ 'active' if active=='overview' else '' }}">Vue d'ensemble</a>
             <details class="subnav-sector-dropdown">
@@ -60,6 +60,8 @@
                     <a href="{{ url_for('match_attaque', match_id=match['id']) }}" class="{{ 'active' if active=='attaque' else '' }}">Attaque</a>
                     <a href="{{ url_for('match_defense', match_id=match['id']) }}" class="{{ 'active' if active=='defense' else '' }}">Défense</a>
                     <a href="{{ url_for('match_transition', match_id=match['id']) }}" class="{{ 'active' if active=='transition' else '' }}">Transition</a>
+                    <a href="{{ url_for('match_possessions', match_id=match['id']) }}" class="{{ 'active' if active=='possessions' else '' }}">Nos possessions</a>
+                    <a href="{{ url_for('match_zone_gold', match_id=match['id']) }}" class="{{ 'active' if active=='zone_gold' else '' }}">Zone Gold</a>
                     <a href="{{ url_for('match_ruck', match_id=match['id']) }}" class="{{ 'active' if active=='ruck' else '' }}">Ruck</a>
                     <a href="{{ url_for('match_touches', match_id=match['id']) }}" class="{{ 'active' if active=='touches' else '' }}">Touches</a>
                     <a href="{{ url_for('match_melee', match_id=match['id']) }}" class="{{ 'active' if active=='melee' else '' }}">Mêlée</a>
@@ -75,6 +77,8 @@
                     <a href="{{ url_for('match_attaque', match_id=match['id']) }}" class="{{ 'active' if active=='attaque' else '' }}">Attaque</a>
                     <a href="{{ url_for('match_defense', match_id=match['id']) }}" class="{{ 'active' if active=='defense' else '' }}">Défense</a>
                     <a href="{{ url_for('match_transition', match_id=match['id']) }}" class="{{ 'active' if active=='transition' else '' }}">Transition</a>
+                    <a href="{{ url_for('match_possessions', match_id=match['id']) }}" class="{{ 'active' if active=='possessions' else '' }}">Nos possessions</a>
+                    <a href="{{ url_for('match_zone_gold', match_id=match['id']) }}" class="{{ 'active' if active=='zone_gold' else '' }}">Zone Gold</a>
                     <a href="{{ url_for('match_ruck', match_id=match['id']) }}" class="{{ 'active' if active=='ruck' else '' }}">Ruck</a>
                     <a href="{{ url_for('match_touches', match_id=match['id']) }}" class="{{ 'active' if active=='touches' else '' }}">Touches</a>
                     <a href="{{ url_for('match_melee', match_id=match['id']) }}" class="{{ 'active' if active=='melee' else '' }}">Mêlée</a>
