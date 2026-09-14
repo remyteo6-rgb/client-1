@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Nos possessions — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
+{% set active = 'possessions' %}
+{% block content %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>🧾 Nos possessions — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
+        <p class="subtitle">Chaque possession {{ match['own_team'] }}, groupée par origine, avec le nombre de phases et le résultat.</p>
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+</div>
+
+{% if not data %}
+<div class="card empty-state">
+    <p>🧾 Ce match n'a pas été tagué avec le nouveau système de suivi des possessions.</p>
+    <p class="subtitle">Cette page s'active automatiquement dès qu'un XML contenant le code « 01 - Possession UBB » est importé.</p>
+</div>
+{% else %}
+
+<div class="card" style="margin-bottom:20px;">
+    <table class="stat-table">
+        <tbody>
+            <tr><td>Possessions taguées</td><td class="stat-own">{{ data.total }}</td></tr>
+            <tr><td>Avec origine renseignée</td><td>{{ data.coverage.origin }} / {{ data.total }}</td></tr>
+            <tr><td>Avec résultat renseigné</td><td>{{ data.coverage.result }} / {{ data.total }}</td></tr>
+        </tbody>
+    </table>
+    {% if data.coverage.origin < data.total %}
+    <p class="subtitle" style="margin-top:10px;">⚠️ Certaines possessions n'ont pas d'origine taguée dans le XML — elles apparaissent dans la section « Origine non taguée » ci-dessous.</p>
+    {% endif %}
+</div>
+
+{% for name, section in data.sections %}
+<div class="card possession-section">
+    <h2>{{ name }} <span class="possession-count">{{ (section.half1|length) + (section.half2|length) }}</span></h2>
+    <table class="stat-table possession-table">
+        <thead>
+            <tr><th style="width:70px;">Phases</th><th>Résultat</th></tr>
+        </thead>
+        <tbody>
+            {% for row in section.half1 %}
+            <tr>
+                <td>{{ row.phase if row.phase is not none else '—' }}</td>
+                <td>
+                    {% if row.result %}
+                    <span class="possession-result possession-result-{{ row.result_class }}">{{ row.result }}</span>
+                    {% else %}—{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            {% if section.half1 and section.half2 %}
+            <tr class="possession-mitemps"><td colspan="2">MI-TEMPS</td></tr>
+            {% endif %}
+            {% for row in section.half2 %}
+            <tr>
+                <td>{{ row.phase if row.phase is not none else '—' }}</td>
+                <td>
+                    {% if row.result %}
+                    <span class="possession-result possession-result-{{ row.result_class }}">{{ row.result }}</span>
+                    {% else %}—{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not section.half1 and not section.half2 %}
+            <tr><td colspan="2" class="subtitle">Aucune possession dans cette catégorie.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endfor %}
+
+{% endif %}
+
+<script>
+function preparePrint() { setTimeout(() => window.print(), 100); }
+</script>
+{% endblock %}
