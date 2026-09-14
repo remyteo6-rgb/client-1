@@ -26,6 +26,9 @@
         </p>
     </div>
     <div style="display:flex; gap:10px;">
+        {% if momentum_svg %}
+        <button class="btn btn-secondary" onclick="document.getElementById('momentum-dialog').showModal()">📈 Courbe momentum</button>
+        {% endif %}
         <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
         {% if is_admin %}
         <form method="post" action="{{ url_for('delete_match', match_id=match['id']) }}" onsubmit="return confirm('Supprimer ce match ?');">
@@ -34,6 +37,35 @@
         {% endif %}
     </div>
 </div>
+
+{% if momentum_svg %}
+<dialog id="momentum-dialog" class="momentum-dialog">
+    <div class="momentum-dialog-header">
+        <h2>{{ match['opponent'] }} — {{ momentum.score_pour }}-{{ momentum.score_contre }}</h2>
+        <button class="btn btn-secondary" onclick="document.getElementById('momentum-dialog').close()">Fermer</button>
+    </div>
+    <div class="momentum-dialog-body">
+        {{ momentum_svg | safe }}
+    </div>
+    <p class="momentum-dialog-stats">
+        {{ momentum.tf_crees }} TEMPS FORTS CRÉÉS ({{ momentum.tf_convertis }} CONVERTIS)
+        · {{ momentum.tf_subis }} SUBIS ({{ momentum.tf_encaisses }} ENCAISSÉS)
+        · {{ momentum.essais_contre_hors_tf }} ESSAIS ENCAISSÉS HORS TEMPS FORT
+        · POSSESSION {{ momentum.possession | round | int }} %
+    </p>
+    {% if momentum.alerts %}
+    <div class="momentum-dialog-alerts">
+        <strong>Conformité du tagging :</strong>
+        <ul>
+            {% for a in momentum.alerts %}
+            <li>{{ a }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+</dialog>
+{% endif %}
+
 <div class="print-only-header">
     <h1>{{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
     <p>{{ match['match_date'] or '' }}{% if match['competition'] %} · {{ match['competition'] }}{% endif %}</p>
@@ -56,6 +88,32 @@
         <span class="own">{{ match['own_team'] }}</span>
         <span class="adverse">{{ match['opponent'] }}</span>
     </div>
+
+    {% if score_needs_manual %}
+    <div class="score-manual-callout no-print" style="text-align:center; margin-top:8px;">
+        <p class="subtitle">⚠️ {{ dashboard.score_detail.own.tries or 0 }} essai{{ 's' if dashboard.score_detail.own.tries != 1 else '' }} chez nous, {{ dashboard.score_detail.adverse.tries or 0 }} chez {{ match['opponent'] }} — mais le score complet (transfos/pénalités/drops) n'est pas déductible du tagging pour ce match et doit être saisi à la main.
+            {% if session.get('is_admin') %}<a href="#" onclick="document.getElementById('score-manual-form').style.display='flex'; return false;">Saisir le score</a>{% endif %}</p>
+        {% if session.get('is_admin') %}
+        <form id="score-manual-form" method="POST" action="{{ url_for('match_score_manual', match_id=match['id']) }}" style="display:none; gap:10px; align-items:flex-end; justify-content:center; margin-top:10px;">
+            <label>Score {{ match['own_team'] }}<br><input type="number" name="score_own_manual" min="0" style="width:70px;" value="{{ manual.score_own_manual or '' }}"></label>
+            <label>Score {{ match['opponent'] }}<br><input type="number" name="score_adverse_manual" min="0" style="width:70px;" value="{{ manual.score_adverse_manual or '' }}"></label>
+            <input type="hidden" name="next" value="{{ url_for('match_detail', match_id=match['id']) }}">
+            <button class="btn btn-secondary" type="submit">Enregistrer</button>
+        </form>
+        {% endif %}
+    </div>
+    {% elif score_source == 'manual' and session.get('is_admin') %}
+    <div class="no-print" style="text-align:center; margin-top:8px;">
+        <p class="subtitle">Score saisi à la main : <a href="#" onclick="document.getElementById('score-manual-form').style.display='flex'; return false;">modifier</a></p>
+        <form id="score-manual-form" method="POST" action="{{ url_for('match_score_manual', match_id=match['id']) }}" style="display:none; gap:10px; align-items:flex-end; justify-content:center; margin-top:10px;">
+            <label>Score {{ match['own_team'] }}<br><input type="number" name="score_own_manual" min="0" style="width:70px;" value="{{ manual.score_own_manual or '' }}"></label>
+            <label>Score {{ match['opponent'] }}<br><input type="number" name="score_adverse_manual" min="0" style="width:70px;" value="{{ manual.score_adverse_manual or '' }}"></label>
+            <input type="hidden" name="next" value="{{ url_for('match_detail', match_id=match['id']) }}">
+            <button class="btn btn-secondary" type="submit">Enregistrer</button>
+        </form>
+    </div>
+    {% endif %}
+
     {% if not dashboard %}
     <div class="scoreboard-tries">{{ score.own_tries }} essai{{ 's' if score.own_tries != 1 else '' }} / {{ score.adverse_tries }} essai{{ 's' if score.adverse_tries != 1 else '' }}</div>
     {% endif %}
