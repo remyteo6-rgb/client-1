@@ -501,6 +501,38 @@ def _new_convention_code_match(tokens, suffix_tokens):
     return tokens[1:] == suffix_tokens
 
 
+# Zones de terrain de la nouvelle convention, telles que définies par le staff :
+# depuis notre ligne vers celle de l'adversaire, ROUGE et COP sont dans notre camp,
+# RUMBLE et GOLD dans le camp adverse. Les mêmes zones vues du camp adverse portent
+# le suffixe "A" et sont donc inversées (GOLD A / RUMBLE A = dans notre camp).
+ZONE_OWN_HALF = {"ROUGE", "COP"}
+ZONE_ADVERSE_HALF = {"RUMBLE", "GOLD"}
+
+
+def _new_convention_zone_side(tokens):
+    """Pour un code de zone ("GOLD", "COP A"...), renvoie quelle équipe occupe le
+    terrain adverse pendant cette séquence : 'own' si le ballon est dans le camp
+    adverse, 'adverse' s'il est dans le nôtre. Renvoie None si ce n'est pas un code
+    de zone."""
+    if not tokens or tokens[0] not in (ZONE_OWN_HALF | ZONE_ADVERSE_HALF):
+        return None
+    if len(tokens) > 2 or (len(tokens) == 2 and tokens[1] != "A"):
+        return None
+    is_adverse_zone = len(tokens) == 2  # suffixe "A" : zone vue du camp adverse
+    in_adverse_half = tokens[0] in ZONE_ADVERSE_HALF
+    if is_adverse_zone:
+        in_adverse_half = not in_adverse_half
+    return "own" if in_adverse_half else "adverse"
+
+
+def _new_convention_period(inst):
+    """Tranche de jeu (0-20, 20-40...) d'une instance, lue sur son label "Chrono"."""
+    for lab in inst.get("labels") or []:
+        if _normalize_tag(lab.get("group")) == "CHRONO":
+            return (lab.get("text") or "").strip() or None
+    return None
+
+
 def compute_new_convention_overview(instances):
     """Métriques de synthèse façon page 'REVIEW' du rapport vidéo, calculées de façon
     fiable pour la nouvelle convention de tagging (Journée 1+) : touches, mêlées,
@@ -521,6 +553,8 @@ def compute_new_convention_overview(instances):
     snipers_ok = snipers_rates = 0
     possession = {"own": 0.0, "adverse": 0.0}
     possession_periods = defaultdict(lambda: {"own": 0.0, "adverse": 0.0})
+    occupation = {"own": 0.0, "adverse": 0.0}
+    occupation_periods = defaultdict(lambda: {"own": 0.0, "adverse": 0.0})
     found = False
 
     for inst in instances:
@@ -529,17 +563,25 @@ def compute_new_convention_overview(instances):
             continue
         side = "own" if tokens[0] == "UBB" else ("adverse" if tokens[0] in ("ADV", "ADVERSE") else None)
 
-        if _new_convention_code_match(tokens, ["POSSESSION"]):
+        zone_side = _new_convention_zone_side(tokens)
+        if zone_side:
+            # Occupation du terrain = temps passé dans le camp adverse. Les zones sont
+            # taguées sans préfixe d'équipe : COP et ROUGE sont dans notre camp, GOLD et
+            # RUMBLE dans le camp adverse — et inversement pour les zones adverses
+            # (suffixe "A"), où GOLD A / RUMBLE A se situent donc dans notre camp.
+            found = True
+            seconds = max(inst.get("duration") or 0, 0)
+            occupation[zone_side] += seconds
+            period = _new_convention_period(inst)
+            if period:
+                occupation_periods[period][zone_side] += seconds
+        elif _new_convention_code_match(tokens, ["POSSESSION"]):
             # % de possession = temps total "UBB POSSESSION" vs "ADV POSSESSION"
             # (méthode confirmée par le staff, conforme au rapport vidéo).
             found = True
             seconds = max(inst.get("duration") or 0, 0)
             possession[side] += seconds
-            period = None
-            for lab in inst.get("labels") or []:
-                if _normalize_tag(lab.get("group")) == "CHRONO":
-                    period = (lab.get("text") or "").strip()
-                    break
+            period = _new_convention_period(inst)
             if period:
                 possession_periods[period][side] += seconds
         elif _new_convention_code_match(tokens, ["TOUCHES"]):
@@ -609,27 +651,33 @@ def compute_new_convention_overview(instances):
     gla_decided = gla_plus + gla_minus
     snipers_total = snipers_ok + snipers_rates
 
-    possession_total = possession["own"] + possession["adverse"]
-    by_period = {}
-    for period in sorted(possession_periods, key=lambda p: POSSESSION_QUARTER_ORDER.index(p)
-                         if p in POSSESSION_QUARTER_ORDER else 99):
-        own_s = possession_periods[period]["own"]
-        adv_s = possession_periods[period]["adverse"]
-        tot = own_s + adv_s
-        by_period[period] = {
-            "own": round(own_s, 1), "adverse": round(adv_s, 1),
-            "own_pct": round(own_s / tot * 100) if tot else None,
-            "adverse_pct": round(adv_s / tot * 100) if tot else None,
+    def _share(totals, periods):
+        """Met en forme un partage de temps nous/eux : secondes, % et détail par
+        tranche de jeu (même structure que les anciens calculs, pour alimenter les
+        graphiques existants sans les modifier)."""
+        grand_total = totals["own"] + totals["adverse"]
+        by_period = {}
+        for period in sorted(periods, key=lambda p: POSSESSION_QUARTER_ORDER.index(p)
+                             if p in POSSESSION_QUARTER_ORDER else 99):
+            own_s = periods[period]["own"]
+            adv_s = periods[period]["adverse"]
+            tot = own_s + adv_s
+            by_period[period] = {
+                "own": round(own_s, 1), "adverse": round(adv_s, 1),
+                "own_pct": round(own_s / tot * 100) if tot else None,
+                "adverse_pct": round(adv_s / tot * 100) if tot else None,
+            }
+        return {
+            "own_seconds": round(totals["own"], 1),
+            "adverse_seconds": round(totals["adverse"], 1),
+            "own_pct": round(100 * totals["own"] / grand_total, 1) if grand_total else None,
+            "adverse_pct": round(100 * totals["adverse"] / grand_total, 1) if grand_total else None,
+            "by_period": by_period,
         }
 
     return {
-        "possession": {
-            "own_seconds": round(possession["own"], 1),
-            "adverse_seconds": round(possession["adverse"], 1),
-            "own_pct": round(100 * possession["own"] / possession_total, 1) if possession_total else None,
-            "adverse_pct": round(100 * possession["adverse"] / possession_total, 1) if possession_total else None,
-            "by_period": by_period,
-        },
+        "possession": _share(possession, possession_periods),
+        "occupation": _share(occupation, occupation_periods),
         "plaquage": {
             "reussis": snipers_ok, "rates": snipers_rates, "total": snipers_total,
             "pct": round(100 * snipers_ok / snipers_total, 1) if snipers_total else None,

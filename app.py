@@ -849,6 +849,20 @@ def match_detail(match_id):
                 }
                 if overview_new["possession"]["by_period"]:
                     dashboard["possession_by_period"] = overview_new["possession"]["by_period"]
+            if overview_new["occupation"]["own_pct"] is not None:
+                # Occupation = temps de jeu passé dans le camp adverse, déduit des zones
+                # (ROUGE/COP = notre camp, RUMBLE/GOLD = camp adverse, et inversement
+                # pour les zones en "A"). Les clés "…_events" sont conservées telles
+                # quelles pour le camembert existant, qui n'en tire qu'un pourcentage —
+                # elles portent ici des secondes et non un nombre d'événements.
+                dashboard["occupation"] = {
+                    "own_events": overview_new["occupation"]["own_seconds"],
+                    "adverse_events": overview_new["occupation"]["adverse_seconds"],
+                    "own_pct": overview_new["occupation"]["own_pct"],
+                    "adverse_pct": overview_new["occupation"]["adverse_pct"],
+                }
+                if overview_new["occupation"]["by_period"]:
+                    dashboard["occupation_by_period"] = overview_new["occupation"]["by_period"]
             if overview_new["plaquage"]["total"]:
                 # Réussite au plaquage = snipers réussis / (réussis + ratés).
                 plaquage_override = {
