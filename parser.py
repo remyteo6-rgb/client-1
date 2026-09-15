@@ -489,6 +489,106 @@ def compute_new_convention_tries(instances):
     return {"own_tries": own_tries, "adverse_tries": adv_tries}
 
 
+def _new_convention_code_match(tokens, suffix_tokens):
+    """Vrai si un code normalisé (déjà splitté en tokens) est bien 'UBB <suffixe>' ou
+    'ADV <suffixe>' — ex: suffix_tokens=['TOUCHES'] matche 'UBB Touches' mais pas
+    'UBB Jeu touches' (3 tokens, contient 'JEU' en plus). Évite les faux positifs entre
+    codes proches (ex: Touches vs Jeu touches, Mêlées vs Jeu mêlées)."""
+    if len(tokens) != 1 + len(suffix_tokens):
+        return False
+    if tokens[0] not in ("UBB", "ADV", "ADVERSE"):
+        return False
+    return tokens[1:] == suffix_tokens
+
+
+def compute_new_convention_overview(instances):
+    """Métriques de synthèse façon page 'REVIEW' du rapport vidéo, calculées de façon
+    fiable pour la nouvelle convention de tagging (Journée 1+) : touches, mêlées,
+    discipline, franchissements, offloads, gain de ligne d'avantage. Renvoie None si
+    aucun de ces codes n'existe dans ce match (ancienne convention, ou pas encore taggé).
+
+    Volontairement absents (pas taguables avec cette convention, voir échanges avec le
+    staff) : détail offensif/défensif de la discipline, occupation du terrain (carte de
+    chaleur dans le rapport), répartition des points par quart-temps."""
+    touches = {"own": [], "adverse": []}
+    melees = {"own": [], "adverse": []}
+    disciplines = {"own": 0, "adverse": 0}
+    breaks = {"own": 0, "adverse": 0}
+    gla_plus = gla_minus = 0
+    offload_own = 0
+    offload_adverse = 0
+    found = False
+
+    for inst in instances:
+        tokens = _normalize_tag(inst.get("code_raw")).split()
+        if not tokens:
+            continue
+        side = "own" if tokens[0] == "UBB" else ("adverse" if tokens[0] in ("ADV", "ADVERSE") else None)
+
+        if _new_convention_code_match(tokens, ["TOUCHES"]):
+            found = True
+            touches[side].append(inst)
+        elif _new_convention_code_match(tokens, ["MELEES"]):
+            found = True
+            melees[side].append(inst)
+        elif _new_convention_code_match(tokens, ["DISCIPLINES"]):
+            found = True
+            disciplines[side] += 1
+        elif _new_convention_code_match(tokens, ["BREAK"]):
+            found = True
+            breaks[side] += 1
+        elif _new_convention_code_match(tokens, ["GLA"]) and side == "own":
+            found = True
+            for lab in inst.get("labels") or []:
+                txt = _normalize_tag(lab.get("text"))
+                if txt.endswith("+"):
+                    gla_plus += 1
+                elif txt.endswith("-"):
+                    gla_minus += 1
+        elif _new_convention_code_match(tokens, ["OFLOAD"]) or _new_convention_code_match(tokens, ["OFFLOAD"]):
+            found = True  # "ADV Ofload" (offloads adverses, comptés directement)
+            offload_adverse += 1
+        elif side is None:
+            # Codes joueurs individuels (ex: "HUTTEAU") : les offloads chez nous sont
+            # tagués comme un label "Offload" sur l'instance du joueur concerné, pas
+            # comme un code séparé (contrairement au camp adverse, non nommé par joueur).
+            for lab in inst.get("labels") or []:
+                if _normalize_tag(lab.get("group")) == "OFFLOAD":
+                    offload_own += 1
+                    break
+
+    if not found:
+        return None
+
+    def _pct(rows):
+        if not rows:
+            return {"total": 0, "won": 0, "lost": 0, "pct": None}
+        won = lost = 0
+        for inst in rows:
+            vals = {_normalize_tag(lab.get("text")) for lab in (inst.get("labels") or [])
+                    if _normalize_tag(lab.get("group")) == "CONQUETE"}
+            if "GAGNE" in vals:
+                won += 1
+            elif "PERDU" in vals:
+                lost += 1
+        decided = won + lost
+        return {"total": len(rows), "won": won, "lost": lost,
+                "pct": round(100 * won / decided, 1) if decided else None}
+
+    gla_decided = gla_plus + gla_minus
+    return {
+        "touches": {"own": _pct(touches["own"]), "adverse": _pct(touches["adverse"])},
+        "melees": {"own": _pct(melees["own"]), "adverse": _pct(melees["adverse"])},
+        "discipline": disciplines,
+        "break": breaks,
+        "offload": {"own": offload_own, "adverse": offload_adverse},
+        "gain_line": {
+            "plus": gla_plus, "total": gla_decided,
+            "pct": round(100 * gla_plus / gla_decided, 1) if gla_decided else None,
+        },
+    }
+
+
 PHASE_TAGS = ["EXIT", "PRESSION", "ACTION", "RAID"]
 PHASE_ICONS = {"EXIT": "🚪", "PRESSION": "🧱", "ACTION": "⚡", "RAID": "🏃"}
 PHASE_HELP = {
@@ -2573,6 +2673,70 @@ def compute_possession_log(instances, code=POSSESSION_LOG_CODE):
             "result": with_result,
             "phase": with_phase,
         },
+    }
+
+
+# À partir de Journée 1 (2026-2027), la convention a encore changé : les possessions ne
+# portent plus l'origine/le résultat/les phases en labels directs (compute_possession_log
+# ci-dessus ne trouve donc plus rien sur ces matchs). Elles sont taguées "UBB POSSESSION" /
+# "ADV POSSESSION" avec juste une plage horaire ("Chrono"), et l'origine/le résultat sont
+# désormais des codes séparés qui se déclenchent pendant la possession (Rumble, Cop, Rouge,
+# Touches, Mêlées, Essai, perte de balle...). Reconstruire un détail par possession
+# demanderait de croiser les horaires de tous ces codes — hors périmètre pour l'instant.
+# En attendant, on fait un résumé honnête : nombre de possessions et répartition par
+# tranche de jeu de ~20 minutes, pour chaque équipe.
+POSSESSION_QUARTER_ORDER = ["0-20", "20-40", "40-60", "60-80"]
+
+
+def compute_possession_summary(instances):
+    """Résumé simplifié des possessions 'UBB POSSESSION' / 'ADV POSSESSION' (nouvelle
+    convention Journée 1+) : nombre de possessions et répartition par tranche de jeu pour
+    chaque équipe, sans détail d'origine/résultat (pas taguable avec cette convention,
+    voir commentaire ci-dessus). Renvoie None si ce match n'a pas ce tagging."""
+    sides = {"own": [], "adverse": []}
+    for inst in instances:
+        tokens = _normalize_tag(inst.get("code_raw")).split()
+        if "POSSESSION" not in tokens:
+            continue
+        if tokens[:1] == ["UBB"]:
+            sides["own"].append(inst)
+        elif tokens[:1] in (["ADV"], ["ADVERSE"]):
+            sides["adverse"].append(inst)
+
+    if not sides["own"] and not sides["adverse"]:
+        return None
+
+    def _summarize(rows):
+        by_quarter = {q: 0 for q in POSSESSION_QUARTER_ORDER}
+        durations = []
+        uncategorized = 0
+        for inst in rows:
+            start = inst.get("start")
+            end = inst.get("end")
+            if start is not None and end is not None:
+                durations.append(max(0.0, end - start))
+            quarter = None
+            for lab in inst.get("labels") or []:
+                if (lab.get("group") or "").strip() == "Chrono":
+                    txt = (lab.get("text") or "").strip()
+                    if txt in by_quarter:
+                        quarter = txt
+                    break
+            if quarter:
+                by_quarter[quarter] += 1
+            else:
+                uncategorized += 1
+        return {
+            "total": len(rows),
+            "avg_duration": round(sum(durations) / len(durations), 1) if durations else None,
+            "by_quarter": by_quarter,
+            "uncategorized": uncategorized,
+        }
+
+    return {
+        "own": _summarize(sides["own"]),
+        "adverse": _summarize(sides["adverse"]),
+        "quarters": POSSESSION_QUARTER_ORDER,
     }
 
 

@@ -25,7 +25,8 @@ from parser import (
    PHASE_ICONS, PHASE_HELP, compute_event_timing_multi, compute_match_baseline,
     compute_sector_baselines, compute_player_season_baselines, build_player_cards,
     attach_overview_highlights, compute_momentum, render_momentum_svg,
-    compute_possession_log, compute_zone_gold_log, compute_new_convention_tries,
+    compute_possession_log, compute_possession_summary, compute_zone_gold_log, compute_new_convention_tries,
+    compute_new_convention_overview,
 )
 from parser_ubb import parse_ubb_xml, compute_ubb_overview
 from prod2 import (
@@ -798,6 +799,7 @@ def match_detail(match_id):
     baseline = None
     momentum = None
     momentum_svg = None
+    discipline_override = None
     if match["instances"]:
         score = compute_score(match["instances"])
         own_points, adverse_points, score_source, own_tries, adverse_tries = _resolve_match_score(match)
@@ -817,6 +819,26 @@ def match_detail(match_id):
         if score_source or score_needs_manual:
             dashboard["score_detail"]["own"]["tries"] = own_tries
             dashboard["score_detail"]["adverse"]["tries"] = adverse_tries
+        # Métriques façon page "REVIEW" du rapport vidéo (touches, mêlées, discipline,
+        # franchissements, offloads, gain de ligne d'avantage), fiables pour la nouvelle
+        # convention de tagging (Journée 1+) — on vient remplacer les cases correspondantes
+        # du tableau de bord existant, qui restent à 0/— sinon (ancien classifieur muet sur
+        # ces codes). Volontairement absents : détail offensif/défensif de la discipline,
+        # occupation du terrain, répartition des points par quart-temps (voir échange avec
+        # le staff — pas taguable simplement avec cette convention).
+        overview_new = compute_new_convention_overview(match["instances"])
+        if overview_new:
+            dashboard["lineout"]["own"]["success_rate"] = overview_new["touches"]["own"]["pct"]
+            dashboard["lineout"]["adverse"]["success_rate"] = overview_new["touches"]["adverse"]["pct"]
+            dashboard["scrum"]["own"]["won_pct"] = overview_new["melees"]["own"]["pct"]
+            dashboard["scrum"]["adverse"]["won_pct"] = overview_new["melees"]["adverse"]["pct"]
+            dashboard["gain_line"] = overview_new["gain_line"]
+            dashboard["break"] = overview_new["break"]
+            dashboard["offload"] = overview_new["offload"]
+            discipline_override = {
+                "own": {"count": overview_new["discipline"]["own"]},
+                "adverse": {"count": overview_new["discipline"]["adverse"]},
+            }
         matches_with_instances, _, _, _ = _season_context()
         baseline = compute_match_baseline(matches_with_instances, exclude_id=match_id)
         # Courbe momentum : demande un modèle de tagging spécifique (voir parser.py,
@@ -833,6 +855,7 @@ def match_detail(match_id):
         baseline=baseline, momentum=momentum, momentum_svg=momentum_svg,
         score_source=score_source, score_needs_manual=score_needs_manual,
         manual=match.get("manual_stats") or {},
+        discipline_override=discipline_override,
         has_instances=not _no_instances_guard(match),
     )
 @app.route("/match/<int:match_id>/attaque")
@@ -997,7 +1020,9 @@ def match_possessions(match_id):
         flash("Ce match a été importé avant la mise à jour détaillée par secteur : réimporte le fichier XML pour voir cette page.", "error")
         return redirect(url_for("match_detail", match_id=match_id))
     possessions = compute_possession_log(match["instances"])
-    return render_template("match_possessions.html", match=match, data=possessions)
+    possession_summary = compute_possession_summary(match["instances"])
+    return render_template("match_possessions.html", match=match, data=possessions,
+                           summary=possession_summary)
 def _resolve_match_score(match):
     """Score du match + comment on l'a obtenu ('manual' | 'auto' | None), en
     tentant dans l'ordre : saisie manuelle (staff), puis calcul automatique via
