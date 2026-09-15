@@ -6,8 +6,10 @@
 {% from "_kpi_compare.html" import kpi_compare %}
 
 {% set poss = match['stats'].get('Possession', {}) %}
-{% set poss_own_d = poss.get('own', {}).get('duration', 0) %}
-{% set poss_adv_d = poss.get('adverse', {}).get('duration', 0) %}
+{# Nouvelle convention : la possession vient du temps total des codes UBB/ADV POSSESSION
+   (possession_override). Sinon on garde le calcul historique. #}
+{% set poss_own_d = possession_override.own if possession_override else poss.get('own', {}).get('duration', 0) %}
+{% set poss_adv_d = possession_override.adverse if possession_override else poss.get('adverse', {}).get('duration', 0) %}
 {% set poss_total = poss_own_d + poss_adv_d %}
 {% set plaquage = plaquage_override if plaquage_override else match['stats'].get('Plaquage', {}).get('own', {}) %}
 {% set ruck = match['stats'].get('Ruck', {}) %}
