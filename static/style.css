@@ -1796,6 +1796,9 @@ span.review-crest {
     color: var(--accent-gold);
 }
 .csc-card-main .csc-total { font-size: 4.2rem; }
+/* Snipers réussis sur snipers tentés : le total reste lisible sans écraser
+   le chiffre principal. */
+.csc-total-sur { font-size: .48em; font-weight: 800; color: rgba(255,255,255,.72); }
 .csc-subtitle { font-size: .78rem; color: rgba(255,255,255,.65); margin-bottom: 6px; }
 
 .csc-block-title {
@@ -1863,12 +1866,25 @@ span.review-crest {
 .bil-head-value { font-size: 1.25rem; font-weight: 800; }
 .bil-panel-body { padding: 12px 14px 14px; }
 
+/* Pastille « ligne d'avantage » du rapport : un médaillon posé dans le bandeau du
+   bloc JAB. Il tient entièrement dans le bandeau (le bloc masque ce qui dépasse,
+   donc rien ne doit sortir vers le haut). */
 .bil-badge {
+    flex: none;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
+    box-sizing: border-box;
     background: #2f6b39; color: #fff; border-radius: 50%;
-    width: 58px; height: 58px; margin: -12px 0; font-size: 1rem; font-weight: 800;
+    border: 2px solid rgba(255, 255, 255, .9);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, .25);
+    width: 64px; height: 64px; margin: -5px 0; padding: 0 5px;
+    font-size: 1.05rem; font-weight: 800; line-height: 1;
 }
-.bil-badge em { font-style: normal; font-size: .46rem; text-transform: none; letter-spacing: 0; }
+.bil-badge em {
+    font-style: normal; font-weight: 700;
+    font-size: .45rem; line-height: 1.15; letter-spacing: .2px;
+    text-transform: uppercase; text-align: center;
+    margin-top: 3px;
+}
 
 .bil-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
 .bil-table th, .bil-table td { padding: 8px 14px; text-align: left; }
@@ -1974,3 +1990,36 @@ span.review-crest {
 @media print {
     .report-slide { max-width: none; width: 100%; }
 }
+
+/* ---- Répartition de l'espace dans la diapositive ---------------------------
+   Comme sur le rapport : le bandeau de titre en haut, puis les blocs qui se
+   partagent toute la hauteur restante au lieu de se tasser en haut. */
+.report-slide > .review-board,
+.report-slide > .report-board { justify-content: flex-start; }
+
+.report-slide .report-inner {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+.report-slide .review-body,
+.report-slide .csc-board,
+.report-slide .bil-board { flex: 1; min-height: 0; }
+
+/* CSC : les trois cartes occupent toute la hauteur, leur contenu se répartit. */
+.report-slide .csc-board { align-items: stretch; margin-bottom: 0; }
+.report-slide .csc-card {
+    display: flex; flex-direction: column; justify-content: space-evenly;
+}
+
+/* Bilan attaque : les colonnes occupent toute la hauteur et chaque panneau
+   grandit à proportion de son contenu. */
+.report-slide .bil-board { align-items: stretch; }
+.report-slide .bil-col > .bil-panel {
+    flex: 1 1 auto;
+    display: flex; flex-direction: column;
+}
+.report-slide .bil-panel > .bil-panel-body,
+.report-slide .bil-panel > .bil-duo { flex: 1; }
+.report-slide .bil-panel > .bil-table { height: 100%; }
+.report-slide .bil-list { justify-content: space-between; }
