@@ -520,6 +520,23 @@ def init_db():
     db.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS visibility TEXT NOT NULL DEFAULT 'staff'")
     db.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS shared_group_id INTEGER REFERENCES player_groups(id) ON DELETE SET NULL")
     db.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS shared_player_id INTEGER REFERENCES players(id) ON DELETE SET NULL")
+    # Images déposées depuis le site (blasons des clubs, fond de la page Review).
+    # Stockées en base comme les documents, et non dans static/ : le disque de Render
+    # est remis à zéro à chaque déploiement, les fichiers y seraient perdus.
+    # Clés utilisées : "club-<nom du club slugifié>" pour un blason — déposé une fois,
+    # il ressert pour tous les matchs contre cet adversaire — et "review-bg" pour le
+    # fond de la page Review.
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS site_images (
+            image_key TEXT PRIMARY KEY,
+            label TEXT,
+            filename TEXT,
+            mimetype TEXT,
+            data BYTEA NOT NULL,
+            uploaded_by TEXT,
+            uploaded_at TEXT NOT NULL
+        )
+    """)
     # Calendrier du staff : événements divers (réunions, déplacements, rendez-vous...),
     # distincts des matchs/entraînements qui restent gérés ailleurs sur le site.
     db.execute("""
@@ -1113,22 +1130,112 @@ def _club_slug(name):
     return re.sub(r"[^a-z0-9]+", "-", ascii_name.lower()).strip("-")
 
 
+SITE_IMAGE_MIMETYPES = {
+    "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+    "gif": "image/gif", "svg": "image/svg+xml", "webp": "image/webp",
+}
+# Un blason n'a aucune raison d'être lourd ; une photo de fond, si.
+SITE_IMAGE_MAX_BYTES = {"crest": 2 * 1024 * 1024, "background": 8 * 1024 * 1024}
+
+
+def _site_image_url(image_key):
+    """URL d'une image déposée depuis le site, ou None si elle n'existe pas."""
+    row = get_db().execute(
+        "SELECT uploaded_at FROM site_images WHERE image_key = %s", (image_key,)
+    ).fetchone()
+    if not row:
+        return None
+    # L'horodatage en paramètre force le navigateur à recharger l'image quand elle est
+    # remplacée, au lieu de servir l'ancienne version gardée en cache.
+    return url_for("site_image", image_key=image_key, v=row["uploaded_at"])
+
+
 def _club_crest_url(name):
-    """URL du blason d'un club s'il a été déposé dans static/clubs/ (png ou jpg),
-    sinon None — la page retombe alors sur une pastille avec les initiales."""
+    """URL du blason d'un club : d'abord celui déposé depuis le site, sinon un fichier
+    éventuellement posé à la main dans static/clubs/. None si le club n'a pas de blason,
+    la page affiche alors une pastille avec son initiale."""
     slug = _club_slug(name)
     if not slug:
         return None
-    for ext in ("png", "jpg", "jpeg", "svg", "webp"):
+    from_db = _site_image_url(f"club-{slug}")
+    if from_db:
+        return from_db
+    for ext in SITE_IMAGE_MIMETYPES:
         relative = f"clubs/{slug}.{ext}"
         if os.path.exists(os.path.join(app.static_folder, relative)):
             return url_for("static", filename=relative)
     return None
 
 
+@app.route("/image/<image_key>")
+def site_image(image_key):
+    """Sert une image déposée depuis le site (blason, fond de page)."""
+    row = get_db().execute(
+        "SELECT data, mimetype, filename FROM site_images WHERE image_key = %s", (image_key,)
+    ).fetchone()
+    if not row:
+        abort(404)
+    data = bytes(row["data"])
+    filename = (row["filename"] or image_key).replace('"', "")
+    return Response(
+        data,
+        mimetype=row["mimetype"] or "image/png",
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"',
+            "Content-Length": str(len(data)),
+            "Cache-Control": "public, max-age=31536000",
+        },
+    )
+
+
+@app.route("/image/<image_key>/upload", methods=["POST"])
+@admin_required
+def site_image_upload(image_key):
+    """Dépôt d'une image depuis le site : blason d'un club (clic sur le logo de la page
+    Review) ou fond de cette page. Remplace l'image existante le cas échéant."""
+    next_url = request.form.get("next") or url_for("index")
+    label = (request.form.get("label") or image_key).strip()
+    kind = "background" if image_key == "review-bg" else "crest"
+    file = request.files.get("image")
+    if not file or not file.filename:
+        flash("Aucune image sélectionnée.", "error")
+        return redirect(next_url)
+    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+    if ext not in SITE_IMAGE_MIMETYPES:
+        flash("Format d'image non reconnu : utilise un PNG, JPG, GIF, WEBP ou SVG.", "error")
+        return redirect(next_url)
+    data = file.read()
+    if not data:
+        flash("Le fichier est vide.", "error")
+        return redirect(next_url)
+    max_bytes = SITE_IMAGE_MAX_BYTES[kind]
+    if len(data) > max_bytes:
+        flash(f"Image trop lourde ({max_bytes // (1024 * 1024)} Mo maximum) — "
+              "réduis-la avant de la déposer.", "error")
+        return redirect(next_url)
+    db = get_db()
+    db.execute(
+        """INSERT INTO site_images (image_key, label, filename, mimetype, data, uploaded_by, uploaded_at)
+           VALUES (%s, %s, %s, %s, %s, %s, %s)
+           ON CONFLICT (image_key) DO UPDATE SET
+               label = EXCLUDED.label, filename = EXCLUDED.filename,
+               mimetype = EXCLUDED.mimetype, data = EXCLUDED.data,
+               uploaded_by = EXCLUDED.uploaded_by, uploaded_at = EXCLUDED.uploaded_at""",
+        (image_key, label, file.filename, SITE_IMAGE_MIMETYPES[ext],
+         psycopg2.Binary(data), session.get("user_email", ""), datetime.utcnow().isoformat()),
+    )
+    db.commit()
+    flash(f"{label} enregistré.", "success")
+    return redirect(next_url)
+
+
 def _review_background_url():
-    """Image de fond de la page Review (photo de stade délavée du rapport), si elle a
-    été déposée dans static/. Optionnelle : sans elle, un fond neutre est utilisé."""
+    """Image de fond de la page Review (la photo de stade délavée du rapport) : celle
+    déposée depuis le site, sinon un fichier posé à la main dans static/. Optionnelle :
+    sans elle, un fond neutre est utilisé."""
+    from_db = _site_image_url("review-bg")
+    if from_db:
+        return from_db
     for filename in ("review-bg.jpg", "review-bg.png", "review-bg.webp"):
         if os.path.exists(os.path.join(app.static_folder, filename)):
             return url_for("static", filename=filename)
@@ -1191,6 +1298,8 @@ def _review_assets(match):
         "background": _review_background_url(),
         "own_crest": _club_crest_url(match["own_team"]) or url_for("static", filename="logo.png"),
         "adverse_crest": _club_crest_url(match["opponent"]),
+        "own_slug": _club_slug(match["own_team"]),
+        "adverse_slug": _club_slug(match["opponent"]),
     }
 
 
