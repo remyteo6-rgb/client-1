@@ -849,6 +849,12 @@ def match_detail(match_id):
                 }
                 if overview_new["possession"]["by_period"]:
                     dashboard["possession_by_period"] = overview_new["possession"]["by_period"]
+            if overview_new["ball_in_play"]["duration"]:
+                # Temps de jeu effectif : codes "BIP" du XML (l'ancien calcul cherchait
+                # des séquences "Ball In Play", absentes de cette convention).
+                dashboard["ball_in_play"] = overview_new["ball_in_play"]
+                if overview_new["ball_in_play"]["sequences"]:
+                    dashboard["bip_sequences"] = overview_new["ball_in_play"]["sequences"]
             if overview_new["occupation"]["own_pct"] is not None:
                 # Occupation = temps de jeu passé dans le camp adverse, déduit des zones
                 # (ROUGE/COP = notre camp, RUMBLE/GOLD = camp adverse, et inversement

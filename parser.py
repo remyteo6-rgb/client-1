@@ -555,6 +555,7 @@ def compute_new_convention_overview(instances):
     possession_periods = defaultdict(lambda: {"own": 0.0, "adverse": 0.0})
     occupation = {"own": 0.0, "adverse": 0.0}
     occupation_periods = defaultdict(lambda: {"own": 0.0, "adverse": 0.0})
+    bip_durations = []
     found = False
 
     for inst in instances:
@@ -562,6 +563,13 @@ def compute_new_convention_overview(instances):
         if not tokens:
             continue
         side = "own" if tokens[0] == "UBB" else ("adverse" if tokens[0] in ("ADV", "ADVERSE") else None)
+
+        if tokens == ["BIP"]:
+            # Temps de jeu effectif : chaque code "BIP" est une séquence ballon en jeu
+            # (l'autre face de la pièce étant les codes "TIME OFF", non comptés ici).
+            found = True
+            bip_durations.append(max(inst.get("duration") or 0, 0))
+            continue
 
         zone_side = _new_convention_zone_side(tokens)
         if zone_side:
@@ -675,7 +683,14 @@ def compute_new_convention_overview(instances):
             "by_period": by_period,
         }
 
+    bip_total = sum(bip_durations)
     return {
+        "ball_in_play": {
+            "duration": round(bip_total, 1),
+            "duration_fmt": _fmt_mmss(bip_total),
+            "pct_match": round(bip_total / MATCH_DURATION_REF_SECONDS * 100) if bip_total else 0,
+            "sequences": _bucket_durations(bip_durations) if bip_durations else None,
+        },
         "possession": _share(possession, possession_periods),
         "occupation": _share(occupation, occupation_periods),
         "plaquage": {
