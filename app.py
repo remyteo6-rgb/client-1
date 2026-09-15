@@ -839,6 +839,18 @@ def match_detail(match_id):
                 "own": {"count": overview_new["discipline"]["own"]},
                 "adverse": {"count": overview_new["discipline"]["adverse"]},
             }
+        # "Points par entrée" : avec la nouvelle convention, l'entrée de référence est
+        # l'entrée en zone Gold (22m) et non l'ancienne zone RAID, qui n'est plus taguée
+        # (d'où le 0 entrée / "—" affiché jusqu'ici). On réutilise exactement le calcul
+        # de la page Zone Gold pour que les deux pages affichent le même chiffre.
+        zone_gold = compute_zone_gold_log(match["instances"], own_points=own_points,
+                                          adverse_points=adverse_points)
+        if zone_gold:
+            dashboard["points_per_entry"] = zone_gold["own"]["points_par_entree"]
+            dashboard["points_per_entry_adverse"] = zone_gold["adverse"]["points_par_entree"]
+            dashboard["entries"] = zone_gold["own"]["total"]
+            dashboard["entries_adverse"] = zone_gold["adverse"]["total"]
+            dashboard["entries_label"] = "zone Gold"
         matches_with_instances, _, _, _ = _season_context()
         baseline = compute_match_baseline(matches_with_instances, exclude_id=match_id)
         # Courbe momentum : demande un modèle de tagging spécifique (voir parser.py,
