@@ -167,7 +167,8 @@
             <span class="kpi-adverse">{{ dashboard.points_per_entry_adverse if dashboard.points_per_entry_adverse is not none else '—' }}</span>
         </div>
         {% if baseline %}{{ kpi_compare(dashboard.points_per_entry, baseline.points_per_entry, true) }}{% endif %}
-        <div class="kpi-help">Nous : {{ dashboard.entries }} entrée{{ 's' if dashboard.entries != 1 else '' }} en zone RAID pour {{ score.own }} points. {{ match['opponent'] }} : {{ dashboard.entries_adverse }} entrée{{ 's' if dashboard.entries_adverse != 1 else '' }} en zone RAID pour {{ score.adverse }} points.{% if baseline %} Flèche = comparaison à la moyenne saison (hors ce match).{% endif %}</div>
+        {% set entries_label = dashboard.entries_label or 'zone RAID' %}
+        <div class="kpi-help">Nous : {{ dashboard.entries }} entrée{{ 's' if dashboard.entries != 1 else '' }} en {{ entries_label }} pour {{ score.own }} points. {{ match['opponent'] }} : {{ dashboard.entries_adverse }} entrée{{ 's' if dashboard.entries_adverse != 1 else '' }} en {{ entries_label }} pour {{ score.adverse }} points.{% if baseline %} Flèche = comparaison à la moyenne saison (hors ce match).{% endif %}</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">% gain ligne d'avantage</div>
