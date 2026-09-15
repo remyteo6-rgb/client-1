@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}CSC — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
+{% set active = 'csc' %}
+{% block content %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>🎯 CSC — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
+        <p class="subtitle">Chasseur, Sniper et Combattant.</p>
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+</div>
+
+{% if not data %}
+<div class="card empty-state">
+    <p>🎯 Ce match n'a pas été tagué avec le suivi Chasseur / Sniper / Combattant.</p>
+    <p class="subtitle">Cette page s'active dès qu'un XML contenant ces groupes de labels est importé.</p>
+</div>
+{% else %}
+
+{% macro dominance(parts) %}
+<div class="csc-block-title">Dominance</div>
+<div class="csc-bar">
+    {% for part in parts %}
+    {% if part.count %}
+    <span class="csc-bar-seg csc-seg-{{ part.tone }}" style="width:{{ part.pct }}%"
+          title="{{ part.label }} : {{ part.count }}">{{ part.pct|round|int }}%</span>
+    {% endif %}
+    {% endfor %}
+</div>
+{% endmacro %}
+
+<div class="report-board">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">CSC</span>
+    </div>
+
+    <div class="csc-board">
+        <div class="csc-card">
+            <div class="csc-icon">🔭</div>
+            <h2>Chasseur</h2>
+            <div class="csc-total">{{ data.chasseur.total }}</div>
+            {{ dominance(data.chasseur.dominance) }}
+
+            <div class="csc-block-title">Les contests</div>
+            <div class="csc-tiles">
+                <div class="csc-tile"><strong>{{ data.chasseur.total }}</strong><span>Tentés</span></div>
+                <div class="csc-tile"><strong>{{ data.chasseur.plus }}</strong><span>Gagnés</span></div>
+            </div>
+        </div>
+
+        <div class="csc-card csc-card-main">
+            <div class="csc-icon">🎯</div>
+            <h2>Sniper</h2>
+            <div class="csc-total">{{ data.sniper.reussis }}</div>
+            {{ dominance(data.sniper.dominance) }}
+
+            <div class="csc-block-title">Efforts</div>
+            <div class="csc-tiles">
+                <div class="csc-tile"><strong>{{ data.sniper.plus }}</strong><span>Positif</span></div>
+                <div class="csc-tile"><strong>{{ data.sniper.neutre }}</strong><span>Neutre</span></div>
+                <div class="csc-tile">
+                    <strong>{{ data.sniper.minus }}</strong><span>Négatif</span>
+                    <em class="csc-tile-alert">{{ data.sniper.fautes }} faute{{ 's' if data.sniper.fautes != 1 else '' }}</em>
+                </div>
+            </div>
+
+            <div class="csc-block-title">Hauteur de plaquage</div>
+            <div class="csc-bar">
+                {% for part in data.sniper.hauteur %}
+                {% if part.count %}
+                <span class="csc-bar-seg csc-seg-{{ part.tone }}" style="width:{{ part.pct }}%"
+                      title="{{ part.label }} : {{ part.count }}">{{ part.label }} {{ part.pct|round|int }}%</span>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="csc-card">
+            <div class="csc-icon">🥊</div>
+            <h2>Combattant</h2>
+            <div class="csc-total">{{ data.combattant.total }}</div>
+            {{ dominance(data.combattant.dominance) }}
+
+            <div class="csc-block-title">Travail ballon / clash</div>
+            <div class="csc-tiles">
+                <div class="csc-tile">
+                    <strong>{{ data.combattant.combat_ballon_pct if data.combattant.combat_ballon_pct is not none else '—' }}{% if data.combattant.combat_ballon_pct is not none %} %{% endif %}</strong>
+                    <span>Combat au ballon</span>
+                </div>
+                <div class="csc-tile"><strong>{{ data.combattant.plus }}</strong><span>Clash +</span></div>
+                <div class="csc-tile"><strong>{{ data.combattant.minus }}</strong><span>Combats subis</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+
+<script>
+function preparePrint() { setTimeout(() => window.print(), 100); }
+</script>
+{% endblock %}
