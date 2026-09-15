@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}Bilan attaque — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
+{% set active = 'bilan_attaque' %}
+{% block content %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>⚡ Bilan attaque — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
+        <p class="subtitle">{{ match['competition'] or 'Journée' }}{% if match['match_date'] %} · {{ match['match_date'] }}{% endif %}</p>
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+</div>
+
+{% if not data %}
+<div class="card empty-state">
+    <p>⚡ Ce match n'a pas été tagué avec la convention du rapport vidéo.</p>
+</div>
+{% else %}
+
+{% macro bar_chart(values, couleur) %}
+{% set maxi = values.values() | max %}
+<div class="bil-chart">
+    {% for label, value in values.items() %}
+    <div class="bil-chart-col">
+        <div class="bil-chart-bar-zone">
+            {% if value %}
+            <div class="bil-chart-bar {{ couleur }}" style="height:{{ (100 * value / maxi) | round | int }}%">
+                <span>{{ value }}</span>
+            </div>
+            {% endif %}
+        </div>
+        <div class="bil-chart-label">{{ label }}</div>
+    </div>
+    {% endfor %}
+</div>
+{% endmacro %}
+
+{% macro tableau_ligne(nom, ligne) %}
+<tr>
+    <th>{{ nom }}</th>
+    <td>{{ ligne.plus }}</td>
+    <td>{{ ligne.minus }}</td>
+    <td>{{ ligne.total }}</td>
+    <td>{{ ligne.pct if ligne.pct is not none else '—' }}{% if ligne.pct is not none %} %{% endif %}</td>
+</tr>
+{% endmacro %}
+
+<div class="report-board">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">ATTAQUE</span>
+        <span class="report-subtitle">Bilan</span>
+    </div>
+
+    <div class="bil-board">
+
+        <div class="bil-col">
+            <div class="bil-panel">
+                <div class="bil-panel-head">Zone Gold : cible {{ data.cibles.zone_gold }}</div>
+                <table class="bil-table">
+                    <tr><th>Total</th><td>{{ zone_gold.total if zone_gold else '—' }}</td></tr>
+                    <tr class="bil-row-neg"><th>Ballons perdus</th><td>{{ zone_gold.ballons_perdus if zone_gold else '—' }}</td></tr>
+                    <tr class="bil-row-warn"><th>Efficacité</th><td>{{ zone_gold.efficacite if zone_gold else '—' }}</td></tr>
+                    <tr><th>Points / entrée</th><td>{{ zone_gold.points_par_entree if zone_gold else '—' }}</td></tr>
+                </table>
+            </div>
+
+            <div class="bil-panel bil-panel-light">
+                <div class="bil-duo">
+                    <div>
+                        <div class="bil-mini-title">Points inscrits</div>
+                        {% if data.points_par_quart %}
+                        {{ bar_chart(data.points_par_quart, 'bil-bar-green') }}
+                        {% else %}
+                        <p class="bil-empty">Non tagué</p>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <div class="bil-mini-title">Essais inscrits</div>
+                        {{ bar_chart(data.essais_par_quart, 'bil-bar-green') }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="bil-panel">
+                <div class="bil-panel-head bil-head-blue">
+                    Jab
+                    {% if data.gain_line_pct is not none %}
+                    <span class="bil-badge">{{ data.gain_line_pct | round | int }}%<em>Ligne avantage +</em></span>
+                    {% endif %}
+                </div>
+                <table class="bil-table bil-table-quad">
+                    <thead><tr><th></th><th>+</th><th>-</th><th>Total</th><th>+%</th></tr></thead>
+                    <tbody>
+                        {{ tableau_ligne('Shape', data.jab.shape) }}
+                        {{ tableau_ligne('Connecté', data.jab.connecte) }}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="bil-panel">
+                <div class="bil-panel-head bil-head-green">Punch</div>
+                <table class="bil-table bil-table-quad">
+                    <thead><tr><th></th><th>+</th><th>-</th><th>Total</th><th>+%</th></tr></thead>
+                    <tbody>
+                        {{ tableau_ligne('Shape', data.punch.shape) }}
+                        {{ tableau_ligne('Connecté', data.punch.connecte) }}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="bil-col">
+            <div class="bil-panel bil-panel-light bil-list">
+                <div class="bil-line"><span>Essais</span><strong>{{ data.essais }}</strong></div>
+                <div class="bil-line"><span>Franchissements</span><strong>{{ data.franchissements }}</strong></div>
+                <div class="bil-line"><span>Contacts</span><strong>{{ data.contacts }}</strong></div>
+                <div class="bil-line bil-line-sub"><span>Dominants</span><strong>{{ data.dominants_pct ~ ' %' if data.dominants_pct is not none else '—' }}</strong></div>
+                <div class="bil-line bil-line-muted"><span>Libération « i »</span><strong>{{ data.liberation_i_pct ~ ' %' if data.liberation_i_pct is not none else '—' }}</strong></div>
+                <div class="bil-line"><span>Plaquages cassés</span><strong>{{ data.plaquages_casses }}</strong></div>
+                <div class="bil-line bil-line-sub"><span>Offloads</span><strong>{{ data.offloads }}</strong></div>
+                <div class="bil-line bil-line-sub"><span>Offloads / Contacts</span><strong>{{ data.offloads }}/{{ data.contacts }}</strong></div>
+                <div class="bil-line bil-line-sub"><span>Passes</span><strong>{{ data.passes }}</strong></div>
+                <div class="bil-line"><span>Clics</span><strong>{{ data.clics }}</strong></div>
+            </div>
+        </div>
+
+        <div class="bil-col">
+            <div class="bil-panel">
+                <div class="bil-panel-head">
+                    Offloads : cible {{ data.cibles.offloads }}
+                    <span class="bil-head-value">{{ data.offloads }}</span>
+                </div>
+                <div class="bil-panel-body">
+                    {% if data.offloads_detail %}
+                    <div class="bil-tiles">
+                        {% for item in data.offloads_detail %}
+                        <div class="bil-tile {{ item.tone }}"><strong>{{ item.count }}</strong><span>{{ item.label }}</span></div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="bil-empty">Répartition super / positifs gardés / négatifs gardés / négatifs perdus : non taguée</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="bil-panel">
+                <div class="bil-panel-head">
+                    Plaquages cassés : cible {{ data.cibles.plaquages_casses }}
+                    <span class="bil-head-value">{{ data.plaquages_casses }}</span>
+                </div>
+                <div class="bil-panel-body">
+                    <div class="bil-mini-title">{{ data.plaquages_detail.joueurs }} joueurs différents</div>
+                    <div class="bil-hbar"><span class="bil-hbar-label">Ring</span>
+                        <span class="bil-hbar-fill" style="width:{{ (100 * data.plaquages_detail.ring / data.plaquages_casses) | round | int if data.plaquages_casses else 0 }}%">{{ data.plaquages_detail.ring }}</span></div>
+                    <div class="bil-hbar"><span class="bil-hbar-label">Corde</span>
+                        <span class="bil-hbar-fill" style="width:{{ (100 * data.plaquages_detail.cordes / data.plaquages_casses) | round | int if data.plaquages_casses else 0 }}%">{{ data.plaquages_detail.cordes }}</span></div>
+                    {{ bar_chart(data.plaquages_detail.par_quart, 'bil-bar-green') }}
+                </div>
+            </div>
+
+            <div class="bil-panel">
+                <div class="bil-panel-head">
+                    Vitesse libération
+                    <span class="bil-head-value">{{ data.vitesse_liberation.total }}</span>
+                </div>
+                <div class="bil-panel-body">
+                    <div class="bil-mini-title">Z. Rumble</div>
+                    <div class="bil-vitesse">
+                        <div class="bil-vitesse-pct">{{ data.vitesse_liberation.pct_rapide if data.vitesse_liberation.pct_rapide is not none else '—' }}{% if data.vitesse_liberation.pct_rapide is not none %} %{% endif %}</div>
+                        <div class="bil-tiles">
+                            <div class="bil-tile bil-tile-green"><strong>{{ data.vitesse_liberation.rapide }}</strong><span>− 2 secondes</span></div>
+                            <div class="bil-tile bil-tile-orange"><strong>{{ data.vitesse_liberation.moyen }}</strong><span>2 − 4 secondes</span></div>
+                            <div class="bil-tile bil-tile-red"><strong>{{ data.vitesse_liberation.lent }}</strong><span>+ 4 secondes</span></div>
+                        </div>
+                    </div>
+                    {% if data.vitesse_liberation.pct_sous_4s is not none %}
+                    <p class="bil-footnote">{{ data.vitesse_liberation.pct_sous_4s }} % − 4 secondes</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{% endif %}
+
+<script>
+function preparePrint() { setTimeout(() => window.print(), 100); }
+</script>
+{% endblock %}

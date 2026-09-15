@@ -50,8 +50,8 @@
         {% endif %}
 
         {% if match is defined %}
-        {% set sector_keys = ['attaque', 'defense', 'transition', 'possessions', 'zone_gold', 'csc', 'ruck', 'touches', 'melee', 'jap'] %}
-        {% set page_labels = {'overview': "Vue d'ensemble", 'attaque': 'Attaque', 'defense': 'Défense', 'transition': 'Transition', 'possessions': 'Nos possessions', 'zone_gold': 'Zone Gold', 'csc': 'CSC', 'ruck': 'Ruck', 'touches': 'Touches', 'melee': 'Mêlée', 'jap': 'Jeu au pied', 'joueurs': 'Joueurs', 'composition': 'Composition'} %}
+        {% set sector_keys = ['attaque', 'defense', 'transition', 'possessions', 'zone_gold', 'bilan_attaque', 'csc', 'ruck', 'touches', 'melee', 'jap'] %}
+        {% set page_labels = {'overview': "Vue d'ensemble", 'attaque': 'Attaque', 'defense': 'Défense', 'transition': 'Transition', 'possessions': 'Nos possessions', 'zone_gold': 'Zone Gold', 'bilan_attaque': 'Bilan attaque', 'csc': 'CSC', 'ruck': 'Ruck', 'touches': 'Touches', 'melee': 'Mêlée', 'jap': 'Jeu au pied', 'joueurs': 'Joueurs', 'composition': 'Composition'} %}
         <div class="subnav-links">
             <a href="{{ url_for('match_detail', match_id=match['id']) }}" class="{{ 'active' if active=='overview' else '' }}">Vue d'ensemble</a>
             <details class="subnav-sector-dropdown">
@@ -62,6 +62,7 @@
                     <a href="{{ url_for('match_transition', match_id=match['id']) }}" class="{{ 'active' if active=='transition' else '' }}">Transition</a>
                     <a href="{{ url_for('match_possessions', match_id=match['id']) }}" class="{{ 'active' if active=='possessions' else '' }}">Nos possessions</a>
                     <a href="{{ url_for('match_zone_gold', match_id=match['id']) }}" class="{{ 'active' if active=='zone_gold' else '' }}">Zone Gold</a>
+                    <a href="{{ url_for('match_bilan_attaque', match_id=match['id']) }}" class="{{ 'active' if active=='bilan_attaque' else '' }}">Bilan attaque</a>
                     <a href="{{ url_for('match_csc', match_id=match['id']) }}" class="{{ 'active' if active=='csc' else '' }}">CSC</a>
                     <a href="{{ url_for('match_ruck', match_id=match['id']) }}" class="{{ 'active' if active=='ruck' else '' }}">Ruck</a>
                     <a href="{{ url_for('match_touches', match_id=match['id']) }}" class="{{ 'active' if active=='touches' else '' }}">Touches</a>
@@ -80,6 +81,7 @@
                     <a href="{{ url_for('match_transition', match_id=match['id']) }}" class="{{ 'active' if active=='transition' else '' }}">Transition</a>
                     <a href="{{ url_for('match_possessions', match_id=match['id']) }}" class="{{ 'active' if active=='possessions' else '' }}">Nos possessions</a>
                     <a href="{{ url_for('match_zone_gold', match_id=match['id']) }}" class="{{ 'active' if active=='zone_gold' else '' }}">Zone Gold</a>
+                    <a href="{{ url_for('match_bilan_attaque', match_id=match['id']) }}" class="{{ 'active' if active=='bilan_attaque' else '' }}">Bilan attaque</a>
                     <a href="{{ url_for('match_csc', match_id=match['id']) }}" class="{{ 'active' if active=='csc' else '' }}">CSC</a>
                     <a href="{{ url_for('match_ruck', match_id=match['id']) }}" class="{{ 'active' if active=='ruck' else '' }}">Ruck</a>
                     <a href="{{ url_for('match_touches', match_id=match['id']) }}" class="{{ 'active' if active=='touches' else '' }}">Touches</a>

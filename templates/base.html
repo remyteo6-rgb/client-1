@@ -29,5 +29,73 @@ if (window.Chart) { Chart.defaults.color = '#ffffff'; }
     {% endwith %}
     {% block content %}{% endblock %}
 </main>
+<script>
+/* Format diapositive (16/9, 1280 x 720 comme Keynote) pour les pages du rapport.
+   Le cadre est mis à l'échelle de la largeur disponible, et son contenu est réduit
+   d'autant s'il est plus haut que la diapo. */
+(function () {
+    var W = 1280, H = 720;
+    function boards() {
+        return document.querySelectorAll('.review-board, .report-board');
+    }
+    function prepare() {
+        boards().forEach(function (board) {
+            if (board.parentElement && board.parentElement.classList.contains('report-slide')) return;
+            var slide = document.createElement('div');
+            slide.className = 'report-slide';
+            board.parentNode.insertBefore(slide, board);
+            slide.appendChild(board);
+
+            var inner = document.createElement('div');
+            inner.className = 'report-inner';
+            var nodes = Array.prototype.slice.call(board.childNodes);
+            nodes.forEach(function (node) {
+                if (node.nodeType === 1 && node.classList.contains('review-bg-img')) return;
+                inner.appendChild(node);
+            });
+            board.appendChild(inner);
+        });
+    }
+    var enCours = false;
+    function fit() {
+        if (enCours) return;
+        enCours = true;
+        document.querySelectorAll('.report-slide').forEach(function (slide) {
+            var board = slide.querySelector('.review-board, .report-board');
+            if (!board) return;
+            var inner = board.querySelector('.report-inner');
+            if (inner) {
+                inner.style.setProperty('--content-scale', 1);
+                var style = window.getComputedStyle(board);
+                var dispo = H - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+                var haut = inner.scrollHeight;
+                inner.style.setProperty('--content-scale', haut > dispo ? (dispo / haut) : 1);
+            }
+            var largeur = slide.clientWidth || W;
+            var echelle = largeur / W;
+            slide.style.setProperty('--slide-scale', echelle);
+            slide.style.height = (H * echelle) + 'px';
+        });
+        window.requestAnimationFrame(function () { enCours = false; });
+    }
+    function init() {
+        if (!boards().length) return;
+        prepare();
+        fit();
+        window.addEventListener('resize', fit);
+        if (window.ResizeObserver) {
+            document.querySelectorAll('.report-inner').forEach(function (inner) {
+                new ResizeObserver(fit).observe(inner);
+            });
+        }
+        window.addEventListener('beforeprint', fit);
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
+</script>
 </body>
 </html>
