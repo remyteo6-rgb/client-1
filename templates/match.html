@@ -13,7 +13,7 @@
 {% set ruck = match['stats'].get('Ruck', {}) %}
 {% set ruck_own = ruck.get('own', {}).get('count', 0) %}
 {% set ruck_adv = ruck.get('adverse', {}).get('count', 0) %}
-{% set discipline = match['stats'].get('Disciplines', {}) %}
+{% set discipline = discipline_override if discipline_override else match['stats'].get('Disciplines', {}) %}
 
 <div class="page-header no-print">
     <div>
@@ -172,7 +172,7 @@
     <div class="kpi-card">
         <div class="kpi-label">% gain ligne d'avantage</div>
         <div class="kpi-value kpi-own">{{ dashboard.gain_line.pct if dashboard.gain_line and dashboard.gain_line.pct is not none else '—' }}{{ '%' if dashboard.gain_line and dashboard.gain_line.pct is not none }}</div>
-        <div class="kpi-help">{% if dashboard.gain_line and dashboard.gain_line.total %}{{ dashboard.gain_line.plus }} duels de contact gagnés sur {{ dashboard.gain_line.total }}.{% else %}Pas encore codé sur ce match.{% endif %}</div>
+        <div class="kpi-help">{% if dashboard.gain_line and dashboard.gain_line.total %}{{ dashboard.gain_line.plus }} phases avec gain de ligne d'avantage sur {{ dashboard.gain_line.total }}.{% else %}Pas encore codé sur ce match.{% endif %}</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Discipline (fautes concédées)</div>
@@ -186,6 +186,20 @@
         {% if baseline %}{{ kpi_compare(dashboard.lost_balls_own, baseline.lost_balls_own, false) }}{% endif %}
         <div class="kpi-help">Nous / {{ match['opponent'] }} — ballons perdus en possession.</div>
     </div>
+    {% if dashboard['break'] %}
+    <div class="kpi-card">
+        <div class="kpi-label">Franchissements</div>
+        <div class="kpi-value"><span class="kpi-own">{{ dashboard['break'].own }}</span> / <span class="kpi-adverse">{{ dashboard['break'].adverse }}</span></div>
+        <div class="kpi-help">Nous / {{ match['opponent'] }} — franchissements de ligne de défense.</div>
+    </div>
+    {% endif %}
+    {% if dashboard.offload %}
+    <div class="kpi-card">
+        <div class="kpi-label">Offloads</div>
+        <div class="kpi-value"><span class="kpi-own">{{ dashboard.offload.own }}</span> / <span class="kpi-adverse">{{ dashboard.offload.adverse }}</span></div>
+        <div class="kpi-help">Nous / {{ match['opponent'] }} — passes après contact.</div>
+    </div>
+    {% endif %}
 </div>
 
 <div class="card">
