@@ -651,18 +651,26 @@ def compute_new_convention_overview(instances):
 
     def _pct(rows):
         if not rows:
-            return {"total": 0, "won": 0, "lost": 0, "pct": None}
-        won = lost = 0
+            return {"total": 0, "won": 0, "lost": 0, "pct": None,
+                    "tqb_plus": 0, "tqb_pct": None}
+        won = lost = tqb_plus = 0
         for inst in rows:
             vals = {_normalize_tag(lab.get("text")) for lab in (inst.get("labels") or [])
                     if _normalize_tag(lab.get("group")) == "CONQUETE"}
             if "GAGNE" in vals:
                 won += 1
+                # TQB = qualité du ballon sur les conquêtes GAGNÉES uniquement
+                # (une conquête perdue n'a pas de ballon à qualifier). Vérifié contre
+                # le rapport vidéo : 6/7 = 85,7 % et 15/17 = 88,2 %.
+                if "TQB +" in vals:
+                    tqb_plus += 1
             elif "PERDU" in vals:
                 lost += 1
         decided = won + lost
         return {"total": len(rows), "won": won, "lost": lost,
-                "pct": round(100 * won / decided, 1) if decided else None}
+                "pct": round(100 * won / decided, 1) if decided else None,
+                "tqb_plus": tqb_plus,
+                "tqb_pct": round(100 * tqb_plus / won, 1) if won else None}
 
     gla_decided = gla_plus + gla_minus
     snipers_total = snipers_ok + snipers_rates

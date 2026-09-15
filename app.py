@@ -802,6 +802,7 @@ def match_detail(match_id):
     discipline_override = None
     plaquage_override = None
     possession_override = None
+    review = None
     if match["instances"]:
         score = compute_score(match["instances"])
         own_points, adverse_points, score_source, own_tries, adverse_tries = _resolve_match_score(match)
@@ -821,6 +822,15 @@ def match_detail(match_id):
         if score_source or score_needs_manual:
             dashboard["score_detail"]["own"]["tries"] = own_tries
             dashboard["score_detail"]["adverse"]["tries"] = adverse_tries
+            # Transformations / pénalités / drops : non déductibles du tagging, donc
+            # repris de la saisie manuelle du staff quand elle existe.
+            manual_stats = match.get("manual_stats") or {}
+            for side in ("own", "adverse"):
+                for kind in ("conversions", "penalties", "drops"):
+                    for suffix in ("", "_att"):
+                        value = manual_stats.get(f"{kind}{suffix}_{side}_manual")
+                        if value is not None:
+                            dashboard["score_detail"][side][f"{kind}{suffix}"] = value
         # Métriques façon page "REVIEW" du rapport vidéo (touches, mêlées, discipline,
         # franchissements, offloads, gain de ligne d'avantage), fiables pour la nouvelle
         # convention de tagging (Journée 1+) — on vient remplacer les cases correspondantes
@@ -891,6 +901,9 @@ def match_detail(match_id):
             dashboard["entries"] = zone_gold["own"]["total"]
             dashboard["entries_adverse"] = zone_gold["adverse"]["total"]
             dashboard["entries_label"] = "zone Gold"
+        review = _build_review(overview_new, score, zone_gold)
+        if review:
+            review["assets"] = _review_assets(match)
         matches_with_instances, _, _, _ = _season_context()
         baseline = compute_match_baseline(matches_with_instances, exclude_id=match_id)
         # Courbe momentum : demande un modèle de tagging spécifique (voir parser.py,
@@ -908,7 +921,7 @@ def match_detail(match_id):
         score_source=score_source, score_needs_manual=score_needs_manual,
         manual=match.get("manual_stats") or {},
         discipline_override=discipline_override, plaquage_override=plaquage_override,
-        possession_override=possession_override,
+        possession_override=possession_override, review=review,
         has_instances=not _no_instances_guard(match),
     )
 @app.route("/match/<int:match_id>/attaque")
@@ -1076,6 +1089,111 @@ def match_possessions(match_id):
     possession_summary = compute_possession_summary(match["instances"])
     return render_template("match_possessions.html", match=match, data=possessions,
                            summary=possession_summary)
+def _fmt_fr(value, decimals=1, suffix="", always_decimals=False):
+    """Nombre au format du rapport vidéo : virgule décimale, et troncature plutôt
+    qu'arrondi — c'est ce que fait le rapport (17/21 y est affiché 80,9 % et non
+    81 %, 40/13 donne 3,07 et non 3,08). Les pourcentages ronds perdent leurs
+    décimales ("50 %"), les points par entrée les gardent toujours ("1,00")."""
+    if value is None:
+        return "—"
+    value = float(value)
+    if decimals and (always_decimals or value != int(value)):
+        factor = 10 ** decimals
+        truncated = int(value * factor) / factor
+        text = f"{truncated:.{decimals}f}".replace(".", ",")
+    else:
+        text = str(int(value))
+    return f"{text}{suffix}"
+
+
+def _club_slug(name):
+    """Nom de club en identifiant de fichier : "Aviron Bayonnais" -> "aviron-bayonnais"."""
+    ascii_name = "".join(c for c in unicodedata.normalize("NFKD", name or "")
+                         if not unicodedata.combining(c))
+    return re.sub(r"[^a-z0-9]+", "-", ascii_name.lower()).strip("-")
+
+
+def _club_crest_url(name):
+    """URL du blason d'un club s'il a été déposé dans static/clubs/ (png ou jpg),
+    sinon None — la page retombe alors sur une pastille avec les initiales."""
+    slug = _club_slug(name)
+    if not slug:
+        return None
+    for ext in ("png", "jpg", "jpeg", "svg", "webp"):
+        relative = f"clubs/{slug}.{ext}"
+        if os.path.exists(os.path.join(app.static_folder, relative)):
+            return url_for("static", filename=relative)
+    return None
+
+
+def _review_background_url():
+    """Image de fond de la page Review (photo de stade délavée du rapport), si elle a
+    été déposée dans static/. Optionnelle : sans elle, un fond neutre est utilisé."""
+    for filename in ("review-bg.jpg", "review-bg.png", "review-bg.webp"):
+        if os.path.exists(os.path.join(app.static_folder, filename)):
+            return url_for("static", filename=filename)
+    return None
+
+
+def _build_review(overview_new, score, zone_gold):
+    """Tableau de synthèse façon page "REVIEW" du rapport vidéo : les 8 lignes
+    comparatives, plus les barres possession et occupation. Renvoie None si le match
+    n'est pas tagué avec la nouvelle convention."""
+    if not overview_new:
+        return None
+    touches, melees = overview_new["touches"], overview_new["melees"]
+    gold_own = (zone_gold or {}).get("own") or {}
+    gold_adv = (zone_gold or {}).get("adverse") or {}
+
+    def _pair(label, own, adverse, decimals=1, suffix="", always_decimals=False):
+        return {"label": label,
+                "own": _fmt_fr(own, decimals, suffix, always_decimals),
+                "adverse": _fmt_fr(adverse, decimals, suffix, always_decimals)}
+
+    def _ratio(numerator, denominator, scale=100):
+        """Ratio brut, non arrondi : la troncature d'affichage doit partir de la vraie
+        valeur (17/21 = 80,95… doit donner 80,9 % et non 81 %, comme dans le rapport)."""
+        if not denominator:
+            return None
+        return scale * numerator / denominator
+
+    def _conquest(stats):
+        decided = stats["won"] + stats["lost"]
+        return _ratio(stats["won"], decided)
+
+    rows = [
+        _pair("TOUCHES", _conquest(touches["own"]), _conquest(touches["adverse"]), 1, " %"),
+        _pair("TQB", _ratio(touches["own"]["tqb_plus"], touches["own"]["won"]),
+              _ratio(touches["adverse"]["tqb_plus"], touches["adverse"]["won"]), 1, " %"),
+        _pair("MÊLÉES", _conquest(melees["own"]), _conquest(melees["adverse"]), 1, " %"),
+        _pair("DISCIPLINES", overview_new["discipline"]["own"], overview_new["discipline"]["adverse"], 0),
+        _pair("ESSAIS", score["own_tries"] if score else None,
+              score["adverse_tries"] if score else None, 0),
+        _pair("BREAK", overview_new["break"]["own"], overview_new["break"]["adverse"], 0),
+        _pair("OFFLOAD", overview_new["offload"]["own"], overview_new["offload"]["adverse"], 0),
+        _pair("POINTS/22",
+              _ratio(score["own"] if score else None, gold_own.get("total"), scale=1),
+              _ratio(score["adverse"] if score else None, gold_adv.get("total"), scale=1),
+              2, always_decimals=True),
+    ]
+    return {
+        "rows": rows,
+        "possession": overview_new["possession"],
+        "occupation": overview_new["occupation"],
+    }
+
+
+def _review_assets(match):
+    """Images optionnelles de la page Review : fond de stade et blasons des deux clubs.
+    Chaque élément absent est simplement remplacé par un repli (fond neutre, pastille
+    aux initiales), donc la page fonctionne avant même que les visuels soient fournis."""
+    return {
+        "background": _review_background_url(),
+        "own_crest": _club_crest_url(match["own_team"]) or url_for("static", filename="logo.png"),
+        "adverse_crest": _club_crest_url(match["opponent"]),
+    }
+
+
 def _resolve_match_score(match):
     """Score du match + comment on l'a obtenu ('manual' | 'auto' | None), en
     tentant dans l'ordre : saisie manuelle (staff), puis calcul automatique via
@@ -1129,6 +1247,15 @@ def match_score_manual(match_id):
             return None
     manual["score_own_manual"] = _to_int(request.form.get("score_own_manual"))
     manual["score_adverse_manual"] = _to_int(request.form.get("score_adverse_manual"))
+    # Détail du score saisi à la main : la nouvelle convention de tagging ne permet
+    # pas de distinguer une transformation réussie d'une manquée (idem pénalités et
+    # drops), donc le staff les renseigne directement. Les essais, eux, restent
+    # comptés automatiquement (voir compute_new_convention_tries).
+    for side in ("own", "adverse"):
+        for kind in ("conversions", "penalties", "drops"):
+            for suffix in ("", "_att"):
+                field = f"{kind}{suffix}_{side}_manual"
+                manual[field] = _to_int(request.form.get(field))
     db = get_db()
     db.execute("UPDATE matches SET manual_stats_json = %s WHERE id = %s", (json.dumps(manual), match_id))
     db.commit()
