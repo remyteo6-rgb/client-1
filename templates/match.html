@@ -9,7 +9,7 @@
 {% set poss_own_d = poss.get('own', {}).get('duration', 0) %}
 {% set poss_adv_d = poss.get('adverse', {}).get('duration', 0) %}
 {% set poss_total = poss_own_d + poss_adv_d %}
-{% set plaquage = match['stats'].get('Plaquage', {}).get('own', {}) %}
+{% set plaquage = plaquage_override if plaquage_override else match['stats'].get('Plaquage', {}).get('own', {}) %}
 {% set ruck = match['stats'].get('Ruck', {}) %}
 {% set ruck_own = ruck.get('own', {}).get('count', 0) %}
 {% set ruck_adv = ruck.get('adverse', {}).get('count', 0) %}
@@ -203,6 +203,10 @@
     {% endif %}
 </div>
 
+{# Masqué quand rien n'est codé : la zone RAID n'est plus taguée avec la nouvelle
+   convention, le bloc restait vide ("Aucune entrée détaillée codée" des deux côtés).
+   Il reste affiché pour les matchs de l'ancienne convention, où il est renseigné. #}
+{% if dashboard.entry_types_own or dashboard.entry_types_adverse %}
 <div class="card">
     <h2>🚪 Comment on rentre en zone RAID</h2>
     <p class="subtitle">Origine des entrées en zone d'attaque : course (RUN), sortie de camp (EXIT) ou pénalité obtenue.</p>
@@ -223,6 +227,7 @@
         </div>
     </div>
 </div>
+{% endif %}
 
 <div class="kpi-row">
     <div class="kpi-card">
@@ -239,7 +244,7 @@
         <div class="kpi-label">Réussite au plaquage</div>
         <div class="kpi-value kpi-own">{{ plaquage.get('success_rate') if plaquage.get('success_rate') is not none else '—' }}{{ '%' if plaquage.get('success_rate') is not none }}</div>
         {% if baseline %}{{ kpi_compare(plaquage.get('success_rate'), baseline.plaquage_success_rate, true, '%') }}{% endif %}
-        <div class="kpi-help">% de plaquages réussis sur le total tenté (nous).</div>
+        <div class="kpi-help">{% if plaquage_override %}{{ plaquage.reussi }} plaquage{{ 's' if plaquage.reussi != 1 else '' }} (snipers) réussis sur {{ plaquage.total }} tenté{{ 's' if plaquage.total != 1 else '' }}.{% else %}% de plaquages réussis sur le total tenté (nous).{% endif %}</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Rucks gagnés (nous vs eux)</div>
