@@ -74,40 +74,12 @@
 </div>
 
 {% if review %}
-{# Reproduction de la page "REVIEW" du rapport vidéo. Le fond de stade et les blasons
-   sont optionnels : sans eux, fond neutre et pastilles aux initiales. #}
+{# Reproduction de la page "REVIEW" du rapport vidéo. Le fond de stade est intégré à la
+   feuille de style ; les blasons, eux, se déposent depuis cette page (voir plus bas). #}
 <div class="review-board">
-    {# Le fond est posé comme une vraie image et non en background-image CSS : c'est le
-       même mécanisme que les blasons, qui fonctionne de façon fiable. #}
-    {# Fond déposé depuis le site : il ne s'affiche que s'il se charge vraiment, sinon on
-       garde celui livré avec le site (posé en CSS). Évite l'image cassée quand un dépôt
-       n'a pas abouti entièrement. #}
-    {% if review.assets.background %}
-    <img class="review-bg-img" src="{{ review.assets.background }}" alt=""
-         onload="this.style.display='block'" onerror="this.remove()">
-    {% endif %}
     <div class="review-head">
         <img class="review-head-crest" src="{{ review.assets.own_crest }}" alt="{{ match['own_team'] }}">
         <span class="review-title">REVIEW</span>
-        {% if session.get('is_admin') %}
-        <form class="review-bg-form no-print" method="POST" enctype="multipart/form-data"
-              action="{{ url_for('site_image_upload', image_key='review-bg') }}">
-            <input type="hidden" name="next" value="{{ url_for('match_detail', match_id=match['id']) }}">
-            <input type="hidden" name="label" value="Fond de la page Review">
-            {# Vignette du fond enregistré : permet de voir d'un coup d'œil si l'image est
-               bien stockée, même si elle ne s'applique pas en fond de page. #}
-            {% if review.assets.background %}
-            <img class="review-bg-thumb" src="{{ review.assets.background }}" alt="Fond enregistré"
-                 title="Fond actuellement enregistré" onerror="this.remove()">
-            {% else %}
-            <span class="review-bg-none" title="Aucun fond enregistré pour l'instant">aucun fond</span>
-            {% endif %}
-            <label title="Choisir l'image de fond de la page Review (valable pour tous les matchs)">
-                🖼️ {{ 'Changer' if review.assets.background else 'Ajouter' }} le fond
-                <input type="file" name="image" accept="image/*" onchange="this.form.submit()">
-            </label>
-        </form>
-        {% endif %}
     </div>
 
     {# Le blason se dépose en cliquant dessus (admin) : le formulaire s'envoie tout seul
