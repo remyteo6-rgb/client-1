@@ -505,8 +505,8 @@ def compute_new_convention_overview(instances):
     """Métriques de synthèse façon page 'REVIEW' du rapport vidéo, calculées de façon
     fiable pour la nouvelle convention de tagging (Journée 1+) : touches, mêlées,
     discipline, franchissements, offloads, gain de ligne d'avantage, réussite au
-    plaquage (snipers). Renvoie None si aucun de ces codes n'existe dans ce match
-    (ancienne convention, ou pas encore taggé).
+    plaquage (snipers), possession. Renvoie None si aucun de ces codes n'existe dans
+    ce match (ancienne convention, ou pas encore taggé).
 
     Volontairement absents (pas taguables avec cette convention, voir échanges avec le
     staff) : détail offensif/défensif de la discipline, occupation du terrain (carte de
@@ -519,6 +519,8 @@ def compute_new_convention_overview(instances):
     offload_own = 0
     offload_adverse = 0
     snipers_ok = snipers_rates = 0
+    possession = {"own": 0.0, "adverse": 0.0}
+    possession_periods = defaultdict(lambda: {"own": 0.0, "adverse": 0.0})
     found = False
 
     for inst in instances:
@@ -527,7 +529,20 @@ def compute_new_convention_overview(instances):
             continue
         side = "own" if tokens[0] == "UBB" else ("adverse" if tokens[0] in ("ADV", "ADVERSE") else None)
 
-        if _new_convention_code_match(tokens, ["TOUCHES"]):
+        if _new_convention_code_match(tokens, ["POSSESSION"]):
+            # % de possession = temps total "UBB POSSESSION" vs "ADV POSSESSION"
+            # (méthode confirmée par le staff, conforme au rapport vidéo).
+            found = True
+            seconds = max(inst.get("duration") or 0, 0)
+            possession[side] += seconds
+            period = None
+            for lab in inst.get("labels") or []:
+                if _normalize_tag(lab.get("group")) == "CHRONO":
+                    period = (lab.get("text") or "").strip()
+                    break
+            if period:
+                possession_periods[period][side] += seconds
+        elif _new_convention_code_match(tokens, ["TOUCHES"]):
             found = True
             touches[side].append(inst)
         elif _new_convention_code_match(tokens, ["MELEES"]):
@@ -593,7 +608,28 @@ def compute_new_convention_overview(instances):
 
     gla_decided = gla_plus + gla_minus
     snipers_total = snipers_ok + snipers_rates
+
+    possession_total = possession["own"] + possession["adverse"]
+    by_period = {}
+    for period in sorted(possession_periods, key=lambda p: POSSESSION_QUARTER_ORDER.index(p)
+                         if p in POSSESSION_QUARTER_ORDER else 99):
+        own_s = possession_periods[period]["own"]
+        adv_s = possession_periods[period]["adverse"]
+        tot = own_s + adv_s
+        by_period[period] = {
+            "own": round(own_s, 1), "adverse": round(adv_s, 1),
+            "own_pct": round(own_s / tot * 100) if tot else None,
+            "adverse_pct": round(adv_s / tot * 100) if tot else None,
+        }
+
     return {
+        "possession": {
+            "own_seconds": round(possession["own"], 1),
+            "adverse_seconds": round(possession["adverse"], 1),
+            "own_pct": round(100 * possession["own"] / possession_total, 1) if possession_total else None,
+            "adverse_pct": round(100 * possession["adverse"] / possession_total, 1) if possession_total else None,
+            "by_period": by_period,
+        },
         "plaquage": {
             "reussis": snipers_ok, "rates": snipers_rates, "total": snipers_total,
             "pct": round(100 * snipers_ok / snipers_total, 1) if snipers_total else None,

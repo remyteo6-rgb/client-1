@@ -801,6 +801,7 @@ def match_detail(match_id):
     momentum_svg = None
     discipline_override = None
     plaquage_override = None
+    possession_override = None
     if match["instances"]:
         score = compute_score(match["instances"])
         own_points, adverse_points, score_source, own_tries, adverse_tries = _resolve_match_score(match)
@@ -840,6 +841,14 @@ def match_detail(match_id):
                 "own": {"count": overview_new["discipline"]["own"]},
                 "adverse": {"count": overview_new["discipline"]["adverse"]},
             }
+            if overview_new["possession"]["own_pct"] is not None:
+                # % de possession = temps total "UBB POSSESSION" vs "ADV POSSESSION".
+                possession_override = {
+                    "own": overview_new["possession"]["own_seconds"],
+                    "adverse": overview_new["possession"]["adverse_seconds"],
+                }
+                if overview_new["possession"]["by_period"]:
+                    dashboard["possession_by_period"] = overview_new["possession"]["by_period"]
             if overview_new["plaquage"]["total"]:
                 # Réussite au plaquage = snipers réussis / (réussis + ratés).
                 plaquage_override = {
@@ -876,6 +885,7 @@ def match_detail(match_id):
         score_source=score_source, score_needs_manual=score_needs_manual,
         manual=match.get("manual_stats") or {},
         discipline_override=discipline_override, plaquage_override=plaquage_override,
+        possession_override=possession_override,
         has_instances=not _no_instances_guard(match),
     )
 @app.route("/match/<int:match_id>/attaque")
