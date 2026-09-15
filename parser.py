@@ -508,6 +508,15 @@ def _new_convention_code_match(tokens, suffix_tokens):
 ZONE_OWN_HALF = {"ROUGE", "COP"}
 ZONE_ADVERSE_HALF = {"RUMBLE", "GOLD"}
 
+# Groupe de labels porté par les codes joueurs, qui recense leurs actions (passes,
+# contacts, offloads, pénalités concédées, essais...). C'est la source qui fait foi
+# pour les totaux du rapport vidéo, y compris quand un autre groupe semble parler de
+# la même chose. "Oflloads" est orthographié ainsi dans le tagging : on accepte les
+# variantes pour ne pas dépendre d'une coquille.
+PLAYER_ACTION_GROUP = "JOUEURS OFF"
+PLAYER_ACTION_OFFLOAD = {"OFLLOADS", "OFFLOADS", "OFLLOAD", "OFFLOAD", "OFLOAD", "OFLOADS"}
+PLAYER_ACTION_PENALTY = {"PENALITE", "PENALITES"}
+
 
 def _new_convention_zone_side(tokens):
     """Pour un code de zone ("GOLD", "COP A"...), renvoie quelle équipe occupe le
@@ -549,6 +558,7 @@ def compute_new_convention_overview(instances):
     disciplines = {"own": 0, "adverse": 0}
     breaks = {"own": 0, "adverse": 0}
     pdb = {"own": 0, "adverse": 0}
+    penalties_own = 0
     gla_plus = gla_minus = 0
     offload_own = 0
     offload_adverse = 0
@@ -624,16 +634,22 @@ def compute_new_convention_overview(instances):
             found = True  # "ADV Ofload" (offloads adverses, comptés directement)
             offload_adverse += 1
         elif side is None:
-            # Codes joueurs individuels (ex: "HUTTEAU") : chez nous, offloads et
-            # plaquages (snipers) sont tagués comme des labels sur l'instance du joueur
-            # concerné, pas comme des codes séparés (contrairement au camp adverse, qui
-            # n'est pas détaillé joueur par joueur).
-            offload_seen = False
+            # Codes joueurs individuels (ex: "HUTTEAU") : chez nous, les actions sont
+            # tagués comme des labels sur l'instance du joueur concerné, pas comme des
+            # codes séparés (contrairement au camp adverse, qui n'est pas détaillé
+            # joueur par joueur).
             for lab in inst.get("labels") or []:
                 group = _normalize_tag(lab.get("group"))
-                if group == "OFFLOAD" and not offload_seen:
-                    offload_own += 1
-                    offload_seen = True
+                if group == PLAYER_ACTION_GROUP:
+                    # Groupe de référence du rapport vidéo : c'est lui qui fait foi pour
+                    # compter les actions, et pas les groupes qui ne font que les
+                    # qualifier (le groupe "Offload" porte un +/-/= sur certaines
+                    # actions, mais en compte une de plus que le rapport).
+                    action = _normalize_tag(lab.get("text"))
+                    if action in PLAYER_ACTION_OFFLOAD:
+                        offload_own += 1
+                    elif action in PLAYER_ACTION_PENALTY:
+                        penalties_own += 1
                 elif group == "SNIPERS":
                     # "Sniper" = plaquage réussi, "Sniper raté" = plaquage manqué. Les
                     # autres valeurs du même groupe (+/-/=, Haut/Bas) qualifient le
@@ -715,7 +731,13 @@ def compute_new_convention_overview(instances):
         },
         "touches": {"own": _pct(touches["own"]), "adverse": _pct(touches["adverse"])},
         "melees": {"own": _pct(melees["own"]), "adverse": _pct(melees["adverse"])},
-        "discipline": disciplines,
+        # Côté UBB, les fautes sont recensées joueur par joueur (source qui fait foi
+        # dans le rapport) ; le code "UBB DISCIPLINES" sert de repli s'il n'y en a pas.
+        # Côté adverse, seul le code existe : les joueurs d'en face ne sont pas tagués.
+        "discipline": {
+            "own": penalties_own or disciplines["own"],
+            "adverse": disciplines["adverse"],
+        },
         "break": breaks,
         "pdb": pdb,
         "offload": {"own": offload_own, "adverse": offload_adverse},
