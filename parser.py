@@ -504,8 +504,9 @@ def _new_convention_code_match(tokens, suffix_tokens):
 def compute_new_convention_overview(instances):
     """Métriques de synthèse façon page 'REVIEW' du rapport vidéo, calculées de façon
     fiable pour la nouvelle convention de tagging (Journée 1+) : touches, mêlées,
-    discipline, franchissements, offloads, gain de ligne d'avantage. Renvoie None si
-    aucun de ces codes n'existe dans ce match (ancienne convention, ou pas encore taggé).
+    discipline, franchissements, offloads, gain de ligne d'avantage, réussite au
+    plaquage (snipers). Renvoie None si aucun de ces codes n'existe dans ce match
+    (ancienne convention, ou pas encore taggé).
 
     Volontairement absents (pas taguables avec cette convention, voir échanges avec le
     staff) : détail offensif/défensif de la discipline, occupation du terrain (carte de
@@ -517,6 +518,7 @@ def compute_new_convention_overview(instances):
     gla_plus = gla_minus = 0
     offload_own = 0
     offload_adverse = 0
+    snipers_ok = snipers_rates = 0
     found = False
 
     for inst in instances:
@@ -549,13 +551,27 @@ def compute_new_convention_overview(instances):
             found = True  # "ADV Ofload" (offloads adverses, comptés directement)
             offload_adverse += 1
         elif side is None:
-            # Codes joueurs individuels (ex: "HUTTEAU") : les offloads chez nous sont
-            # tagués comme un label "Offload" sur l'instance du joueur concerné, pas
-            # comme un code séparé (contrairement au camp adverse, non nommé par joueur).
+            # Codes joueurs individuels (ex: "HUTTEAU") : chez nous, offloads et
+            # plaquages (snipers) sont tagués comme des labels sur l'instance du joueur
+            # concerné, pas comme des codes séparés (contrairement au camp adverse, qui
+            # n'est pas détaillé joueur par joueur).
+            offload_seen = False
             for lab in inst.get("labels") or []:
-                if _normalize_tag(lab.get("group")) == "OFFLOAD":
+                group = _normalize_tag(lab.get("group"))
+                if group == "OFFLOAD" and not offload_seen:
                     offload_own += 1
-                    break
+                    offload_seen = True
+                elif group == "SNIPERS":
+                    # "Sniper" = plaquage réussi, "Sniper raté" = plaquage manqué. Les
+                    # autres valeurs du même groupe (+/-/=, Haut/Bas) qualifient le
+                    # plaquage sans dire s'il a abouti : on les ignore ici.
+                    txt = _normalize_tag(lab.get("text"))
+                    if txt == "SNIPER":
+                        snipers_ok += 1
+                        found = True
+                    elif txt in ("SNIPER RATE", "SNIPER RATE."):
+                        snipers_rates += 1
+                        found = True
 
     if not found:
         return None
@@ -576,7 +592,12 @@ def compute_new_convention_overview(instances):
                 "pct": round(100 * won / decided, 1) if decided else None}
 
     gla_decided = gla_plus + gla_minus
+    snipers_total = snipers_ok + snipers_rates
     return {
+        "plaquage": {
+            "reussis": snipers_ok, "rates": snipers_rates, "total": snipers_total,
+            "pct": round(100 * snipers_ok / snipers_total, 1) if snipers_total else None,
+        },
         "touches": {"own": _pct(touches["own"]), "adverse": _pct(touches["adverse"])},
         "melees": {"own": _pct(melees["own"]), "adverse": _pct(melees["adverse"])},
         "discipline": disciplines,

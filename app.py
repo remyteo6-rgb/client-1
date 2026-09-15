@@ -800,6 +800,7 @@ def match_detail(match_id):
     momentum = None
     momentum_svg = None
     discipline_override = None
+    plaquage_override = None
     if match["instances"]:
         score = compute_score(match["instances"])
         own_points, adverse_points, score_source, own_tries, adverse_tries = _resolve_match_score(match)
@@ -839,6 +840,13 @@ def match_detail(match_id):
                 "own": {"count": overview_new["discipline"]["own"]},
                 "adverse": {"count": overview_new["discipline"]["adverse"]},
             }
+            if overview_new["plaquage"]["total"]:
+                # Réussite au plaquage = snipers réussis / (réussis + ratés).
+                plaquage_override = {
+                    "success_rate": overview_new["plaquage"]["pct"],
+                    "reussi": overview_new["plaquage"]["reussis"],
+                    "total": overview_new["plaquage"]["total"],
+                }
         # "Points par entrée" : avec la nouvelle convention, l'entrée de référence est
         # l'entrée en zone Gold (22m) et non l'ancienne zone RAID, qui n'est plus taguée
         # (d'où le 0 entrée / "—" affiché jusqu'ici). On réutilise exactement le calcul
@@ -867,7 +875,7 @@ def match_detail(match_id):
         baseline=baseline, momentum=momentum, momentum_svg=momentum_svg,
         score_source=score_source, score_needs_manual=score_needs_manual,
         manual=match.get("manual_stats") or {},
-        discipline_override=discipline_override,
+        discipline_override=discipline_override, plaquage_override=plaquage_override,
         has_instances=not _no_instances_guard(match),
     )
 @app.route("/match/<int:match_id>/attaque")
