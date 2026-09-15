@@ -68,7 +68,11 @@ if (window.Chart) { Chart.defaults.color = '#ffffff'; }
                 inner.style.setProperty('--content-scale', 1);
                 var style = window.getComputedStyle(board);
                 var dispo = H - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+                /* Hauteur naturelle du contenu, mesurée sans la contrainte de la diapo :
+                   au-delà, on réduit le tout pour qu'il tienne dans le cadre. */
+                inner.style.height = 'auto';
                 var haut = inner.scrollHeight;
+                inner.style.height = '';
                 inner.style.setProperty('--content-scale', haut > dispo ? (dispo / haut) : 1);
             }
             var largeur = slide.clientWidth || W;
