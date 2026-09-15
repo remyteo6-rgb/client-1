@@ -1838,3 +1838,139 @@ span.review-crest {
 @media (max-width: 900px) {
     .csc-board { grid-template-columns: 1fr; gap: 42px; }
 }
+
+/* ---- Page Bilan attaque -------------------------------------------------- */
+.report-subtitle {
+    font-size: 1.1rem; font-weight: 600; letter-spacing: 1px;
+    text-transform: uppercase; color: var(--bg-header); opacity: .75;
+}
+.bil-board { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; align-items: start; }
+.bil-col { display: flex; flex-direction: column; gap: 14px; }
+
+.bil-panel {
+    background: #fff; border-radius: 8px; overflow: hidden;
+    box-shadow: 0 2px 6px rgba(0,0,0,.12); color: #1b1b1b;
+}
+.bil-panel-light { background: rgba(255,255,255,.94); }
+.bil-panel-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: var(--bg-header); color: #fff;
+    padding: 9px 14px; font-size: .86rem; font-weight: 700;
+    letter-spacing: .6px; text-transform: uppercase;
+}
+.bil-head-blue  { background: #2f5d8a; }
+.bil-head-green { background: #2f6b39; }
+.bil-head-value { font-size: 1.25rem; font-weight: 800; }
+.bil-panel-body { padding: 12px 14px 14px; }
+
+.bil-badge {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: #2f6b39; color: #fff; border-radius: 50%;
+    width: 58px; height: 58px; margin: -12px 0; font-size: 1rem; font-weight: 800;
+}
+.bil-badge em { font-style: normal; font-size: .46rem; text-transform: none; letter-spacing: 0; }
+
+.bil-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.bil-table th, .bil-table td { padding: 8px 14px; text-align: left; }
+.bil-table td { text-align: right; font-weight: 700; }
+.bil-table tr + tr { border-top: 1px solid rgba(0,0,0,.07); }
+.bil-row-neg  { background: #d9463c; color: #fff; }
+.bil-row-warn { background: #f7efe2; }
+.bil-table-quad thead th { font-size: .74rem; color: #6a6a6a; text-align: center; font-weight: 600; }
+.bil-table-quad td { text-align: center; }
+.bil-table-quad th:first-child { text-transform: uppercase; font-size: .74rem; letter-spacing: .5px; }
+
+.bil-duo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; }
+.bil-mini-title {
+    font-size: .68rem; font-weight: 700; letter-spacing: .8px;
+    text-transform: uppercase; color: var(--bg-header); text-align: center; margin-bottom: 6px;
+}
+.bil-chart { display: flex; align-items: flex-end; gap: 6px; height: 92px; }
+.bil-chart-col { flex: 1; display: flex; flex-direction: column; height: 100%; }
+.bil-chart-bar-zone { flex: 1; display: flex; align-items: flex-end; }
+.bil-chart-bar {
+    width: 100%; border-radius: 2px 2px 0 0; min-height: 14px;
+    display: flex; align-items: flex-end; justify-content: center;
+}
+.bil-chart-bar span { font-size: .62rem; font-weight: 700; color: #fff; padding-bottom: 2px; }
+.bil-bar-green { background: #38a24a; }
+.bil-chart-label {
+    text-align: center; font-size: .62rem; font-weight: 600;
+    color: #555; border-top: 1px solid rgba(0,0,0,.15); padding-top: 3px;
+}
+
+.bil-list { padding: 4px 0; }
+.bil-line {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 11px 16px; font-size: 1rem; font-weight: 700;
+}
+.bil-line span { font-style: italic; }
+.bil-line strong { font-weight: 800; }
+.bil-line-sub { background: #faf6f0; }
+.bil-line-muted { background: #d8d5d3; color: #6b6b6b; border-radius: 4px; }
+.bil-line + .bil-line { border-top: 1px solid rgba(0,0,0,.05); }
+
+.bil-tiles { display: flex; gap: 6px; }
+.bil-tile {
+    flex: 1; border-radius: 5px; padding: 9px 4px; text-align: center; color: #fff;
+    background: #8a8a8a;
+}
+.bil-tile strong { display: block; font-size: 1.35rem; font-weight: 800; }
+.bil-tile span { display: block; font-size: .56rem; letter-spacing: .3px; opacity: .92; }
+.bil-tile-green  { background: #38a24a; }
+.bil-tile-orange { background: #e0912f; }
+.bil-tile-red    { background: #d9463c; }
+
+.bil-hbar { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.bil-hbar-label {
+    width: 46px; font-size: .66rem; font-weight: 700; text-transform: uppercase; color: #555;
+}
+.bil-hbar-fill {
+    background: #3f76b5; color: #fff; border-radius: 3px;
+    padding: 3px 7px; font-size: .72rem; font-weight: 700; min-width: 26px;
+}
+.bil-vitesse { display: flex; align-items: center; gap: 10px; }
+.bil-vitesse-pct { font-size: 1.5rem; font-weight: 800; font-style: italic; color: #1b1b1b; }
+.bil-vitesse .bil-tiles { flex: 1; }
+.bil-footnote {
+    margin: 8px 0 0; text-align: center;
+    font-size: .74rem; font-style: italic; color: #6a6a6a;
+}
+.bil-empty { margin: 0; font-size: .74rem; font-style: italic; color: #8a8a8a; text-align: center; }
+
+@media (max-width: 1000px) { .bil-board { grid-template-columns: 1fr; } }
+
+/* ---- Format « Keynote » : chaque page du rapport est une diapositive 16/9 ----
+   Le cadre fait 1280 x 720 points, exactement comme une diapo Keynote. Il est
+   ensuite réduit proportionnellement pour tenir dans la largeur de l'écran, et
+   son contenu est lui aussi réduit s'il dépasse la hauteur de la diapo. Tout est
+   posé par le script de base.html : sans script, la mise en page fluide d'avant
+   reste active. */
+.report-slide {
+    position: relative;
+    width: 100%;
+    max-width: 1280px;
+    margin: 0 auto var(--gap);
+    overflow: hidden;
+}
+.report-slide > .review-board,
+.report-slide > .report-board {
+    width: 1280px;
+    height: 720px;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    transform-origin: top left;
+    transform: scale(var(--slide-scale, 1));
+}
+.report-inner {
+    position: relative;
+    z-index: 2;
+    transform-origin: center center;
+    transform: scale(var(--content-scale, 1));
+}
+
+@media print {
+    .report-slide { max-width: none; width: 100%; }
+}
