@@ -1625,7 +1625,9 @@ body.demo-mode .demo-blur {
 .review-board::before {
     content: "";
     position: absolute; inset: 0;
-    background: radial-gradient(circle at 50% 45%, rgba(255,255,255,.88) 0 34%, rgba(255,255,255,.55) 70%, rgba(255,255,255,.4) 100%);
+    /* Halo blanc derrière les chiffres, mais la photo de fond doit rester bien
+       visible sur le pourtour, comme sur le rapport. */
+    background: radial-gradient(ellipse at 50% 45%, rgba(255,255,255,.86) 0 26%, rgba(255,255,255,.42) 60%, rgba(255,255,255,.10) 100%);
     pointer-events: none;
 }
 .review-board > * { position: relative; }
