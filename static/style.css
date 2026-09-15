@@ -1611,7 +1611,8 @@ body.demo-mode .demo-blur {
    reste du site est en thème sombre. Le fond de stade (static/review-bg.jpg)
    et les blasons (static/clubs/<club>.png) sont optionnels : sans eux, fond
    neutre et pastilles aux initiales. */
-.review-board {
+.review-board,
+.report-board {
     position: relative;
     border-radius: var(--radius);
     padding: 22px 26px 34px;
@@ -1637,7 +1638,8 @@ body.demo-mode .demo-blur {
        l'icône « image cassée » quand un dépôt a échoué. */
     display: none;
 }
-.review-board::before {
+.review-board::before,
+.report-board::before {
     content: "";
     position: absolute; inset: 0; z-index: 1;
     /* Halo blanc derrière les chiffres, mais la photo de fond doit rester bien
@@ -1645,11 +1647,13 @@ body.demo-mode .demo-blur {
     background: radial-gradient(ellipse at 50% 45%, rgba(255,255,255,.86) 0 26%, rgba(255,255,255,.42) 60%, rgba(255,255,255,.10) 100%);
     pointer-events: none;
 }
-.review-board > *:not(.review-bg-img) { position: relative; z-index: 2; }
+.review-board > *:not(.review-bg-img),
+.report-board > * { position: relative; z-index: 2; }
 
-.review-head { display: flex; align-items: center; gap: 14px; }
-.review-head-crest { width: 58px; height: 58px; object-fit: contain; }
-.review-title {
+.review-head, .report-head { display: flex; align-items: center; gap: 14px; }
+.report-head { margin-bottom: 6px; }
+.review-head-crest, .report-head-crest { width: 58px; height: 58px; object-fit: contain; }
+.review-title, .report-title {
     background: rgba(170,170,170,.5);
     color: var(--bg-header);
     font-size: 2rem; font-weight: 800; letter-spacing: 2px;
@@ -1760,3 +1764,77 @@ span.review-crest {
 }
 .review-crest-form label:hover .review-crest-hint { opacity: .85; }
 .review-crest-form label:hover .review-crest { filter: brightness(1.08); }
+
+/* ---- Page CSC (Chasseur / Sniper / Combattant) ---------------------------
+   Reprend le visuel du rapport : trois cartes sombres sur fond clair, chiffres
+   dorés, barres de dominance segmentées. */
+.csc-board {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 22px; align-items: start; margin-bottom: var(--gap);
+}
+.csc-card {
+    position: relative;
+    background: #3b3238; border-radius: 14px;
+    padding: 46px 22px 24px; margin-top: 30px;
+    text-align: center; color: #fff;
+    box-shadow: 0 4px 14px rgba(0,0,0,.28);
+}
+.csc-card-main { padding-top: 52px; }
+.csc-icon {
+    position: absolute; top: -30px; left: 50%; transform: translateX(-50%);
+    width: 60px; height: 60px; border-radius: 50%;
+    background: var(--bg-header); border: 3px solid var(--accent-gold);
+    display: flex; align-items: center; justify-content: center; font-size: 1.5rem;
+}
+.csc-card h2 {
+    font-size: 1.15rem; font-weight: 800; letter-spacing: 3px;
+    text-transform: uppercase; color: #fff;
+    margin: 0 0 4px; border: 0; padding: 0;
+}
+.csc-total {
+    font-size: 3.4rem; font-weight: 800; line-height: 1.05;
+    color: var(--accent-gold);
+}
+.csc-card-main .csc-total { font-size: 4.2rem; }
+.csc-subtitle { font-size: .78rem; color: rgba(255,255,255,.65); margin-bottom: 6px; }
+
+.csc-block-title {
+    margin: 18px 0 8px;
+    font-size: .72rem; font-weight: 700; letter-spacing: 2px;
+    text-transform: uppercase; color: rgba(255,255,255,.75);
+}
+.csc-bar {
+    display: flex; height: 30px; border-radius: 5px; overflow: hidden;
+    background: rgba(0,0,0,.25);
+}
+.csc-bar-seg {
+    display: flex; align-items: center; justify-content: center;
+    font-size: .8rem; font-weight: 700; color: #fff; min-width: 0;
+}
+/* la couleur suit le sens du segment, pas sa position dans la barre */
+.csc-seg-pos  { background: #2f6b39; }
+.csc-seg-neu  { background: #8a8a8a; }
+.csc-seg-neg  { background: #9e3b2c; }
+.csc-seg-gold { background: var(--accent-gold); color: #3b3238; }
+
+.csc-tiles { display: flex; gap: 8px; justify-content: center; }
+.csc-tile {
+    flex: 1; background: #221c20; border-radius: 6px; padding: 10px 6px;
+}
+.csc-tile strong {
+    display: block; font-size: 1.5rem; font-weight: 800; color: var(--accent-gold);
+}
+.csc-tile span {
+    display: block; margin-top: 2px;
+    font-size: .64rem; letter-spacing: .6px; text-transform: uppercase;
+    color: rgba(255,255,255,.7);
+}
+.csc-tile-alert {
+    display: block; margin-top: 3px;
+    font-size: .64rem; font-style: normal; font-weight: 700;
+    letter-spacing: .5px; text-transform: uppercase; color: #e8806f;
+}
+
+@media (max-width: 900px) {
+    .csc-board { grid-template-columns: 1fr; gap: 42px; }
+}
