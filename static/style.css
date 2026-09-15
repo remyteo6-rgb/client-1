@@ -1706,3 +1706,30 @@ span.review-crest {
     body:has(.review-board) { background: #fff !important; }
     .review-board { box-shadow: none; }
 }
+
+/* Dépôt des images de la page REVIEW depuis le site (admin) : blason en cliquant
+   dessus, fond via le bouton discret en haut du bloc. */
+.review-head { justify-content: flex-start; }
+.review-bg-form { margin: 0 0 0 auto; }
+.review-bg-form label {
+    cursor: pointer; display: inline-block;
+    font-size: .78rem; font-weight: 600; color: var(--bg-header);
+    background: rgba(255,255,255,.75); border: 1px solid rgba(0,0,0,.15);
+    border-radius: 6px; padding: 5px 11px;
+}
+.review-bg-form label:hover { background: #fff; }
+.review-bg-form input[type="file"] { display: none; }
+
+/* Dépôt du blason en cliquant dessus (admin) sur la page REVIEW. */
+.review-crest-form { margin: 0; }
+.review-crest-form label { cursor: pointer; display: block; position: relative; text-align: center; }
+.review-crest-form input[type="file"] { display: none; }
+.review-crest-hint {
+    /* en position absolue : le libellé apparaît au survol sans décaler le score */
+    position: absolute; left: 50%; transform: translateX(-50%);
+    top: 100%; margin-top: 2px; white-space: nowrap;
+    font-size: .68rem; font-weight: 600; letter-spacing: .3px;
+    color: var(--bg-header); opacity: 0; transition: opacity .15s;
+}
+.review-crest-form label:hover .review-crest-hint { opacity: .85; }
+.review-crest-form label:hover .review-crest { filter: brightness(1.08); }
