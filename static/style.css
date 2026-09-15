@@ -1617,7 +1617,11 @@ body.demo-mode .demo-blur {
     padding: 22px 26px 34px;
     margin-bottom: var(--gap);
     color: #1b1b1b;
+    /* Fond livré avec le site (même dossier que cette feuille de style). Il est posé
+       ici plutôt que depuis la base : ainsi il s'affiche quoi qu'il arrive, même si un
+       dépôt d'image depuis le site a laissé un enregistrement incomplet en base. */
     background-color: #eceae6;
+    background-image: url("review-bg.jpg");
     background-size: cover;
     background-position: center;
     overflow: hidden;
@@ -1625,6 +1629,10 @@ body.demo-mode .demo-blur {
 .review-bg-img {
     position: absolute; inset: 0; z-index: 0;
     width: 100%; height: 100%; object-fit: cover;
+    /* Masquée par défaut : le fond vient de la règle background-image ci-dessus. Le
+       script de la page ne la révèle que si l'image se charge réellement, ce qui évite
+       l'icône « image cassée » quand un dépôt a échoué. */
+    display: none;
 }
 .review-board::before {
     content: "";
