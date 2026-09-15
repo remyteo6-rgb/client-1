@@ -748,6 +748,123 @@ def compute_new_convention_overview(instances):
     }
 
 
+# ---- CSC : Chasseur / Sniper / Combattant -----------------------------------
+# Trois rôles défensifs suivis joueur par joueur dans le rapport vidéo. Chacun a son
+# groupe de labels, porté par le code du joueur concerné, avec un qualificatif
+# +/=/- sur l'action. Les snipers portent en plus la hauteur du plaquage.
+
+def _csc_texts(inst, group):
+    """Valeurs (normalisées) d'un groupe de labels sur une instance."""
+    return [_normalize_tag(lab.get("text")) for lab in (inst.get("labels") or [])
+            if _normalize_tag(lab.get("group")) == group]
+
+
+def _csc_share(parts):
+    """Ajoute à chaque compteur sa part en %, pour les barres de dominance. Chaque
+    segment porte aussi son sens ("pos", "neu", "neg", "gold") : c'est lui qui décide
+    de la couleur, plutôt que la position du segment dans la barre."""
+    total = sum(count for _, count, _ in parts)
+    return [{"label": label, "count": count, "tone": tone,
+             "pct": round(100 * count / total, 1) if total else None}
+            for label, count, tone in parts]
+
+
+def compute_csc(instances):
+    """Page "CSC" du rapport vidéo : Chasseur, Sniper et Combattant. Renvoie None si
+    ce match n'a aucun de ces trois groupes de labels.
+
+    Ce qui n'est pas tagué n'est pas inventé : les cases du rapport sans équivalent
+    dans le XML (motif des fautes du sniper, notamment) ne sont pas calculées."""
+    chasseur = {"total": 0, "plus": 0, "minus": 0, "ballons_gagnes": 0, "contre_ruck": 0}
+    sniper = {"reussis": 0, "rates": 0, "plus": 0, "neutre": 0, "minus": 0,
+              "bas": 0, "haut": 0, "fautes": 0}
+    combattant = {"total": 0, "plus": 0, "neutre": 0, "minus": 0, "balle": 0}
+    found = False
+
+    for inst in instances:
+        vals = _csc_texts(inst, "CHASSEUR")
+        if vals:
+            found = True
+            if "CHASSEUR" in vals:
+                chasseur["total"] += 1
+                if "+" in vals:
+                    chasseur["plus"] += 1
+                elif "-" in vals:
+                    chasseur["minus"] += 1
+            if "BALLONS GAGNES" in vals:
+                chasseur["ballons_gagnes"] += 1
+            if "CONTRE RUCK" in vals:
+                chasseur["contre_ruck"] += 1
+
+        vals = _csc_texts(inst, "SNIPERS")
+        if vals:
+            found = True
+            # "Fautes" du rapport : un plaquage qui s'accompagne d'une pénalité
+            # attribuée au joueur.
+            if "PENALITE" in _csc_texts(inst, PLAYER_ACTION_GROUP):
+                sniper["fautes"] += 1
+            if "SNIPER RATE" in vals:
+                sniper["rates"] += 1
+            elif "SNIPER" in vals:
+                sniper["reussis"] += 1
+                if "+" in vals:
+                    sniper["plus"] += 1
+                elif "-" in vals:
+                    sniper["minus"] += 1
+                elif "=" in vals:
+                    sniper["neutre"] += 1
+                if "BAS" in vals:
+                    sniper["bas"] += 1
+                elif "HAUT" in vals:
+                    sniper["haut"] += 1
+
+        vals = _csc_texts(inst, "COMBATTANT")
+        if vals and "COMBATTANT" in vals:
+            found = True
+            combattant["total"] += 1
+            if "+" in vals:
+                combattant["plus"] += 1
+            elif "-" in vals:
+                combattant["minus"] += 1
+            elif "=" in vals:
+                combattant["neutre"] += 1
+            if "BALLE" in vals:
+                combattant["balle"] += 1
+
+    if not found:
+        return None
+
+    sniper_total = sniper["reussis"] + sniper["rates"]
+    # "Combat au ballon" du rapport : les combats où le joueur reste maître du duel,
+    # c'est-à-dire les positifs et les neutres (66,7 % ici contre 68 % au rapport).
+    combat_positifs = combattant["plus"] + combattant["neutre"]
+    return {
+        "chasseur": {
+            **chasseur,
+            "dominance": _csc_share([("Gagnés", chasseur["plus"], "pos"),
+                                     ("Perdus", chasseur["minus"], "neg")]),
+        },
+        "sniper": {
+            **sniper,
+            "total_tentes": sniper_total,
+            "pct_rates": round(100 * sniper["rates"] / sniper_total, 1) if sniper_total else None,
+            "dominance": _csc_share([("Positif", sniper["plus"], "pos"),
+                                     ("Neutre", sniper["neutre"], "neu"),
+                                     ("Négatif", sniper["minus"], "neg")]),
+            "hauteur": _csc_share([("Bas", sniper["bas"], "pos"), ("Haut", sniper["haut"], "neg")]),
+        },
+        "combattant": {
+            **combattant,
+            "dominance": _csc_share([("Balle", combattant["balle"], "gold"),
+                                     ("Positif", combattant["plus"], "pos"),
+                                     ("Neutre", combattant["neutre"], "neu"),
+                                     ("Subis", combattant["minus"], "neg")]),
+            "combat_ballon_pct": (round(100 * combat_positifs / combattant["total"], 1)
+                                  if combattant["total"] else None),
+        },
+    }
+
+
 PHASE_TAGS = ["EXIT", "PRESSION", "ACTION", "RAID"]
 PHASE_ICONS = {"EXIT": "🚪", "PRESSION": "🧱", "ACTION": "⚡", "RAID": "🏃"}
 PHASE_HELP = {
