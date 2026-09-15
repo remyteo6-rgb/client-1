@@ -1139,9 +1139,14 @@ SITE_IMAGE_MAX_BYTES = {"crest": 2 * 1024 * 1024, "background": 8 * 1024 * 1024}
 
 
 def _site_image_url(image_key):
-    """URL d'une image déposée depuis le site, ou None si elle n'existe pas."""
+    """URL d'une image déposée depuis le site, ou None si elle n'existe pas.
+
+    Les enregistrements au contenu vide sont ignorés : un envoi qui a échoué en cours
+    de route laisse une ligne sans données, qui donnerait une image cassée et, pire,
+    masquerait l'image livrée avec le site (static/) qui sert de repli."""
     row = get_db().execute(
-        "SELECT uploaded_at FROM site_images WHERE image_key = %s", (image_key,)
+        "SELECT uploaded_at FROM site_images WHERE image_key = %s AND length(data) > 0",
+        (image_key,),
     ).fetchone()
     if not row:
         return None
