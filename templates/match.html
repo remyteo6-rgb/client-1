@@ -80,23 +80,52 @@
     <div class="review-head">
         <img class="review-head-crest" src="{{ review.assets.own_crest }}" alt="{{ match['own_team'] }}">
         <span class="review-title">REVIEW</span>
+        {% if session.get('is_admin') %}
+        <form class="review-bg-form no-print" method="POST" enctype="multipart/form-data"
+              action="{{ url_for('site_image_upload', image_key='review-bg') }}">
+            <input type="hidden" name="next" value="{{ url_for('match_detail', match_id=match['id']) }}">
+            <input type="hidden" name="label" value="Fond de la page Review">
+            <label title="Choisir l'image de fond de la page Review (valable pour tous les matchs)">
+                🖼️ {{ 'Changer' if review.assets.background else 'Ajouter' }} le fond
+                <input type="file" name="image" accept="image/*" onchange="this.form.submit()">
+            </label>
+        </form>
+        {% endif %}
     </div>
+
+    {# Le blason se dépose en cliquant dessus (admin) : le formulaire s'envoie tout seul
+       dès qu'un fichier est choisi, sans bouton supplémentaire. #}
+    {% macro crest(team_name, crest_url, slug, side) %}
+        {% set is_admin = session.get('is_admin') %}
+        {% if is_admin %}
+        <form class="review-crest-form" method="POST" enctype="multipart/form-data"
+              action="{{ url_for('site_image_upload', image_key='club-' ~ slug) }}">
+            <input type="hidden" name="next" value="{{ url_for('match_detail', match_id=match['id']) }}">
+            <input type="hidden" name="label" value="Blason {{ team_name }}">
+            <label title="Cliquer pour {{ 'remplacer' if crest_url else 'ajouter' }} le blason de {{ team_name }}">
+                {% if crest_url %}
+                <img class="review-crest" src="{{ crest_url }}" alt="{{ team_name }}">
+                {% else %}
+                <span class="review-crest review-crest-{{ side }}">{{ team_name[0]|upper }}</span>
+                {% endif %}
+                <span class="review-crest-hint no-print">{{ 'Changer' if crest_url else 'Ajouter' }} le blason</span>
+                <input type="file" name="image" accept="image/*" onchange="this.form.submit()">
+            </label>
+        </form>
+        {% elif crest_url %}
+        <img class="review-crest" src="{{ crest_url }}" alt="{{ team_name }}">
+        {% else %}
+        <span class="review-crest review-crest-{{ side }}">{{ team_name[0]|upper }}</span>
+        {% endif %}
+    {% endmacro %}
 
     <div class="review-scorehead">
         <div class="review-team">
-            {% if review.assets.own_crest %}
-            <img class="review-crest" src="{{ review.assets.own_crest }}" alt="{{ match['own_team'] }}">
-            {% else %}
-            <span class="review-crest review-crest-own">{{ match['own_team'][0]|upper }}</span>
-            {% endif %}
+            {{ crest(match['own_team'], review.assets.own_crest, review.assets.own_slug, 'own') }}
             <div class="review-score">{{ score.own if score else '—' }}</div>
         </div>
         <div class="review-team">
-            {% if review.assets.adverse_crest %}
-            <img class="review-crest" src="{{ review.assets.adverse_crest }}" alt="{{ match['opponent'] }}">
-            {% else %}
-            <span class="review-crest review-crest-adverse">{{ match['opponent'][0]|upper }}</span>
-            {% endif %}
+            {{ crest(match['opponent'], review.assets.adverse_crest, review.assets.adverse_slug, 'adverse') }}
             <div class="review-score">{{ score.adverse if score else '—' }}</div>
         </div>
     </div>
