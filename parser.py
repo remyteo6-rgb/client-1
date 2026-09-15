@@ -11,7 +11,7 @@ import re
 import statistics
 import unicodedata
 import xml.etree.ElementTree as ET
-from collections import defaultdict
+from collections import defaultdict, Counter
 from datetime import datetime, timedelta
 
 ZONE_RE = re.compile(r"^\d+-\d+$")
@@ -861,6 +861,124 @@ def compute_csc(instances):
                                      ("Subis", combattant["minus"], "neg")]),
             "combat_ballon_pct": (round(100 * combat_positifs / combattant["total"], 1)
                                   if combattant["total"] else None),
+        },
+    }
+
+
+# ---- Bilan attaque (page "ATTAQUE / BILAN" du rapport vidéo) -----------------
+# Cibles fixées par le staff, affichées en titre des blocs correspondants.
+BILAN_CIBLES = {"zone_gold": 7, "offloads": 13, "plaquages_casses": 18}
+
+
+def _bilan_pair(plus, minus):
+    """Une ligne des tableaux JAB / PUNCH : positifs, négatifs, total et % positif."""
+    total = plus + minus
+    return {"plus": plus, "minus": minus, "total": total,
+            "pct": round(100 * plus / total, 1) if total else None}
+
+
+def compute_bilan_attaque(instances, own_points=None):
+    """Page "Bilan attaque" du rapport. Renvoie None si le match n'est pas tagué avec
+    cette convention. Les cases du rapport qu'on ne sait pas déduire du XML valent
+    None et sont laissées vides à l'affichage, elles ne sont pas reconstituées."""
+    codes = Counter()
+    par_quart = {"essais": Counter(), "plaquages_casses": Counter()}
+    contacts = Counter()
+    vitesse = Counter()
+    def_battus = Counter()
+    joueurs_def_battus = set()
+    actions = Counter()
+    gla_plus = gla_total = 0
+    found = False
+
+    for inst in instances:
+        code = _normalize_tag(inst.get("code_raw"))
+        tokens = code.split()
+        codes[code] += 1
+        if code.startswith(("JAB", "PUNCH")) or code in ("UBB CLIC", "UBB GLA"):
+            found = True
+        quart = _new_convention_period(inst)
+
+        if _new_convention_code_match(tokens, ["ESSAI"]) and tokens[0] == "UBB" and quart:
+            par_quart["essais"][quart] += 1
+        if code == "UBB GLA":
+            for lab in inst.get("labels") or []:
+                txt = _normalize_tag(lab.get("text"))
+                if txt.endswith("+"):
+                    gla_plus += 1
+                    gla_total += 1
+                elif txt.endswith("-"):
+                    gla_total += 1
+
+        for lab in inst.get("labels") or []:
+            groupe = _normalize_tag(lab.get("group"))
+            texte = _normalize_tag(lab.get("text"))
+            if groupe == "CONTACTS":
+                contacts[texte] += 1
+            elif groupe == "VITESSE RUCK":
+                vitesse[texte] += 1
+            elif groupe == "DEF BATTUS":
+                # Qualificatif du plaquage cassé (RING / CORDE), porté par le code
+                # d'équipe.
+                def_battus[texte] += 1
+            elif groupe == PLAYER_ACTION_GROUP:
+                actions[texte] += 1
+                found = True
+                # Comme pour les offloads et les pénalités, le décompte qui fait foi
+                # est celui des joueurs, pas celui du code d'équipe.
+                if texte == "DEF BATTUS":
+                    joueurs_def_battus.add(code)
+                    if quart:
+                        par_quart["plaquages_casses"][quart] += 1
+
+    if not found:
+        return None
+
+    # Vitesse de libération : trois tranches, et le total qui sert de référence.
+    v_rapide, v_moyen, v_lent = vitesse.get("-2", 0), vitesse.get("-4", 0), vitesse.get("+4", 0)
+    v_total = v_rapide + v_moyen + v_lent
+
+    def _pct(n, d):
+        return round(100 * n / d, 1) if d else None
+
+    contacts_total = sum(contacts.values())
+    offloads = sum(actions.get(k, 0) for k in PLAYER_ACTION_OFFLOAD)
+    plaquages_casses = actions.get("DEF BATTUS", 0)
+
+    return {
+        "cibles": BILAN_CIBLES,
+        "essais_par_quart": {q: par_quart["essais"].get(q, 0) for q in POSSESSION_QUARTER_ORDER},
+        # Le détail des points par quart-temps demanderait de connaître l'instant de
+        # chaque transformation et pénalité, qui ne sont pas tagués.
+        "points_par_quart": None,
+        "jab": {"shape": _bilan_pair(codes.get("JAB SHAPE +", 0), codes.get("JAB SHAPE -", 0)),
+                "connecte": _bilan_pair(codes.get("JAB CONNECTE +", 0), codes.get("JAB CONNECTE -", 0))},
+        "punch": {"shape": _bilan_pair(codes.get("PUNCH SHAPE +", 0), codes.get("PUNCH SHAPE -", 0)),
+                  "connecte": _bilan_pair(codes.get("PUNCH CONNECTE +", 0), codes.get("PUNCH CONNECTE -", 0))},
+        "gain_line_pct": _pct(gla_plus, gla_total),
+        "essais": actions.get("ESSAIS", 0),
+        "franchissements": codes.get("UBB BREAK", 0),
+        "contacts": contacts_total,
+        # "Dominants" et "Libération i" du rapport : aucun tag ne les distingue.
+        "dominants_pct": None,
+        "liberation_i_pct": None,
+        "plaquages_casses": plaquages_casses,
+        "offloads": offloads,
+        "passes": actions.get("PASSES", 0),
+        "clics": codes.get("UBB CLIC", 0),
+        # Les quatre familles d'offloads du rapport (super, positifs gardés, négatifs
+        # gardés, négatifs perdus) ne sont pas distinguées dans le tagging.
+        "offloads_detail": None,
+        "plaquages_detail": {
+            "joueurs": len(joueurs_def_battus),
+            "ring": def_battus.get("RING", 0),
+            "cordes": def_battus.get("CORDES", 0),
+            "par_quart": {q: par_quart["plaquages_casses"].get(q, 0) for q in POSSESSION_QUARTER_ORDER},
+        },
+        "vitesse_liberation": {
+            "total": v_total, "rapide": v_rapide, "moyen": v_moyen, "lent": v_lent,
+            "pct_rapide": _pct(v_rapide, v_total),
+            "pct_sous_4s": _pct(v_rapide + v_moyen, v_total),
         },
     }
 

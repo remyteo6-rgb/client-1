@@ -26,7 +26,7 @@ from parser import (
     compute_sector_baselines, compute_player_season_baselines, build_player_cards,
     attach_overview_highlights, compute_momentum, render_momentum_svg,
     compute_possession_log, compute_possession_summary, compute_zone_gold_log, compute_new_convention_tries,
-    compute_new_convention_overview, compute_csc,
+    compute_new_convention_overview, compute_csc, compute_bilan_attaque,
 )
 from parser_ubb import parse_ubb_xml, compute_ubb_overview
 from prod2 import (
@@ -1336,6 +1336,35 @@ def _resolve_match_score(match):
     else:
         own_tries, adverse_tries = auto_score["own_tries"], auto_score["adverse_tries"]
     return own_points, adverse_points, score_source, own_tries, adverse_tries
+@app.route("/match/<int:match_id>/bilan-attaque")
+def match_bilan_attaque(match_id):
+    """Page "Attaque / Bilan" du rapport vidéo."""
+    match = _get_match_or_404(match_id)
+    if _no_instances_guard(match):
+        flash("Ce match a été importé avant la mise à jour détaillée par secteur : "
+              "réimporte le fichier XML pour voir cette page.", "error")
+        return redirect(url_for("match_detail", match_id=match_id))
+    own_points, adverse_points, _, _, _ = _resolve_match_score(match)
+    zone_gold = compute_zone_gold_log(match["instances"], own_points=own_points,
+                                      adverse_points=adverse_points)
+    gold = (zone_gold or {}).get("own") or {}
+    # Même formatage que la page Review (troncature comme le rapport), pour que les
+    # deux pages n'affichent pas deux valeurs différentes du même chiffre.
+    gold_fmt = {
+        "total": gold.get("total"),
+        "ballons_perdus": gold.get("ballons_perdus"),
+        "efficacite": _fmt_fr(gold.get("efficacite"), 1, " %"),
+        "points_par_entree": _fmt_fr(
+            (own_points / gold["total"]) if own_points and gold.get("total") else None,
+            2, always_decimals=True),
+    } if gold else None
+    return render_template(
+        "match_bilan_attaque.html", match=match,
+        data=compute_bilan_attaque(match["instances"]),
+        zone_gold=gold_fmt,
+    )
+
+
 @app.route("/match/<int:match_id>/csc")
 def match_csc(match_id):
     """Page "CSC" du rapport vidéo : Chasseur, Sniper, Combattant."""
