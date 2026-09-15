@@ -1552,3 +1552,157 @@ body.demo-mode .demo-blur {
 .cal-modal-event-actions { display: flex; gap: 8px; margin-top: 8px; }
 .cal-modal-add-title { font-size: 12.5px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px; }
 .cal-modal-edit-form { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+
+/* ---------- Courbe momentum (popup par match, voir match.html) ----------
+   Reprend le style clair du rapport "suivi_saison.py" (fond blanc, texte
+   sombre, accents monospace) plutôt que le thème sombre du reste de l'appli :
+   c'est le format déjà validé pour ce graphique, on ne le retouche pas. */
+.momentum-dialog {
+    background: #fff; color: #151a13; border: none; border-radius: 10px;
+    padding: 22px 24px 20px; width: min(1100px, 92vw); max-height: 88vh; overflow-y: auto;
+}
+.momentum-dialog::backdrop { background: rgba(9,13,17,0.72); }
+.momentum-dialog-header {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    border-bottom: 2px solid #151a13; padding-bottom: 12px; margin-bottom: 14px;
+}
+.momentum-dialog-header h2 { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em; margin: 0; color: #151a13; }
+.momentum-dialog .btn-secondary { color: #151a13; border: 1px solid #151a13; background: transparent; }
+.momentum-dialog .btn-secondary:hover { background: rgba(21,26,19,0.06); }
+.momentum-dialog-body { overflow-x: auto; }
+.momentum-dialog-body svg { display: block; min-width: 640px; }
+.momentum-dialog-stats {
+    font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; letter-spacing: 0.04em;
+    color: #6b766a; margin: 10px 2px 0; text-transform: uppercase;
+}
+.momentum-dialog-alerts {
+    background: #e5eae3; border-left: 3px solid #b3801a; padding: 10px 14px; margin-top: 14px;
+    font-size: 13px; color: #151a13; border-radius: 4px;
+}
+.momentum-dialog-alerts strong {
+    display: block; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase; color: #b3801a; margin-bottom: 4px;
+}
+.momentum-dialog-alerts ul { margin: 4px 0 0 18px; padding: 0; }
+.possession-section { margin-bottom: 18px; }
+.possession-section h2 { display: flex; align-items: center; gap: 10px; font-size: 15px; }
+.possession-count {
+    font-size: 11px; font-weight: 700; color: var(--text-secondary);
+    background: rgba(255,255,255,0.08); border-radius: 999px; padding: 2px 9px;
+}
+.possession-table thead th { text-align: left; }
+.possession-result {
+    display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600;
+}
+.possession-result-pos { background: rgba(111,207,122,0.18); color: var(--positive); }
+.possession-result-neg { background: rgba(255,92,92,0.18); color: var(--negative); }
+.possession-result-neu { background: rgba(249,162,64,0.18); color: var(--accent-gold); }
+.possession-mitemps td {
+    text-align: center; font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
+    color: var(--text-secondary); background: rgba(255,255,255,0.05); padding: 6px;
+}
+@media (max-width: 700px) {
+    .momentum-dialog { padding: 16px 14px 14px; width: 96vw; }
+    .momentum-dialog-header h2 { font-size: 1.05rem; }
+}
+
+/* ---- Page REVIEW (reproduction du visuel du rapport vidéo) ----------------
+   Bloc volontairement sur fond clair, comme le rapport papier, alors que le
+   reste du site est en thème sombre. Le fond de stade (static/review-bg.jpg)
+   et les blasons (static/clubs/<club>.png) sont optionnels : sans eux, fond
+   neutre et pastilles aux initiales. */
+.review-board {
+    position: relative;
+    border-radius: var(--radius);
+    padding: 22px 26px 34px;
+    margin-bottom: var(--gap);
+    color: #1b1b1b;
+    background-color: #eceae6;
+    background-size: cover;
+    background-position: center;
+    overflow: hidden;
+}
+.review-board::before {
+    content: "";
+    position: absolute; inset: 0;
+    background: radial-gradient(circle at 50% 45%, rgba(255,255,255,.88) 0 34%, rgba(255,255,255,.55) 70%, rgba(255,255,255,.4) 100%);
+    pointer-events: none;
+}
+.review-board > * { position: relative; }
+
+.review-head { display: flex; align-items: center; gap: 14px; }
+.review-head-crest { width: 58px; height: 58px; object-fit: contain; }
+.review-title {
+    background: rgba(170,170,170,.5);
+    color: var(--bg-header);
+    font-size: 2rem; font-weight: 800; letter-spacing: 2px;
+    padding: 2px 26px 4px; border-radius: 6px;
+}
+
+.review-scorehead { display: flex; justify-content: center; gap: 140px; margin: 4px 0 14px; }
+.review-team { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.review-crest { width: 84px; height: 84px; object-fit: contain; }
+span.review-crest {
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%; color: #fff; font-size: 1.6rem; font-weight: 800;
+    border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.25);
+}
+.review-crest-own { background: var(--bg-header); }
+.review-crest-adverse { background: #0d5f96; }
+.review-score { font-size: 3.6rem; font-weight: 800; line-height: 1; }
+
+.review-body {
+    display: grid; grid-template-columns: 1fr auto 1fr;
+    align-items: center; gap: 24px;
+}
+.review-rows { display: flex; flex-direction: column; }
+.review-row { display: grid; grid-template-columns: 170px 210px 170px; }
+.review-cell, .review-label {
+    display: flex; align-items: center; justify-content: center;
+    padding: 11px 8px; text-align: center;
+}
+.review-cell { font-size: 1.5rem; font-weight: 800; }
+.review-label {
+    font-size: 1.15rem; font-weight: 600; letter-spacing: .5px;
+    background: rgba(255,255,255,.62); color: #2a2a2a;
+}
+.review-row-light .review-cell { background: #fff; color: #1b1b1b; }
+.review-row-dark .review-cell { background: var(--bg-header); color: #fff; }
+
+.review-side { text-align: center; }
+.review-side h2 {
+    font-size: 1.7rem; font-weight: 800; letter-spacing: 1px;
+    color: var(--bg-header); margin: 0 0 12px; border: 0; padding: 0;
+}
+.review-split {
+    display: flex; height: 56px; border-radius: 10px; overflow: hidden;
+    box-shadow: 0 2px 6px rgba(0,0,0,.18);
+}
+.review-split span {
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; font-weight: 800; color: #fff; min-width: 0;
+}
+.review-split-own { background: var(--bg-header); }
+.review-split-adverse { background: #2bb3ea; }
+
+.review-details > summary { cursor: pointer; font-weight: 600; }
+.manual-score-form input[type="number"] { width: 68px; }
+.manual-score-pair { display: flex; align-items: center; gap: 6px; justify-content: center; }
+
+@media (max-width: 900px) {
+    .review-body { grid-template-columns: 1fr; }
+    .review-row { grid-template-columns: 1fr 1.25fr 1fr; }
+    .review-cell { font-size: 1.1rem; }
+    .review-label { font-size: .9rem; }
+    .review-score { font-size: 2.4rem; }
+    .review-scorehead { gap: 60px; }
+    .review-crest, span.review-crest { width: 60px; height: 60px; }
+    .review-title { font-size: 1.4rem; }
+}
+
+/* À l'impression, la fiche match qui s'ouvre sur le REVIEW sort sur fond clair comme
+   le rapport papier, plutôt que sur le fond sombre du site. */
+@media print {
+    body:has(.review-board) { background: #fff !important; }
+    .review-board { box-shadow: none; }
+}
