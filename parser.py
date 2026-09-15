@@ -537,8 +537,9 @@ def compute_new_convention_overview(instances):
     """Métriques de synthèse façon page 'REVIEW' du rapport vidéo, calculées de façon
     fiable pour la nouvelle convention de tagging (Journée 1+) : touches, mêlées,
     discipline, franchissements, offloads, gain de ligne d'avantage, réussite au
-    plaquage (snipers), possession. Renvoie None si aucun de ces codes n'existe dans
-    ce match (ancienne convention, ou pas encore taggé).
+    plaquage (snipers), possession, occupation, temps de jeu effectif, pertes de balle.
+    Renvoie None si aucun de ces codes n'existe dans ce match (ancienne convention, ou
+    pas encore taggé).
 
     Volontairement absents (pas taguables avec cette convention, voir échanges avec le
     staff) : détail offensif/défensif de la discipline, occupation du terrain (carte de
@@ -547,6 +548,7 @@ def compute_new_convention_overview(instances):
     melees = {"own": [], "adverse": []}
     disciplines = {"own": 0, "adverse": 0}
     breaks = {"own": 0, "adverse": 0}
+    pdb = {"own": 0, "adverse": 0}
     gla_plus = gla_minus = 0
     offload_own = 0
     offload_adverse = 0
@@ -604,6 +606,12 @@ def compute_new_convention_overview(instances):
         elif _new_convention_code_match(tokens, ["BREAK"]):
             found = True
             breaks[side] += 1
+        elif _new_convention_code_match(tokens, ["PDB"]):
+            # Pertes de balle. Comme partout dans cette convention, le préfixe désigne
+            # l'équipe qui subit l'action : "UBB PDB" = ballon perdu par nous, "ADV PDB"
+            # = ballon perdu par l'adversaire (donc récupéré par nous).
+            found = True
+            pdb[side] += 1
         elif _new_convention_code_match(tokens, ["GLA"]) and side == "own":
             found = True
             for lab in inst.get("labels") or []:
@@ -701,6 +709,7 @@ def compute_new_convention_overview(instances):
         "melees": {"own": _pct(melees["own"]), "adverse": _pct(melees["adverse"])},
         "discipline": disciplines,
         "break": breaks,
+        "pdb": pdb,
         "offload": {"own": offload_own, "adverse": offload_adverse},
         "gain_line": {
             "plus": gla_plus, "total": gla_decided,

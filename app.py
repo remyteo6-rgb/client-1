@@ -837,6 +837,9 @@ def match_detail(match_id):
             dashboard["gain_line"] = overview_new["gain_line"]
             dashboard["break"] = overview_new["break"]
             dashboard["offload"] = overview_new["offload"]
+            if overview_new["pdb"]["own"] or overview_new["pdb"]["adverse"]:
+                dashboard["lost_balls_own"] = overview_new["pdb"]["own"]
+                dashboard["lost_balls_adverse"] = overview_new["pdb"]["adverse"]
             discipline_override = {
                 "own": {"count": overview_new["discipline"]["own"]},
                 "adverse": {"count": overview_new["discipline"]["adverse"]},
