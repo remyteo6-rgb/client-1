@@ -6,17 +6,45 @@
 <div class="page-header no-print">
     <div>
         <h1>🧾 Nos possessions — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
-        <p class="subtitle">Chaque possession {{ match['own_team'] }}, groupée par origine, avec le nombre de phases et le résultat.</p>
+        <p class="subtitle">Nombre de possessions de chaque équipe et leur répartition dans le match.</p>
     </div>
     <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
 </div>
 
-{% if not data %}
-<div class="card empty-state">
-    <p>🧾 Ce match n'a pas été tagué avec le nouveau système de suivi des possessions.</p>
-    <p class="subtitle">Cette page s'active automatiquement dès qu'un XML contenant le code « 01 - Possession UBB » est importé.</p>
+{% if summary %}
+<div class="card" style="margin-bottom:20px;">
+    <table class="stat-table">
+        <thead>
+            <tr><th></th><th class="stat-own">{{ match['own_team'] }}</th><th class="stat-adverse">{{ match['opponent'] }}</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Nombre de possessions</td><td class="stat-own">{{ summary.own.total }}</td><td class="stat-adverse">{{ summary.adverse.total }}</td></tr>
+            <tr><td>Durée moyenne (tagging vidéo)</td>
+                <td class="stat-own">{{ summary.own.avg_duration }}{% if summary.own.avg_duration is not none %} s{% else %}—{% endif %}</td>
+                <td class="stat-adverse">{{ summary.adverse.avg_duration }}{% if summary.adverse.avg_duration is not none %} s{% else %}—{% endif %}</td></tr>
+        </tbody>
+    </table>
+    <p class="subtitle" style="margin-top:10px;">⚠️ Avec ce tagging, l'origine et le résultat de chaque possession ne sont plus disponibles directement (ils sont tagués via des codes séparés pendant la possession — Rumble, Touches, Mêlées, Essai...). On affiche ici uniquement le nombre de possessions et leur répartition dans le match.</p>
 </div>
-{% else %}
+
+<div class="card">
+    <h2>⏱️ Répartition par tranche de jeu</h2>
+    <table class="stat-table">
+        <thead>
+            <tr><th>Tranche</th><th class="stat-own">{{ match['own_team'] }}</th><th class="stat-adverse">{{ match['opponent'] }}</th></tr>
+        </thead>
+        <tbody>
+            {% for q in summary.quarters %}
+            <tr><td>{{ q }}</td><td class="stat-own">{{ summary.own.by_quarter[q] }}</td><td class="stat-adverse">{{ summary.adverse.by_quarter[q] }}</td></tr>
+            {% endfor %}
+            {% if summary.own.uncategorized or summary.adverse.uncategorized %}
+            <tr><td>Tranche non taguée</td><td class="stat-own">{{ summary.own.uncategorized }}</td><td class="stat-adverse">{{ summary.adverse.uncategorized }}</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+{% elif data %}
 
 <div class="card" style="margin-bottom:20px;">
     <table class="stat-table">
@@ -70,6 +98,11 @@
 </div>
 {% endfor %}
 
+{% else %}
+<div class="card empty-state">
+    <p>🧾 Ce match n'a pas été tagué avec un système de suivi des possessions reconnu.</p>
+    <p class="subtitle">Cette page s'active automatiquement dès qu'un XML contenant les codes « UBB POSSESSION » / « ADV POSSESSION » est importé.</p>
+</div>
 {% endif %}
 
 <script>

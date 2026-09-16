@@ -69,22 +69,25 @@
                         {% for ev in rugby_evals_asc %}<td class="ppid-grid-highlight-cell">{{ ev.objectifs or '—' }}</td>{% endfor %}
                     </tr>
                     {% if entretiens %}
+                    {% set ppid_entretien_editable = false %}
                     <tr class="ppid-grid-highlight ppid-grid-row-entretiens">
                         <th class="ppid-grid-rowlabel">{{ ppid_icons.entretien(13) }} Entretiens</th>
                         <td class="ppid-grid-highlight-cell ppid-grid-entretien-cell" colspan="{{ rugby_evals_asc|length }}">
-                            <div class="ppid-timeline ppid-timeline-compact">
-                                {% for e in entretiens %}
-                                <div class="ppid-eval-card ppid-card-entretien">
-                                    <div class="ppid-eval-card-head">
-                                        <div>
-                                            <span class="ppid-entretien-type ppid-type-entretien">{{ ppid_icons.entretien(12) }} {{ e.entretien_type }}</span>
-                                            <span class="ppid-eval-date">{{ ppid_icons.calendar(12) }} {{ e.date_human }}</span>
-                                        </div>
-                                    </div>
-                                    {% if e.notes %}<div class="ppid-callout ppid-entretien-notes">{{ e.notes }}</div>{% endif %}
-                                </div>
+                            <div class="ppid-entretien-list">
+                                {% for e in entretiens[:3] %}
+                                {% include "_ppid_entretien_row.html" %}
                                 {% endfor %}
                             </div>
+                            {% if entretiens|length > 3 %}
+                            <details class="ppid-entretien-more">
+                                <summary>+ {{ entretiens|length - 3 }} autre{{ 's' if entretiens|length - 3 > 1 else '' }} entretien{{ 's' if entretiens|length - 3 > 1 else '' }}</summary>
+                                <div class="ppid-entretien-list">
+                                    {% for e in entretiens[3:] %}
+                                    {% include "_ppid_entretien_row.html" %}
+                                    {% endfor %}
+                                </div>
+                            </details>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endif %}
@@ -191,21 +194,24 @@
     {% endif %}
 
     {% if entretiens and not rugby_evals %}
+    {% set ppid_entretien_editable = false %}
     <div class="ppid-grid-section">
         <h3>{{ ppid_icons.entretien(16) }} Entretiens</h3>
-        <div class="ppid-timeline">
-            {% for e in entretiens %}
-            <div class="ppid-eval-card ppid-card-entretien">
-                <div class="ppid-eval-card-head">
-                    <div>
-                        <span class="ppid-entretien-type ppid-type-entretien">{{ ppid_icons.entretien(12) }} {{ e.entretien_type }}</span>
-                        <span class="ppid-eval-date">{{ ppid_icons.calendar(12) }} {{ e.date_human }}</span>
-                    </div>
-                </div>
-                {% if e.notes %}<div class="ppid-callout ppid-entretien-notes">{{ e.notes }}</div>{% endif %}
-            </div>
+        <div class="ppid-entretien-list">
+            {% for e in entretiens[:3] %}
+            {% include "_ppid_entretien_row.html" %}
             {% endfor %}
         </div>
+        {% if entretiens|length > 3 %}
+        <details class="ppid-entretien-more">
+            <summary>+ {{ entretiens|length - 3 }} autre{{ 's' if entretiens|length - 3 > 1 else '' }} entretien{{ 's' if entretiens|length - 3 > 1 else '' }}</summary>
+            <div class="ppid-entretien-list">
+                {% for e in entretiens[3:] %}
+                {% include "_ppid_entretien_row.html" %}
+                {% endfor %}
+            </div>
+        </details>
+        {% endif %}
     </div>
     {% endif %}
 
