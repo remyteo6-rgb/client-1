@@ -13,27 +13,20 @@ from flask import Flask, render_template, request, redirect, url_for, flash, g, 
 from parser import (
     parse_sportscode_xml, aggregate_match_stats, aggregate_zones, CATEGORY_SECTIONS,
     SECTION_ICONS, SECTION_HELP, CATEGORY_HELP, generate_highlights, compute_radar_metrics,
-    compute_score, compute_phase_timing, compute_attack_sector, compute_defense_sector,
-    compute_lineout_detail, compute_scrum_detail, compute_kicking_detail,
+    compute_score, compute_phase_timing,
     compute_player_attack_table, compute_player_defense_table, compute_player_ruck_table,
-    compute_overview_dashboard, compute_ruck_sector, compute_season_dashboard,
-    compute_squad_preview, compute_squad_season_stats, SQUAD_ROSTER, SQUAD_POSITION_ORDER,
-    is_jiff, compute_jiff_chart,
-    compute_transition_sector, compute_player_comparison, compute_player_radar_svg,
-    compute_back3_trend, TRAINING_TAXONOMY, compute_training_volume,
-    group_training_sessions_by_period, compute_win_loss_analysis, compute_match_kpis,
-   PHASE_ICONS, PHASE_HELP, compute_event_timing_multi, compute_match_baseline,
-    compute_sector_baselines, compute_player_season_baselines, build_player_cards,
+    compute_overview_dashboard, compute_squad_season_stats,
+    compute_possession_log, compute_possession_summary,
+    SQUAD_ROSTER, SQUAD_POSITION_ORDER, is_jiff,
+    compute_player_comparison,
+    TRAINING_TAXONOMY, group_training_sessions_by_period,
+    PHASE_ICONS, PHASE_HELP, compute_match_baseline,
+    compute_player_season_baselines, build_player_cards,
     attach_overview_highlights, compute_momentum, render_momentum_svg,
-    compute_possession_log, compute_possession_summary, compute_zone_gold_log, compute_new_convention_tries,
+    compute_zone_gold_log, compute_new_convention_tries,
     compute_new_convention_overview, compute_csc, compute_bilan_attaque,
 )
 from parser_ubb import parse_ubb_xml, compute_ubb_overview
-from prod2 import (
-    parse_prod2_report, get_team_profile, get_classement_table, compute_player_groups,
-    SECTOR_SHEETS, compute_team_trends, compute_most_used_players, build_compare_rows,
-    compute_team_kpi_profile, compute_team_threats, compute_team_position_history,
-)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_DIR = os.path.join(BASE_DIR, "data", "uploads")
 # Base de données PostgreSQL persistante (Neon, ou toute autre base Postgres gratuite).
@@ -54,18 +47,6 @@ ASSET_VERSION = str(int(time.time()))  # change à chaque redémarrage : force l
 # client plutôt que de les changer dans le code.
 CLUB_NAME = os.environ.get("CLUB_NAME", "Nice")
 CLUB_FULL_NAME = os.environ.get("CLUB_FULL_NAME", "Nissa Rugby")
-# Le module Adversaires/Pro D2 (scouting hebdo à partir du rapport Excel de la ligue) est
-# spécifique à la Pro D2 française : à désactiver pour un club qui n'y a pas accès (mets
-# ENABLE_PROD2=0 dans les variables d'environnement Render). Le quota JIFF (règle LNR,
-# indépendante de la Pro D2 en tant que telle) se désactive séparément avec ENABLE_JIFF=0.
-# Les deux restent activés par défaut pour ne rien changer au site actuel.
-ENABLE_PROD2 = os.environ.get("ENABLE_PROD2", "1") != "0"
-ENABLE_JIFF = os.environ.get("ENABLE_JIFF", "1") != "0"
-PROD2_ENDPOINTS = {
-    "opponents", "opponent_detail", "opponent_joueurs", "opponents_trends",
-    "opponent_sector", "prod2_import", "next_match", "next_match_set",
-}
-JIFF_ENDPOINTS = {"season_jiff"}
 # Identifiants du compte ADMIN (peut tout faire : importer/supprimer un match, modifier
 # la composition, sauvegarder/restaurer...). Définis ADMIN_EMAIL / ADMIN_PASSWORD dans les
 # variables d'environnement Render — sinon ces valeurs par défaut (à changer !) sont utilisées.
@@ -84,6 +65,8 @@ DEMO_TOKEN = os.environ.get("DEMO_TOKEN", "decouverte-club1")
 #   ... (jusqu'à 20 comptes staff possibles)
 # L'ancienne paire sans numéro (STAFF_EMAIL / STAFF_PASSWORD), si tu l'avais déjà
 # configurée, continue aussi de fonctionner comme un compte staff de plus.
+
+
 def _load_staff_accounts():
     accounts = []
     legacy_email = os.environ.get("STAFF_EMAIL")
@@ -101,23 +84,20 @@ STAFF_ACCOUNTS = _load_staff_accounts()
 # quoi que ce soit. Seules ces 2 routes restent accessibles sans connexion (sinon
 # impossible d'atteindre la page de connexion elle-même).
 PUBLIC_ENDPOINTS = {"login", "static", "demo_login", "pwa_manifest", "pwa_service_worker"}
+
+
 @app.before_request
 def require_login_everywhere():
     if request.endpoint is None or request.endpoint in PUBLIC_ENDPOINTS:
         return
     if not session.get("logged_in"):
         return redirect(url_for("login", next=request.full_path))
+
+
 @app.before_request
-def gate_optional_features():
-    """Bloque proprement les pages Adversaires/Pro D2 et JIFF quand elles sont désactivées
-    pour ce club (voir ENABLE_PROD2 / ENABLE_JIFF), plutôt que de les laisser planter sur
-    l'absence de données qu'elles ne pourront jamais avoir."""
-    if not ENABLE_PROD2 and request.endpoint in PROD2_ENDPOINTS:
-        flash("Cette fonctionnalité n'est pas activée sur ce site.", "error")
-        return redirect(url_for("landing"))
-    if not ENABLE_JIFF and request.endpoint in JIFF_ENDPOINTS:
-        flash("Cette fonctionnalité n'est pas activée sur ce site.", "error")
-        return redirect(url_for("landing"))
+def gate_demo_access():
+    """Le mode démonstration ne donne accès ni aux espaces internes, ni aux actions qui
+    modifient de vraies données."""
     # Les espaces Documents / Calendrier contiennent des informations internes au staff :
     # ils restent totalement invisibles pour les visiteurs du lien de démonstration. Le
     # Cahier des charges (dont le P.P.I.D) est, lui, consultable en démo — pour montrer la
@@ -135,6 +115,8 @@ def gate_optional_features():
     ):
         flash("Cet espace n'est pas accessible en mode démonstration.", "error")
         return redirect(url_for("landing"))
+
+
 # Un compte joueur n'a accès qu'à un petit sous-ensemble du site : son espace, le
 # calendrier (en lecture seule — les routes qui ajoutent/modifient/suppriment des
 # événements ne sont volontairement PAS dans cette liste), les documents qui lui sont
@@ -147,11 +129,15 @@ PLAYER_ALLOWED_ENDPOINTS = {
     "player_stats",
     "player_evaluations", "player_ppid_auto_update",
 }
+
+
 @app.before_request
 def gate_player_access():
     if session.get("is_player") and request.endpoint and request.endpoint not in PLAYER_ALLOWED_ENDPOINTS:
         flash("Cette page n'est pas accessible depuis un compte joueur.", "error")
         return redirect(url_for("player_home"))
+
+
 def admin_required(view):
     """Garde-fou pour les actions réservées à l'admin (import, suppression, validation
     composition, sauvegarde...). Le staff est bien connecté (passe le before_request
@@ -163,6 +149,8 @@ def admin_required(view):
             return redirect(url_for("landing"))
         return view(*args, **kwargs)
     return wrapped
+
+
 @app.context_processor
 def inject_logged_in():
     return {
@@ -171,7 +159,6 @@ def inject_logged_in():
         "demo_forced": session.get("demo_forced", False),
         "user_email": session.get("user_email", ""),
         "club_name": CLUB_NAME, "club_full_name": CLUB_FULL_NAME,
-        "enable_prod2": ENABLE_PROD2, "enable_jiff": ENABLE_JIFF,
         "asset_version": ASSET_VERSION,
     }
 
@@ -245,6 +232,8 @@ self.addEventListener("fetch", (event) => {
 # (voir PUBLIC_ENDPOINTS) : le navigateur les demande dès la page de login,
 # avant que la personne ne soit authentifiée.
 # ---------------------------------------------------------------------------
+
+
 @app.route("/manifest.json")
 def pwa_manifest():
     manifest = {
@@ -267,6 +256,7 @@ def pwa_manifest():
     # stricts sur ce point pour proposer l'installation de l'appli.
     return Response(json.dumps(manifest, ensure_ascii=False), mimetype="application/manifest+json")
 
+
 @app.route("/sw.js")
 def pwa_service_worker():
     resp = Response(SERVICE_WORKER_JS, mimetype="application/javascript")
@@ -275,6 +265,7 @@ def pwa_service_worker():
     # qui ont déjà installé l'appli.
     resp.headers["Cache-Control"] = "no-cache"
     return resp
+
 
 @app.route("/demo/<token>")
 def demo_login(token):
@@ -287,6 +278,8 @@ def demo_login(token):
     session["demo_forced"] = True
     session["user_email"] = "démo"
     return redirect(url_for("landing", demo="1"))
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     next_url = request.values.get("next") or url_for("landing")
@@ -352,6 +345,8 @@ def login():
             return render_template("login.html", next_url=next_url)
         flash("Email ou mot de passe incorrect.", "error")
     return render_template("login.html", next_url=next_url)
+
+
 @app.route("/logout")
 def logout():
     session.pop("logged_in", None)
@@ -362,6 +357,8 @@ def logout():
     session.pop("user_email", None)
     flash("Déconnecté.", "success")
     return redirect(url_for("login"))
+
+
 class DB:
     """Petit adaptateur autour de psycopg2 pour garder l'écriture
     db.execute(sql, params).fetchall() / .fetchone() utilisée partout dans ce fichier,
@@ -377,6 +374,8 @@ class DB:
         self._conn.commit()
     def close(self):
         self._conn.close()
+
+
 def _connect():
     if not DATABASE_URL:
         raise RuntimeError(
@@ -384,15 +383,21 @@ def _connect():
             "d'environnement Render (elle vient de ta base Neon)."
         )
     return psycopg2.connect(DATABASE_URL)
+
+
 def get_db():
     if "db" not in g:
         g.db = DB(_connect())
     return g.db
+
+
 @app.teardown_appcontext
 def close_db(exception=None):
     db = g.pop("db", None)
     if db is not None:
         db.close()
+
+
 def init_db():
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     conn = _connect()
@@ -633,9 +638,13 @@ def init_db():
         )
     db.commit()
     db.close()
+
+
 @app.route("/")
 def landing():
     return render_template("landing.html")
+
+
 @app.route("/matchs")
 def index():
     db = get_db()
@@ -643,6 +652,8 @@ def index():
     opponents = sorted({r["opponent"] for r in rows})
     competitions = sorted({r["competition"] for r in rows if r["competition"]})
     return render_template("index.html", matches=rows, opponents=opponents, competitions=competitions)
+
+
 @app.route("/upload", methods=["GET", "POST"])
 @admin_required
 def upload():
@@ -695,6 +706,8 @@ def upload():
     db.commit()
     flash("Match importé avec succès.", "success")
     return redirect(url_for("match_detail", match_id=match_id))
+
+
 @app.route("/upload-ubb", methods=["GET", "POST"])
 @admin_required
 def upload_ubb():
@@ -759,6 +772,8 @@ def upload_ubb():
     db.commit()
     flash("Match UBB importé avec succès.", "success")
     return redirect(url_for("match_detail", match_id=match_id))
+
+
 def _row_to_match(row):
     m = dict(row)
     m["stats"] = json.loads(m.pop("stats_json") or "{}")
@@ -770,15 +785,21 @@ def _row_to_match(row):
     m["player_match_stats"] = json.loads(m.pop("player_match_stats_json", None) or "{}")
     m["ubb_overview"] = json.loads(m.pop("ubb_overview_json", None) or "{}")
     return m
+
+
 def _get_match_or_404(match_id):
     db = get_db()
     row = db.execute("SELECT * FROM matches WHERE id = %s", (match_id,)).fetchone()
     if row is None:
         abort(404)
     return _row_to_match(row)
+
+
 def _no_instances_guard(match):
     """Les matchs importés avant la mise à jour 'secteurs' n'ont pas d'instances brutes stockées."""
     return not match["instances"]
+
+
 @app.route("/match/<int:match_id>")
 def match_detail(match_id):
     match = _get_match_or_404(match_id)
@@ -941,93 +962,8 @@ def match_detail(match_id):
         possession_override=possession_override, review=review,
         has_instances=not _no_instances_guard(match),
     )
-@app.route("/match/<int:match_id>/attaque")
-def match_attaque(match_id):
-    match = _get_match_or_404(match_id)
-    if _no_instances_guard(match):
-        flash("Ce match a été importé avant la mise à jour détaillée par secteur : réimporte le fichier XML pour voir cette page.", "error")
-        return redirect(url_for("match_detail", match_id=match_id))
-    attack = compute_attack_sector(match["instances"], "own")
-    matches_with_instances, _, _, _ = _season_context()
-    baselines = compute_sector_baselines(matches_with_instances, exclude_id=match_id)
-    return render_template("match_attaque.html", match=match, data=attack, phase_icons=PHASE_ICONS,
-                           baseline=(baselines or {}).get("attaque"))
-@app.route("/match/<int:match_id>/defense")
-def match_defense(match_id):
-    match = _get_match_or_404(match_id)
-    if _no_instances_guard(match):
-        flash("Ce match a été importé avant la mise à jour détaillée par secteur : réimporte le fichier XML pour voir cette page.", "error")
-        return redirect(url_for("match_detail", match_id=match_id))
-    attack_adv = compute_attack_sector(match["instances"], "adverse")
-    defense = compute_defense_sector(match["instances"], "adverse")
-    matches_with_instances, _, _, _ = _season_context()
-    baselines = compute_sector_baselines(matches_with_instances, exclude_id=match_id)
-    return render_template("match_defense.html", match=match, data=attack_adv, defense=defense, phase_icons=PHASE_ICONS,
-                           baseline=(baselines or {}).get("defense"))
-@app.route("/match/<int:match_id>/ruck")
-def match_ruck(match_id):
-    match = _get_match_or_404(match_id)
-    if _no_instances_guard(match):
-        flash("Ce match a été importé avant la mise à jour détaillée par secteur : réimporte le fichier XML pour voir cette page.", "error")
-        return redirect(url_for("match_detail", match_id=match_id))
-    ruck = compute_ruck_sector(match["instances"])
-    matches_with_instances, _, _, _ = _season_context()
-    baselines = compute_sector_baselines(matches_with_instances, exclude_id=match_id)
-    return render_template("match_ruck.html", match=match, data=ruck, phase_icons=PHASE_ICONS,
-                           baseline=(baselines or {}).get("ruck"))
-@app.route("/match/<int:match_id>/touches")
-def match_touches(match_id):
-    match = _get_match_or_404(match_id)
-    if _no_instances_guard(match):
-        flash("Ce match a été importé avant la mise à jour détaillée par secteur : réimporte le fichier XML pour voir cette page.", "error")
-        return redirect(url_for("match_detail", match_id=match_id))
-    lineout = compute_lineout_detail(match["instances"])
-    matches_with_instances, _, _, _ = _season_context()
-    baselines = compute_sector_baselines(matches_with_instances, exclude_id=match_id)
-    return render_template("match_touches.html", match=match, data=lineout,
-                           baseline=(baselines or {}).get("touches"))
-@app.route("/match/<int:match_id>/melee")
-def match_melee(match_id):
-    match = _get_match_or_404(match_id)
-    if _no_instances_guard(match):
-        flash("Ce match a été importé avant la mise à jour détaillée par secteur : réimporte le fichier XML pour voir cette page.", "error")
-        return redirect(url_for("match_detail", match_id=match_id))
-    scrum = compute_scrum_detail(match["instances"])
-    matches_with_instances, _, _, _ = _season_context()
-    baselines = compute_sector_baselines(matches_with_instances, exclude_id=match_id)
-    return render_template("match_melee.html", match=match, data=scrum, phase_icons=PHASE_ICONS,
-                           baseline=(baselines or {}).get("melee"))
-@app.route("/match/<int:match_id>/jap")
-def match_jap(match_id):
-    match = _get_match_or_404(match_id)
-    if _no_instances_guard(match):
-        flash("Ce match a été importé avant la mise à jour détaillée par secteur : réimporte le fichier XML pour voir cette page.", "error")
-        return redirect(url_for("match_detail", match_id=match_id))
-    kicking = compute_kicking_detail(match["instances"])
-    matches_with_instances, _, _, _ = _season_context()
-    baselines = compute_sector_baselines(matches_with_instances, exclude_id=match_id)
-    return render_template("match_jap.html", match=match, data=kicking,
-                           baseline=(baselines or {}).get("jap"))
-@app.route("/match/<int:match_id>/jap/manual", methods=["POST"])
-@admin_required
-def match_jap_manual(match_id):
-    match = _get_match_or_404(match_id)
-    manual = match.get("manual_stats") or {}
-    def _to_int(raw):
-        raw = (raw or "").strip()
-        if raw == "":
-            return None
-        try:
-            return int(raw)
-        except ValueError:
-            return None
-    manual["kick_distance_own"] = _to_int(request.form.get("kick_distance_own"))
-    manual["kick_distance_adverse"] = _to_int(request.form.get("kick_distance_adverse"))
-    db = get_db()
-    db.execute("UPDATE matches SET manual_stats_json = %s WHERE id = %s", (json.dumps(manual), match_id))
-    db.commit()
-    flash("Données jeu au pied mises à jour.", "success")
-    return redirect(url_for("match_jap", match_id=match_id))
+
+
 @app.route("/match/<int:match_id>/joueurs")
 def match_joueurs(match_id):
     match = _get_match_or_404(match_id)
@@ -1044,6 +980,8 @@ def match_joueurs(match_id):
     return render_template("match_joueurs.html", match=match, attack_table=attack_table,
                            defense_table=defense_table, ruck_table=ruck_table,
                            player_baselines=player_baselines, player_cards=player_cards)
+
+
 @app.route("/match/<int:match_id>/composition", methods=["GET", "POST"])
 def match_composition(match_id):
     match = _get_match_or_404(match_id)
@@ -1088,24 +1026,8 @@ def match_composition(match_id):
     player_stats = match.get("player_match_stats") or {}
     return render_template("match_composition.html", match=match, all_players=all_players,
                            slots=slots, filled_count=filled_count, player_stats=player_stats)
-@app.route("/match/<int:match_id>/transition")
-def match_transition(match_id):
-    match = _get_match_or_404(match_id)
-    if _no_instances_guard(match):
-        flash("Ce match a été importé avant la mise à jour détaillée par secteur : réimporte le fichier XML pour voir cette page.", "error")
-        return redirect(url_for("match_detail", match_id=match_id))
-    transition = compute_transition_sector(match["instances"])
-    return render_template("match_transition.html", match=match, data=transition)
-@app.route("/match/<int:match_id>/possessions")
-def match_possessions(match_id):
-    match = _get_match_or_404(match_id)
-    if _no_instances_guard(match):
-        flash("Ce match a été importé avant la mise à jour détaillée par secteur : réimporte le fichier XML pour voir cette page.", "error")
-        return redirect(url_for("match_detail", match_id=match_id))
-    possessions = compute_possession_log(match["instances"])
-    possession_summary = compute_possession_summary(match["instances"])
-    return render_template("match_possessions.html", match=match, data=possessions,
-                           summary=possession_summary)
+
+
 def _fmt_fr(value, decimals=1, suffix="", always_decimals=False):
     """Nombre au format du rapport vidéo : virgule décimale, et troncature plutôt
     qu'arrondi — c'est ce que fait le rapport (17/21 y est affiché 80,9 % et non
@@ -1336,6 +1258,8 @@ def _resolve_match_score(match):
     else:
         own_tries, adverse_tries = auto_score["own_tries"], auto_score["adverse_tries"]
     return own_points, adverse_points, score_source, own_tries, adverse_tries
+
+
 @app.route("/match/<int:match_id>/bilan-attaque")
 def match_bilan_attaque(match_id):
     """Page "Attaque / Bilan" du rapport vidéo."""
@@ -1365,16 +1289,16 @@ def match_bilan_attaque(match_id):
     )
 
 
-@app.route("/match/<int:match_id>/csc")
-def match_csc(match_id):
-    """Page "CSC" du rapport vidéo : Chasseur, Sniper, Combattant."""
+@app.route("/match/<int:match_id>/possessions")
+def match_possessions(match_id):
     match = _get_match_or_404(match_id)
     if _no_instances_guard(match):
-        flash("Ce match a été importé avant la mise à jour détaillée par secteur : "
-              "réimporte le fichier XML pour voir cette page.", "error")
+        flash("Ce match a été importé avant la mise à jour détaillée par secteur : réimporte le fichier XML pour voir cette page.", "error")
         return redirect(url_for("match_detail", match_id=match_id))
-    return render_template("match_csc.html", match=match,
-                           data=compute_csc(match["instances"]))
+    possessions = compute_possession_log(match["instances"])
+    possession_summary = compute_possession_summary(match["instances"])
+    return render_template("match_possessions.html", match=match, data=possessions,
+                           summary=possession_summary)
 
 
 @app.route("/match/<int:match_id>/zone-gold")
@@ -1387,6 +1311,20 @@ def match_zone_gold(match_id):
     zone_gold = compute_zone_gold_log(match["instances"], own_points=own_points, adverse_points=adverse_points)
     return render_template("match_zone_gold.html", match=match, data=zone_gold,
                            manual=match.get("manual_stats") or {}, score_source=score_source)
+
+
+@app.route("/match/<int:match_id>/csc")
+def match_csc(match_id):
+    """Page "CSC" du rapport vidéo : Chasseur, Sniper, Combattant."""
+    match = _get_match_or_404(match_id)
+    if _no_instances_guard(match):
+        flash("Ce match a été importé avant la mise à jour détaillée par secteur : "
+              "réimporte le fichier XML pour voir cette page.", "error")
+        return redirect(url_for("match_detail", match_id=match_id))
+    return render_template("match_csc.html", match=match,
+                           data=compute_csc(match["instances"]))
+
+
 @app.route("/match/<int:match_id>/score/manual", methods=["POST"])
 @admin_required
 def match_score_manual(match_id):
@@ -1415,8 +1353,10 @@ def match_score_manual(match_id):
     db.execute("UPDATE matches SET manual_stats_json = %s WHERE id = %s", (json.dumps(manual), match_id))
     db.commit()
     flash("Score du match enregistré.", "success")
-    next_url = request.form.get("next") or url_for("match_zone_gold", match_id=match_id)
+    next_url = request.form.get("next") or url_for("match_detail", match_id=match_id)
     return redirect(next_url)
+
+
 @app.route("/admin/export")
 @admin_required
 def export_data():
@@ -1432,6 +1372,8 @@ def export_data():
         mimetype="application/json",
         headers={"Content-Disposition": f"attachment; filename=rugby_analytics_sauvegarde_{ts}.json"},
     )
+
+
 @app.route("/admin/import", methods=["GET", "POST"])
 @admin_required
 def import_data():
@@ -1470,6 +1412,8 @@ def import_data():
     db.commit()
     flash(f"{imported} match(s) importé(s) depuis la sauvegarde.", "success")
     return redirect(url_for("index"))
+
+
 @app.route("/match/<int:match_id>/delete", methods=["POST"])
 @admin_required
 def delete_match(match_id):
@@ -1478,316 +1422,36 @@ def delete_match(match_id):
     db.commit()
     flash("Match supprimé.", "success")
     return redirect(url_for("index"))
-SECTOR_PAGE_META = {
-    "attaque": {"title": "Attaque", "icon": "⚔️"},
-    "defense": {"title": "Défense", "icon": "🛡️"},
-    "discipline": {"title": "Discipline", "icon": "🟨"},
-    "touches": {"title": "Touches", "icon": "🤾"},
-    "melee": {"title": "Mêlée", "icon": "🔒"},
-    "rucks": {"title": "Rucks", "icon": "🤝"},
-    "jap": {"title": "Jeu au pied", "icon": "🦶"},
-}
-def _extract_journee(filename):
-    """Numéro de journée extrait du nom du fichier Pro D2 (ex: '..._Journée 1_Finale.xlsx'
-    -> 1), pour afficher la fraîcheur des données sans avoir à le ressaisir à la main."""
-    if not filename:
-        return None
-    match = re.search(r"[Jj]ourn[ée]e\s*(\d+)", filename)
-    return int(match.group(1)) if match else None
-def _load_latest_prod2_row():
-    db = get_db()
-    return db.execute(
-        "SELECT uploaded_at, filename, data_json FROM prod2_reports ORDER BY id DESC LIMIT 1"
-    ).fetchone()
-def _load_prod2_report():
-    """Rapport Pro D2 le plus récent. Chaque import est conservé en base (voir
-    _load_prod2_history) pour pouvoir suivre l'évolution d'une équipe semaine après
-    semaine, mais toutes les pages "état actuel" du site n'affichent toujours que celui-ci.
-    Renvoie None si aucun rapport n'a encore été importé."""
-    row = _load_latest_prod2_row()
-    if not row:
-        return None
-    return json.loads(row["data_json"])
-def _load_prod2_meta():
-    """Date d'import + numéro de journée du dernier rapport, pour afficher la fraîcheur des
-    données sur les pages Adversaires (ex: 'Journée 3, importé le 14/07/2026 à 11h56')."""
-    row = _load_latest_prod2_row()
-    if not row:
-        return None
-    return {
-        "uploaded_at": row["uploaded_at"],
-        "filename": row["filename"],
-        "journee": _extract_journee(row["filename"]),
-    }
-def _report_label(report_meta):
-    if not report_meta:
-        return "aucun rapport importé"
-    parts = []
-    if report_meta.get("journee"):
-        parts.append(f"Journée {report_meta['journee']}")
-    if report_meta.get("uploaded_at"):
-        try:
-            dt = datetime.fromisoformat(report_meta["uploaded_at"])
-            parts.append(f"importé le {dt.strftime('%d/%m/%Y à %Hh%M')}")
-        except ValueError:
-            pass
-    return ", ".join(parts) if parts else "dernier rapport importé"
-def _load_prod2_history():
-    """Tous les rapports Pro D2 importés depuis l'activation de l'historique, du plus
-    ancien au plus récent, sous la forme attendue par compute_team_position_history."""
-    db = get_db()
-    rows = db.execute(
-        "SELECT uploaded_at, filename, data_json FROM prod2_reports ORDER BY uploaded_at ASC"
-    ).fetchall()
-    history = []
-    for r in rows:
-        journee = _extract_journee(r["filename"])
-        label = f"J{journee}" if journee else (r["uploaded_at"] or "")[:10]
-        history.append({"label": label, "data": json.loads(r["data_json"])})
-    return history
+
+
+
+
+
+
+
+
+
+
+
+
 # Comparaison "Nissa vs adversaire" sur la fiche Vue d'ensemble : uniquement des pourcentages
 # (jamais des totaux bruts), pour ne jamais mélanger un cumul sur nos matchs codés avec un
 # cumul sur toute la saison Pro D2 de l'adversaire — deux échelles différentes qui rendraient
 # une comparaison de totaux absurde. Même en pourcentage, nos stats viennent de notre propre
 # codage vidéo (Sportscode) et celles de l'adversaire du prestataire officiel Pro D2 : les
 # méthodologies de calcul peuvent différer légèrement, d'où l'avertissement affiché avec.
-NISSA_VS_OPPONENT_METRICS = [
-    ("Possession (%)", "possession", "Possession", "% Possession"),
-    ("Plaquages réussis (%)", "tackle_pct", "Défense", "Plaquages réussis %"),
-    ("Touches gagnées (%)", "lineout_pct", "Touches", "Touches gagnées %"),
-    ("Mêlées gagnées (%)", "scrum_pct", "Mêlées", "Mêlées gagnées %"),
-    ("Duels aériens gagnés (%)", "duels_aeriens_pct", "Duels aériens", "Duels aériens gagnés %"),
-]
-def _compute_nissa_vs_opponent(profile):
-    """Compare nos propres stats de saison (calculées sur tous nos matchs codés) à celles de
-    l'adversaire dans le rapport Pro D2, limité aux indicateurs en pourcentage pour rester
-    comparable malgré les échelles différentes. Renvoie None si on n'a pas encore de match
-    codé cette saison."""
-    matches_with_instances, selected, selected_ids, qs = _season_context()
-    if not selected:
-        return None
-    instances = _season_instances(selected)
-    our_kpis = compute_match_kpis(instances)
-    poss_own = poss_adv = 0
-    for m in selected:
-        poss = m["stats"].get("Possession", {})
-        poss_own += poss.get("own", {}).get("duration", 0)
-        poss_adv += poss.get("adverse", {}).get("duration", 0)
-    poss_total = poss_own + poss_adv
-    our_kpis["possession"] = round(poss_own / poss_total * 100, 1) if poss_total else None
-    rows = []
-    for label, our_key, sheet, column in NISSA_VS_OPPONENT_METRICS:
-        our_value = our_kpis.get(our_key)
-        their_value = profile["categories"].get(sheet, {}).get(column)
-        if our_value is None and their_value is None:
-            continue
-        rows.append({"label": label, "own": our_value, "opponent": their_value})
-    return rows
-def _team_profile_or_404(team, report=None):
-    if report is None:
-        report = _load_prod2_report()
-    if not report:
-        abort(404)
-    profile = get_team_profile(report, team)
-    if profile["classement"] is None:
-        abort(404)
-    return profile
-def _sector_sheets(profile, sector_key):
-    sheets = []
-    for sheet_name in SECTOR_SHEETS[sector_key]:
-        team_row = profile["categories"].get(sheet_name, {})
-        avg_row = profile["league_avg"].get(sheet_name, {})
-        sheets.append({
-            "name": sheet_name,
-            "team_row": team_row,
-            "avg_row": avg_row,
-            "rows": build_compare_rows(sheet_name, team_row, avg_row),
-        })
-    return sheets
-@app.route("/opponents")
-def opponents():
-    report = _load_prod2_report()
-    report_meta = _load_prod2_meta()
-    classement = get_classement_table(report) if report else []
-    return render_template(
-        "opponents.html", classement=classement, has_report=report is not None,
-        report_label=_report_label(report_meta),
-    )
-@app.route("/opponents/<team>")
-def opponent_detail(team):
-    report = _load_prod2_report()
-    if not report:
-        abort(404)
-    profile = _team_profile_or_404(team, report=report)
-    possession = profile["categories"].get("Possession", {})
-    possession_avg = profile["league_avg"].get("Possession", {})
-    possession_rows = build_compare_rows("Possession", possession, possession_avg)
-    team_trends = compute_team_trends(report).get(team, {"strengths": [], "weaknesses": []})
-    kpi_profile = compute_team_kpi_profile(report, team)
-    report_meta = _load_prod2_meta()
-    history = compute_team_position_history(_load_prod2_history(), team)
-    nissa_compare = _compute_nissa_vs_opponent(profile)
-    return render_template(
-        "opponent.html", team=team, profile=profile,
-        possession=possession, possession_avg=possession_avg, possession_rows=possession_rows,
-        team_trends=team_trends, kpi_profile=kpi_profile, report_label=_report_label(report_meta),
-        history=history, nissa_compare=nissa_compare,
-        team_mode=True, active="overview",
-    )
-@app.route("/opponents/<team>/joueurs")
-def opponent_joueurs(team):
-    profile = _team_profile_or_404(team)
-    groups = compute_player_groups(profile["players"])
-    most_used = compute_most_used_players(profile["players"])
-    threats = compute_team_threats(profile["players"])
-    report_meta = _load_prod2_meta()
-    return render_template(
-        "opponent_joueurs.html", team=team, profile=profile, groups=groups, most_used=most_used,
-        threats=threats, report_label=_report_label(report_meta),
-        team_mode=True, active="joueurs",
-    )
-@app.route("/opponents/tendances")
-def opponents_trends():
-    report = _load_prod2_report()
-    if not report:
-        flash("Importe d'abord le rapport Pro D2 pour voir les tendances.", "error")
-        return redirect(url_for("opponents"))
-    trends = compute_team_trends(report)
-    report_meta = _load_prod2_meta()
-    return render_template(
-        "opponent_trends.html", teams=report["team_names"], trends=trends,
-        report_label=_report_label(report_meta),
-    )
-@app.route("/opponents/<team>/<sector>")
-def opponent_sector(team, sector):
-    if sector not in SECTOR_SHEETS:
-        abort(404)
-    profile = _team_profile_or_404(team)
-    sheets = _sector_sheets(profile, sector)
-    meta = SECTOR_PAGE_META[sector]
-    report_meta = _load_prod2_meta()
-    return render_template(
-        "opponent_sector.html", team=team, profile=profile, sheets=sheets,
-        team_mode=True, active=sector, page_title=meta["title"], page_icon=meta["icon"],
-        report_label=_report_label(report_meta),
-    )
-def _head_to_head(matches_with_instances, team):
-    """Historique de nos matchs déjà codés face à cet adversaire précis (comparaison de
-    noms insensible à la casse), du plus ancien au plus récent, pour la page Prochain match."""
-    team_norm = (team or "").strip().lower()
-    rows = []
-    wins = draws = losses = 0
-    for m in matches_with_instances:
-        if (m.get("opponent") or "").strip().lower() != team_norm:
-            continue
-        sc = compute_score(m["instances"])
-        if sc["own"] > sc["adverse"]:
-            result = "V"
-            wins += 1
-        elif sc["own"] < sc["adverse"]:
-            result = "D"
-            losses += 1
-        else:
-            result = "N"
-            draws += 1
-        rows.append({
-            "match_id": m["id"], "date": m.get("match_date"), "competition": m.get("competition"),
-            "own_score": sc["own"], "adverse_score": sc["adverse"], "result": result,
-        })
-    return {"rows": rows, "wins": wins, "draws": draws, "losses": losses, "total": len(rows)}
-def _load_next_opponent():
-    db = get_db()
-    row = db.execute("SELECT team FROM next_opponent ORDER BY id DESC LIMIT 1").fetchone()
-    return row["team"] if row else None
-@app.route("/prochain-match")
-def next_match():
-    """Page de préparation de la semaine : notre forme récente (5 derniers matchs codés) +
-    scouting du prochain adversaire (repris des pages Adversaires) + historique face à cette
-    équipe, réunis au même endroit plutôt que de naviguer entre Bilan de saison et
-    Adversaires séparément avant une réunion de préparation."""
-    report = _load_prod2_report()
-    report_meta = _load_prod2_meta()
-    team_names = report["team_names"] if report else []
-    selected_team = _load_next_opponent()
-    profile = None
-    possession_rows = None
-    team_trends = None
-    kpi_profile = None
-    threats = None
-    stale_team = False
-    if report and selected_team:
-        profile = get_team_profile(report, selected_team)
-        if profile["classement"] is None:
-            profile = None
-            stale_team = True
-        else:
-            possession = profile["categories"].get("Possession", {})
-            possession_avg = profile["league_avg"].get("Possession", {})
-            possession_rows = build_compare_rows("Possession", possession, possession_avg)
-            team_trends = compute_team_trends(report).get(selected_team, {"strengths": [], "weaknesses": []})
-            kpi_profile = compute_team_kpi_profile(report, selected_team)
-            threats = compute_team_threats(profile["players"])
-    matches_with_instances, _, _, _ = _season_context()
-    recent = matches_with_instances[-5:]
-    recent_dashboard = compute_season_dashboard(recent) if recent else None
-    recent_stats = aggregate_match_stats(_season_instances(recent))[0] if recent else {}
-    head_to_head = _head_to_head(matches_with_instances, selected_team) if selected_team else None
-    return render_template(
-        "next_match.html", team_names=team_names, selected_team=selected_team,
-        has_report=report is not None, stale_team=stale_team,
-        profile=profile, possession_rows=possession_rows, team_trends=team_trends,
-        kpi_profile=kpi_profile, threats=threats, report_label=_report_label(report_meta),
-        recent_dashboard=recent_dashboard, recent_stats=recent_stats, recent_count=len(recent),
-        head_to_head=head_to_head,
-    )
-@app.route("/prochain-match/set", methods=["POST"])
-@admin_required
-def next_match_set():
-    team = (request.form.get("team") or "").strip()
-    db = get_db()
-    db.execute("DELETE FROM next_opponent")
-    if team:
-        db.execute(
-            "INSERT INTO next_opponent (team, updated_at) VALUES (%s, %s)",
-            (team, datetime.utcnow().isoformat()),
-        )
-    db.commit()
-    flash("Prochain adversaire mis à jour." if team else "Prochain adversaire effacé.", "success")
-    return redirect(url_for("next_match"))
-@app.route("/admin/prod2/import", methods=["GET", "POST"])
-@admin_required
-def prod2_import():
-    """Import du rapport hebdomadaire Pro D2 (fichier Excel). Le rapport le plus récent est
-    toujours celui affiché partout sur le site, mais chaque import est conservé en base (au
-    lieu d'écraser le précédent) pour pouvoir suivre l'évolution d'une équipe au fil des
-    semaines (voir compute_team_position_history)."""
-    if request.method == "GET":
-        return render_template("admin_prod2_import.html")
-    file = request.files.get("xlsx_file")
-    if not file or file.filename == "":
-        flash("Merci de sélectionner un fichier Excel Pro D2.", "error")
-        return redirect(url_for("prod2_import"))
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
-    ts = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-    safe_name = f"{ts}_{file.filename}"
-    save_path = os.path.join(UPLOAD_DIR, safe_name)
-    file.save(save_path)
-    try:
-        report = parse_prod2_report(save_path)
-    except Exception as exc:
-        flash(f"Erreur lors de la lecture du fichier Excel : {exc}", "error")
-        return redirect(url_for("prod2_import"))
-    if not report["team_names"]:
-        flash("Aucune équipe trouvée dans ce fichier — vérifie qu'il s'agit bien du bon export Pro D2.", "error")
-        return redirect(url_for("prod2_import"))
-    db = get_db()
-    db.execute(
-        "INSERT INTO prod2_reports (uploaded_at, filename, data_json) VALUES (%s, %s, %s)",
-        (datetime.utcnow().isoformat(), file.filename, json.dumps(report)),
-    )
-    db.commit()
-    flash(f"Rapport Pro D2 importé : {len(report['team_names'])} équipes.", "success")
-    return redirect(url_for("opponents"))
+
+
+
+
+
+
+
+
+
+
+
+
 def _season_context():
     """Matchs sélectionnés pour le cumul saison (case à cocher sur /season, conservée via
     ?m=id&m=id... sur toutes les pages secteur saison) + la query string à réutiliser dans
@@ -1807,130 +1471,17 @@ def _season_context():
         selected = matches_with_instances
     qs = "&".join(f"m={i}" for i in sorted(selected_ids))
     return matches_with_instances, selected, selected_ids, qs
+
+
 def _season_instances(selected):
     combined = []
     for m in selected:
         combined.extend(m["instances"])
     return combined
-def _sum_manual(selected, key):
-    vals = [m["manual_stats"].get(key) for m in selected if m.get("manual_stats", {}).get(key) is not None]
-    return sum(vals) if vals else None
-@app.route("/season")
-def season():
-    matches_with_instances, selected, selected_ids, qs = _season_context()
-    dashboard = compute_season_dashboard(selected) if selected else None
-    stats = aggregate_match_stats([i for m in selected for i in m["instances"]])[0] if selected else {}
-    return render_template(
-        "season.html",
-        all_matches=matches_with_instances,
-        selected_ids=selected_ids,
-        selected_count=len(selected),
-        total_count=len(matches_with_instances),
-        dashboard=dashboard,
-        stats=stats,
-        season_mode=True, active="overview", qs=qs,
-    )
-@app.route("/season/attaque")
-def season_attaque():
-    _, selected, _, qs = _season_context()
-    instances = _season_instances(selected)
-    attack = compute_attack_sector(instances, "own") if instances else None
-    if attack:
-        attack["try_timing"] = compute_event_timing_multi(selected, "Essai", "own")
-        attack["break_timing"] = compute_event_timing_multi(selected, "Break", "own")
-    back3_trend = compute_back3_trend(selected) if selected else []
-    return render_template("season_attaque.html", data=attack, back3_trend=back3_trend, season_mode=True,
-                           active="attaque", qs=qs, selected_count=len(selected))
-@app.route("/season/defense")
-def season_defense():
-    _, selected, _, qs = _season_context()
-    instances = _season_instances(selected)
-    attack_adv = compute_attack_sector(instances, "adverse") if instances else None
-    if attack_adv:
-        attack_adv["try_timing"] = compute_event_timing_multi(selected, "Essai", "adverse")
-        attack_adv["break_timing"] = compute_event_timing_multi(selected, "Break", "adverse")
-    defense = compute_defense_sector(instances, "adverse") if instances else None
-    return render_template("season_defense.html", data=attack_adv, defense=defense, season_mode=True,
-                           active="defense", qs=qs, selected_count=len(selected))
-@app.route("/season/ruck")
-def season_ruck():
-    _, selected, _, qs = _season_context()
-    instances = _season_instances(selected)
-    ruck = compute_ruck_sector(instances) if instances else None
-    return render_template("season_ruck.html", data=ruck, season_mode=True, active="ruck", qs=qs,
-                           phase_icons=PHASE_ICONS, selected_count=len(selected))
-@app.route("/season/touches")
-def season_touches():
-    _, selected, _, qs = _season_context()
-    instances = _season_instances(selected)
-    lineout = compute_lineout_detail(instances) if instances else None
-    return render_template("season_touches.html", data=lineout, season_mode=True, active="touches", qs=qs,
-                           selected_count=len(selected))
-@app.route("/season/melee")
-def season_melee():
-    _, selected, _, qs = _season_context()
-    instances = _season_instances(selected)
-    scrum = compute_scrum_detail(instances) if instances else None
-    return render_template("season_melee.html", data=scrum, season_mode=True, active="melee", qs=qs,
-                           phase_icons=PHASE_ICONS, selected_count=len(selected))
-@app.route("/season/jap")
-def season_jap():
-    _, selected, _, qs = _season_context()
-    instances = _season_instances(selected)
-    kicking = compute_kicking_detail(instances) if instances else None
-    manual_totals = {
-        "kick_distance_own": _sum_manual(selected, "kick_distance_own"),
-        "kick_distance_adverse": _sum_manual(selected, "kick_distance_adverse"),
-    }
-    return render_template("season_jap.html", data=kicking, manual_totals=manual_totals, season_mode=True,
-                           active="jap", qs=qs, selected_count=len(selected))
-@app.route("/season/joueurs")
-def season_joueurs():
-    _, selected, _, qs = _season_context()
-    instances = _season_instances(selected)
-    groups = compute_squad_season_stats(instances, selected)
-    attack_table = compute_player_attack_table(instances)
-    defense_table = compute_player_defense_table(instances)
-    ruck_table = compute_player_ruck_table(instances)
-    player_cards = attach_overview_highlights(build_player_cards(attack_table, defense_table, ruck_table))
-    return render_template("season_joueurs.html", groups=groups, season_mode=True, active="joueurs",
-                           qs=qs, selected_count=len(selected),
-                           attack_table=attack_table, defense_table=defense_table,
-                           ruck_table=ruck_table, player_cards=player_cards)
-@app.route("/season/comparateur")
-def season_comparateur():
-    _, selected, selected_ids, qs = _season_context()
-    instances = _season_instances(selected)
-    player_a = request.args.get("a") or ""
-    player_b = request.args.get("b") or ""
-    comparison = None
-    radar_svg = None
-    if instances and player_a and player_b:
-        comparison = compute_player_comparison(instances, player_a, player_b)
-        radar_svg = compute_player_radar_svg(comparison["attack_rows"], comparison["defense_rows"],
-                                              comparison["ruck_rows"])
-    all_players = [
-        {"position": position, "players": SQUAD_ROSTER[position]}
-        for position in SQUAD_POSITION_ORDER
-    ]
-    return render_template(
-        "season_comparateur.html", data=comparison, radar_svg=radar_svg, all_players=all_players,
-        player_a=player_a, player_b=player_b, selected_ids=selected_ids,
-        season_mode=True, active="comparateur", qs=qs, selected_count=len(selected),
-    )
-@app.route("/season/jiff")
-def season_jiff():
-    _, selected, _, qs = _season_context()
-    jiff_data = compute_jiff_chart(selected)
-    return render_template("season_jiff.html", data=jiff_data, season_mode=True, active="jiff", qs=qs,
-                           selected_count=len(selected))
-@app.route("/season/transition")
-def season_transition():
-    _, selected, _, qs = _season_context()
-    instances = _season_instances(selected)
-    transition = compute_transition_sector(instances) if instances else None
-    return render_template("season_transition.html", data=transition, season_mode=True, active="transition", qs=qs,
-                           selected_count=len(selected))
+
+
+
+
 def _load_training_sessions():
     db = get_db()
     rows = db.execute(
@@ -1944,6 +1495,23 @@ def _load_training_sessions():
             "items": json.loads(r["items_json"] or "[]"),
         })
     return sessions
+
+
+@app.route("/season/joueurs")
+def season_joueurs():
+    _, selected, _, qs = _season_context()
+    instances = _season_instances(selected)
+    groups = compute_squad_season_stats(instances, selected)
+    attack_table = compute_player_attack_table(instances)
+    defense_table = compute_player_defense_table(instances)
+    ruck_table = compute_player_ruck_table(instances)
+    player_cards = attach_overview_highlights(build_player_cards(attack_table, defense_table, ruck_table))
+    return render_template("season_joueurs.html", groups=groups, active="joueurs",
+                           qs=qs, selected_count=len(selected),
+                           attack_table=attack_table, defense_table=defense_table,
+                           ruck_table=ruck_table, player_cards=player_cards)
+
+
 @app.route("/season/entrainement", methods=["GET", "POST"])
 def season_entrainement():
     if request.method == "POST":
@@ -1984,8 +1552,9 @@ def season_entrainement():
     return render_template(
         "season_entrainement.html", weeks=weeks, months=months, sessions=sessions, taxonomy=TRAINING_TAXONOMY,
         today=datetime.utcnow().strftime("%Y-%m-%d"),
-        season_mode=True, active="entrainement", qs="",
     )
+
+
 @app.route("/season/entrainement/<int:session_id>/delete", methods=["POST"])
 @admin_required
 def delete_training_session(session_id):
@@ -1994,40 +1563,17 @@ def delete_training_session(session_id):
     db.commit()
     flash("Séance supprimée.", "success")
     return redirect(url_for("season_entrainement"))
-@app.route("/season/analyse")
-def season_analyse():
-    _, selected, _, qs = _season_context()
-    analysis = compute_win_loss_analysis(selected)
-    return render_template(
-        "season_analyse.html", analysis=analysis, season_mode=True, active="analyse",
-        qs=qs, selected_count=len(selected),
-    )
-# ---------------------------------------------------------------------------
-# ESPACE DOCUMENTS — plateforme centrale du staff
-# ---------------------------------------------------------------------------
-# Chaque membre du staff (connecté avec son compte) peut créer des dossiers,
-# déposer des fichiers (PDF, présentations, images, Excel... max 30 Mo) et
-# ajouter des liens vidéo (Hudl, YouTube, Drive...). Les fichiers sont stockés
-# dans PostgreSQL : ils survivent aux redéploiements Render.
-# Règles : tout le staff peut déposer ; chacun peut supprimer SES dépôts ;
-# l'admin peut tout supprimer ; le mode démo ne voit rien (voir gate_optional_features).
 
-DOC_TYPE_ICONS = {
-    "pdf": "📕", "doc": "📘", "docx": "📘", "ppt": "📙", "pptx": "📙", "key": "📙",
-    "xls": "📗", "xlsx": "📗", "csv": "📗", "png": "🖼️", "jpg": "🖼️", "jpeg": "🖼️",
-    "gif": "🖼️", "heic": "🖼️", "webp": "🖼️", "mp4": "🎬", "mov": "🎬", "zip": "🗜️",
-    "txt": "📄", "xml": "📄",
-}
-# Extensions dont l'aperçu peut s'ouvrir directement dans le navigateur.
-DOC_INLINE_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "gif", "webp", "txt"}
 
 def _doc_ext(filename):
     return (filename or "").rsplit(".", 1)[-1].lower() if "." in (filename or "") else ""
+
 
 def _doc_icon(doc):
     if doc["kind"] == "link":
         return "🔗"
     return DOC_TYPE_ICONS.get(_doc_ext(doc["filename"]), "📄")
+
 
 def _doc_can_delete(row):
     """L'admin supprime tout ; un membre du staff supprime ce qu'il a déposé lui-même."""
@@ -2036,11 +1582,13 @@ def _doc_can_delete(row):
     email = session.get("user_email", "")
     return bool(email) and (row.get("uploaded_by") or row.get("created_by")) == email
 
+
 def _folder_or_404(db, folder_id):
     folder = db.execute("SELECT * FROM doc_folders WHERE id = %s", (folder_id,)).fetchone()
     if not folder:
         abort(404)
     return folder
+
 
 def _folder_breadcrumb(db, folder):
     """Remonte la chaîne des parents pour afficher le fil d'Ariane."""
@@ -2054,6 +1602,7 @@ def _folder_breadcrumb(db, folder):
         )
     return list(reversed(crumbs))
 
+
 def _human_size(size_bytes):
     if not size_bytes:
         return ""
@@ -2062,6 +1611,7 @@ def _human_size(size_bytes):
     if size_bytes < 1024 * 1024:
         return f"{size_bytes / 1024:.0f} Ko"
     return f"{size_bytes / (1024 * 1024):.1f} Mo"
+
 
 @app.route("/documents")
 @app.route("/documents/dossier/<int:folder_id>")
@@ -2131,6 +1681,7 @@ def documents(folder_id=None):
         player_groups=groups, players=players,
     )
 
+
 @app.route("/documents/dossier", methods=["POST"])
 def documents_create_folder():
     name = request.form.get("name", "").strip()
@@ -2147,6 +1698,7 @@ def documents_create_folder():
         flash(f"Dossier « {name} » créé.", "success")
     return redirect(url_for("documents", folder_id=parent_id) if parent_id else url_for("documents"))
 
+
 def _read_sharing_fields(form):
     """Lit les 3 champs du formulaire de partage (documents.html) : 'visibility' vaut
     'staff' (par défaut, comportement historique — jamais visible aux joueurs), 'players'
@@ -2162,6 +1714,7 @@ def _read_sharing_fields(form):
     if visibility != "player":
         shared_player_id = None
     return visibility, shared_group_id, shared_player_id
+
 
 @app.route("/documents/upload", methods=["POST"])
 def documents_upload():
@@ -2195,6 +1748,7 @@ def documents_upload():
     flash(f"{saved} fichier{'s' if saved > 1 else ''} déposé{'s' if saved > 1 else ''}.", "success")
     return redirect(url_for("documents", folder_id=folder_id) if folder_id else url_for("documents"))
 
+
 @app.route("/documents/lien", methods=["POST"])
 def documents_add_link():
     folder_id = request.form.get("folder_id") or None
@@ -2216,6 +1770,7 @@ def documents_add_link():
         flash("Lien ajouté.", "success")
     return redirect(url_for("documents", folder_id=folder_id) if folder_id else url_for("documents"))
 
+
 def _serve_document(doc_id, inline):
     db = get_db()
     doc = db.execute("SELECT * FROM documents WHERE id = %s", (doc_id,)).fetchone()
@@ -2233,13 +1788,16 @@ def _serve_document(doc_id, inline):
         },
     )
 
+
 @app.route("/documents/<int:doc_id>/telecharger")
 def documents_download(doc_id):
     return _serve_document(doc_id, inline=False)
 
+
 @app.route("/documents/<int:doc_id>/apercu")
 def documents_preview(doc_id):
     return _serve_document(doc_id, inline=True)
+
 
 @app.route("/documents/<int:doc_id>/supprimer", methods=["POST"])
 def documents_delete(doc_id):
@@ -2258,6 +1816,7 @@ def documents_delete(doc_id):
         flash("Document supprimé.", "success")
     folder_id = doc["folder_id"]
     return redirect(url_for("documents", folder_id=folder_id) if folder_id else url_for("documents"))
+
 
 @app.route("/documents/dossier/<int:folder_id>/supprimer", methods=["POST"])
 def documents_delete_folder(folder_id):
@@ -2280,6 +1839,7 @@ def documents_delete_folder(folder_id):
     db.commit()
     flash(f"Dossier « {folder['name']} » supprimé.", "success")
     return redirect(url_for("documents", folder_id=parent_id) if parent_id else url_for("documents"))
+
 
 @app.route("/documents/dossier/<int:folder_id>/renommer", methods=["POST"])
 def documents_rename_folder(folder_id):
@@ -2304,6 +1864,8 @@ def documents_rename_folder(folder_id):
 # PLAYER_ALLOWED_ENDPOINTS / gate_player_access() en haut du fichier pour le
 # garde-fou qui empêche l'accès à tout le reste du site.
 # ---------------------------------------------------------------------------
+
+
 def _normalize_name(s):
     """Nettoie un nom pour une comparaison automatique fiable entre l'orthographe du
     fichier Excel du club et celle tapée dans Sportscode (accents, casse, tirets,
@@ -2313,12 +1875,14 @@ def _normalize_name(s):
     normalized = "".join(c for c in normalized if not unicodedata.combining(c))
     return re.sub(r"[^a-z0-9]", "", normalized.lower())
 
+
 def _current_player(db):
     """Renvoie la ligne 'players' du joueur actuellement connecté, ou None (compte
     staff/admin, ou session invalide)."""
     if not session.get("is_player"):
         return None
     return db.execute("SELECT * FROM players WHERE id = %s", (session.get("player_id"),)).fetchone()
+
 
 def _doc_visible_to_player(doc, player):
     """Un document n'est visible à un joueur que si le staff l'a explicitement partagé
@@ -2332,6 +1896,7 @@ def _doc_visible_to_player(doc, player):
     if vis == "player":
         return doc.get("shared_player_id") == player.get("id")
     return False
+
 
 def _match_player_stats_name(player, instances):
     """Correspondance automatique stricte entre le nom du joueur (fichier Excel du club)
@@ -2351,6 +1916,7 @@ def _match_player_stats_name(player, instances):
             return coded
     return None
 
+
 @app.route("/mon-espace")
 def player_home():
     db = get_db()
@@ -2358,6 +1924,7 @@ def player_home():
     if not player:
         abort(404)
     return render_template("player_home.html", player=player)
+
 
 @app.route("/mes-documents")
 def player_documents():
@@ -2385,6 +1952,7 @@ def player_documents():
         docs_view.append(d)
     return render_template("player_documents.html", docs=docs_view, player=player)
 
+
 def _serve_player_document(doc_id, inline):
     db = get_db()
     player = _current_player(db)
@@ -2405,13 +1973,16 @@ def _serve_player_document(doc_id, inline):
         },
     )
 
+
 @app.route("/mes-documents/<int:doc_id>/telecharger")
 def player_document_download(doc_id):
     return _serve_player_document(doc_id, inline=False)
 
+
 @app.route("/mes-documents/<int:doc_id>/apercu")
 def player_document_preview(doc_id):
     return _serve_player_document(doc_id, inline=True)
+
 
 @app.route("/mes-stats")
 def player_stats():
@@ -2438,6 +2009,7 @@ def player_stats():
         attack=attack_row, defense=defense_row, ruck=ruck_row,
         matches_played=matches_played, total_matches=len(matches_with_instances),
     )
+
 
 @app.route("/mes-evaluations")
 def player_evaluations():
@@ -2484,6 +2056,7 @@ def player_evaluations():
         ppid_profil_par_poste=PPID_PROFIL_PAR_POSTE,
     )
 
+
 @app.route("/mes-evaluations/physique/<int:eval_id>/auto", methods=["POST"])
 def player_ppid_auto_update(eval_id):
     db = get_db()
@@ -2509,6 +2082,8 @@ def player_ppid_auto_update(eval_id):
 # le site avant l'ajout des espaces Documents / Calendrier / Cahier des charges
 # (Matchs, Bilan de saison, Adversaires, Tendances, Prochain match, Effectif).
 # ---------------------------------------------------------------------------
+
+
 @app.route("/analyse-video")
 def analyse_video():
     return render_template("analyse_video.html")
@@ -2519,10 +2094,13 @@ def analyse_video():
 # Règles identiques à l'espace Documents : tout le staff ajoute, chacun gère ses
 # propres événements, l'admin gère tout ; invisible en mode démo.
 # ---------------------------------------------------------------------------
+
+
 def _cal_can_edit(row):
     """Réutilise la même règle que les documents : admin = tout, sinon = ses propres
     événements uniquement (comparaison sur created_by)."""
     return _doc_can_delete(dict(row))
+
 
 def _cal_event_json(row):
     r = dict(row)
@@ -2536,6 +2114,7 @@ def _cal_event_json(row):
         "can_edit": _cal_can_edit(r),
     }
 
+
 @app.route("/calendrier")
 def calendrier():
     # La page est rendue côté client (vue Jour / Semaine / Mois interactive, façon iPhone) :
@@ -2543,6 +2122,7 @@ def calendrier():
     # sont chargés en JSON via /calendrier/api/events selon la période affichée.
     today = datetime.utcnow().strftime("%Y-%m-%d")
     return render_template("calendrier.html", today=today)
+
 
 @app.route("/calendrier/api/events")
 def calendrier_api_events():
@@ -2563,6 +2143,7 @@ def calendrier_api_events():
         ).fetchall()
     return jsonify({"events": [_cal_event_json(r) for r in rows]})
 
+
 @app.route("/calendrier/api/ajouter", methods=["POST"])
 def calendrier_api_add():
     data = request.get_json(silent=True) or request.form
@@ -2581,6 +2162,7 @@ def calendrier_api_add():
     ).fetchone()
     db.commit()
     return jsonify({"event": _cal_event_json(row)})
+
 
 @app.route("/calendrier/api/<int:event_id>/modifier", methods=["POST"])
 def calendrier_api_edit(event_id):
@@ -2604,6 +2186,7 @@ def calendrier_api_edit(event_id):
     ).fetchone()
     db.commit()
     return jsonify({"event": _cal_event_json(updated)})
+
 
 @app.route("/calendrier/api/<int:event_id>/supprimer", methods=["POST"])
 def calendrier_api_delete(event_id):
@@ -2715,6 +2298,7 @@ PPID_PROFIL_PAR_POSTE = {
 }
 PPID_PROFIL_ROWS = list(PPID_PROFIL_PAR_POSTE.keys())
 
+
 def _ppid_rugby_categories_for_position(position):
     """Personnalise les libellés des 9 critères d'évaluation rugby selon le poste PPID du
     joueur : au lieu d'imposer les mêmes 9 intitulés génériques à tout le monde (illisible
@@ -2733,6 +2317,7 @@ def _ppid_rugby_categories_for_position(position):
     categories.append(("durete_etat_esprit", "Dureté / État d'esprit"))
     return categories
 
+
 def _ppid_ratings_view(raw, category_keys):
     """Décode le JSON de notes stocké en texte, en garantissant une entrée pour chaque
     catégorie connue (au cas où de nouvelles catégories seraient ajoutées après coup)."""
@@ -2746,6 +2331,7 @@ PPID_MONTHS_FR_FULL = [
     "janvier", "février", "mars", "avril", "mai", "juin",
     "juillet", "août", "septembre", "octobre", "novembre", "décembre",
 ]
+
 
 def _ppid_date_human(date_str):
     """Formate une date ISO ('2026-08-15') en date lisible en français ('15 août 2026') —
@@ -2764,11 +2350,13 @@ def _ppid_date_human(date_str):
         return date_str
     return f"{day} {PPID_MONTHS_FR_FULL[month - 1]} {year}"
 
+
 def _ppid_rugby_row_view(row):
     r = dict(row)
     r["ratings"] = _ppid_ratings_view(r.get("ratings"), PPID_RUGBY_CATEGORY_KEYS)
     r["date_human"] = _ppid_date_human(r.get("eval_date") or (r.get("created_at") or "")[:10])
     return r
+
 
 def _ppid_physical_row_view(row):
     r = dict(row)
@@ -2776,10 +2364,12 @@ def _ppid_physical_row_view(row):
     r["date_human"] = _ppid_date_human(r.get("eval_date") or (r.get("created_at") or "")[:10])
     return r
 
+
 def _ppid_entretien_row_view(row):
     r = dict(row)
     r["date_human"] = _ppid_date_human(r.get("entretien_date") or (r.get("created_at") or "")[:10])
     return r
+
 
 def _ppid_compute_trends(evals, category_keys, value_getter):
     """La « flèche du temps » demandée par le manager : pour chaque évaluation d'une série
@@ -2810,6 +2400,7 @@ PPID_MONTHS_FR_ABBR = [
     "Juil.", "Août", "Sept.", "Oct.", "Nov.", "Déc.",
 ]
 
+
 def _ppid_month_label(date_str):
     """Convertit une date ISO ('2026-08-15' ou '2026-08-15T10:00:00') en repère de mois
     court pour l'axe temporel ('Août 26') — retourne None si la date est absente/invalide
@@ -2823,6 +2414,7 @@ def _ppid_month_label(date_str):
     if not (1 <= month <= 12):
         return None
     return f"{PPID_MONTHS_FR_ABBR[month - 1]} {year % 100:02d}"
+
 
 def _ppid_timeline(rugby_evals, physical_evals, entretiens):
     """Fusionne les 3 flux du P.P.I.D (évaluation rugby, évaluation physique, cahier
@@ -2845,6 +2437,7 @@ def _ppid_timeline(rugby_evals, physical_evals, entretiens):
         it["month_label"] = _ppid_month_label(it["sort_key"])
     return items
 
+
 def _ppid_rugby_ratings_from_form(form):
     ratings = {}
     for key in PPID_RUGBY_CATEGORY_KEYS:
@@ -2853,6 +2446,7 @@ def _ppid_rugby_ratings_from_form(form):
         if note or commentaire:
             ratings[key] = {"note": note or None, "commentaire": commentaire or None}
     return json.dumps(ratings, ensure_ascii=False)
+
 
 def _ppid_physical_coach_ratings_from_form(form, existing_raw):
     """Fusionne les notes 'coach' saisies par le staff avec les 'auto' déjà présentes
@@ -2871,6 +2465,7 @@ def _ppid_physical_coach_ratings_from_form(form, existing_raw):
             ratings[key] = entry
     return json.dumps(ratings, ensure_ascii=False)
 
+
 def _ppid_physical_auto_ratings_from_form(form, existing_raw):
     existing = _ppid_ratings_view(existing_raw, PPID_PHYSICAL_CATEGORIES)
     ratings = {}
@@ -2884,6 +2479,7 @@ def _ppid_physical_auto_ratings_from_form(form, existing_raw):
         if entry:
             ratings[key] = entry
     return json.dumps(ratings, ensure_ascii=False)
+
 
 @app.route("/cahier-des-charges")
 def cahier_charges():
@@ -2978,6 +2574,7 @@ def cahier_charges():
         ppid_profil_par_poste=PPID_PROFIL_PAR_POSTE, ppid_entretien_types=PPID_ENTRETIEN_TYPES,
     )
 
+
 @app.route("/cahier-des-charges/ajouter", methods=["POST"])
 def cahier_charges_add():
     title = request.form.get("title", "").strip()
@@ -2996,6 +2593,7 @@ def cahier_charges_add():
         flash("Tâche ajoutée.", "success")
     return redirect(url_for("cahier_charges", joueur=player_id))
 
+
 @app.route("/cahier-des-charges/<int:item_id>/statut", methods=["POST"])
 def cahier_charges_status(item_id):
     new_status = request.form.get("status", "")
@@ -3013,6 +2611,7 @@ def cahier_charges_status(item_id):
     flash(f"Tâche déplacée vers « {CHARGES_STATUS_LABELS[new_status]} ».", "success")
     return redirect(url_for("cahier_charges", joueur=row["player_id"]))
 
+
 @app.route("/cahier-des-charges/<int:item_id>/supprimer", methods=["POST"])
 def cahier_charges_delete(item_id):
     db = get_db()
@@ -3027,6 +2626,7 @@ def cahier_charges_delete(item_id):
         db.commit()
         flash("Tâche supprimée.", "success")
     return redirect(url_for("cahier_charges", joueur=player_id))
+
 
 @app.route("/cahier-des-charges/joueur/<int:player_id>/document", methods=["POST"])
 def cahier_charges_upload(player_id):
@@ -3063,6 +2663,7 @@ def cahier_charges_upload(player_id):
     )
     return redirect(url_for("cahier_charges", joueur=player_id))
 
+
 @app.route("/cahier-des-charges/joueur/<int:player_id>/lien", methods=["POST"])
 def cahier_charges_add_link(player_id):
     db = get_db()
@@ -3083,6 +2684,7 @@ def cahier_charges_add_link(player_id):
         flash(f"Lien ajouté — visible par {player['first_name']} dans « Mes documents ».", "success")
     return redirect(url_for("cahier_charges", joueur=player_id))
 
+
 @app.route("/cahier-des-charges/document/<int:doc_id>/supprimer", methods=["POST"])
 def cahier_charges_doc_delete(doc_id):
     db = get_db()
@@ -3097,6 +2699,7 @@ def cahier_charges_doc_delete(doc_id):
         db.commit()
         flash("Document supprimé.", "success")
     return redirect(url_for("cahier_charges", joueur=player_id))
+
 
 @app.route("/cahier-des-charges/joueur/<int:player_id>/evaluation-rugby/ajouter", methods=["POST"])
 def ppid_rugby_add(player_id):
@@ -3123,6 +2726,7 @@ def ppid_rugby_add(player_id):
     flash(f"Point d'étape rugby ajouté pour {player['first_name']} {player['last_name']}.", "success")
     return redirect(url_for("cahier_charges", joueur=player_id))
 
+
 @app.route("/cahier-des-charges/evaluation-rugby/<int:eval_id>/modifier", methods=["POST"])
 def ppid_rugby_edit(eval_id):
     db = get_db()
@@ -3143,6 +2747,7 @@ def ppid_rugby_edit(eval_id):
     flash("Point d'étape rugby mis à jour.", "success")
     return redirect(url_for("cahier_charges", joueur=row["player_id"]))
 
+
 @app.route("/cahier-des-charges/evaluation-rugby/<int:eval_id>/supprimer", methods=["POST"])
 def ppid_rugby_delete(eval_id):
     db = get_db()
@@ -3153,6 +2758,7 @@ def ppid_rugby_delete(eval_id):
     db.commit()
     flash("Point d'étape rugby supprimé.", "success")
     return redirect(url_for("cahier_charges", joueur=row["player_id"]))
+
 
 @app.route("/cahier-des-charges/joueur/<int:player_id>/evaluation-physique/ajouter", methods=["POST"])
 def ppid_physical_add(player_id):
@@ -3181,6 +2787,7 @@ def ppid_physical_add(player_id):
     flash(f"Point d'étape physique ajouté pour {player['first_name']} {player['last_name']}.", "success")
     return redirect(url_for("cahier_charges", joueur=player_id))
 
+
 @app.route("/cahier-des-charges/evaluation-physique/<int:eval_id>/modifier", methods=["POST"])
 def ppid_physical_edit(eval_id):
     db = get_db()
@@ -3203,6 +2810,7 @@ def ppid_physical_edit(eval_id):
     flash("Point d'étape physique mis à jour.", "success")
     return redirect(url_for("cahier_charges", joueur=row["player_id"]))
 
+
 @app.route("/cahier-des-charges/evaluation-physique/<int:eval_id>/supprimer", methods=["POST"])
 def ppid_physical_delete(eval_id):
     db = get_db()
@@ -3213,6 +2821,7 @@ def ppid_physical_delete(eval_id):
     db.commit()
     flash("Point d'étape physique supprimé.", "success")
     return redirect(url_for("cahier_charges", joueur=row["player_id"]))
+
 
 @app.route("/cahier-des-charges/joueur/<int:player_id>/entretien/ajouter", methods=["POST"])
 def ppid_entretien_add(player_id):
@@ -3235,6 +2844,7 @@ def ppid_entretien_add(player_id):
     flash(f"Entretien ajouté au cahier de {player['first_name']} — visible par lui dans « Mes évaluations ».", "success")
     return redirect(url_for("cahier_charges", joueur=player_id))
 
+
 @app.route("/cahier-des-charges/entretien/<int:entretien_id>/modifier", methods=["POST"])
 def ppid_entretien_edit(entretien_id):
     db = get_db()
@@ -3253,6 +2863,7 @@ def ppid_entretien_edit(entretien_id):
     db.commit()
     flash("Entretien mis à jour.", "success")
     return redirect(url_for("cahier_charges", joueur=row["player_id"]))
+
 
 @app.route("/cahier-des-charges/entretien/<int:entretien_id>/supprimer", methods=["POST"])
 def ppid_entretien_delete(entretien_id):
@@ -3277,6 +2888,8 @@ def ppid_entretien_delete(entretien_id):
 # polyvalents saisis dans le fichier Excel du club (ex. "Pilier - Talonneur"
 # doit ressortir en Talonneur, "Pilier droit / 2ème ligne" doit ressortir en
 # Pilier) : on retient la 1ère catégorie qui correspond, dans cet ordre.
+
+
 def _classify_player_position(poste):
     p = (poste or "").lower()
     if "talonneur" in p:
@@ -3303,6 +2916,8 @@ def _classify_player_position(poste):
 # None quand le texte ne permet pas de trancher (ex. « 3ème ligne » seul, sans « aile » ni
 # « centre », ou « Charnière » seul, sans « mêlée » ni « ouverture ») : le poste reste alors
 # à régler manuellement pour ce joueur (voir le message de fin d'import).
+
+
 def _classify_ppid_position(poste):
     p = (poste or "").lower()
     has_melee = "mêlée" in p or "melee" in p
@@ -3339,10 +2954,12 @@ def _classify_ppid_position(poste):
 # peut ensuite réaffecter n'importe quel joueur à n'importe quel groupe à la main.
 _FORWARD_CATEGORIES = {"Pilier", "Talonneur", "2ème ligne", "3ème ligne"}
 
+
 def _default_group_name_for_category(cat):
     if cat is None:
         return None
     return "Avants" if cat in _FORWARD_CATEGORIES else "Trois-quarts"
+
 
 def _split_player_name(full_name):
     """Sépare 'NOM Prénom' (format du fichier Excel du club, nom de famille en
@@ -3365,6 +2982,7 @@ def _split_player_name(full_name):
     first = " ".join(tokens[idx:])
     return first, last
 
+
 @app.route("/admin/joueurs")
 @admin_required
 def admin_joueurs():
@@ -3376,6 +2994,7 @@ def admin_joueurs():
            ORDER BY p.last_name, p.first_name"""
     ).fetchall()
     return render_template("admin_joueurs.html", groups=groups, players=players, ppid_positions=PPID_POSITIONS)
+
 
 @app.route("/admin/joueurs/ajouter", methods=["POST"])
 @admin_required
@@ -3399,6 +3018,7 @@ def admin_joueurs_ajouter():
     db.commit()
     flash(f"{first_name} {last_name} ajouté. Il pourra se connecter avec {email} et choisira son mot de passe à la 1ère connexion.", "success")
     return redirect(url_for("admin_joueurs"))
+
 
 @app.route("/admin/joueurs/importer", methods=["POST"])
 @admin_required
@@ -3491,6 +3111,7 @@ def admin_joueurs_importer():
     flash(msg, "success")
     return redirect(url_for("admin_joueurs"))
 
+
 @app.route("/admin/joueurs/<int:player_id>/groupe", methods=["POST"])
 @admin_required
 def admin_joueurs_groupe(player_id):
@@ -3503,6 +3124,7 @@ def admin_joueurs_groupe(player_id):
     db.commit()
     flash(f"Groupe mis à jour pour {player['first_name']} {player['last_name']}.", "success")
     return redirect(url_for("admin_joueurs"))
+
 
 @app.route("/admin/joueurs/<int:player_id>/poste-ppid", methods=["POST"])
 @admin_required
@@ -3519,6 +3141,7 @@ def admin_joueurs_poste_ppid(player_id):
     flash(f"Poste PPID mis à jour pour {player['first_name']} {player['last_name']}.", "success")
     return redirect(url_for("admin_joueurs"))
 
+
 @app.route("/admin/joueurs/<int:player_id>/reinitialiser-mdp", methods=["POST"])
 @admin_required
 def admin_joueurs_reset_password(player_id):
@@ -3531,6 +3154,7 @@ def admin_joueurs_reset_password(player_id):
     flash(f"Mot de passe réinitialisé pour {player['first_name']} {player['last_name']} : il en choisira un nouveau à sa prochaine connexion.", "success")
     return redirect(url_for("admin_joueurs"))
 
+
 @app.route("/admin/joueurs/<int:player_id>/supprimer", methods=["POST"])
 @admin_required
 def admin_joueurs_supprimer(player_id):
@@ -3542,6 +3166,7 @@ def admin_joueurs_supprimer(player_id):
     db.commit()
     flash(f"Compte de {player['first_name']} {player['last_name']} supprimé.", "success")
     return redirect(url_for("admin_joueurs"))
+
 
 @app.route("/admin/groupes/creer", methods=["POST"])
 @admin_required
@@ -3562,6 +3187,7 @@ def admin_groupes_creer():
     db.commit()
     flash(f"Groupe « {name} » créé.", "success")
     return redirect(url_for("admin_joueurs"))
+
 
 @app.route("/admin/groupes/<int:group_id>/supprimer", methods=["POST"])
 @admin_required
