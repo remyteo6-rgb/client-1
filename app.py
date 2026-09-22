@@ -3,6 +3,7 @@ import time
 import re
 import json
 import unicodedata
+import secrets
 import psycopg2
 import psycopg2.extras
 import openpyxl
@@ -166,6 +167,30 @@ PLAYER_ALLOWED_ENDPOINTS = {
 }
 
 
+# Un accès staff « cahier d'entraînement » ne peut atteindre que cette page et les actions
+# qui s'y rattachent (suivi P.P.I.D, tâches, documents du joueur). Tout le reste du site —
+# analyse vidéo, effectif, calendrier, administration — lui est fermé.
+STAFF_CAHIER_ALLOWED_ENDPOINTS = {
+    "cahier_charges", "cahier_charges_add", "cahier_charges_status", "cahier_charges_delete",
+    "cahier_charges_upload", "cahier_charges_add_link", "cahier_charges_doc_delete",
+    "ppid_rugby_add", "ppid_rugby_edit", "ppid_rugby_delete",
+    "ppid_physical_add", "ppid_physical_edit", "ppid_physical_delete",
+    "ppid_entretien_add", "ppid_entretien_edit", "ppid_entretien_delete",
+    "documents_download", "documents_preview",
+    "logout", "login", "static", "pwa_manifest", "pwa_service_worker",
+    "robots_txt", "confidentialite", "conditions",
+}
+
+
+@app.before_request
+def gate_staff_cahier():
+    if session.get("staff_scope") != "cahier" or not request.endpoint:
+        return
+    if request.endpoint in STAFF_CAHIER_ALLOWED_ENDPOINTS:
+        return
+    return redirect(url_for("cahier_charges"))
+
+
 @app.before_request
 def gate_player_access():
     if session.get("is_player") and request.endpoint and request.endpoint not in PLAYER_ALLOWED_ENDPOINTS:
@@ -191,6 +216,8 @@ def inject_logged_in():
     return {
         "logged_in": session.get("logged_in", False), "is_admin": session.get("is_admin", False),
         "is_player": session.get("is_player", False),
+        # Accès staff limité au cahier d'entraînement : la navigation se réduit à cette page.
+        "is_staff_cahier": session.get("staff_scope") == "cahier",
         "demo_forced": session.get("demo_forced", False),
         "user_email": session.get("user_email", ""),
         "club_name": CLUB_NAME, "club_full_name": CLUB_FULL_NAME,
@@ -411,6 +438,26 @@ def login():
                 _connexion_reussie(ip)
                 flash("Connecté.", "success")
                 return redirect(next_target)
+        db = get_db()
+        staff = db.execute(
+            "SELECT * FROM staff_accounts WHERE email = %s", (email,)
+        ).fetchone()
+        if staff:
+            if check_password_hash(staff["password_hash"], password):
+                session.permanent = True
+                session["logged_in"] = True
+                session["is_admin"] = False
+                session["is_player"] = False
+                session["demo_forced"] = False
+                session["staff_scope"] = staff["scope"]
+                session["user_email"] = email
+                _connexion_reussie(ip)
+                flash("Connecté.", "success")
+                return redirect(url_for("cahier_charges"))
+            _connexion_ratee(ip)
+            flash("Email ou mot de passe incorrect.", "error")
+            return render_template("login.html", next_url=next_url)
+
         # Comptes joueurs : pas de mot de passe défini au départ. À la toute première
         # connexion, ce que le joueur tape dans le champ mot de passe DEVIENT son mot de
         # passe (pas d'email de confirmation possible sans serveur mail configuré) — voir
@@ -463,6 +510,7 @@ def logout():
     session.pop("is_player", None)
     session.pop("player_id", None)
     session.pop("demo_forced", None)
+    session.pop("staff_scope", None)
     session.pop("user_email", None)
     flash("Déconnecté.", "success")
     return redirect(url_for("login"))
@@ -585,6 +633,18 @@ def init_db():
         CREATE TABLE IF NOT EXISTS player_groups (
             id SERIAL PRIMARY KEY,
             name TEXT UNIQUE NOT NULL,
+            created_at TEXT NOT NULL
+        )
+    """)
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS staff_accounts (
+            id SERIAL PRIMARY KEY,
+            first_name TEXT NOT NULL,
+            last_name TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            scope TEXT NOT NULL DEFAULT 'cahier',
+            created_by TEXT,
             created_at TEXT NOT NULL
         )
     """)
@@ -3125,7 +3185,11 @@ def admin_joueurs():
            LEFT JOIN player_groups g ON g.id = p.group_id
            ORDER BY p.last_name, p.first_name"""
     ).fetchall()
-    return render_template("admin_joueurs.html", groups=groups, players=players, ppid_positions=PPID_POSITIONS)
+    staff_accounts = db.execute(
+        "SELECT * FROM staff_accounts ORDER BY last_name, first_name"
+    ).fetchall()
+    return render_template("admin_joueurs.html", groups=groups, players=players,
+                           ppid_positions=PPID_POSITIONS, staff_accounts=staff_accounts)
 
 
 @app.route("/admin/joueurs/ajouter", methods=["POST"])
@@ -3297,6 +3361,71 @@ def admin_joueurs_supprimer(player_id):
     db.execute("DELETE FROM players WHERE id = %s", (player_id,))
     db.commit()
     flash(f"Compte de {player['first_name']} {player['last_name']} supprimé.", "success")
+    return redirect(url_for("admin_joueurs"))
+
+
+def _mot_de_passe_provisoire():
+    """Mot de passe lisible et sans ambiguïté (ni O/0 ni I/l), à transmettre de vive voix.
+    Il n'est affiché qu'une fois : seul son empreinte chiffrée est conservée."""
+    alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+    return "-".join("".join(secrets.choice(alphabet) for _ in range(4)) for _ in range(3))
+
+
+@app.route("/admin/staff/ajouter", methods=["POST"])
+@admin_required
+def admin_staff_ajouter():
+    first_name = request.form.get("first_name", "").strip()
+    last_name = request.form.get("last_name", "").strip()
+    email = request.form.get("email", "").strip().lower()
+    if not first_name or not last_name or not email:
+        flash("Merci d'indiquer un prénom, un nom et un email.", "error")
+        return redirect(url_for("admin_joueurs"))
+    db = get_db()
+    if db.execute("SELECT 1 FROM staff_accounts WHERE email = %s", (email,)).fetchone():
+        flash("Un accès existe déjà avec cet email.", "error")
+        return redirect(url_for("admin_joueurs"))
+    if db.execute("SELECT 1 FROM players WHERE email = %s", (email,)).fetchone():
+        flash("Cet email est déjà celui d'un compte joueur.", "error")
+        return redirect(url_for("admin_joueurs"))
+    mot_de_passe = _mot_de_passe_provisoire()
+    db.execute(
+        """INSERT INTO staff_accounts (first_name, last_name, email, password_hash, scope, created_by, created_at)
+           VALUES (%s, %s, %s, %s, 'cahier', %s, %s)""",
+        (first_name, last_name, email, generate_password_hash(mot_de_passe),
+         session.get("user_email", ""), datetime.utcnow().isoformat()),
+    )
+    db.commit()
+    flash(f"Accès créé pour {first_name} {last_name} — email : {email}, "
+          f"mot de passe : {mot_de_passe} (note-le, il ne sera plus affiché).", "success")
+    return redirect(url_for("admin_joueurs"))
+
+
+@app.route("/admin/staff/<int:staff_id>/reinitialiser-mdp", methods=["POST"])
+@admin_required
+def admin_staff_reset_password(staff_id):
+    db = get_db()
+    staff = db.execute("SELECT * FROM staff_accounts WHERE id = %s", (staff_id,)).fetchone()
+    if not staff:
+        abort(404)
+    mot_de_passe = _mot_de_passe_provisoire()
+    db.execute("UPDATE staff_accounts SET password_hash = %s WHERE id = %s",
+               (generate_password_hash(mot_de_passe), staff_id))
+    db.commit()
+    flash(f"Nouveau mot de passe pour {staff['first_name']} {staff['last_name']} : "
+          f"{mot_de_passe} (note-le, il ne sera plus affiché).", "success")
+    return redirect(url_for("admin_joueurs"))
+
+
+@app.route("/admin/staff/<int:staff_id>/supprimer", methods=["POST"])
+@admin_required
+def admin_staff_supprimer(staff_id):
+    db = get_db()
+    staff = db.execute("SELECT * FROM staff_accounts WHERE id = %s", (staff_id,)).fetchone()
+    if not staff:
+        abort(404)
+    db.execute("DELETE FROM staff_accounts WHERE id = %s", (staff_id,))
+    db.commit()
+    flash(f"Accès supprimé pour {staff['first_name']} {staff['last_name']}.", "success")
     return redirect(url_for("admin_joueurs"))
 
 
