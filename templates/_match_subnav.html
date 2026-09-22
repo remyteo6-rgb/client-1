@@ -18,10 +18,7 @@
                         <a href="{{ url_for('analyse_video') }}">Vue d'ensemble</a>
                         <a href="{{ url_for('index') }}">📊 Matchs</a>
                         {% if is_admin %}
-                        <a href="{{ url_for('admin_joueurs') }}">👥 Gestion des joueurs</a>
                         <a href="{{ url_for('upload') }}">+ Importer un XML</a>
-                        <a href="{{ url_for('export_data') }}">💾 Sauvegarder les données</a>
-                        <a href="{{ url_for('import_data') }}">📥 Restaurer une sauvegarde</a>
                         {% endif %}
                     </div>
                 </details>
@@ -32,6 +29,17 @@
                 <a href="{{ url_for('calendrier') }}">🗓️ Calendrier</a>
                 {% endif %}
                 <a href="{{ url_for('cahier_charges') }}">📋 Cahier d'entraînement</a>
+                {% if is_admin %}
+                <details class="landing-dropdown-sub">
+                    <summary>⚙️ Administration</summary>
+                    <div class="landing-dropdown-sub-content">
+                        <a href="{{ url_for('admin_joueurs') }}">👥 Joueurs et accès</a>
+                        <a href="{{ url_for('upload') }}">+ Importer un XML</a>
+                        <a href="{{ url_for('export_data') }}">💾 Sauvegarder les données</a>
+                        <a href="{{ url_for('import_data') }}">📥 Restaurer une sauvegarde</a>
+                    </div>
+                </details>
+                {% endif %}
                 {% if logged_in %}
                 <a href="{{ url_for('logout') }}">🔒 Se déconnecter</a>
                 {% else %}
