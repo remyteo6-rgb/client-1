@@ -2175,3 +2175,28 @@ span.review-crest {
 @media (max-width: 1100px) {
     .cc-bottom { grid-template-columns: 1fr; }
 }
+
+/* Titres des grands blocs du suivi P.P.I.D : on doit reconnaître « Évaluation rugby »
+   et « Évaluation physique » d'un coup d'œil, sans lire. */
+.ppid-grid-title {
+    display: flex; align-items: center; gap: 14px;
+    margin: 0 0 14px; padding: 14px 20px;
+    border: 1px solid var(--bg-card-border); border-left-width: 6px;
+    border-radius: var(--radius);
+    background: rgba(255, 255, 255, .07);
+    font-size: 1.6rem; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;
+    line-height: 1.1;
+}
+.ppid-grid-title svg { flex: none; width: 30px; height: 30px; }
+.ppid-title-rugby     { border-left-color: var(--positive); }
+.ppid-title-physique  { border-left-color: var(--own-color); }
+.ppid-title-entretien { border-left-color: var(--accent-gold); }
+.ppid-title-rugby svg     { color: var(--positive); }
+.ppid-title-physique svg  { color: var(--own-color); }
+.ppid-title-entretien svg { color: var(--accent-gold); }
+.ppid-grid-section + .ppid-grid-section { margin-top: 34px; }
+
+@media (max-width: 700px) {
+    .ppid-grid-title { font-size: 1.15rem; padding: 11px 14px; gap: 10px; }
+    .ppid-grid-title svg { width: 22px; height: 22px; }
+}
