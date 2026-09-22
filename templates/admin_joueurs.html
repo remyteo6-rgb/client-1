@@ -159,7 +159,7 @@
                     <input type="email" name="email" required>
                 </div>
                 <button type="submit" class="btn">Créer l'accès</button>
-                <p class="docs-hint">💡 Le mot de passe est généré par le site et affiché une seule fois, juste après la création : note-le pour le transmettre. Tu pourras en regénérer un à tout moment.</p>
+                <p class="docs-hint">💡 Un mot de passe par défaut est attribué automatiquement (affiché juste après la création, à transmettre à la personne). À sa première connexion, elle devra obligatoirement en choisir un personnel avant d'accéder au cahier d'entraînement.</p>
             </form>
         </details>
     </div>
@@ -172,6 +172,7 @@
                     <th>Nom</th>
                     <th>Email</th>
                     <th>Accès</th>
+                    <th>Mot de passe</th>
                     <th>Créé le</th>
                     <th></th>
                 </tr>
@@ -182,11 +183,18 @@
                     <td class="docs-td-name demo-sensitive">{{ membre['first_name'] }} {{ membre['last_name'] }}</td>
                     <td class="demo-sensitive">{{ membre['email'] }}</td>
                     <td><span class="ppid-badge">Cahier d'entraînement</span></td>
+                    <td>
+                        {% if membre['must_change_password'] %}
+                        <span class="ppid-badge ppid-badge-warn">En attente (défaut)</span>
+                        {% else %}
+                        <span class="ppid-badge">Personnel ✓</span>
+                        {% endif %}
+                    </td>
                     <td>{{ (membre['created_at'] or '')[:10] }}</td>
                     <td class="docs-td-actions">
                         <form method="POST" action="{{ url_for('admin_staff_reset_password', staff_id=membre['id']) }}"
-                              onsubmit="return confirm('Générer un nouveau mot de passe pour {{ membre['first_name'] }} ?');">
-                            <button type="submit" class="docs-mini-btn" title="Nouveau mot de passe">🔑</button>
+                              onsubmit="return confirm('Réinitialiser le mot de passe de {{ membre['first_name'] }} au mot de passe par défaut ?');">
+                            <button type="submit" class="docs-mini-btn" title="Réinitialiser au mot de passe par défaut">🔑</button>
                         </form>
                         <form method="POST" action="{{ url_for('admin_staff_supprimer', staff_id=membre['id']) }}"
                               onsubmit="return confirm('Supprimer l\'accès de {{ membre['first_name'] }} {{ membre['last_name'] }} ?');">
