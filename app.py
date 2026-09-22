@@ -3,7 +3,6 @@ import time
 import re
 import json
 import unicodedata
-import secrets
 import psycopg2
 import psycopg2.extras
 import openpyxl
@@ -63,6 +62,11 @@ CLUB_FULL_NAME = os.environ.get("CLUB_FULL_NAME", "Nissa Rugby")
 # variables d'environnement Render — sinon ces valeurs par défaut (à changer !) sont utilisées.
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@nissarugby.fr")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "changeme")
+# Mot de passe donné à un nouvel accès staff « cahier d'entraînement » (ou après une
+# réinitialisation) : le compte est obligé d'en choisir un personnel à sa toute première
+# connexion suivante, il ne peut rien faire d'autre tant que ce n'est pas fait. Change cette
+# valeur dans les variables d'environnement Render si tu veux un autre mot de passe par défaut.
+STAFF_DEFAULT_PASSWORD = os.environ.get("STAFF_DEFAULT_PASSWORD", "Bienvenue2026")
 # Lien de démo public : quiconque a ce lien voit le site en lecture seule, sans compte,
 # avec le mode démo (noms floutés) activé automatiquement. Change cette valeur si tu veux
 # un lien différent, et ne le partage qu'avec des prospects (il donne accès en lecture à tout).
@@ -177,8 +181,14 @@ STAFF_CAHIER_ALLOWED_ENDPOINTS = {
     "ppid_physical_add", "ppid_physical_edit", "ppid_physical_delete",
     "ppid_entretien_add", "ppid_entretien_edit", "ppid_entretien_delete",
     "documents_download", "documents_preview",
+    "staff_changer_mdp",
     "logout", "login", "static", "pwa_manifest", "pwa_service_worker",
     "robots_txt", "confidentialite", "conditions", "ping", "reveil",
+}
+# Endpoints restant joignables même quand un mot de passe personnel doit encore être choisi
+# (sinon impossible d'atteindre la page qui permet justement de le choisir, ou de se déconnecter).
+STAFF_CHANGER_MDP_ENDPOINTS = {
+    "staff_changer_mdp", "logout", "static", "pwa_manifest", "pwa_service_worker", "ping", "reveil",
 }
 
 
@@ -186,6 +196,8 @@ STAFF_CAHIER_ALLOWED_ENDPOINTS = {
 def gate_staff_cahier():
     if session.get("staff_scope") != "cahier" or not request.endpoint:
         return
+    if session.get("staff_must_change_password") and request.endpoint not in STAFF_CHANGER_MDP_ENDPOINTS:
+        return redirect(url_for("staff_changer_mdp"))
     if request.endpoint in STAFF_CAHIER_ALLOWED_ENDPOINTS:
         return
     return redirect(url_for("cahier_charges"))
@@ -510,8 +522,12 @@ def login():
                 session["is_player"] = False
                 session["demo_forced"] = False
                 session["staff_scope"] = staff["scope"]
+                session["staff_must_change_password"] = bool(staff["must_change_password"])
                 session["user_email"] = email
                 _connexion_reussie(ip)
+                if staff["must_change_password"]:
+                    flash(f"Bienvenue {staff['first_name']} ! Choisis ton propre mot de passe avant de continuer.", "success")
+                    return redirect(url_for("staff_changer_mdp"))
                 flash("Connecté.", "success")
                 return redirect(url_for("cahier_charges"))
             _connexion_ratee(ip)
@@ -571,6 +587,7 @@ def logout():
     session.pop("player_id", None)
     session.pop("demo_forced", None)
     session.pop("staff_scope", None)
+    session.pop("staff_must_change_password", None)
     session.pop("user_email", None)
     flash("Déconnecté.", "success")
     return redirect(url_for("login"))
@@ -705,9 +722,11 @@ def init_db():
             password_hash TEXT NOT NULL,
             scope TEXT NOT NULL DEFAULT 'cahier',
             created_by TEXT,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            must_change_password BOOLEAN NOT NULL DEFAULT TRUE
         )
     """)
+    db.execute("ALTER TABLE staff_accounts ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT TRUE")
     db.execute("""
         CREATE TABLE IF NOT EXISTS players (
             id SERIAL PRIMARY KEY,
@@ -3424,13 +3443,6 @@ def admin_joueurs_supprimer(player_id):
     return redirect(url_for("admin_joueurs"))
 
 
-def _mot_de_passe_provisoire():
-    """Mot de passe lisible et sans ambiguïté (ni O/0 ni I/l), à transmettre de vive voix.
-    Il n'est affiché qu'une fois : seul son empreinte chiffrée est conservée."""
-    alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
-    return "-".join("".join(secrets.choice(alphabet) for _ in range(4)) for _ in range(3))
-
-
 @app.route("/admin/staff/ajouter", methods=["POST"])
 @admin_required
 def admin_staff_ajouter():
@@ -3447,16 +3459,17 @@ def admin_staff_ajouter():
     if db.execute("SELECT 1 FROM players WHERE email = %s", (email,)).fetchone():
         flash("Cet email est déjà celui d'un compte joueur.", "error")
         return redirect(url_for("admin_joueurs"))
-    mot_de_passe = _mot_de_passe_provisoire()
     db.execute(
-        """INSERT INTO staff_accounts (first_name, last_name, email, password_hash, scope, created_by, created_at)
-           VALUES (%s, %s, %s, %s, 'cahier', %s, %s)""",
-        (first_name, last_name, email, generate_password_hash(mot_de_passe),
+        """INSERT INTO staff_accounts
+           (first_name, last_name, email, password_hash, scope, created_by, created_at, must_change_password)
+           VALUES (%s, %s, %s, %s, 'cahier', %s, %s, TRUE)""",
+        (first_name, last_name, email, generate_password_hash(STAFF_DEFAULT_PASSWORD),
          session.get("user_email", ""), datetime.utcnow().isoformat()),
     )
     db.commit()
     flash(f"Accès créé pour {first_name} {last_name} — email : {email}, "
-          f"mot de passe : {mot_de_passe} (note-le, il ne sera plus affiché).", "success")
+          f"mot de passe par défaut : {STAFF_DEFAULT_PASSWORD} (à lui communiquer ; "
+          f"il/elle devra en choisir un personnel dès la première connexion).", "success")
     return redirect(url_for("admin_joueurs"))
 
 
@@ -3467,13 +3480,44 @@ def admin_staff_reset_password(staff_id):
     staff = db.execute("SELECT * FROM staff_accounts WHERE id = %s", (staff_id,)).fetchone()
     if not staff:
         abort(404)
-    mot_de_passe = _mot_de_passe_provisoire()
-    db.execute("UPDATE staff_accounts SET password_hash = %s WHERE id = %s",
-               (generate_password_hash(mot_de_passe), staff_id))
+    db.execute("UPDATE staff_accounts SET password_hash = %s, must_change_password = TRUE WHERE id = %s",
+               (generate_password_hash(STAFF_DEFAULT_PASSWORD), staff_id))
     db.commit()
-    flash(f"Nouveau mot de passe pour {staff['first_name']} {staff['last_name']} : "
-          f"{mot_de_passe} (note-le, il ne sera plus affiché).", "success")
+    flash(f"Mot de passe réinitialisé pour {staff['first_name']} {staff['last_name']} — "
+          f"mot de passe par défaut : {STAFF_DEFAULT_PASSWORD} (à lui communiquer ; "
+          f"il/elle devra en choisir un nouveau dès la prochaine connexion).", "success")
     return redirect(url_for("admin_joueurs"))
+
+
+@app.route("/staff/mot-de-passe", methods=["GET", "POST"])
+def staff_changer_mdp():
+    """Étape obligatoire à la première connexion d'un accès staff (ou après une
+    réinitialisation) : impossible d'atteindre le cahier d'entraînement tant que ce
+    mot de passe par défaut n'a pas été remplacé par un mot de passe personnel."""
+    if session.get("staff_scope") != "cahier":
+        abort(404)
+    if request.method == "POST":
+        nouveau = request.form.get("password", "")
+        confirmation = request.form.get("password_confirm", "")
+        if len(nouveau) < 8:
+            flash("Le mot de passe doit contenir au moins 8 caractères.", "error")
+            return render_template("staff_changer_mdp.html")
+        if nouveau == STAFF_DEFAULT_PASSWORD:
+            flash("Choisis un mot de passe différent du mot de passe par défaut.", "error")
+            return render_template("staff_changer_mdp.html")
+        if nouveau != confirmation:
+            flash("Les deux mots de passe saisis ne correspondent pas.", "error")
+            return render_template("staff_changer_mdp.html")
+        db = get_db()
+        db.execute(
+            "UPDATE staff_accounts SET password_hash = %s, must_change_password = FALSE WHERE email = %s",
+            (generate_password_hash(nouveau), session.get("user_email", "")),
+        )
+        db.commit()
+        session["staff_must_change_password"] = False
+        flash("Mot de passe personnel enregistré — ressers-t'en pour te reconnecter la prochaine fois.", "success")
+        return redirect(url_for("cahier_charges"))
+    return render_template("staff_changer_mdp.html")
 
 
 @app.route("/admin/staff/<int:staff_id>/supprimer", methods=["POST"])
