@@ -29,6 +29,13 @@ if (window.Chart) { Chart.defaults.color = '#ffffff'; }
     {% endwith %}
     {% block content %}{% endblock %}
 </main>
+<footer class="site-footer no-print">
+    <a href="{{ url_for('confidentialite') }}">Confidentialité</a>
+    <span aria-hidden="true">·</span>
+    <a href="{{ url_for('conditions') }}">Conditions d'utilisation</a>
+    <span aria-hidden="true">·</span>
+    <span>{{ club_full_name }} — espace privé</span>
+</footer>
 <script>
 /* Format diapositive (16/9, 1280 x 720 comme Keynote) pour les pages du rapport.
    Le cadre est mis à l'échelle de la largeur disponible, et son contenu est réduit

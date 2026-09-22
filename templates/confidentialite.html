@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Confidentialité et données personnelles{% endblock %}
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <h1>🔒 Confidentialité et données personnelles</h1>
+        <p class="subtitle">Ce que ce site enregistre, pourquoi, et ce que chacun peut demander.</p>
+    </div>
+</div>
+
+<div class="card legal-page">
+    <p class="legal-note">
+        ⚠️ Page à faire relire et compléter par le club avant diffusion : les mentions entre
+        crochets doivent être remplacées par les informations réelles (responsable, contact,
+        durées de conservation décidées par le club).
+    </p>
+
+    <h2>Qui est responsable</h2>
+    <p>
+        Le responsable du traitement des données est <strong>[nom du club / de l'association]</strong>,
+        [adresse]. Pour toute question ou demande concernant tes données :
+        <strong>[email de contact]</strong>.
+    </p>
+
+    <h2>À quoi sert ce site</h2>
+    <p>
+        Ce site est un outil interne de travail du staff : analyse vidéo des matchs, suivi
+        individuel des joueurs, partage de documents et organisation des séances. Il n'est pas
+        public, n'est pas référencé dans les moteurs de recherche, et n'est accessible qu'aux
+        personnes à qui le club a donné un accès.
+    </p>
+
+    <h2>Quelles données sont enregistrées</h2>
+    <ul>
+        <li><strong>Joueurs</strong> : nom, prénom, adresse email, poste, groupe d'appartenance,
+            et le mot de passe choisi (stocké chiffré, jamais lisible par le staff).</li>
+        <li><strong>Suivi individuel (P.P.I.D)</strong> : évaluations rugby et physiques,
+            objectifs, comptes rendus d'entretien rédigés par le staff.</li>
+        <li><strong>Matchs</strong> : fichiers d'analyse vidéo (XML) et statistiques qui en
+            découlent, composition d'équipe.</li>
+        <li><strong>Documents</strong> : fichiers et liens déposés par le staff, éventuellement
+            partagés avec un joueur en particulier.</li>
+        <li><strong>Organisation</strong> : séances d'entraînement, événements du calendrier, tâches.</li>
+    </ul>
+    <p>
+        Aucune donnée de santé, aucune donnée bancaire et aucune donnée de localisation ne sont
+        collectées.
+    </p>
+
+    <h2>Qui peut voir quoi</h2>
+    <ul>
+        <li>Le <strong>staff</strong> voit l'ensemble du site.</li>
+        <li>Un <strong>joueur</strong> connecté ne voit que son propre espace : ses documents,
+            ses évaluations, ses statistiques et le calendrier.</li>
+        <li>Un joueur ne voit jamais l'espace d'un autre joueur, ni les tâches internes du staff.</li>
+    </ul>
+
+    <h2>Cookies</h2>
+    <p>
+        Ce site ne dépose <strong>qu'un seul cookie</strong>, strictement nécessaire à son
+        fonctionnement : celui qui te garde connecté d'une page à l'autre. Il ne sert pas à la
+        publicité ni à la mesure d'audience, n'est transmis à personne, et disparaît à la
+        déconnexion ou au bout de 30 jours. Aucun outil de suivi ni service tiers de statistiques
+        n'est installé — c'est pour cette raison qu'aucune bannière de consentement n'est affichée.
+    </p>
+
+    <h2>Hébergement</h2>
+    <p>
+        Le site est hébergé sur <strong>Render</strong> et les données sont stockées dans une base
+        <strong>PostgreSQL gérée par Neon</strong>, toutes deux sur des serveurs situés dans l'Union
+        européenne. Les échanges entre ton navigateur et le site sont chiffrés (HTTPS).
+    </p>
+
+    <h2>Durée de conservation</h2>
+    <p>
+        Les données d'un joueur sont conservées pendant la durée de sa présence au club, puis
+        <strong>[durée décidée par le club, par exemple : supprimées à la fin de la saison suivant
+        son départ]</strong>. Les données de match et les statistiques collectives sont conservées
+        pour l'historique sportif du club.
+    </p>
+
+    <h2>Tes droits</h2>
+    <p>
+        Tu peux demander à consulter les informations te concernant, les faire corriger, ou demander
+        leur suppression. Il suffit d'écrire à <strong>[email de contact]</strong> ; la demande est
+        traitée dans un délai d'un mois. Tu peux aussi saisir la CNIL si tu estimes que tes droits
+        ne sont pas respectés.
+    </p>
+
+    <h2>Joueurs mineurs</h2>
+    <p>
+        Pour un joueur de moins de 15 ans, l'accès à l'espace personnel et l'enregistrement du suivi
+        individuel supposent l'accord d'un responsable légal. Le club recueille cet accord
+        <strong>[préciser comment : formulaire d'inscription, autorisation signée...]</strong>.
+    </p>
+</div>
+
+{% endblock %}

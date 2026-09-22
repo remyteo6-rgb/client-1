@@ -1,4 +1,15 @@
 <link rel="manifest" href="{{ url_for('pwa_manifest') }}">
+{# Site privé : on demande aux moteurs de recherche de ne pas indexer ni suivre les liens. #}
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Espace d'analyse vidéo et de suivi des joueurs — outil interne réservé au staff et aux joueurs du club.">
+{# Aperçu quand un lien du site est partagé dans une messagerie. #}
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ club_full_name }}">
+<meta property="og:title" content="{{ club_full_name }} — Analyse vidéo">
+<meta property="og:description" content="Espace privé : analyse des matchs et suivi individuel des joueurs.">
+<meta property="og:image" content="{{ url_for('static', filename='icon-512.png', _external=True) }}">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="any">
 <meta name="theme-color" content="#530d34">
 <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32.png') }}?v={{ asset_version }}">
 <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}?v={{ asset_version }}">

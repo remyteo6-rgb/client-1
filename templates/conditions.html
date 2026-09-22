@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Conditions d'utilisation{% endblock %}
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <h1>📜 Conditions d'utilisation</h1>
+        <p class="subtitle">Les règles d'usage de cet outil interne.</p>
+    </div>
+</div>
+
+<div class="card legal-page">
+    <p class="legal-note">
+        ⚠️ Page à faire relire et compléter par le club avant diffusion : les mentions entre
+        crochets doivent être remplacées par les informations réelles.
+    </p>
+
+    <h2>Éditeur du site</h2>
+    <p>
+        Ce site est édité par <strong>[nom du club / de l'association]</strong>, [forme juridique],
+        [adresse]. Contact : <strong>[email de contact]</strong>.
+        Directeur de la publication : <strong>[nom]</strong>.
+        Hébergement : Render (site) et Neon (base de données), serveurs situés dans l'Union européenne.
+    </p>
+
+    <h2>À qui s'adresse ce site</h2>
+    <p>
+        L'accès est strictement réservé aux membres du staff et aux joueurs du club auxquels un
+        compte a été remis. Il n'y a pas d'inscription libre : les comptes sont créés par le club.
+    </p>
+
+    <h2>Ton compte</h2>
+    <ul>
+        <li>Ton accès est personnel : tu ne partages ni ton identifiant ni ton mot de passe.</li>
+        <li>À ta toute première connexion, le mot de passe que tu saisis devient ton mot de passe.
+            Choisis-en un que tu n'utilises pas ailleurs.</li>
+        <li>Si tu penses que quelqu'un d'autre a accès à ton compte, préviens le staff : il peut le
+            réinitialiser.</li>
+    </ul>
+
+    <h2>Ce qui est attendu</h2>
+    <ul>
+        <li>Les contenus du site (vidéos, statistiques, évaluations, documents) sont internes au club.
+            Ils ne sont ni diffusés, ni republiés, ni transmis à l'extérieur sans l'accord du club.</li>
+        <li>Les comptes rendus d'entretien et les évaluations concernent des personnes : ils se
+            traitent avec la même discrétion qu'une conversation en face à face.</li>
+        <li>Tout usage visant à perturber le service, à contourner les accès ou à récupérer des
+            données d'autres utilisateurs est interdit.</li>
+    </ul>
+
+    <h2>Contenus déposés</h2>
+    <p>
+        Le staff est responsable des fichiers et liens qu'il dépose. Le club se réserve le droit de
+        retirer tout contenu inapproprié ou déposé par erreur.
+    </p>
+
+    <h2>Disponibilité</h2>
+    <p>
+        Le site est fourni tel quel, sans garantie de disponibilité permanente : des interruptions
+        sont possibles pour maintenance ou du fait de l'hébergeur. Les données sont sauvegardables à
+        tout moment par le staff depuis le menu, et le club reste libre de faire évoluer ou d'arrêter
+        l'outil.
+    </p>
+
+    <h2>Données personnelles</h2>
+    <p>
+        Le détail de ce qui est enregistré et de tes droits figure sur la page
+        <a href="{{ url_for('confidentialite') }}">Confidentialité et données personnelles</a>.
+    </p>
+
+    <h2>Droit applicable</h2>
+    <p>
+        Ces conditions sont soumises au droit français. En cas de difficulté, le club et l'utilisateur
+        cherchent d'abord une solution amiable.
+    </p>
+</div>
+
+{% endblock %}
