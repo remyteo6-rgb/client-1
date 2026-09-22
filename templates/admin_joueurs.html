@@ -131,4 +131,76 @@
 </div>
 {% endif %}
 
+
+<section class="staff-access">
+    <div class="page-header no-print">
+        <div>
+            <h2>🔑 Accès « cahier d'entraînement »</h2>
+            <p class="subtitle">Pour un membre du staff qui ne doit voir que le cahier d'entraînement : il y saisit les points d'étape, les entretiens, les tâches et les documents des joueurs, et n'a accès à aucune autre page du site.</p>
+        </div>
+    </div>
+
+    <div class="docs-actions">
+        <details class="docs-action-panel">
+            <summary class="btn">＋ Créer un accès</summary>
+            <form method="POST" action="{{ url_for('admin_staff_ajouter') }}" class="docs-form">
+                <div class="cal-form-row">
+                    <div class="form-group">
+                        <label>Prénom</label>
+                        <input type="text" name="first_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Nom</label>
+                        <input type="text" name="last_name" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" name="email" required>
+                </div>
+                <button type="submit" class="btn">Créer l'accès</button>
+                <p class="docs-hint">💡 Le mot de passe est généré par le site et affiché une seule fois, juste après la création : note-le pour le transmettre. Tu pourras en regénérer un à tout moment.</p>
+            </form>
+        </details>
+    </div>
+
+    {% if staff_accounts %}
+    <div class="card docs-table-card">
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th>Nom</th>
+                    <th>Email</th>
+                    <th>Accès</th>
+                    <th>Créé le</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for membre in staff_accounts %}
+                <tr>
+                    <td class="docs-td-name demo-sensitive">{{ membre['first_name'] }} {{ membre['last_name'] }}</td>
+                    <td class="demo-sensitive">{{ membre['email'] }}</td>
+                    <td><span class="ppid-badge">Cahier d'entraînement</span></td>
+                    <td>{{ (membre['created_at'] or '')[:10] }}</td>
+                    <td class="docs-td-actions">
+                        <form method="POST" action="{{ url_for('admin_staff_reset_password', staff_id=membre['id']) }}"
+                              onsubmit="return confirm('Générer un nouveau mot de passe pour {{ membre['first_name'] }} ?');">
+                            <button type="submit" class="docs-mini-btn" title="Nouveau mot de passe">🔑</button>
+                        </form>
+                        <form method="POST" action="{{ url_for('admin_staff_supprimer', staff_id=membre['id']) }}"
+                              onsubmit="return confirm('Supprimer l\'accès de {{ membre['first_name'] }} {{ membre['last_name'] }} ?');">
+                            <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer l'accès">🗑️</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state"><p>Aucun accès « cahier d'entraînement » pour le moment.</p></div>
+    {% endif %}
+</section>
+
 {% endblock %}

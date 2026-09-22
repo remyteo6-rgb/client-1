@@ -3,6 +3,11 @@
         <details class="subnav-dropdown">
             <summary>☰</summary>
             <div class="landing-dropdown-content">
+                {% if is_staff_cahier %}
+                {# Accès limité : une seule page accessible, inutile d'afficher le reste. #}
+                <a href="{{ url_for('cahier_charges') }}">📋 Cahier d'entraînement</a>
+                <a href="{{ url_for('logout') }}">🔒 Se déconnecter</a>
+                {% else %}
                 <a href="{{ url_for('landing') }}">🏠 Accueil</a>
                 {% if not demo_forced %}
                 <a href="#" id="demoModeToggle" onclick="toggleDemoMode(); return false;">🙈 Mode démo (flouter les noms)</a>
@@ -31,6 +36,7 @@
                 <a href="{{ url_for('logout') }}">🔒 Se déconnecter</a>
                 {% else %}
                 <a href="{{ url_for('login') }}">🔑 Se connecter</a>
+                {% endif %}
                 {% endif %}
             </div>
         </details>
