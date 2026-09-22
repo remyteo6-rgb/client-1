@@ -2254,3 +2254,8 @@ span.review-crest {
 .erreur-page h1 { margin: 10px 0 8px; }
 .erreur-page p { color: var(--text-secondary); margin: 0 auto 22px; max-width: 460px; }
 .erreur-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+
+/* Accès staff limités, en bas de la page Gestion des joueurs. */
+.staff-access { margin-top: 46px; padding-top: 10px; border-top: 1px solid var(--bg-card-border); }
+.staff-access .page-header h2 { font-size: 1.25rem; margin: 0; }
+.staff-access .docs-td-actions { display: flex; gap: 6px; }
