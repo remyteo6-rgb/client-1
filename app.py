@@ -25,6 +25,7 @@ from parser import (
     attach_overview_highlights, compute_momentum, render_momentum_svg,
     compute_zone_gold_log, compute_new_convention_tries,
     compute_new_convention_overview, compute_csc, compute_bilan_attaque,
+    compute_bilan_defense,
 )
 from parser_ubb import parse_ubb_xml, compute_ubb_overview
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -1045,6 +1046,11 @@ def _fmt_fr(value, decimals=1, suffix="", always_decimals=False):
     return f"{text}{suffix}"
 
 
+# Formats du rapport disponibles dans les gabarits : "15,9" et "1" / "3,07".
+app.jinja_env.filters["fr"] = lambda v: _fmt_fr(v, 1)
+app.jinja_env.filters["fr2"] = lambda v: _fmt_fr(v, 2)
+
+
 def _club_slug(name):
     """Nom de club en identifiant de fichier : "Aviron Bayonnais" -> "aviron-bayonnais"."""
     ascii_name = "".join(c for c in unicodedata.normalize("NFKD", name or "")
@@ -1286,6 +1292,24 @@ def match_bilan_attaque(match_id):
         "match_bilan_attaque.html", match=match,
         data=compute_bilan_attaque(match["instances"]),
         zone_gold=gold_fmt,
+    )
+
+
+@app.route("/match/<int:match_id>/bilan-defense")
+def match_bilan_defense(match_id):
+    """Page "Defense" du rapport vidéo."""
+    match = _get_match_or_404(match_id)
+    if _no_instances_guard(match):
+        flash("Ce match a été importé avant la mise à jour détaillée par secteur : "
+              "réimporte le fichier XML pour voir cette page.", "error")
+        return redirect(url_for("match_detail", match_id=match_id))
+    own_points, adverse_points, _, _, _ = _resolve_match_score(match)
+    zone_gold = compute_zone_gold_log(match["instances"], own_points=own_points,
+                                      adverse_points=adverse_points)
+    return render_template(
+        "match_bilan_defense.html", match=match,
+        data=compute_bilan_defense(match["instances"], adverse_points=adverse_points,
+                                   zone_gold=zone_gold),
     )
 
 

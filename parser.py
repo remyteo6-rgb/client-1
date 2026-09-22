@@ -983,6 +983,145 @@ def compute_bilan_attaque(instances, own_points=None):
     }
 
 
+# ---- Bilan défense (page "DEFENSE" du rapport vidéo) ------------------------
+# Lignes du rapport, dans l'ordre exact de la page, et les libellés du tagging qui
+# les alimentent. Ce qui n'est pas tagué reste à zéro : rien n'est reconstitué.
+DEFENSE_ESSAI_ORIGINES = [
+    ("Lancements Melees", ["MELEE", "MELEES"]),
+    ("Lancements Touches", ["TOUCHE", "TOUCHES"]),
+    ("Ballon Porté", ["BALLON PORTE", "MAUL"]),
+    ("Pick & Go", ["PICK"]),
+    ("Dans le jeu", ["JEU", "JEU COURANT"]),
+    ("Contre Attaque", ["CONTRE ATTAQUE", "CE"]),
+    ("Turnovers", ["TURNOVER", "TURNOVERS"]),
+    ("De Penalites", ["PENALITE", "PENALITES"]),
+    ("Penalites Jouees vite", ["PENALITE VITE", "PENALITE JOUEE VITE"]),
+    ("Penalites Jouees à la main", ["PENALITE MAIN", "PENALITE JOUEE A LA MAIN"]),
+]
+DEFENSE_PHASES = ["1er Temps", "2eme Temps", "3eme Temps", "4eme Temps", "5eme Temps",
+                  "6eme Temps", "7eme Temps", "8eme Temps", "9eme Temps", "10eme Temps",
+                  "11eme Temps", "12eme Temps", "+ 12 Temps"]
+DEFENSE_FRANCHI_RESULTATS = ["Franchissement - Essai", "Franchissement - Pénalité Pour",
+                             "Franchissement - Ballon Récup", "Franchissement - Arret"]
+DEFENSE_FRANCHI_ORIGINES = ["Franchi Contre Attaque", "Franchi Turnovers", "Franchi Touches",
+                            "Franchi Mêlées", "Franchi Pénalités à la main",
+                            "Franchi Pénalités Jouée Vite", "Jeu Courant"]
+# Ballons que l'adversaire a perdus (code "ADV PDB"), par nature — le "CLASH" du rapport.
+DEFENSE_CLASH = [
+    ("En-Avants", ["SUR EN-AVANTS", "SUR EN AVANTS", "EN-AVANT", "EN AVANT"]),
+    ("Sur Rucks", ["SUR RUCK", "SUR RUCKS"]),
+    ("Contacts", ["AU CONTACT", "CONTACT", "CONTACTS"]),
+    ("Passes", ["SUR PASSE", "SUR PASSES", "PASSE", "PASSES"]),
+    ("CE", ["SUR NOS CE", "CE", "CONTRE ATTAQUE"]),
+    ("JAP", ["SUR NOTRE JAP", "JAP", "JEU AU PIED"]),
+    ("Touches", ["SUR TOUCHE", "SUR TOUCHES", "TOUCHE", "TOUCHES"]),
+    ("Mauls", ["SUR MAUL", "SUR MAULS", "MAUL", "MAULS"]),
+    ("Mêlées", ["SUR MELEE", "SUR MELEES", "MELEE", "MELEES"]),
+    ("Duels Aériens", ["DUEL AERIEN", "DUELS AERIENS", "AERIEN", "AERIENS"]),
+    ("Fautes", ["SUR FAUTES", "SUR FAUTE", "FAUTE", "FAUTES"]),
+]
+
+
+def _defense_ligne(libelles, compte):
+    """Une ligne de liste du rapport : son libellé et son total (0 si rien de tagué)."""
+    lignes = []
+    for label, cles in libelles:
+        total = 0
+        for cle in cles:
+            total += compte.get(cle, 0)
+        lignes.append({"label": label, "count": total})
+    return lignes
+
+
+def compute_bilan_defense(instances, adverse_points=None, zone_gold=None):
+    """Page "DEFENSE" du rapport vidéo : ce que l'adversaire a produit contre nous.
+
+    Renvoie None si le match n'est pas tagué avec la convention du rapport. Les cases
+    du rapport qui n'ont pas d'équivalent dans le XML (nombre de temps de jeu avant
+    l'essai, détail des franchissements, points par quart-temps) valent None ou zéro
+    et restent vides à l'affichage : elles ne sont pas reconstituées."""
+    essais = franchissements = 0
+    origines = Counter()
+    essais_par_quart = Counter()
+    clash = Counter()
+    snipers_reussis = Counter()
+    snipers_rates = 0
+    found = False
+
+    for inst in instances:
+        code = _normalize_tag(inst.get("code_raw"))
+        tokens = code.split()
+        quart = _new_convention_period(inst)
+
+        if _new_convention_code_match(tokens, ["ESSAI"]) and tokens[0] in ("ADV", "ADVERSE"):
+            found = True
+            essais += 1
+            if quart:
+                essais_par_quart[quart] += 1
+            for lab in inst.get("labels") or []:
+                if _normalize_tag(lab.get("group")) == "ORIGINE POSSESSION":
+                    origines[_normalize_tag(lab.get("text"))] += 1
+        elif _new_convention_code_match(tokens, ["BREAK"]) and tokens[0] in ("ADV", "ADVERSE"):
+            found = True
+            franchissements += 1
+        elif _new_convention_code_match(tokens, ["PDB"]) and tokens[0] in ("ADV", "ADVERSE"):
+            found = True
+            # Un ballon perdu ne compte qu'une fois, même si le tagueur a posé deux
+            # fois le même libellé sur l'instance.
+            natures = {_normalize_tag(lab.get("text"))
+                       for lab in inst.get("labels") or []
+                       if _normalize_tag(lab.get("group")) == "TYPE DE BP"}
+            for nature in natures:
+                clash[nature] += 1
+
+        # Snipers : le code de l'instance est le nom du joueur.
+        textes = {_normalize_tag(lab.get("text"))
+                  for lab in inst.get("labels") or []
+                  if _normalize_tag(lab.get("group")) == "SNIPERS"}
+        if textes:
+            found = True
+            if "SNIPER RATE" in textes:
+                snipers_rates += 1
+            elif "SNIPER" in textes:
+                snipers_reussis[inst.get("code_raw", "").strip()] += 1
+
+    if not found:
+        return None
+
+    reussis = sum(snipers_reussis.values())
+    total_snipers = reussis + snipers_rates
+    danger = (zone_gold or {}).get("adverse") or {}
+
+    return {
+        "essais": essais,
+        "franchissements": franchissements,
+        "snipers": {
+            "reussis": reussis,
+            "rates": snipers_rates,
+            "total": total_snipers,
+            "pct_manques": round(100 * snipers_rates / total_snipers, 1) if total_snipers else None,
+        },
+        "zone_danger": {
+            "entrees": danger.get("total"),
+            "ballons_recup": danger.get("ballons_perdus"),
+            "efficacite": danger.get("efficacite"),
+            "points_par_entree": danger.get("points_par_entree"),
+        },
+        "essais_origines": _defense_ligne(DEFENSE_ESSAI_ORIGINES, origines),
+        # Le nombre de temps de jeu avant l'essai n'est pas tagué.
+        "essais_phases": [{"label": p, "count": 0} for p in DEFENSE_PHASES],
+        # Ni le détail des franchissements (résultat et origine).
+        "franchi_resultats": [{"label": p, "count": 0} for p in DEFENSE_FRANCHI_RESULTATS],
+        "franchi_origines": [{"label": p, "count": 0} for p in DEFENSE_FRANCHI_ORIGINES],
+        "clash": _defense_ligne(DEFENSE_CLASH, clash),
+        "essais_par_quart": {q: essais_par_quart.get(q, 0) for q in POSSESSION_QUARTER_ORDER},
+        # Les points par quart-temps demanderaient de savoir quelles transformations
+        # adverses ont été réussies : ce n'est pas tagué.
+        "points_par_quart": None,
+        "top_defensif": [{"name": nom, "snipers": n} for nom, n in snipers_reussis.most_common(3)],
+    }
+
+
 PHASE_TAGS = ["EXIT", "PRESSION", "ACTION", "RAID"]
 PHASE_ICONS = {"EXIT": "🚪", "PRESSION": "🧱", "ACTION": "⚡", "RAID": "🏃"}
 PHASE_HELP = {
