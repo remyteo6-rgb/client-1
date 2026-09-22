@@ -38,6 +38,15 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
 app.config["MAX_CONTENT_LENGTH"] = 30 * 1024 * 1024  # 30MB max upload
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)  # reste connecté 30 jours
+# Cookie de session : illisible par les scripts de la page, non transmis aux sites tiers,
+# et réservé au HTTPS une fois en ligne (en local, le site tourne en http).
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+LOCAL_DEV = os.environ.get("FLASK_SECRET_KEY") == "devsecret" or os.environ.get("LOCAL_DEV") == "1"
+app.config["SESSION_COOKIE_SECURE"] = not LOCAL_DEV
+# Les fichiers statiques portent déjà un ?v=... qui change à chaque mise en ligne : le
+# navigateur peut donc les garder longtemps en cache sans risque d'afficher une vieille version.
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = timedelta(days=365)
 ASSET_VERSION = str(int(time.time()))  # change à chaque redémarrage : force le navigateur à
                                         # retélécharger le CSS/JS au lieu de garder une vieille
                                         # version en cache après un déploiement.
@@ -84,7 +93,32 @@ STAFF_ACCOUNTS = _load_staff_accounts()
 # Le site entier est privé : seule une personne connectée (admin OU staff) peut voir
 # quoi que ce soit. Seules ces 2 routes restent accessibles sans connexion (sinon
 # impossible d'atteindre la page de connexion elle-même).
-PUBLIC_ENDPOINTS = {"login", "static", "demo_login", "pwa_manifest", "pwa_service_worker"}
+PUBLIC_ENDPOINTS = {"login", "static", "demo_login", "pwa_manifest", "pwa_service_worker",
+                    "robots_txt", "confidentialite", "conditions"}
+
+
+@app.before_request
+def force_https():
+    """En ligne, le site n'est servi qu'en HTTPS : une arrivée en http est redirigée.
+    Render termine le TLS en amont et indique le protocole d'origine dans cet en-tête."""
+    if LOCAL_DEV:
+        return
+    if request.headers.get("X-Forwarded-Proto", "https") != "https":
+        return redirect(request.url.replace("http://", "https://", 1), code=301)
+
+
+@app.after_request
+def securite_en_tetes(response):
+    """Garde-fous standards : pas d'interprétation hasardeuse des types de fichiers, pas
+    d'affichage du site dans une iframe d'un autre site, pas de fuite de l'adresse des pages
+    internes vers l'extérieur, et rappel au navigateur de ne revenir qu'en HTTPS."""
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+    if not LOCAL_DEV:
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return response
 
 
 @app.before_request
@@ -268,6 +302,47 @@ def pwa_service_worker():
     return resp
 
 
+@app.route("/robots.txt")
+def robots_txt():
+    """Le site est privé (données de joueurs) : on demande explicitement aux moteurs de
+    recherche de ne rien indexer. Pas de sitemap, il n'y a aucune page publique à référencer."""
+    return Response("User-agent: *\nDisallow: /\n", mimetype="text/plain")
+
+
+@app.route("/confidentialite")
+def confidentialite():
+    return render_template("confidentialite.html")
+
+
+@app.route("/conditions")
+def conditions():
+    return render_template("conditions.html")
+
+
+@app.errorhandler(404)
+def page_introuvable(error):
+    return render_template("erreur.html", code=404,
+                           titre="Page introuvable",
+                           message="Cette adresse ne correspond à aucune page du site. "
+                                   "Le lien est peut-être ancien, ou le match a été supprimé."), 404
+
+
+@app.errorhandler(500)
+def erreur_serveur(error):
+    return render_template("erreur.html", code=500,
+                           titre="Une erreur est survenue",
+                           message="Le site n'a pas réussi à afficher cette page. "
+                                   "Réessaie dans un instant ; si ça se reproduit, signale-le."), 500
+
+
+@app.errorhandler(413)
+def fichier_trop_gros(error):
+    return render_template("erreur.html", code=413,
+                           titre="Fichier trop volumineux",
+                           message="Ce fichier dépasse la taille maximale acceptée (30 Mo). "
+                                   "Compresse-le ou dépose-le sous forme de lien."), 413
+
+
 @app.route("/demo/<token>")
 def demo_login(token):
     if token != DEMO_TOKEN:
@@ -281,10 +356,37 @@ def demo_login(token):
     return redirect(url_for("landing", demo="1"))
 
 
+# Anti-force brute : au-delà de 8 essais ratés en 10 minutes depuis la même adresse IP,
+# la page de connexion refuse d'examiner le mot de passe pendant le reste du créneau. Le
+# compteur vit en mémoire (remis à zéro au redémarrage) : c'est suffisant pour décourager
+# un robot, sans base de données ni dépendance supplémentaire.
+LOGIN_MAX_ESSAIS = 8
+LOGIN_FENETRE = timedelta(minutes=10)
+_essais_connexion = {}
+
+
+def _connexion_bloquee(ip):
+    essais = [t for t in _essais_connexion.get(ip, []) if datetime.utcnow() - t < LOGIN_FENETRE]
+    _essais_connexion[ip] = essais
+    return len(essais) >= LOGIN_MAX_ESSAIS
+
+
+def _connexion_ratee(ip):
+    _essais_connexion.setdefault(ip, []).append(datetime.utcnow())
+
+
+def _connexion_reussie(ip):
+    _essais_connexion.pop(ip, None)
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     next_url = request.values.get("next") or url_for("landing")
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr or "?").split(",")[0].strip()
     if request.method == "POST":
+        if _connexion_bloquee(ip):
+            flash("Trop de tentatives de connexion. Réessaie dans quelques minutes.", "error")
+            return render_template("login.html", next_url=next_url)
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
         next_target = request.form.get("next") or url_for("landing")
@@ -295,6 +397,7 @@ def login():
             session["is_player"] = False
             session["demo_forced"] = False
             session["user_email"] = email
+            _connexion_reussie(ip)
             flash("Connecté.", "success")
             return redirect(next_target)
         for staff_email, staff_password in STAFF_ACCOUNTS:
@@ -305,6 +408,7 @@ def login():
                 session["is_player"] = False
                 session["demo_forced"] = False
                 session["user_email"] = email
+                _connexion_reussie(ip)
                 flash("Connecté.", "success")
                 return redirect(next_target)
         # Comptes joueurs : pas de mot de passe défini au départ. À la toute première
@@ -330,6 +434,7 @@ def login():
                 session["player_id"] = player["id"]
                 session["demo_forced"] = False
                 session["user_email"] = email
+                _connexion_reussie(ip)
                 flash(f"Bienvenue {player['first_name']} ! Ton mot de passe vient d'être défini — ressers-t'en pour te reconnecter la prochaine fois.", "success")
                 return redirect(url_for("player_home"))
             if check_password_hash(player["password_hash"], password):
@@ -340,10 +445,13 @@ def login():
                 session["player_id"] = player["id"]
                 session["demo_forced"] = False
                 session["user_email"] = email
+                _connexion_reussie(ip)
                 flash("Connecté.", "success")
                 return redirect(url_for("player_home") if next_target == url_for("landing") else next_target)
+            _connexion_ratee(ip)
             flash("Email ou mot de passe incorrect.", "error")
             return render_template("login.html", next_url=next_url)
+        _connexion_ratee(ip)
         flash("Email ou mot de passe incorrect.", "error")
     return render_template("login.html", next_url=next_url)
 
