@@ -1211,7 +1211,16 @@ body.demo-mode .demo-blur {
     background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: var(--radius);
     padding: 16px 18px; margin-bottom: 24px;
 }
-.ppid-criteria-card h3 { font-size: 14px; margin-bottom: 10px; display: flex; align-items: center; gap: 7px; }
+.ppid-criteria-card h3 { font-size: 14px; margin: 0; display: flex; align-items: center; gap: 7px; }
+.ppid-criteria-card > summary { cursor: pointer; list-style: none; }
+.ppid-criteria-card > summary::-webkit-details-marker { display: none; }
+.ppid-criteria-card > summary::before {
+    content: "▸"; display: inline-block; margin-right: 8px;
+    color: var(--text-secondary); transition: transform .15s;
+}
+.ppid-criteria-card[open] > summary::before { transform: rotate(90deg); }
+.ppid-criteria-card > summary > h3 { display: inline-flex; }
+.ppid-criteria-card[open] .ppid-criteria-list { margin-top: 12px; }
 .ppid-criteria-list { list-style: none; display: flex; flex-direction: column; gap: 7px; margin: 0 0 10px; padding: 0; }
 .ppid-criteria-list li {
     font-size: 12.5px; color: var(--text-primary); padding: 8px 12px; border-radius: 6px;
@@ -2137,4 +2146,32 @@ span.review-crest {
 @media (max-width: 1000px) {
     .def-cols, .def-bottom { grid-template-columns: 1fr; }
     .def-topbar { flex-wrap: wrap; }
+}
+
+/* ---- Cahier d'entraînement : mise en page ----------------------------------
+   Le joueur et son suivi d'abord (c'est ce qu'on vient consulter), puis ses
+   documents et ses tâches côte à côte en bas de page. */
+.cc-bottom {
+    display: grid; grid-template-columns: 1fr 1.55fr; gap: var(--gap);
+    align-items: start; margin-top: calc(var(--gap) * 1.5);
+}
+.cc-bottom-col { min-width: 0; }
+.cc-bottom-title {
+    font-size: 1.05rem; margin: 0 0 10px; padding: 0 0 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, .1);
+}
+/* Dans ces deux colonnes, les blocs vides et les barres d'action prennent la
+   place qu'il leur faut, pas un écran entier. */
+.cc-bottom .empty-state { padding: 18px 14px; font-size: .88rem; }
+/* Idem pour le suivi P.P.I.D quand il n'y a encore rien d'enregistré. */
+.ppid-section .empty-state { padding: 18px 14px; font-size: .88rem; }
+.ppid-section .empty-state p { margin: 0; }
+.cc-bottom .empty-state p { margin: 0; }
+.cc-bottom .docs-actions { margin-bottom: 12px; }
+.cc-bottom .cc-board { gap: 10px; }
+.cc-bottom-solo { grid-template-columns: 1fr; }
+.cc-bottom .cc-column-body { min-height: 0; }
+
+@media (max-width: 1100px) {
+    .cc-bottom { grid-template-columns: 1fr; }
 }
