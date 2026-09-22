@@ -297,6 +297,29 @@
 
     {% if rugby_evals or physical_evals or entretiens %}
 
+    {% if entretiens %}
+    {% set ppid_entretien_editable = not demo_forced %}
+    <div class="ppid-grid-section ppid-section-entretiens">
+        <h2 class="ppid-grid-title ppid-title-entretien">{{ ppid_icons.entretien(30) }} <span>Entretiens</span></h2>
+        <div class="ppid-entretien-list">
+            {% for e in entretiens[:3] %}
+            {% set ppid_entretien_open = loop.first %}
+            {% include "_ppid_entretien_row.html" %}
+            {% endfor %}
+        </div>
+        {% if entretiens|length > 3 %}
+        <details class="ppid-entretien-more">
+            <summary>+ {{ entretiens|length - 3 }} autre{{ 's' if entretiens|length - 3 > 1 else '' }} entretien{{ 's' if entretiens|length - 3 > 1 else '' }}</summary>
+            <div class="ppid-entretien-list">
+                {% for e in entretiens[3:] %}
+                {% include "_ppid_entretien_row.html" %}
+                {% endfor %}
+            </div>
+        </details>
+        {% endif %}
+    </div>
+    {% endif %}
+
     {% if rugby_evals %}
     <div class="ppid-grid-section">
         <h2 class="ppid-grid-title ppid-title-rugby">{{ ppid_icons.rugby(30) }} <span>Évaluation rugby</span></h2>
@@ -366,29 +389,6 @@
                         <th class="ppid-grid-rowlabel">{{ ppid_icons.target(13) }} Objectifs</th>
                         {% for ev in rugby_evals_asc %}<td class="ppid-grid-highlight-cell">{{ ev.objectifs or '—' }}</td>{% endfor %}
                     </tr>
-                    {% if entretiens %}
-                    {% set ppid_entretien_editable = not demo_forced %}
-                    <tr class="ppid-grid-highlight ppid-grid-row-entretiens">
-                        <th class="ppid-grid-rowlabel">{{ ppid_icons.entretien(13) }} Entretiens</th>
-                        <td class="ppid-grid-highlight-cell ppid-grid-entretien-cell" colspan="{{ rugby_evals_asc|length }}">
-                            <div class="ppid-entretien-list">
-                                {% for e in entretiens[:3] %}
-                                {% include "_ppid_entretien_row.html" %}
-                                {% endfor %}
-                            </div>
-                            {% if entretiens|length > 3 %}
-                            <details class="ppid-entretien-more">
-                                <summary>+ {{ entretiens|length - 3 }} autre{{ 's' if entretiens|length - 3 > 1 else '' }} entretien{{ 's' if entretiens|length - 3 > 1 else '' }}</summary>
-                                <div class="ppid-entretien-list">
-                                    {% for e in entretiens[3:] %}
-                                    {% include "_ppid_entretien_row.html" %}
-                                    {% endfor %}
-                                </div>
-                            </details>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endif %}
                     <tr class="ppid-grid-highlight ppid-grid-row-entrainements">
                         <th class="ppid-grid-rowlabel">{{ ppid_icons.training(13) }} Entraînements spécifiques</th>
                         {% for ev in rugby_evals_asc %}<td class="ppid-grid-highlight-cell">{{ ev.entrainements or '—' }}</td>{% endfor %}
@@ -521,27 +521,6 @@
     </div>
     {% endif %}
 
-    {% if entretiens and not rugby_evals %}
-    {% set ppid_entretien_editable = not demo_forced %}
-    <div class="ppid-grid-section">
-        <h2 class="ppid-grid-title ppid-title-entretien">{{ ppid_icons.entretien(30) }} <span>Entretiens</span></h2>
-        <div class="ppid-entretien-list">
-            {% for e in entretiens[:3] %}
-            {% include "_ppid_entretien_row.html" %}
-            {% endfor %}
-        </div>
-        {% if entretiens|length > 3 %}
-        <details class="ppid-entretien-more">
-            <summary>+ {{ entretiens|length - 3 }} autre{{ 's' if entretiens|length - 3 > 1 else '' }} entretien{{ 's' if entretiens|length - 3 > 1 else '' }}</summary>
-            <div class="ppid-entretien-list">
-                {% for e in entretiens[3:] %}
-                {% include "_ppid_entretien_row.html" %}
-                {% endfor %}
-            </div>
-        </details>
-        {% endif %}
-    </div>
-    {% endif %}
 
     {% else %}
     <div class="empty-state"><p>Rien d'enregistré pour {{ selected_player['first_name'] }} pour le moment — utilise les boutons ci-dessus pour commencer.</p></div>

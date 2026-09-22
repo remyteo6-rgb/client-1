@@ -2,7 +2,7 @@
    voir cahier_charges.html / player_evaluations.html). Repliée par défaut sur une seule ligne
    (type, date, aperçu de la note tronqué) ; cliquer dessus déplie la note complète et, côté
    staff, les actions modifier/supprimer — pour rester lisible même avec beaucoup d'entretiens. #}
-<details class="ppid-entretien-row">
+<details class="ppid-entretien-row" {{ 'open' if ppid_entretien_open else '' }}>
     <summary class="ppid-entretien-row-summary">
         <span class="ppid-entretien-type ppid-type-entretien">{{ ppid_icons.entretien(11) }} {{ e.entretien_type }}</span>
         <span class="ppid-eval-date">{{ ppid_icons.calendar(11) }} {{ e.date_human }}</span>
