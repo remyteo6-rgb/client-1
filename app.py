@@ -95,7 +95,7 @@ STAFF_ACCOUNTS = _load_staff_accounts()
 # quoi que ce soit. Seules ces 2 routes restent accessibles sans connexion (sinon
 # impossible d'atteindre la page de connexion elle-même).
 PUBLIC_ENDPOINTS = {"login", "static", "demo_login", "pwa_manifest", "pwa_service_worker",
-                    "robots_txt", "confidentialite", "conditions"}
+                    "robots_txt", "confidentialite", "conditions", "ping", "reveil"}
 
 
 @app.before_request
@@ -159,7 +159,7 @@ def gate_demo_access():
 # partagés, et ses propres stats. Liste blanche plutôt que liste noire : plus sûr,
 # ça ne dépend pas de penser à bloquer chaque nouvelle page d'analyse à l'avenir.
 PLAYER_ALLOWED_ENDPOINTS = {
-    "player_home", "logout", "static", "pwa_manifest", "pwa_service_worker",
+    "player_home", "logout", "static", "pwa_manifest", "pwa_service_worker", "ping", "reveil",
     "calendrier", "calendrier_api_events",
     "player_documents", "player_document_download", "player_document_preview",
     "player_stats",
@@ -178,7 +178,7 @@ STAFF_CAHIER_ALLOWED_ENDPOINTS = {
     "ppid_entretien_add", "ppid_entretien_edit", "ppid_entretien_delete",
     "documents_download", "documents_preview",
     "logout", "login", "static", "pwa_manifest", "pwa_service_worker",
-    "robots_txt", "confidentialite", "conditions",
+    "robots_txt", "confidentialite", "conditions", "ping", "reveil",
 }
 
 
@@ -240,10 +240,16 @@ const APP_SHELL = [
   "/static/icon-192.png",
   "/static/icon-512.png",
 ];
+// Écran d'attente gardé en cache : c'est lui qui s'affiche tout de suite quand le
+// serveur, mis en veille par l'hébergeur, met une trentaine de secondes à repartir.
+const PAGE_REVEIL = "/reveil";
+const DELAI_AVANT_REVEIL = 2500; // ms sans réponse avant d'afficher l'écran d'attente
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).catch(() => {})
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(APP_SHELL.concat([PAGE_REVEIL])))
+      .catch(() => {})
   );
   self.skipWaiting();
 });
@@ -279,9 +285,45 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Pages et données (matchs, documents, calendrier...) : toujours le réseau en
-  // priorité, pour ne jamais afficher des stats périmées. Le cache ne sert que
-  // de filet de sécurité si le téléphone perd la connexion.
+  // Le test de réveil ne passe jamais par le cache : il doit refléter l'état réel
+  // du serveur.
+  if (url.origin === self.location.origin && url.pathname === "/ping") return;
+
+  // Ouverture d'une page : réseau d'abord, mais si rien ne répond au bout de
+  // quelques secondes (serveur en train de redémarrer), on affiche l'écran
+  // d'attente en cache. La requête réseau, elle, continue en arrière-plan et
+  // finit de réveiller le serveur.
+  if (req.mode === "navigate") {
+    event.respondWith(
+      new Promise((resolve) => {
+        let repondu = false;
+        const minuteur = setTimeout(() => {
+          if (repondu) return;
+          caches.match(PAGE_REVEIL).then((attente) => {
+            if (repondu) return;
+            if (attente) { repondu = true; resolve(attente); }
+          });
+        }, DELAI_AVANT_REVEIL);
+
+        fetch(req).then(
+          (res) => { repondu = true; clearTimeout(minuteur); resolve(res); },
+          () => {
+            clearTimeout(minuteur);
+            if (repondu) return;
+            caches.match(req).then((cache) => {
+              if (repondu) return;
+              repondu = true;
+              if (cache) { resolve(cache); return; }
+              caches.match(PAGE_REVEIL).then((attente) => resolve(attente || Response.error()));
+            });
+          }
+        );
+      })
+    );
+    return;
+  }
+
+  // Autres requêtes (données, images...) : réseau d'abord, cache en filet de sécurité.
   event.respondWith(fetch(req).catch(() => caches.match(req)));
 });
 """ % {"v": ASSET_VERSION}
@@ -327,6 +369,24 @@ def pwa_service_worker():
     # qui ont déjà installé l'appli.
     resp.headers["Cache-Control"] = "no-cache"
     return resp
+
+
+@app.route("/ping")
+def ping():
+    """Réponse la plus légère possible, sans toucher à la base : sert à savoir si le
+    serveur est réveillé (page /reveil) et à le maintenir éveillé depuis un service
+    de ping externe."""
+    resp = Response("ok", mimetype="text/plain")
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@app.route("/reveil")
+def reveil():
+    """Écran d'attente affiché pendant le redémarrage du serveur. Il est mis en cache
+    par le navigateur (voir le service worker) : c'est ce qui permet de l'afficher
+    instantanément alors même que le serveur, lui, ne répond pas encore."""
+    return render_template("reveil.html")
 
 
 @app.route("/robots.txt")
