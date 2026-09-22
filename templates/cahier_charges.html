@@ -299,7 +299,7 @@
 
     {% if rugby_evals %}
     <div class="ppid-grid-section">
-        <h3>{{ ppid_icons.rugby(16) }} Évaluation rugby</h3>
+        <h2 class="ppid-grid-title ppid-title-rugby">{{ ppid_icons.rugby(30) }} <span>Évaluation rugby</span></h2>
         <div class="ppid-grid-wrap">
             <table class="ppid-grid">
                 <thead>
@@ -418,7 +418,7 @@
 
     {% if physical_evals %}
     <div class="ppid-grid-section">
-        <h3>{{ ppid_icons.physical(16) }} Évaluation physique</h3>
+        <h2 class="ppid-grid-title ppid-title-physique">{{ ppid_icons.physical(30) }} <span>Évaluation physique</span></h2>
         <div class="ppid-grid-wrap">
             <table class="ppid-grid">
                 <thead>
@@ -524,7 +524,7 @@
     {% if entretiens and not rugby_evals %}
     {% set ppid_entretien_editable = not demo_forced %}
     <div class="ppid-grid-section">
-        <h3>{{ ppid_icons.entretien(16) }} Entretiens</h3>
+        <h2 class="ppid-grid-title ppid-title-entretien">{{ ppid_icons.entretien(30) }} <span>Entretiens</span></h2>
         <div class="ppid-entretien-list">
             {% for e in entretiens[:3] %}
             {% include "_ppid_entretien_row.html" %}
