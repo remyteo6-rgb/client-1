@@ -2200,3 +2200,28 @@ span.review-crest {
     .ppid-grid-title { font-size: 1.15rem; padding: 11px 14px; gap: 10px; }
     .ppid-grid-title svg { width: 22px; height: 22px; }
 }
+
+/* ---- Entretiens en tête du suivi ------------------------------------------
+   C'est le débrief : il passe avant les tableaux d'évaluation et se lit sans
+   avoir à cliquer, donc plus grand que le reste. */
+.ppid-section-entretiens .ppid-entretien-list {
+    background: var(--bg-card); border: 1px solid var(--bg-card-border);
+    border-radius: var(--radius); padding: 4px 16px;
+}
+.ppid-section-entretiens .ppid-entretien-row-summary {
+    padding: 13px 2px; gap: 12px; font-size: 1rem;
+}
+.ppid-section-entretiens .ppid-entretien-type { font-size: 13px; padding: 5px 13px; }
+.ppid-section-entretiens .ppid-eval-date { font-size: 13px; }
+.ppid-section-entretiens .ppid-entretien-note-preview { font-size: 14px; }
+.ppid-section-entretiens .ppid-entretien-row .ppid-entretien-notes {
+    font-size: 1.05rem; line-height: 1.55; margin: 0 0 14px 22px;
+    padding: 14px 18px; border-left: 3px solid var(--accent-gold);
+}
+.ppid-section-entretiens .ppid-entretien-row-actions { margin-left: 22px; margin-bottom: 14px; }
+.ppid-section-entretiens .ppid-entretien-more > summary { font-size: 13px; padding: 8px 2px; }
+
+@media (max-width: 700px) {
+    .ppid-section-entretiens .ppid-entretien-row-summary { flex-wrap: wrap; font-size: .92rem; }
+    .ppid-section-entretiens .ppid-entretien-row .ppid-entretien-notes { font-size: .95rem; margin-left: 0; }
+}
