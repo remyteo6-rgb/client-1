@@ -40,10 +40,11 @@
         {% endif %}
 
         {% if match is defined %}
-        {% set page_labels = {'overview': "Vue d'ensemble", 'bilan_attaque': 'Bilan attaque', 'csc': 'CSC', 'possessions': 'Nos possessions', 'zone_gold': 'Zone Gold', 'joueurs': 'Joueurs', 'composition': 'Composition'} %}
+        {% set page_labels = {'overview': "Vue d'ensemble", 'bilan_attaque': 'Bilan attaque', 'bilan_defense': 'Bilan défense', 'csc': 'CSC', 'possessions': 'Nos possessions', 'zone_gold': 'Zone Gold', 'joueurs': 'Joueurs', 'composition': 'Composition'} %}
         <div class="subnav-links">
             <a href="{{ url_for('match_detail', match_id=match['id']) }}" class="{{ 'active' if active=='overview' else '' }}">Vue d'ensemble</a>
             <a href="{{ url_for('match_bilan_attaque', match_id=match['id']) }}" class="{{ 'active' if active=='bilan_attaque' else '' }}">Bilan attaque</a>
+            <a href="{{ url_for('match_bilan_defense', match_id=match['id']) }}" class="{{ 'active' if active=='bilan_defense' else '' }}">Bilan défense</a>
             <a href="{{ url_for('match_csc', match_id=match['id']) }}" class="{{ 'active' if active=='csc' else '' }}">CSC</a>
             <a href="{{ url_for('match_possessions', match_id=match['id']) }}" class="{{ 'active' if active=='possessions' else '' }}">Nos possessions</a>
             <a href="{{ url_for('match_zone_gold', match_id=match['id']) }}" class="{{ 'active' if active=='zone_gold' else '' }}">Zone Gold</a>
@@ -54,6 +55,7 @@
                 <div class="subnav-page-menu">
                     <a href="{{ url_for('match_detail', match_id=match['id']) }}" class="{{ 'active' if active=='overview' else '' }}">Vue d'ensemble</a>
                     <a href="{{ url_for('match_bilan_attaque', match_id=match['id']) }}" class="{{ 'active' if active=='bilan_attaque' else '' }}">Bilan attaque</a>
+                    <a href="{{ url_for('match_bilan_defense', match_id=match['id']) }}" class="{{ 'active' if active=='bilan_defense' else '' }}">Bilan défense</a>
                     <a href="{{ url_for('match_csc', match_id=match['id']) }}" class="{{ 'active' if active=='csc' else '' }}">CSC</a>
                     <a href="{{ url_for('match_possessions', match_id=match['id']) }}" class="{{ 'active' if active=='possessions' else '' }}">Nos possessions</a>
                     <a href="{{ url_for('match_zone_gold', match_id=match['id']) }}" class="{{ 'active' if active=='zone_gold' else '' }}">Zone Gold</a>

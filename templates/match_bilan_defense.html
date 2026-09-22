@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Défense — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
+{% set active = 'bilan_defense' %}
+{% block content %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>🛡️ Défense — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
+        <p class="subtitle">{{ match['competition'] or 'Journée' }}{% if match['match_date'] %} · {{ match['match_date'] }}{% endif %}</p>
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+</div>
+
+{% if not data %}
+<div class="card empty-state">
+    <p>🛡️ Ce match n'a pas été tagué avec la convention du rapport vidéo.</p>
+</div>
+{% else %}
+
+{% macro liste(lignes, couleur) %}
+{% set maxi = lignes | map(attribute='count') | max %}
+<div class="def-list">
+    {% for ligne in lignes %}
+    <div class="def-list-row">
+        <span class="def-list-label">{{ ligne.label }}</span>
+        <span class="def-list-bar-zone">
+            {% if ligne.count %}
+            <span class="def-list-bar {{ couleur }}" style="width:{{ (100 * ligne.count / maxi) | round | int }}%"></span>
+            <span class="def-list-value">{{ ligne.count }}</span>
+            {% endif %}
+        </span>
+    </div>
+    {% endfor %}
+</div>
+{% endmacro %}
+
+{% macro colonnes(valeurs, couleur) %}
+{% set maxi = valeurs.values() | max %}
+<div class="def-chart">
+    {% for label, value in valeurs.items() %}
+    <div class="def-chart-col">
+        <div class="def-chart-bar-zone">
+            {% if value %}
+            <div class="def-chart-bar {{ couleur }}" style="height:{{ (100 * value / maxi) | round | int }}%"><span>{{ value }}</span></div>
+            {% endif %}
+        </div>
+        <div class="def-chart-label">Q{{ loop.index }}</div>
+    </div>
+    {% endfor %}
+</div>
+{% endmacro %}
+
+<div class="report-board">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">DEFENSE</span>
+    </div>
+
+    <div class="def-board">
+
+        <div class="def-topbar">
+            <div class="def-kpi">
+                <strong>{{ data.essais }}</strong>
+                <span>Essais</span>
+            </div>
+            <div class="def-kpi">
+                <strong>{{ data.franchissements }}</strong>
+                <span>Franchissements</span>
+            </div>
+            <div class="def-kpi">
+                <strong>{{ data.snipers.total }}</strong>
+                <span>Snipers</span>
+                {% if data.snipers.pct_manques is not none %}
+                <em>{{ data.snipers.pct_manques | fr }} % manqués</em>
+                {% endif %}
+            </div>
+            <div class="def-danger">
+                <div class="def-danger-title">Zone danger</div>
+                <div class="def-danger-row">
+                    <div class="def-kpi def-kpi-sm def-kpi-red">
+                        <strong>{{ data.zone_danger.entrees if data.zone_danger.entrees is not none else '—' }}</strong>
+                        <span>Entrées</span>
+                    </div>
+                    <div class="def-kpi def-kpi-sm def-kpi-green">
+                        <strong>{{ data.zone_danger.ballons_recup if data.zone_danger.ballons_recup is not none else '—' }}</strong>
+                        <span>Ballons recup</span>
+                    </div>
+                    <div class="def-kpi def-kpi-sm def-kpi-red">
+                        <strong>{% if data.zone_danger.efficacite is not none %}{{ data.zone_danger.efficacite | round | int }}%{% else %}—{% endif %}</strong>
+                        <span>Efficacité</span>
+                    </div>
+                    <div class="def-kpi def-kpi-sm def-kpi-framed">
+                        <strong>{{ data.zone_danger.points_par_entree | fr2 }}</strong>
+                        <span>Points / entrée</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="def-cols">
+            <div class="def-panel">
+                <div class="def-panel-head def-head-gold">Essais · détail</div>
+                <div class="def-panel-body def-duo">
+                    {{ liste(data.essais_origines, 'def-bar-dark') }}
+                    <div class="def-sep"></div>
+                    {{ liste(data.essais_phases, 'def-bar-dark') }}
+                </div>
+            </div>
+
+            <div class="def-panel">
+                <div class="def-panel-head def-head-gold">Franchissements · détail</div>
+                <div class="def-panel-body">
+                    {{ liste(data.franchi_resultats, 'def-bar-grey') }}
+                    <hr class="def-rule">
+                    {{ liste(data.franchi_origines, 'def-bar-grey') }}
+                </div>
+            </div>
+
+            <div class="def-panel">
+                <div class="def-panel-head def-head-green">Clash · détail</div>
+                <div class="def-panel-body">
+                    {{ liste(data.clash, 'def-bar-green') }}
+                </div>
+            </div>
+        </div>
+
+        <div class="def-bottom">
+            <div class="def-panel">
+                <div class="def-panel-head">Essais par période</div>
+                <div class="def-panel-body">
+                    {{ colonnes(data.essais_par_quart, 'def-bar-red') }}
+                </div>
+            </div>
+
+            <div class="def-panel">
+                <div class="def-panel-head">Points par période</div>
+                <div class="def-panel-body">
+                    {% if data.points_par_quart %}
+                    {{ colonnes(data.points_par_quart, 'def-bar-dark') }}
+                    {% else %}
+                    <div class="def-chart def-chart-empty"></div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="def-panel">
+                <div class="def-panel-head">Top 3 défensif</div>
+                {# Le meilleur au centre et surélevé, comme sur le rapport. #}
+                {% set ordre = [1, 0, 2] if data.top_defensif | length > 2 else range(data.top_defensif | length) %}
+                <div class="def-panel-body def-top3">
+                    {% for rang in ordre %}
+                    {% set joueur = data.top_defensif[rang] %}
+                    <div class="def-top3-card {{ 'def-top3-first' if rang == 0 else '' }}">
+                        <div class="def-top3-name">{{ joueur.name }}</div>
+                        <div class="def-top3-value">{{ joueur.snipers }} snipers</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{% endif %}
+
+<script>
+function preparePrint() { setTimeout(() => window.print(), 100); }
+</script>
+{% endblock %}
