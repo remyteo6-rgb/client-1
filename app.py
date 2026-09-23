@@ -2495,7 +2495,7 @@ PPID_RUGBY_CATEGORY_KEYS = [
     "melee_fermee", "technique_touche", "plaquer_contest", "soutenir_rucker", "duel_off",
     "habilite_technique", "se_deplacer", "comprehension_systeme", "durete_etat_esprit",
 ]
-PPID_RUGBY_NOTES = ["MOY", "BIEN", "EXL"]
+PPID_RUGBY_NOTES = ["PAS BON", "MOY", "BIEN", "EXL"]
 
 PPID_PHYSICAL_CATEGORIES = [
     ("capacite_entrainer", "Capacité à s'entraîner / Rustisité"),
@@ -2505,10 +2505,13 @@ PPID_PHYSICAL_CATEGORIES = [
     ("vitesse", "Vitesse"),
     ("conditionning", "Conditionning / Énergétique"),
 ]
-PPID_PHYSICAL_NOTES = ["Moyen", "Bien", "Excellent"]
+PPID_PHYSICAL_NOTES = ["Pas bon", "Moyen", "Bien", "Excellent"]
 # Rang numérique des notes des 2 échelles (rugby ET physique), pour calculer les flèches de
 # progression d'un critère entre 2 évaluations successives — voir _ppid_compute_trends().
-PPID_NOTE_RANK = {"MOY": 1, "BIEN": 2, "EXL": 3, "Moyen": 1, "Bien": 2, "Excellent": 3}
+PPID_NOTE_RANK = {
+    "PAS BON": 1, "MOY": 2, "BIEN": 3, "EXL": 4,
+    "Pas bon": 1, "Moyen": 2, "Bien": 3, "Excellent": 4,
+}
 
 PPID_ENTRETIEN_TYPES = ["Briefing", "Retour de match", "Préparation de match", "Entretien individuel", "Autre"]
 
