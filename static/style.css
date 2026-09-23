@@ -1,34 +1,56 @@
 :root {
-    /* Union Bordeaux Bègles : bordeaux/bleu marine/or, couleurs extraites du blason
-       officiel (logo_UBB transparent.png). */
+    /* Union Bordeaux Bègles : bordeaux/bleu marine/or, couleurs extraites directement du
+       blason officiel (static/logo.png — voir la bague bordeaux, le damier bleu marine et
+       le lion or). --accent est la couleur d'action générique du site (boutons, liens,
+       onglets actifs...) : un bordeaux éclairci pour rester lisible sur fond sombre. Elle est
+       volontairement séparée de --own-color, qui reste la couleur "notre équipe" dans les
+       graphiques et tableaux de match (ne pas fusionner les deux, sous peine de fausser la
+       lecture des rapports). */
     --bg-primary: transparent;
-    --bg-card: rgba(255,255,255,0.11);
-    --bg-card-border: rgba(255,255,255,0.28);
+    --bg-card: rgba(255,255,255,0.09);
+    --bg-card-border: rgba(249,162,64,0.16);
     --bg-header: #530d34;
     --text-primary: #ffffff;
     --text-secondary: rgba(255,255,255,0.8);
     --text-on-dark: #ffffff;
     --accent-gold: #f9a240;
+    --accent: #a5305f;
+    --accent-dark: #7b1b46;
+    --accent-navy: #1c4586;
     --own-color: #4f7fd6;
     --adverse-color: #ffffff;
     --positive: #6fcf7a;
     --negative: #ff5c5c;
     --radius: 8px;
     --gap: 16px;
+    --font-display: 'Oswald', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 * { margin:0; padding:0; box-sizing:border-box; }
 html, body { min-height: 100%; }
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: radial-gradient(ellipse at top, #1c2b38 0%, #10181f 55%, #090d11 100%);
+    background: radial-gradient(ellipse at top, #2c1120 0%, #170a12 50%, #0a0509 100%);
     background-attachment: fixed;
     color: var(--text-primary);
     body {
     line-height: 1.5;
     position: relative;
-    padding-top: 56px;
+    padding-top: 60px;
 }
 a { color: inherit; text-decoration: none; }
+
+/* Damier bleu marine / blanc, en clin d'œil discret au blason — utilisé en bordure fine
+   sous la barre de navigation et au-dessus des cartes "hero" pour signer visuellement le
+   site sans surcharger les pages denses en données. */
+.club-checker {
+    height: 4px;
+    background-image:
+        linear-gradient(45deg, var(--accent-navy) 25%, transparent 25%, transparent 75%, var(--accent-navy) 75%),
+        linear-gradient(45deg, var(--accent-navy) 25%, transparent 25%, transparent 75%, var(--accent-navy) 75%);
+    background-size: 12px 12px;
+    background-position: 0 0, 6px 6px;
+    background-color: rgba(255,255,255,0.9);
+}
 
 .body-watermark {
     position: fixed;
@@ -46,7 +68,7 @@ a { color: inherit; text-decoration: none; }
     max-width: 1600px;
     margin: 24px auto;
     padding: 28px 32px;
-    background: rgba(4,7,10,0.5);
+    background: rgba(18,6,13,0.55);
     border-radius: 12px;
     box-shadow: 0 8px 40px rgba(0,0,0,0.35);
     position: relative;
@@ -58,8 +80,14 @@ a { color: inherit; text-decoration: none; }
 .flash-success { background: rgba(46,125,50,0.18); color: var(--positive); }
 .flash-error { background: rgba(200,16,46,0.18); color: var(--negative); }
 
-h1 { font-size: 22px; margin-bottom: 6px; color: var(--text-primary); }
-h2 { font-size: 17px; margin-bottom: 12px; color: var(--text-primary); }
+h1 {
+    font-family: var(--font-display); font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.6px; font-size: 24px; margin-bottom: 6px; color: var(--text-primary);
+}
+h2 {
+    font-family: var(--font-display); font-weight: 500; letter-spacing: 0.3px;
+    font-size: 18px; margin-bottom: 12px; color: var(--text-primary);
+}
 .subtitle { color: var(--text-secondary); font-size: 13px; margin-bottom: 20px; }
 
 .card {
@@ -91,7 +119,7 @@ h2 { font-size: 17px; margin-bottom: 12px; color: var(--text-primary); }
 .badge-comp { background: rgba(255,255,255,0.08); color: var(--text-secondary); }
 
 .empty-state { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
-.empty-state a { color: var(--own-color); font-weight: 600; }
+.empty-state a { color: var(--accent-gold); font-weight: 600; }
 
 form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 520px; }
 .form-group { display: flex; flex-direction: column; gap: 6px; }
@@ -107,17 +135,19 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
 }
 .form-group textarea { resize: vertical; min-height: 70px; }
 .btn {
-    background: var(--own-color);
-    color: #0d1114;
+    background: var(--accent);
+    color: #ffffff;
     border: none;
     padding: 12px 20px;
     border-radius: 6px;
-    font-size: 14px;
+    font-size: 13.5px;
     font-weight: 700;
+    letter-spacing: 0.3px;
     cursor: pointer;
     width: fit-content;
+    transition: background-color .15s ease;
 }
-.btn:hover { opacity: 0.9; }
+.btn:hover { background: var(--accent-dark); opacity: 1; }
 .btn-danger { background: transparent; color: var(--negative); border: 1px solid var(--negative); }
 .btn-secondary { background: transparent; color: var(--text-secondary); border: 1px solid rgba(255,255,255,0.3); }
 
@@ -146,7 +176,7 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
 .section-block {
     background: var(--bg-card);
     border: 1px solid var(--bg-card-border);
-    border-left: 4px solid var(--own-color);
+    border-left: 4px solid var(--accent);
     border-radius: var(--radius);
     margin-bottom: var(--gap);
     padding: 0;
@@ -935,7 +965,7 @@ body.demo-mode .demo-blur {
 /* ---------- Espace Documents (plateforme du staff) ---------- */
 .docs-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; }
 .docs-breadcrumb { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
-.docs-breadcrumb a { color: var(--own-color); font-weight: 600; }
+.docs-breadcrumb a { color: var(--accent-gold); font-weight: 600; }
 .docs-breadcrumb-sep { margin: 0 6px; opacity: 0.6; }
 .docs-breadcrumb-current { color: var(--text-primary); font-weight: 600; }
 
@@ -962,7 +992,7 @@ body.demo-mode .demo-blur {
 .docs-table tr:last-child td { border-bottom: none; }
 .docs-td-icon { font-size: 18px; width: 32px; }
 .docs-td-name a { color: var(--text-primary); font-weight: 600; }
-.docs-td-name a:hover { color: var(--own-color); }
+.docs-td-name a:hover { color: var(--accent-gold); }
 .docs-td-sub { font-size: 11px; color: var(--text-secondary); max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .docs-td-by { font-size: 12px; color: var(--text-secondary); }
 .docs-td-actions { display: flex; gap: 6px; align-items: center; justify-content: flex-end; }
@@ -1050,7 +1080,7 @@ body.demo-mode .demo-blur {
 .cc-suggestion-avatar {
     flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center;
     justify-content: center; font-size: 10.5px; font-weight: 800; color: #fff;
-    background: linear-gradient(135deg, var(--own-color), #3a5fb0);
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
 }
 .cc-suggestion-name { flex: 1; font-size: 13px; font-weight: 600; min-width: 0; }
 .cc-suggestion-group-tag {
@@ -1064,13 +1094,14 @@ body.demo-mode .demo-blur {
     color: var(--text-secondary); white-space: nowrap;
 }
 .cc-tab:hover { background: rgba(255,255,255,0.14); color: var(--text-primary); }
-.cc-tab.active { background: var(--own-color); border-color: var(--own-color); color: #fff; }
+.cc-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 /* ---------- P.P.I.D (profil par poste / évaluation rugby / évaluation physique) ---------- */
 /* Icônes SVG sobres (voir templates/_ppid_icons.html) qui remplacent les emojis dans tout le
    P.P.I.D : alignées sur le texte environnant et légèrement remontées pour un rendu "outil
    pro" plutôt que décoratif. */
 .ppid-icon { display: inline-block; vertical-align: -2px; flex-shrink: 0; }
+.vs-text { font-weight: 800; font-size: 0.85em; letter-spacing: 0.4px; opacity: 0.85; }
 .ppid-page-subtitle { font-size: 15px; margin: 24px 0 12px; }
 .ppid-section { margin-bottom: 26px; }
 .ppid-section-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
@@ -1084,7 +1115,7 @@ body.demo-mode .demo-blur {
 .ppid-row-label { font-weight: 700; color: var(--text-secondary); white-space: nowrap; background: rgba(255,255,255,0.03); }
 .ppid-profil-table td, .ppid-profil-table th.ppid-col-active, .ppid-profil-table td.ppid-col-active { }
 .ppid-col-active { background: rgba(79,127,214,0.22) !important; color: var(--text-primary); }
-.ppid-profil-table thead th.ppid-col-active { background: var(--own-color) !important; color: #fff; }
+.ppid-profil-table thead th.ppid-col-active { background: var(--accent) !important; color: #fff; }
 
 .ppid-eval-form { max-width: 640px; }
 .ppid-cat-grid { display: flex; flex-direction: column; gap: 10px; }
@@ -1137,8 +1168,36 @@ body.demo-mode .demo-blur {
 .ppid-pill-exl { background: rgba(111,207,122,0.22); color: var(--positive); }
 .ppid-pill-bien { background: rgba(79,127,214,0.22); color: #9db8f0; }
 .ppid-pill-moy { background: rgba(249,162,64,0.22); color: var(--accent-gold); }
+.ppid-pill-pasbon { background: rgba(255,92,92,0.22); color: var(--negative); }
 .ppid-pill-empty { opacity: 0.5; }
 .ppid-pill-comment { font-size: 11.5px; color: var(--text-primary); margin-top: 3px; font-style: italic; padding-left: 2px; }
+
+/* Notation rapide par clic (remplace le menu déroulant "— Note —") : un bouton par
+   niveau, la couleur active reprend celle des pastilles .ppid-pill-* affichées ensuite
+   en lecture (même code couleur partout). Le commentaire reste replié derrière un petit
+   lien tant qu'on n'en a pas besoin — la plupart des saisies n'en ont pas. */
+.ppid-rate { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ppid-rate-btn {
+    border: 1px solid rgba(255,255,255,0.22); background: rgba(255,255,255,0.04);
+    color: var(--text-secondary); font-size: 12px; font-weight: 700; letter-spacing: 0.2px;
+    padding: 7px 13px; border-radius: 999px; cursor: pointer; transition: all .12s ease;
+}
+.ppid-rate-btn:hover { background: rgba(255,255,255,0.12); color: var(--text-primary); }
+.ppid-rate-btn.is-active { color: #fff; border-color: transparent; }
+.ppid-rate-btn.is-active[data-value="EXL"],
+.ppid-rate-btn.is-active[data-value="Excellent"] { background: var(--positive); color: #0d2b10; }
+.ppid-rate-btn.is-active[data-value="BIEN"],
+.ppid-rate-btn.is-active[data-value="Bien"] { background: var(--own-color); }
+.ppid-rate-btn.is-active[data-value="MOY"],
+.ppid-rate-btn.is-active[data-value="Moyen"] { background: var(--accent-gold); color: #3a2405; }
+.ppid-rate-btn.is-active[data-value="PAS BON"],
+.ppid-rate-btn.is-active[data-value="Pas bon"] { background: var(--negative); }
+.ppid-comment-toggle {
+    border: none; background: none; color: var(--text-secondary); font-size: 11.5px;
+    text-decoration: underline dotted; cursor: pointer; padding: 4px 2px;
+}
+.ppid-comment-toggle:hover { color: var(--text-primary); }
+.ppid-rate .ppid-comment-input { flex: 1 1 180px; min-width: 140px; }
 
 /* Les critères notés (bilan) restent à gauche et les objectifs / axes de travail sont
    affichés à droite à partir d'une largeur d'écran suffisante, pour que la carte soit
@@ -1177,7 +1236,7 @@ body.demo-mode .demo-blur {
 
 .ppid-callout {
     margin-top: 10px; padding: 8px 12px; border-radius: 6px; background: rgba(255,255,255,0.04);
-    border-left: 3px solid var(--own-color); font-size: 12.5px; color: var(--text-secondary);
+    border-left: 3px solid var(--accent); font-size: 12.5px; color: var(--text-secondary);
 }
 .ppid-callout strong { color: var(--text-primary); }
 
@@ -1195,7 +1254,7 @@ body.demo-mode .demo-blur {
 .ppid-avatar {
     flex-shrink: 0; width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center;
     justify-content: center; font-size: 18px; font-weight: 800; color: #fff;
-    background: linear-gradient(135deg, var(--own-color), #3a5fb0);
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
 }
 .ppid-player-header-info { min-width: 0; }
 .ppid-player-name { font-size: 18px; font-weight: 700; color: var(--text-primary); }
@@ -1272,7 +1331,7 @@ body.demo-mode .demo-blur {
     color: var(--text-secondary); z-index: 4;
 }
 .ppid-grid-period {
-    display: inline-block; background: linear-gradient(135deg, var(--own-color), #3a5fb0); color: #fff;
+    display: inline-block; background: linear-gradient(135deg, var(--accent), var(--accent-dark)); color: #fff;
     font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px;
     padding: 5px 12px; border-radius: 6px; margin-bottom: 6px; max-width: 100%;
 }
@@ -1335,7 +1394,7 @@ body.demo-mode .demo-blur {
 .ppid-entretien-more { margin-top: 6px; }
 .ppid-entretien-more > summary {
     list-style: none; cursor: pointer; font-size: 12px; font-weight: 600;
-    color: var(--own-color); padding: 4px 2px;
+    color: var(--accent-gold); padding: 4px 2px;
 }
 .ppid-entretien-more > summary::-webkit-details-marker { display: none; }
 .ppid-entretien-more > summary:hover { text-decoration: underline; }
@@ -1359,7 +1418,7 @@ body.demo-mode .demo-blur {
     color: var(--text-secondary); cursor: pointer; white-space: nowrap;
 }
 .ppid-filter-chip:hover { background: rgba(255,255,255,0.14); color: var(--text-primary); }
-.ppid-filter-chip.active { background: var(--own-color); border-color: var(--own-color); color: #fff; }
+.ppid-filter-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 .ppid-filter-count { opacity: 0.75; margin-left: 2px; }
 
 /* Axe temporel de la timeline fusionnée, gradué par mois : une ligne verticale sobre relie
