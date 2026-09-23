@@ -1,13 +1,14 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}Touches — Saison{% endblock %}
 {% block content %}
 
 <div class="page-header no-print">
     <div>
-        <h1>🤾 Touches — Saison</h1>
+        <h1>{{ icons.throw() }} Touches — Saison</h1>
         <p class="subtitle">Fiabilité en touche, sur notre lancer et sur celui de l'adversaire, cumulé sur {{ selected_count }} match{{ 's' if selected_count != 1 else '' }} sélectionné{{ 's' if selected_count != 1 else '' }}.</p>
     </div>
-    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
 
 {% if not data %}

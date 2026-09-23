@@ -1,13 +1,14 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}Attaque — Saison{% endblock %}
 {% block content %}
 
 <div class="page-header no-print">
     <div>
-        <h1>⚔️ Attaque — Saison</h1>
+        <h1>{{ icons.swords() }} Attaque — Saison</h1>
         <p class="subtitle">Ce que {{ club_name }} a fait quand elle avait le ballon, cumulé sur {{ selected_count }} match{{ 's' if selected_count != 1 else '' }} sélectionné{{ 's' if selected_count != 1 else '' }}.</p>
     </div>
-    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
 
 {% if not data %}
@@ -19,7 +20,7 @@
 
 <div class="chart-row">
     <div class="card">
-        <h2>🏆 Origine des essais</h2>
+        <h2>{{ icons.trophy() }} Origine des essais</h2>
         {% if data.try_origin.origin %}
         <table class="stat-table">
             <thead><tr><th>Origine</th><th>Nb</th></tr></thead>
@@ -34,7 +35,7 @@
         {% endif %}
     </div>
     <div class="card chart-container">
-        <h2>⏱️ Essais par tranche de jeu</h2>
+        <h2>{{ icons.stopwatch() }} Essais par tranche de jeu</h2>
         {% if data.try_timing %}
         <canvas id="tryTimingChart"></canvas>
         {% else %}
@@ -45,7 +46,7 @@
 
 <div class="chart-row">
     <div class="card">
-        <h2>💥 Origine des franchissements</h2>
+        <h2>{{ icons.impact() }} Origine des franchissements</h2>
         {% if data.break_origin %}
         <table class="stat-table">
             <thead><tr><th>Origine</th><th>Nb</th></tr></thead>
@@ -60,7 +61,7 @@
         {% endif %}
     </div>
     <div class="card chart-container">
-        <h2>⏱️ Franchissements par tranche de jeu</h2>
+        <h2>{{ icons.stopwatch() }} Franchissements par tranche de jeu</h2>
         {% if data.break_timing %}
         <canvas id="breakTimingChart"></canvas>
         {% else %}
@@ -71,7 +72,7 @@
 
 <div class="chart-row">
     <div class="card chart-container">
-        <h2>🎽 Back 3 — ballons touchés</h2>
+        <h2>{{ icons.jersey() }} Back 3 — ballons touchés</h2>
         <p class="subtitle">{{ data.back3.total if data.back3 else 0 }} ballon{{ 's' if data.back3 and data.back3.total != 1 else '' }} touché{{ 's' if data.back3 and data.back3.total != 1 else '' }} par le triangle arrière (ailiers n°11/14, arrière n°15), cumulé.</p>
         {% if data.back3 and data.back3.by_number %}
         <canvas id="back3Chart"></canvas>
@@ -80,7 +81,7 @@
         {% endif %}
     </div>
     <div class="card chart-container">
-        <h2>📈 Back 3 — évolution par match</h2>
+        <h2>{{ icons.training() }} Back 3 — évolution par match</h2>
         <p class="subtitle">Ballons touchés par le triangle arrière, match par match.</p>
         {% if back3_trend %}
         <canvas id="back3TrendChart"></canvas>
@@ -145,7 +146,7 @@
 
 <div class="chart-row">
     <div class="card">
-        <h2>🎯 Lancements de jeu (relance tout terrain)</h2>
+        <h2>{{ icons.target() }} Lancements de jeu (relance tout terrain)</h2>
         <p class="subtitle">Répartition des portées de balle par plan de jeu codé, cumulé.</p>
         {% if data.relance.total %}
         <table class="stat-table">
@@ -161,7 +162,7 @@
         {% endif %}
     </div>
     <div class="card">
-        <h2>⏱️ Vitesse de ruck</h2>
+        <h2>{{ icons.stopwatch() }} Vitesse de ruck</h2>
         <p class="subtitle">Temps moyen : {{ data.ruck_speed.avg if data.ruck_speed.avg is not none else '—' }}s sur {{ data.ruck_speed.total }} rucks, cumulé.</p>
         <table class="stat-table">
             <thead><tr><th>Vitesse</th><th>Nb</th><th>%</th></tr></thead>
@@ -176,7 +177,7 @@
 
 {% if data.relance.by_phase.get('RAID') %}
 <div class="card">
-    <h2>🏃 Lancements de jeu en zone RAID</h2>
+    <h2>{{ icons.running() }} Lancements de jeu en zone RAID</h2>
     <table class="stat-table">
         <thead><tr><th>Plan de jeu</th><th>Nb</th></tr></thead>
         <tbody>
@@ -189,7 +190,7 @@
 {% endif %}
 
 <div class="card">
-    <h2>⚠️ Discipline offensive</h2>
+    <h2>{{ icons.warning() }} Discipline offensive</h2>
     <p class="subtitle">Type de fautes concédées quand {{ club_name }} avait le ballon, cumulé.</p>
     {% if data.discipline %}
     <div class="breakdown-chips">
@@ -202,7 +203,7 @@
 
 {% if data.possession_sequences and data.possession_sequences.total %}
 <div class="card">
-    <h2>⏱️ Séquences de possession par durée</h2>
+    <h2>{{ icons.stopwatch() }} Séquences de possession par durée</h2>
     <p class="subtitle">Répartition des {{ data.possession_sequences.total }} séquence{{ 's' if data.possession_sequences.total != 1 else '' }} de possession de {{ club_name }} selon leur durée, cumulé.</p>
     <table class="stat-table">
         <thead><tr><th>Durée</th><th>Nb de séquences</th><th>%</th></tr></thead>

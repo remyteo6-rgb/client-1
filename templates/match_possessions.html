@@ -1,14 +1,15 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}Nos possessions — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
 {% set active = 'possessions' %}
 {% block content %}
 
 <div class="page-header no-print">
     <div>
-        <h1>🧾 Nos possessions — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
+        <h1>{{ icons.receipt() }} Nos possessions — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
         <p class="subtitle">Nombre de possessions de chaque équipe et leur répartition dans le match.</p>
     </div>
-    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
 
 {% if summary %}
@@ -24,11 +25,11 @@
                 <td class="stat-adverse">{{ summary.adverse.avg_duration }}{% if summary.adverse.avg_duration is not none %} s{% else %}—{% endif %}</td></tr>
         </tbody>
     </table>
-    <p class="subtitle" style="margin-top:10px;">⚠️ Avec ce tagging, l'origine et le résultat de chaque possession ne sont plus disponibles directement (ils sont tagués via des codes séparés pendant la possession — Rumble, Touches, Mêlées, Essai...). On affiche ici uniquement le nombre de possessions et leur répartition dans le match.</p>
+    <p class="subtitle" style="margin-top:10px;">{{ icons.warning() }} Avec ce tagging, l'origine et le résultat de chaque possession ne sont plus disponibles directement (ils sont tagués via des codes séparés pendant la possession — Rumble, Touches, Mêlées, Essai...). On affiche ici uniquement le nombre de possessions et leur répartition dans le match.</p>
 </div>
 
 <div class="card">
-    <h2>⏱️ Répartition par tranche de jeu</h2>
+    <h2>{{ icons.stopwatch() }} Répartition par tranche de jeu</h2>
     <table class="stat-table">
         <thead>
             <tr><th>Tranche</th><th class="stat-own">{{ match['own_team'] }}</th><th class="stat-adverse">{{ match['opponent'] }}</th></tr>
@@ -55,7 +56,7 @@
         </tbody>
     </table>
     {% if data.coverage.origin < data.total %}
-    <p class="subtitle" style="margin-top:10px;">⚠️ Certaines possessions n'ont pas d'origine taguée dans le XML — elles apparaissent dans la section « Origine non taguée » ci-dessous.</p>
+    <p class="subtitle" style="margin-top:10px;">{{ icons.warning() }} Certaines possessions n'ont pas d'origine taguée dans le XML — elles apparaissent dans la section « Origine non taguée » ci-dessous.</p>
     {% endif %}
 </div>
 
@@ -100,7 +101,7 @@
 
 {% else %}
 <div class="card empty-state">
-    <p>🧾 Ce match n'a pas été tagué avec un système de suivi des possessions reconnu.</p>
+    <p>{{ icons.receipt() }} Ce match n'a pas été tagué avec un système de suivi des possessions reconnu.</p>
     <p class="subtitle">Cette page s'active automatiquement dès qu'un XML contenant les codes « UBB POSSESSION » / « ADV POSSESSION » est importé.</p>
 </div>
 {% endif %}

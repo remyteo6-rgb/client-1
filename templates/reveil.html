@@ -1,3 +1,4 @@
+{% import "_ppid_icons.html" as icons %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -17,6 +18,7 @@
     }
     .reveil { width: 100%; max-width: 520px; text-align: center; }
     h1 { font-size: 1.35rem; margin: 0 0 6px; }
+    .ppid-icon { display: inline-block; vertical-align: -2px; flex-shrink: 0; }
     .sous-titre { margin: 0 0 30px; font-size: .92rem; color: rgba(255,255,255,.65); line-height: 1.5; }
 
     .terrain {
@@ -66,7 +68,7 @@
 <body>
 
 <div class="reveil">
-    <h1>🏉 Le serveur se réveille</h1>
+    <h1>{{ icons.rugby() }} Le serveur se réveille</h1>
     <p class="sous-titre">
         Le site s'était mis en veille faute d'utilisation.<br>
         Il redémarre : la page s'ouvrira toute seule.

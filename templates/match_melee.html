@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}Mêlée — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
 {% set active = 'melee' %}
 {% block content %}
@@ -6,10 +7,10 @@
 
 <div class="page-header no-print">
     <div>
-        <h1>🔒 Mêlée — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
+        <h1>{{ icons.lock() }} Mêlée — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
         <p class="subtitle">Progression et fiabilité en mêlée fermée, pour les deux équipes.</p>
     </div>
-    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
 
 <div class="chart-row">

@@ -1,19 +1,20 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}Zone Gold — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
 {% set active = 'zone_gold' %}
 {% block content %}
 
 <div class="page-header no-print">
     <div>
-        <h1>🟨 Zone Gold — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
+        <h1>{{ icons.square(13, '', '#f5c518') }} Zone Gold — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
         <p class="subtitle">Entrées dans les 22m, nous vs {{ match['opponent'] }}.</p>
     </div>
-    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
 
 {% if not data %}
 <div class="card empty-state">
-    <p>🟨 Ce match n'a pas été tagué avec le nouveau système de suivi Zone Gold.</p>
+    <p>{{ icons.square(13, '', '#f5c518') }} Ce match n'a pas été tagué avec le nouveau système de suivi Zone Gold.</p>
     <p class="subtitle">Cette page s'active automatiquement dès qu'un XML contenant des codes « GOLD » avec résultat est importé.</p>
 </div>
 {% else %}
@@ -35,7 +36,7 @@
         </tbody>
     </table>
     {% if not score_source %}
-    <p class="subtitle" style="margin-top:10px;">⚠️ Score du match inconnu pour l'instant, donc « Points / entrée » ne peut pas être calculé.
+    <p class="subtitle" style="margin-top:10px;">{{ icons.warning() }} Score du match inconnu pour l'instant, donc « Points / entrée » ne peut pas être calculé.
         {% if session.get('is_admin') %}Renseigne-le ci-dessous.{% endif %}</p>
     {% if session.get('is_admin') %}
     <form method="POST" action="{{ url_for('match_score_manual', match_id=match['id']) }}" style="display:flex; gap:10px; align-items:flex-end; margin-top:10px;">

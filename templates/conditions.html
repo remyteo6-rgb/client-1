@@ -1,17 +1,18 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}Conditions d'utilisation{% endblock %}
 {% block content %}
 
 <div class="page-header">
     <div>
-        <h1>📜 Conditions d'utilisation</h1>
+        <h1>{{ icons.note() }} Conditions d'utilisation</h1>
         <p class="subtitle">Les règles d'usage de cet outil interne.</p>
     </div>
 </div>
 
 <div class="card legal-page">
     <p class="legal-note">
-        ⚠️ Page à faire relire et compléter par le club avant diffusion : les mentions entre
+        {{ icons.warning() }} Page à faire relire et compléter par le club avant diffusion : les mentions entre
         crochets doivent être remplacées par les informations réelles.
     </p>
 

@@ -1,14 +1,15 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}Comparateur — Saison{% endblock %}
 {% block content %}
 
 <div class="page-header no-print">
     <div>
-        <h1>⚖️ Comparateur de joueurs — Saison</h1>
+        <h1>{{ icons.balance() }} Comparateur de joueurs — Saison</h1>
         <p class="subtitle">Statistiques cumulées sur {{ selected_count }} match{{ 's' if selected_count != 1 else '' }} sélectionné{{ 's' if selected_count != 1 else '' }}.</p>
     </div>
     {% if data %}
-    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
     {% endif %}
 </div>
 
@@ -54,7 +55,7 @@
 {% else %}
 
 <div class="card">
-    <h2>🎯 Vue d'ensemble</h2>
+    <h2>{{ icons.target() }} Vue d'ensemble</h2>
     <div class="radar-legend">
         <span class="radar-legend-item"><span class="radar-dot" style="background:#5fb0e0;"></span>{{ player_a }}</span>
         <span class="radar-legend-item"><span class="radar-dot" style="background:#e0a458;"></span>{{ player_b }}</span>
@@ -64,7 +65,7 @@
 
 <details class="card section-block" open>
     <summary>
-        <span class="section-title">⚔️ Attaque</span>
+        <span class="section-title">{{ icons.swords() }} Attaque</span>
         <span class="section-help">Contacts, duels, passes, offloads, ballons portés, défenseurs battus, breaks.</span>
     </summary>
     <div class="section-body">
@@ -97,7 +98,7 @@
 
 <details class="card section-block" open>
     <summary>
-        <span class="section-title">🛡️ Défense</span>
+        <span class="section-title">{{ icons.shield() }} Défense</span>
         <span class="section-help">Plaquages par qualité (dominant / neutre / passif / raté), assists, discipline.</span>
     </summary>
     <div class="section-body">
@@ -129,7 +130,7 @@
 
 <details class="card section-block" open>
     <summary>
-        <span class="section-title">🤝 Ruck</span>
+        <span class="section-title">{{ icons.handshake() }} Ruck</span>
         <span class="section-help">Ruck offensif (arrivée 1er/2e homme, ancreur, raseur) et ruck défensif (gratteur, contre-ruck).</span>
     </summary>
     <div class="section-body">

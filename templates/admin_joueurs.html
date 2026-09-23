@@ -1,24 +1,25 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}Joueurs et accès — Rugby Analytics{% endblock %}
 {% block content %}
 
 <div class="page-header no-print">
     <div>
-        <h1>👥 Joueurs et accès</h1>
+        <h1>{{ icons.users() }} Joueurs et accès</h1>
         <p class="subtitle">Comptes joueurs : chacun se connecte avec son email et choisit son mot de passe à la 1ère connexion. Un joueur connecté ne voit que son planning, les documents qu'on lui partage, et ses propres stats.</p>
     </div>
 </div>
 
 <div class="docs-actions">
     <details class="docs-action-panel">
-        <summary class="btn">📥 Importer un fichier Excel</summary>
+        <summary class="btn">{{ icons.import_data() }} Importer un fichier Excel</summary>
         <form method="POST" action="{{ url_for('admin_joueurs_importer') }}" enctype="multipart/form-data" class="docs-form">
             <div class="form-group">
                 <label>Fichier .xlsx (colonnes « NOM Prénom », « Poste », « Mail »)</label>
                 <input type="file" name="fichier" accept=".xlsx" required>
             </div>
             <button type="submit" class="btn">Importer</button>
-            <p class="docs-hint">💡 Un joueur déjà présent (même email) est mis à jour plutôt que dupliqué. Le groupe (Avants/Trois-quarts) ET le poste PPID sont proposés automatiquement à partir de la colonne « Poste » — modifiables ensuite pour chaque joueur ci-dessous. Un poste trop vague (« 3ème ligne » sans aile/centre, « Charnière » sans mêlée/ouverture) reste à régler à la main : le message de fin d'import te dit pour qui.</p>
+            <p class="docs-hint">{{ icons.idea() }} Un joueur déjà présent (même email) est mis à jour plutôt que dupliqué. Le groupe (Avants/Trois-quarts) ET le poste PPID sont proposés automatiquement à partir de la colonne « Poste » — modifiables ensuite pour chaque joueur ci-dessous. Un poste trop vague (« 3ème ligne » sans aile/centre, « Charnière » sans mêlée/ouverture) reste à régler à la main : le message de fin d'import te dit pour qui.</p>
         </form>
     </details>
 
@@ -47,12 +48,12 @@
                 </select>
             </div>
             <button type="submit" class="btn">Ajouter</button>
-            <p class="docs-hint">💡 Le poste PPID (Pilier, 9, 3LC...) se règle ensuite dans le tableau ci-dessous — il sert au P.P.I.D dans l'onglet du joueur au Cahier d'entraînement.</p>
+            <p class="docs-hint">{{ icons.idea() }} Le poste PPID (Pilier, 9, 3LC...) se règle ensuite dans le tableau ci-dessous — il sert au P.P.I.D dans l'onglet du joueur au Cahier d'entraînement.</p>
         </form>
     </details>
 
     <details class="docs-action-panel">
-        <summary class="btn btn-secondary">⚙️ Groupes</summary>
+        <summary class="btn btn-secondary">{{ icons.settings() }} Groupes</summary>
         <div class="docs-form">
             <form method="POST" action="{{ url_for('admin_groupes_creer') }}" class="docs-inline-form">
                 <input type="text" name="name" placeholder="ex. Espoirs 1, Réserve...">
@@ -107,16 +108,16 @@
                         </select>
                     </form>
                 </td>
-                <td>{{ '✅ Mot de passe défini' if p['password_hash'] else '⏳ 1ère connexion en attente' }}</td>
+                <td>{% if p['password_hash'] %}{{ icons.check_circle() }} Mot de passe défini{% else %}{{ icons.hourglass() }} 1ère connexion en attente{% endif %}</td>
                 <td class="docs-td-actions">
                     {% set full_name = (p['first_name'] ~ ' ' ~ p['last_name'])|e %}
                     <form method="POST" action="{{ url_for('admin_joueurs_reset_password', player_id=p['id']) }}" class="docs-inline-form"
                           onsubmit="return confirm('Réinitialiser le mot de passe de {{ full_name }} ?');">
-                        <button type="submit" class="docs-mini-btn" title="Réinitialiser le mot de passe">🔑</button>
+                        <button type="submit" class="docs-mini-btn" title="Réinitialiser le mot de passe">{{ icons.key() }}</button>
                     </form>
                     <form method="POST" action="{{ url_for('admin_joueurs_supprimer', player_id=p['id']) }}" class="docs-inline-form"
                           onsubmit="return confirm('Supprimer le compte de {{ full_name }} ?');">
-                        <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer le compte">🗑️</button>
+                        <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer le compte">{{ icons.delete() }}</button>
                     </form>
                 </td>
             </tr>
@@ -135,7 +136,7 @@
 <section class="staff-access">
     <div class="page-header no-print">
         <div>
-            <h2>🔑 Accès « cahier d'entraînement »</h2>
+            <h2>{{ icons.key() }} Accès « cahier d'entraînement »</h2>
             <p class="subtitle">Pour un membre du staff qui ne doit voir que le cahier d'entraînement : il y saisit les points d'étape, les entretiens, les tâches et les documents des joueurs, et n'a accès à aucune autre page du site.</p>
         </div>
     </div>
@@ -159,7 +160,7 @@
                     <input type="email" name="email" required>
                 </div>
                 <button type="submit" class="btn">Créer l'accès</button>
-                <p class="docs-hint">💡 Un mot de passe par défaut est attribué automatiquement (affiché juste après la création, à transmettre à la personne). À sa première connexion, elle devra obligatoirement en choisir un personnel avant d'accéder au cahier d'entraînement.</p>
+                <p class="docs-hint">{{ icons.idea() }} Un mot de passe par défaut est attribué automatiquement (affiché juste après la création, à transmettre à la personne). À sa première connexion, elle devra obligatoirement en choisir un personnel avant d'accéder au cahier d'entraînement.</p>
             </form>
         </details>
     </div>
@@ -194,11 +195,11 @@
                     <td class="docs-td-actions">
                         <form method="POST" action="{{ url_for('admin_staff_reset_password', staff_id=membre['id']) }}"
                               onsubmit="return confirm('Réinitialiser le mot de passe de {{ membre['first_name'] }} au mot de passe par défaut ?');">
-                            <button type="submit" class="docs-mini-btn" title="Réinitialiser au mot de passe par défaut">🔑</button>
+                            <button type="submit" class="docs-mini-btn" title="Réinitialiser au mot de passe par défaut">{{ icons.key() }}</button>
                         </form>
                         <form method="POST" action="{{ url_for('admin_staff_supprimer', staff_id=membre['id']) }}"
                               onsubmit="return confirm('Supprimer l\'accès de {{ membre['first_name'] }} {{ membre['last_name'] }} ?');">
-                            <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer l'accès">🗑️</button>
+                            <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer l'accès">{{ icons.delete() }}</button>
                         </form>
                     </td>
                 </tr>

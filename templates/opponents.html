@@ -1,14 +1,15 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}Adversaires — Pro D2{% endblock %}
 {% block content %}
 
 <div class="page-header no-print">
     <div>
-        <h1>🆚 Adversaires — Pro D2</h1>
+        <h1><span class="vs-text">VS</span> Adversaires — Pro D2</h1>
         <p class="subtitle">Classement et statistiques de toutes les équipes de Pro D2 — {{ report_label }}.</p>
     </div>
     {% if has_report %}
-    <a class="btn btn-secondary" href="{{ url_for('opponents_trends') }}">📈 Voir les tendances</a>
+    <a class="btn btn-secondary" href="{{ url_for('opponents_trends') }}">{{ icons.training() }} Voir les tendances</a>
     {% endif %}
 </div>
 
@@ -19,7 +20,7 @@
             <tr>
                 <th>#</th><th>Équipe</th><th>Pts</th><th>MJ</th><th>V</th><th>N</th><th>D</th>
                 <th>Pts marqués</th><th>Pts encaissés</th><th>Essais M.</th><th>Essais E.</th>
-                <th>🟨</th><th>🟧</th><th>🟥</th>
+                <th>{{ icons.square(13, '', '#f5c518') }}</th><th>{{ icons.square(13, '', '#f9a240') }}</th><th>{{ icons.square(13, '', '#e5484d') }}</th>
             </tr>
         </thead>
         <tbody>

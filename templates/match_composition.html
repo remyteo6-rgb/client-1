@@ -1,11 +1,12 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}Composition — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
 {% set active = 'composition' %}
 {% block content %}
 
 <div class="page-header no-print">
     <div>
-        <h1>📋 Composition — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
+        <h1>{{ icons.clipboard() }} Composition — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
         <p class="subtitle">Choisis le joueur qui porte chaque numéro (1 à 23), ses minutes jouées et ses cartons pour ce match. Une fois validé, ce match alimente le suivi JIFF et le suivi joueur (minutes/cartons/matchs de suite) de la saison.</p>
     </div>
 </div>
@@ -32,10 +33,10 @@
             <input type="number" name="minutes" min="0" max="80" placeholder="min"
                    value="{{ current.get('minutes', '') }}" {% if not is_admin %}disabled{% endif %}
                    style="width:56px;" title="Minutes jouées">
-            <input type="number" name="yellow" min="0" placeholder="🟨"
+            <input type="number" name="yellow" min="0" placeholder="J"
                    value="{{ current.get('yellow', 0) }}" {% if not is_admin %}disabled{% endif %}
                    style="width:48px;" title="Cartons jaunes">
-            <input type="number" name="red" min="0" placeholder="🟥"
+            <input type="number" name="red" min="0" placeholder="R"
                    value="{{ current.get('red', 0) }}" {% if not is_admin %}disabled{% endif %}
                    style="width:48px;" title="Cartons rouges">
         </div>
@@ -44,7 +45,7 @@
 </div>
 
 {% if is_admin %}
-<button type="submit" class="btn" style="margin-top:16px;">✅ Valider la composition</button>
+<button type="submit" class="btn" style="margin-top:16px;">{{ icons.check_circle() }} Valider la composition</button>
 {% else %}
 <p class="subtitle" style="margin-top:16px;">Connecte-toi en tant qu'administrateur pour modifier la composition.</p>
 {% endif %}

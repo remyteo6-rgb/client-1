@@ -1,3 +1,4 @@
+{% import "_ppid_icons.html" as icons %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -26,10 +27,10 @@
     {% endwith %}
 
     <div class="landing-choice-row">
-        <a class="landing-choice-btn" href="{{ url_for('calendrier') }}">🗓️ Planning</a>
-        <a class="landing-choice-btn" href="{{ url_for('player_documents') }}">📁 Mes documents</a>
-        <a class="landing-choice-btn" href="{{ url_for('player_stats') }}">📊 Mes stats</a>
-        <a class="landing-choice-btn" href="{{ url_for('player_evaluations') }}">🏉 Mes évaluations</a>
+        <a class="landing-choice-btn" href="{{ url_for('calendrier') }}">{{ icons.calendar() }} Planning</a>
+        <a class="landing-choice-btn" href="{{ url_for('player_documents') }}">{{ icons.folder() }} Mes documents</a>
+        <a class="landing-choice-btn" href="{{ url_for('player_stats') }}">{{ icons.chart() }} Mes stats</a>
+        <a class="landing-choice-btn" href="{{ url_for('player_evaluations') }}">{{ icons.rugby() }} Mes évaluations</a>
     </div>
 </div>
 </body>

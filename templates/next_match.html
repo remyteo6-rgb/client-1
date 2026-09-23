@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}Prochain match{% endblock %}
 {% block content %}
 
@@ -25,13 +26,13 @@
 
 <div class="page-header no-print">
     <div>
-        <h1>🎯 Prochain match{% if selected_team %} — {{ selected_team }}{% endif %}</h1>
+        <h1>{{ icons.target() }} Prochain match{% if selected_team %} — {{ selected_team }}{% endif %}</h1>
         <p class="subtitle">
             {% if selected_team %}Notre forme récente + scouting de {{ selected_team }}, réunis pour préparer la semaine — {{ report_label }}.
             {% else %}Sélectionne le prochain adversaire pour préparer la semaine.{% endif %}
         </p>
     </div>
-    {% if selected_team %}<button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>{% endif %}
+    {% if selected_team %}<button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>{% endif %}
 </div>
 
 {% if is_admin %}
@@ -63,12 +64,12 @@
 
 {% if stale_team %}
 <div class="card empty-state">
-    <p>⚠️ « {{ selected_team }} » n'apparaît plus dans le dernier rapport Pro D2 importé (nom changé ou erreur de sélection). Le scouting ci-dessous est indisponible tant que ce n'est pas corrigé, mais la forme récente et l'historique restent affichés.</p>
+    <p>{{ icons.warning() }} « {{ selected_team }} » n'apparaît plus dans le dernier rapport Pro D2 importé (nom changé ou erreur de sélection). Le scouting ci-dessous est indisponible tant que ce n'est pas corrigé, mais la forme récente et l'historique restent affichés.</p>
 </div>
 {% endif %}
 
 <div class="card">
-    <h2>📅 Notre forme récente</h2>
+    <h2>{{ icons.calendar() }} Notre forme récente</h2>
     <p class="subtitle">Sur les {{ recent_count }} dernier{{ 's' if recent_count != 1 else '' }} match{{ 's' if recent_count != 1 else '' }} codé{{ 's' if recent_count != 1 else '' }}.</p>
     {% if not recent_dashboard %}
     <p class="subtitle">Aucun match codé pour l'instant.</p>
@@ -107,7 +108,7 @@
 
 {% if profile %}
 <div class="card">
-    <h2>🆚 Scouting {{ selected_team }}</h2>
+    <h2><span class="vs-text">VS</span> Scouting {{ selected_team }}</h2>
     <div class="two-col">
         <div>
             <h3 class="training-subcat-title">💪 Points forts</h3>
@@ -120,7 +121,7 @@
             {% endif %}
         </div>
         <div>
-            <h3 class="training-subcat-title">⚠️ Points faibles</h3>
+            <h3 class="training-subcat-title">{{ icons.warning() }} Points faibles</h3>
             {% if not team_trends.weaknesses %}
             <p class="subtitle">Aucun indicateur ne se distingue nettement.</p>
             {% else %}
@@ -131,13 +132,13 @@
         </div>
     </div>
     {% if threats %}
-    <h3 class="training-subcat-title" style="margin-top:16px;">🎯 Joueurs à surveiller</h3>
+    <h3 class="training-subcat-title" style="margin-top:16px;">{{ icons.target() }} Joueurs à surveiller</h3>
     <div class="breakdown-chips">
         {% for t in threats %}<span class="chip">{{ t.label }} : {{ t.name }} ({{ t.value }} {{ t.unit }})</span>{% endfor %}
     </div>
     {% endif %}
     {% if kpi_profile.labels %}
-    <h3 class="training-subcat-title" style="margin-top:16px;">📊 Profil sur les indicateurs clés</h3>
+    <h3 class="training-subcat-title" style="margin-top:16px;">{{ icons.chart() }} Profil sur les indicateurs clés</h3>
     <div style="position:relative; height:{{ 60 + kpi_profile.labels|length * 26 }}px;">
         <canvas id="kpiProfileChart"></canvas>
     </div>
@@ -148,7 +149,7 @@
 {% endif %}
 
 <div class="card">
-    <h2>📜 Historique face à {{ selected_team }}</h2>
+    <h2>{{ icons.note() }} Historique face à {{ selected_team }}</h2>
     {% if not head_to_head or not head_to_head.total %}
     <p class="subtitle">Aucun match codé face à cette équipe cette saison.</p>
     {% else %}

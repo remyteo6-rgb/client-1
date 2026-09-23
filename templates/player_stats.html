@@ -1,3 +1,4 @@
+{% import "_ppid_icons.html" as icons %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -21,7 +22,7 @@
         {% endif %}
     {% endwith %}
 
-    <h1>📊 Mes statistiques</h1>
+    <h1>{{ icons.chart() }} Mes statistiques</h1>
     <p class="subtitle">Cumul sur {{ matches_played }} match{{ 's' if matches_played != 1 else '' }} joué{{ 's' if matches_played != 1 else '' }} (sur {{ total_matches }} match{{ 's' if total_matches != 1 else '' }} analysé{{ 's' if total_matches != 1 else '' }} cette saison).</p>
 
     {% if not matched_name %}
@@ -32,7 +33,7 @@
     {% else %}
     <div class="card section-block" style="display:block; padding:16px;">
 
-        <h3 style="font-size:13px; margin-bottom:8px; color:var(--text-secondary);">⚔️ Attaque</h3>
+        <h3 style="font-size:13px; margin-bottom:8px; color:var(--text-secondary);">{{ icons.swords() }} Attaque</h3>
         <table class="stat-table zebra-table">
             <thead>
                 <tr>
@@ -55,7 +56,7 @@
             </tbody>
         </table>
 
-        <h3 style="font-size:13px; margin:16px 0 8px; color:var(--text-secondary);">🛡️ Défense</h3>
+        <h3 style="font-size:13px; margin:16px 0 8px; color:var(--text-secondary);">{{ icons.shield() }} Défense</h3>
         <table class="stat-table zebra-table">
             <thead>
                 <tr>
@@ -77,7 +78,7 @@
             </tbody>
         </table>
 
-        <h3 style="font-size:13px; margin:16px 0 8px; color:var(--text-secondary);">🤝 Ruck</h3>
+        <h3 style="font-size:13px; margin:16px 0 8px; color:var(--text-secondary);">{{ icons.handshake() }} Ruck</h3>
         <table class="stat-table zebra-table">
             <thead>
                 <tr>

@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 {% import "_ppid_icons.html" as ppid_icons %}
+{% import "_ppid_rate.html" as ppid_rate %}
 {% block title %}Cahier d'entraînement — Rugby Analytics{% endblock %}
 {% block content %}
 
 <div class="docs-header">
     <div>
-        <h1>📋 Cahier d'entraînement</h1>
+        <h1>{{ ppid_icons.clipboard() }} Cahier d'entraînement</h1>
         <p class="subtitle">
             {% if selected_player %}
                 Suivi individuel de {{ selected_player['first_name'] }} {{ selected_player['last_name'] }} — {{ total_count }} tâche{{ 's' if total_count != 1 else '' }} dans la liste « À faire / En cours / Fait » tout en bas (jamais visible par le joueur). Les documents déposés et le P.P.I.D (profil, évaluations rugby et physique) sont eux visibles par {{ selected_player['first_name'] }} dans son espace.
@@ -18,11 +19,11 @@
 
 <div class="cc-nav no-print">
     <div class="cc-nav-top">
-        <a href="{{ url_for('cahier_charges') }}" class="cc-tab {{ 'active' if not selected_player else '' }}">📋 Général</a>
+        <a href="{{ url_for('cahier_charges') }}" class="cc-tab {{ 'active' if not selected_player else '' }}">{{ ppid_icons.clipboard() }} Général</a>
         {% if grouped_players %}
         <div class="cc-combobox">
             <input type="text" id="ccSearch" class="cc-search" autocomplete="off"
-                   placeholder="🔍 Rechercher un joueur..."
+                   placeholder="Rechercher un joueur..."
                    value="{{ (selected_player['first_name'] ~ ' ' ~ selected_player['last_name']) if selected_player else '' }}">
             <div class="cc-suggestions" id="ccSuggestions">
                 {% for group_name, group_players in grouped_players.items() %}
@@ -48,6 +49,7 @@
     </div>
 </div>
 
+<script src="{{ url_for('static', filename='ppid-rate.js') }}?v={{ asset_version }}"></script>
 <script>
 (function () {
     var input = document.getElementById('ccSearch');
@@ -148,7 +150,7 @@
         {% endfor %}
     </ul>
     {% else %}
-    <p class="docs-hint">💡 Poste PPID non renseigné pour {{ selected_player['first_name'] }} — règle-le depuis ☰ → Gestion des joueurs pour voir ses critères personnalisés ici.</p>
+    <p class="docs-hint">{{ ppid_icons.idea() }} Poste PPID non renseigné pour {{ selected_player['first_name'] }} — règle-le depuis ☰ → Gestion des joueurs pour voir ses critères personnalisés ici.</p>
     {% endif %}
     <details class="ppid-full-grid">
         <summary>Voir la grille complète (tous les postes)</summary>
@@ -200,13 +202,7 @@
                         <div class="ppid-cat-row">
                             <label>{{ label }}</label>
                             <div class="ppid-cat-inputs">
-                                <select name="note__{{ key }}">
-                                    <option value="">— Note —</option>
-                                    {% for n in ppid_rugby_notes %}
-                                    <option value="{{ n }}">{{ n }}</option>
-                                    {% endfor %}
-                                </select>
-                                <input type="text" name="commentaire__{{ key }}" placeholder="Commentaire (optionnel)">
+                                {{ ppid_rate.rate_field('note__' ~ key, ppid_rugby_notes, comment_name='commentaire__' ~ key) }}
                             </div>
                         </div>
                         {% endfor %}
@@ -239,16 +235,11 @@
                         {% for key, label in ppid_physical_categories %}
                         <div class="ppid-cat-row">
                             <label>{{ label }}</label>
-                            <select name="coach__{{ key }}">
-                                <option value="">— Note coach —</option>
-                                {% for n in ppid_physical_notes %}
-                                <option value="{{ n }}">{{ n }}</option>
-                                {% endfor %}
-                            </select>
+                            {{ ppid_rate.rate_field('coach__' ~ key, ppid_physical_notes) }}
                         </div>
                         {% endfor %}
                     </div>
-                    <p class="docs-hint">💡 L'auto-évaluation de {{ selected_player['first_name'] }} sera renseignée par lui-même depuis « Mes évaluations » — pas besoin de la saisir ici.</p>
+                    <p class="docs-hint">{{ ppid_icons.idea() }} L'auto-évaluation de {{ selected_player['first_name'] }} sera renseignée par lui-même depuis « Mes évaluations » — pas besoin de la saisir ici.</p>
                     <div class="form-group">
                         <label>Commentaires</label>
                         <input type="text" name="commentaires" placeholder="Commentaires libres">
@@ -288,7 +279,7 @@
                         <textarea name="notes" rows="4" placeholder="Ce qui a été dit, décidé, à retenir..."></textarea>
                     </div>
                     <button type="submit" class="btn">Enregistrer l'entretien</button>
-                    <p class="docs-hint">💡 Visible par {{ selected_player['first_name'] }} dans « Mes évaluations », comme le reste du P.P.I.D.</p>
+                    <p class="docs-hint">{{ ppid_icons.idea() }} Visible par {{ selected_player['first_name'] }} dans « Mes évaluations », comme le reste du P.P.I.D.</p>
                 </form>
             </details>
         </div>
@@ -352,13 +343,7 @@
                                             <div class="ppid-cat-row">
                                                 <label>{{ label }}</label>
                                                 <div class="ppid-cat-inputs">
-                                                    <select name="note__{{ key }}">
-                                                        <option value="">— Note —</option>
-                                                        {% for n in ppid_rugby_notes %}
-                                                        <option value="{{ n }}" {{ 'selected' if ev.ratings[key].get('note')==n else '' }}>{{ n }}</option>
-                                                        {% endfor %}
-                                                    </select>
-                                                    <input type="text" name="commentaire__{{ key }}" value="{{ ev.ratings[key].get('commentaire') or '' }}" placeholder="Commentaire (optionnel)">
+                                                    {{ ppid_rate.rate_field('note__' ~ key, ppid_rugby_notes, value=ev.ratings[key].get('note') or '', comment_name='commentaire__' ~ key, comment_value=ev.ratings[key].get('commentaire') or '') }}
                                                 </div>
                                             </div>
                                             {% endfor %}
@@ -400,7 +385,7 @@
                         {% set note = ev.ratings[key].get('note') %}
                         {% set trend = ev.trends[key] if ev.trends else None %}
                         <td class="ppid-grid-cell">
-                            <span class="ppid-pill {{ 'ppid-pill-exl' if note=='EXL' else ('ppid-pill-bien' if note=='BIEN' else ('ppid-pill-moy' if note=='MOY' else 'ppid-pill-empty')) }}">{{ note or '—' }}</span>
+                            <span class="ppid-pill {{ 'ppid-pill-exl' if note=='EXL' else ('ppid-pill-bien' if note=='BIEN' else ('ppid-pill-moy' if note=='MOY' else ('ppid-pill-pasbon' if note=='PAS BON' else 'ppid-pill-empty'))) }}">{{ note or '—' }}</span>
                             {% if trend == 'up' %}<span class="ppid-trend ppid-trend-up" title="Progression vs la période précédente">↗</span>
                             {% elif trend == 'down' %}<span class="ppid-trend ppid-trend-down" title="Recul vs la période précédente">↘</span>
                             {% elif trend == 'flat' %}<span class="ppid-trend ppid-trend-flat" title="Stable vs la période précédente">→</span>
@@ -447,12 +432,7 @@
                                             {% for key, label in ppid_physical_categories %}
                                             <div class="ppid-cat-row">
                                                 <label>{{ label }} <span class="docs-hint">(auto : {{ ev.ratings[key].get('auto') or '—' }})</span></label>
-                                                <select name="coach__{{ key }}">
-                                                    <option value="">— Note coach —</option>
-                                                    {% for n in ppid_physical_notes %}
-                                                    <option value="{{ n }}" {{ 'selected' if ev.ratings[key].get('coach')==n else '' }}>{{ n }}</option>
-                                                    {% endfor %}
-                                                </select>
+                                                {{ ppid_rate.rate_field('coach__' ~ key, ppid_physical_notes, value=ev.ratings[key].get('coach') or '') }}
                                             </div>
                                             {% endfor %}
                                         </div>
@@ -504,13 +484,13 @@
                         {% set auto = ev.ratings[key].get('auto') %}
                         {% set trend = ev.trends[key] if ev.trends else None %}
                         <td class="ppid-grid-cell">
-                            <span class="ppid-pill {{ 'ppid-pill-exl' if coach=='Excellent' else ('ppid-pill-bien' if coach=='Bien' else ('ppid-pill-moy' if coach=='Moyen' else 'ppid-pill-empty')) }}" title="Note coach">{{ ppid_icons.user_solid(11) }} {{ coach or '—' }}</span>
+                            <span class="ppid-pill {{ 'ppid-pill-exl' if coach=='Excellent' else ('ppid-pill-bien' if coach=='Bien' else ('ppid-pill-moy' if coach=='Moyen' else ('ppid-pill-pasbon' if coach=='Pas bon' else 'ppid-pill-empty'))) }}" title="Note coach">{{ ppid_icons.user_solid(11) }} {{ coach or '—' }}</span>
                             {% if trend == 'up' %}<span class="ppid-trend ppid-trend-up" title="Progression vs la période précédente (note coach)">↗</span>
                             {% elif trend == 'down' %}<span class="ppid-trend ppid-trend-down" title="Recul vs la période précédente (note coach)">↘</span>
                             {% elif trend == 'flat' %}<span class="ppid-trend ppid-trend-flat" title="Stable vs la période précédente (note coach)">→</span>
                             {% endif %}
                             <br>
-                            <span class="ppid-pill {{ 'ppid-pill-exl' if auto=='Excellent' else ('ppid-pill-bien' if auto=='Bien' else ('ppid-pill-moy' if auto=='Moyen' else 'ppid-pill-empty')) }}" title="Auto-évaluation joueur">{{ ppid_icons.user_outline(11) }} {{ auto or '—' }}</span>
+                            <span class="ppid-pill {{ 'ppid-pill-exl' if auto=='Excellent' else ('ppid-pill-bien' if auto=='Bien' else ('ppid-pill-moy' if auto=='Moyen' else ('ppid-pill-pasbon' if auto=='Pas bon' else 'ppid-pill-empty'))) }}" title="Auto-évaluation joueur">{{ ppid_icons.user_outline(11) }} {{ auto or '—' }}</span>
                         </td>
                         {% endfor %}
                     </tr>
@@ -531,23 +511,23 @@
 <div class="cc-bottom {{ '' if selected_player else 'cc-bottom-solo' }}">
     {% if selected_player %}
     <div class="cc-bottom-col">
-        <h2 class="cc-bottom-title">📁 Documents de {{ selected_player['first_name'] }}</h2>
+        <h2 class="cc-bottom-title">{{ ppid_icons.folder() }} Documents de {{ selected_player['first_name'] }}</h2>
 {% if selected_player %}
 {% if not demo_forced %}
 <div class="docs-actions">
     <details class="docs-action-panel">
-        <summary class="btn">📁 Déposer un document pour {{ selected_player['first_name'] }}</summary>
+        <summary class="btn">{{ ppid_icons.folder() }} Déposer un document pour {{ selected_player['first_name'] }}</summary>
         <form method="POST" action="{{ url_for('cahier_charges_upload', player_id=selected_player['id']) }}" enctype="multipart/form-data" class="docs-form">
             <div class="form-group">
                 <label>Fichiers (PDL, compte-rendu, vidéo perso... — 30 Mo max par fichier)</label>
                 <input type="file" name="files" multiple required>
             </div>
             <button type="submit" class="btn">Déposer</button>
-            <p class="docs-hint">💡 Ce document apparaît automatiquement dans « Mes documents » pour {{ selected_player['first_name'] }} — pas besoin de choisir un partage.</p>
+            <p class="docs-hint">{{ ppid_icons.idea() }} Ce document apparaît automatiquement dans « Mes documents » pour {{ selected_player['first_name'] }} — pas besoin de choisir un partage.</p>
         </form>
     </details>
     <details class="docs-action-panel">
-        <summary class="btn btn-secondary">🔗 Ajouter un lien</summary>
+        <summary class="btn btn-secondary">{{ ppid_icons.link() }} Ajouter un lien</summary>
         <form method="POST" action="{{ url_for('cahier_charges_add_link', player_id=selected_player['id']) }}" class="docs-form">
             <div class="form-group">
                 <label>Titre (optionnel)</label>
@@ -588,15 +568,15 @@
                 <td>{{ d['size_human'] }}</td>
                 <td class="docs-td-actions">
                     {% if d['kind'] == 'file' %}
-                    <a class="docs-mini-btn" href="{{ url_for('documents_download', doc_id=d['id']) }}" title="Télécharger">⬇️</a>
+                    <a class="docs-mini-btn" href="{{ url_for('documents_download', doc_id=d['id']) }}" title="Télécharger">{{ ppid_icons.download() }}</a>
                     {% if d['inline'] %}
-                    <a class="docs-mini-btn" href="{{ url_for('documents_preview', doc_id=d['id']) }}" target="_blank" title="Aperçu">👁️</a>
+                    <a class="docs-mini-btn" href="{{ url_for('documents_preview', doc_id=d['id']) }}" target="_blank" title="Aperçu">{{ ppid_icons.eye() }}</a>
                     {% endif %}
                     {% endif %}
                     {% if d['can_delete'] and not demo_forced %}
                     <form method="POST" action="{{ url_for('cahier_charges_doc_delete', doc_id=d['id']) }}" class="docs-delete-form"
                           onsubmit="return confirm('Supprimer « {{ (d['filename'] or d['title'])|e }} » ?');">
-                        <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer">🗑️</button>
+                        <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer">{{ ppid_icons.delete() }}</button>
                     </form>
                     {% endif %}
                 </td>
@@ -614,7 +594,7 @@
     </div>
     {% endif %}
     <div class="cc-bottom-col">
-        <h2 class="cc-bottom-title">✅ Tâches{{ ' de ' ~ selected_player['first_name'] if selected_player else '' }}</h2>
+        <h2 class="cc-bottom-title">{{ ppid_icons.check_circle() }} Tâches{{ ' de ' ~ selected_player['first_name'] if selected_player else '' }}</h2>
 {% if not demo_forced %}
 <div class="docs-actions">
     <details class="docs-action-panel">
@@ -660,7 +640,7 @@
                     {% if item.can_delete %}
                     <form method="POST" action="{{ url_for('cahier_charges_delete', item_id=item.id) }}" class="docs-delete-form"
                           onsubmit="return confirm('Supprimer « {{ item.title|e }} » ?');">
-                        <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer">🗑️</button>
+                        <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer">{{ ppid_icons.delete() }}</button>
                     </form>
                     {% endif %}
                 </div>

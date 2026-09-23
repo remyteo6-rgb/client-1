@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}Ruck — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
 {% set active = 'ruck' %}
 {% block content %}
@@ -6,10 +7,10 @@
 
 <div class="page-header no-print">
     <div>
-        <h1>🤝 Ruck — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
+        <h1>{{ icons.handshake() }} Ruck — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
         <p class="subtitle">Conquête du ballon au sol : volume, vitesse et grattages, nous vs {{ match['opponent'] }}.</p>
     </div>
-    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
 
 <div class="kpi-row">
@@ -46,7 +47,7 @@
 </div>
 
 <div class="card">
-    <h2>⏱️ Vitesse de ruck par zone</h2>
+    <h2>{{ icons.stopwatch() }} Vitesse de ruck par zone</h2>
     <p class="subtitle">Répartition des rucks par vitesse de libération (-3s / 3-6s / +6s) et vitesse moyenne, par zone (RAID / ACTIONS / PRESSION / EXIT), nous vs {{ match['opponent'] }}. Pas encore codé sur ce match — la zone n'est pas encore rattachée à chaque ruck dans le XML.</p>
     <table class="stat-table">
         <thead>

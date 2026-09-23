@@ -1,4 +1,5 @@
 {% import "_ppid_icons.html" as ppid_icons %}
+{% import "_ppid_rate.html" as ppid_rate %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -102,7 +103,7 @@
                         {% set note = ev.ratings[key].get('note') %}
                         {% set trend = ev.trends[key] if ev.trends else None %}
                         <td class="ppid-grid-cell">
-                            <span class="ppid-pill {{ 'ppid-pill-exl' if note=='EXL' else ('ppid-pill-bien' if note=='BIEN' else ('ppid-pill-moy' if note=='MOY' else 'ppid-pill-empty')) }}">{{ note or '—' }}</span>
+                            <span class="ppid-pill {{ 'ppid-pill-exl' if note=='EXL' else ('ppid-pill-bien' if note=='BIEN' else ('ppid-pill-moy' if note=='MOY' else ('ppid-pill-pasbon' if note=='PAS BON' else 'ppid-pill-empty'))) }}">{{ note or '—' }}</span>
                             {% if trend == 'up' %}<span class="ppid-trend ppid-trend-up" title="Progression vs la période précédente">↗</span>
                             {% elif trend == 'down' %}<span class="ppid-trend ppid-trend-down" title="Recul vs la période précédente">↘</span>
                             {% elif trend == 'flat' %}<span class="ppid-trend ppid-trend-flat" title="Stable vs la période précédente">→</span>
@@ -138,12 +139,7 @@
                                             {% for key, label in ppid_physical_categories %}
                                             <div class="ppid-cat-row">
                                                 <label>{{ label }} <span class="docs-hint">(coach : {{ ev.ratings[key].get('coach') or '—' }})</span></label>
-                                                <select name="auto__{{ key }}">
-                                                    <option value="">— Mon auto-évaluation —</option>
-                                                    {% for n in ppid_physical_notes %}
-                                                    <option value="{{ n }}" {{ 'selected' if ev.ratings[key].get('auto')==n else '' }}>{{ n }}</option>
-                                                    {% endfor %}
-                                                </select>
+                                                {{ ppid_rate.rate_field('auto__' ~ key, ppid_physical_notes, value=ev.ratings[key].get('auto') or '') }}
                                             </div>
                                             {% endfor %}
                                         </div>
@@ -176,13 +172,13 @@
                         {% set auto = ev.ratings[key].get('auto') %}
                         {% set trend = ev.trends[key] if ev.trends else None %}
                         <td class="ppid-grid-cell">
-                            <span class="ppid-pill {{ 'ppid-pill-exl' if coach=='Excellent' else ('ppid-pill-bien' if coach=='Bien' else ('ppid-pill-moy' if coach=='Moyen' else 'ppid-pill-empty')) }}" title="Note coach">{{ ppid_icons.user_solid(11) }} {{ coach or '—' }}</span>
+                            <span class="ppid-pill {{ 'ppid-pill-exl' if coach=='Excellent' else ('ppid-pill-bien' if coach=='Bien' else ('ppid-pill-moy' if coach=='Moyen' else ('ppid-pill-pasbon' if coach=='Pas bon' else 'ppid-pill-empty'))) }}" title="Note coach">{{ ppid_icons.user_solid(11) }} {{ coach or '—' }}</span>
                             {% if trend == 'up' %}<span class="ppid-trend ppid-trend-up" title="Progression vs la période précédente (note coach)">↗</span>
                             {% elif trend == 'down' %}<span class="ppid-trend ppid-trend-down" title="Recul vs la période précédente (note coach)">↘</span>
                             {% elif trend == 'flat' %}<span class="ppid-trend ppid-trend-flat" title="Stable vs la période précédente (note coach)">→</span>
                             {% endif %}
                             <br>
-                            <span class="ppid-pill {{ 'ppid-pill-exl' if auto=='Excellent' else ('ppid-pill-bien' if auto=='Bien' else ('ppid-pill-moy' if auto=='Moyen' else 'ppid-pill-empty')) }}" title="Mon auto-évaluation">{{ ppid_icons.user_outline(11) }} {{ auto or '—' }}</span>
+                            <span class="ppid-pill {{ 'ppid-pill-exl' if auto=='Excellent' else ('ppid-pill-bien' if auto=='Bien' else ('ppid-pill-moy' if auto=='Moyen' else ('ppid-pill-pasbon' if auto=='Pas bon' else 'ppid-pill-empty'))) }}" title="Mon auto-évaluation">{{ ppid_icons.user_outline(11) }} {{ auto or '—' }}</span>
                         </td>
                         {% endfor %}
                     </tr>
@@ -219,5 +215,6 @@
     <div class="empty-state"><p>Rien d'enregistré pour le moment — reviens après ta prochaine évaluation avec le staff.</p></div>
     {% endif %}
 </main>
+<script src="{{ url_for('static', filename='ppid-rate.js') }}?v={{ asset_version }}"></script>
 </body>
 </html>

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}Jeu au pied — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
 {% set active = 'jap' %}
 {% block content %}
@@ -10,10 +11,10 @@
 
 <div class="page-header no-print">
     <div>
-        <h1>🦶 Jeu au pied — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
+        <h1>{{ icons.foot() }} Jeu au pied — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
         <p class="subtitle">Volume, distance et réussite des coups de pied, nous vs {{ match['opponent'] }}.</p>
     </div>
-    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
 
 <form method="post" action="{{ url_for('match_jap_manual', match_id=match['id']) }}">
@@ -63,12 +64,12 @@
     </div>
 </div>
 {% if is_admin %}
-<button type="submit" class="btn btn-secondary no-print" style="margin-top:10px;">💾 Enregistrer les distances</button>
+<button type="submit" class="btn btn-secondary no-print" style="margin-top:10px;">{{ icons.save() }} Enregistrer les distances</button>
 {% endif %}
 </form>
 
 <div class="card chart-container" style="margin-top:20px;">
-    <h2>🦶 Type de JAP</h2>
+    <h2>{{ icons.foot() }} Type de JAP</h2>
     <p class="subtitle">Répartition des coups de pied de {{ match['own_team'] }} par type codé (une barre par type + numéro de joueur).</p>
     {% if data.own.sub_types %}
     <canvas id="kickTypeChart"></canvas>

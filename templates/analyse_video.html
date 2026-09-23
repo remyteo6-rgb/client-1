@@ -1,3 +1,4 @@
+{% import "_ppid_icons.html" as icons %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -14,7 +15,7 @@
 
 <div class="landing-screen">
     <img src="{{ url_for('static', filename='logo.png') }}" class="landing-logo" alt="{{ club_full_name }}">
-    <p class="landing-subtitle">🎥 Analyse vidéo</p>
+    <p class="landing-subtitle">{{ icons.video() }} Analyse vidéo</p>
 
     <div class="landing-choice-row">
         <a class="landing-choice-btn" href="{{ url_for('index') }}">Analyse matchs</a>

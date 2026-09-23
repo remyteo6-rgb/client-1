@@ -1,17 +1,18 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}Confidentialité et données personnelles{% endblock %}
 {% block content %}
 
 <div class="page-header">
     <div>
-        <h1>🔒 Confidentialité et données personnelles</h1>
+        <h1>{{ icons.lock() }} Confidentialité et données personnelles</h1>
         <p class="subtitle">Ce que ce site enregistre, pourquoi, et ce que chacun peut demander.</p>
     </div>
 </div>
 
 <div class="card legal-page">
     <p class="legal-note">
-        ⚠️ Page à faire relire et compléter par le club avant diffusion : les mentions entre
+        {{ icons.warning() }} Page à faire relire et compléter par le club avant diffusion : les mentions entre
         crochets doivent être remplacées par les informations réelles (responsable, contact,
         durées de conservation décidées par le club).
     </p>

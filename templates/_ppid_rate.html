@@ -1,0 +1,25 @@
+{#
+    Notation rapide par clic pour un critère P.P.I.D (rugby ou physique), en remplacement
+    du menu déroulant "— Note —". Un bouton par niveau (ex. MOY / BIEN / EXL), la couleur
+    active reprend celle des pastilles .ppid-pill-* affichées ensuite en lecture. Le
+    commentaire reste replié derrière un petit lien tant qu'il n'y en a pas déjà un (mode
+    édition) ou qu'on ne clique pas dessus — voir static/ppid-rate.js pour l'interaction.
+
+    - name : nom du champ cocehé (note__xxx ou coach__xxx)
+    - notes : liste des niveaux possibles, ex. ["MOY", "BIEN", "EXL"]
+    - value : niveau déjà choisi (édition) ou '' (ajout)
+    - comment_name : nom du champ commentaire, ou none pour ne pas en afficher un
+    - comment_value : commentaire déjà saisi (édition) ou ''
+#}
+{% macro rate_field(name, notes, value='', comment_name=none, comment_value='') %}
+<div class="ppid-rate">
+    <input type="hidden" name="{{ name }}" value="{{ value }}">
+    {% for n in notes %}
+    <button type="button" class="ppid-rate-btn{{ ' is-active' if value == n else '' }}" data-value="{{ n }}">{{ n }}</button>
+    {% endfor %}
+    {% if comment_name %}
+    <button type="button" class="ppid-comment-toggle" style="{{ 'display:none;' if comment_value else '' }}">+ commentaire</button>
+    <input type="text" name="{{ comment_name }}" class="ppid-comment-input" placeholder="Commentaire (optionnel)" value="{{ comment_value }}" style="{{ '' if comment_value else 'display:none;' }}">
+    {% endif %}
+</div>
+{% endmacro %}

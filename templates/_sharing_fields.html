@@ -1,10 +1,11 @@
+{% import "_ppid_icons.html" as icons %}
 <div class="form-group">
     <label>Partager avec</label>
     <select name="visibility">
-        <option value="staff">🔒 Staff uniquement (par défaut, comme avant)</option>
-        <option value="players">👥 Tous les joueurs</option>
-        <option value="group">👥 Un groupe de joueurs précis (à choisir ci-dessous)</option>
-        <option value="player">👤 Un joueur précis (à choisir ci-dessous)</option>
+        <option value="staff">{{ icons.lock() }} Staff uniquement (par défaut, comme avant)</option>
+        <option value="players">{{ icons.users() }} Tous les joueurs</option>
+        <option value="group">{{ icons.users() }} Un groupe de joueurs précis (à choisir ci-dessous)</option>
+        <option value="player">{{ icons.user_solid() }} Un joueur précis (à choisir ci-dessous)</option>
     </select>
 </div>
 <div class="form-group">

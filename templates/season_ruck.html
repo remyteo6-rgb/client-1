@@ -1,13 +1,14 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}Ruck — Saison{% endblock %}
 {% block content %}
 
 <div class="page-header no-print">
     <div>
-        <h1>🤝 Ruck — Saison</h1>
+        <h1>{{ icons.handshake() }} Ruck — Saison</h1>
         <p class="subtitle">Conquête du ballon au sol : volume, vitesse et grattages, cumulé sur {{ selected_count }} match{{ 's' if selected_count != 1 else '' }} sélectionné{{ 's' if selected_count != 1 else '' }}.</p>
     </div>
-    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
 
 {% if not data %}
@@ -46,7 +47,7 @@
 </div>
 
 <div class="card">
-    <h2>⏱️ Vitesse de ruck par zone</h2>
+    <h2>{{ icons.stopwatch() }} Vitesse de ruck par zone</h2>
     <p class="subtitle">Répartition des rucks par vitesse de libération (-3s / 3-6s / +6s) et vitesse moyenne, par zone (RAID / ACTIONS / PRESSION / EXIT), nous vs adversaires cumulés. Pas encore codé — la zone n'est pas encore rattachée à chaque ruck dans le XML.</p>
     <table class="stat-table">
         <thead>

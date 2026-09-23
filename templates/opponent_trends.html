@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}Tendances — Top 14{% endblock %}
 {% block content %}
 
 <div class="page-header no-print">
     <div>
-        <h1>📈 Tendances — Top 14</h1>
+        <h1>{{ icons.training() }} Tendances — Top 14</h1>
         <p class="subtitle">Pour chaque équipe, les indicateurs où elle fait partie des 2 meilleures ou des 2 moins bonnes équipes de la Pro D2 (sur une sélection d'indicateurs clés), à partir du dernier rapport importé.</p>
     </div>
 </div>
@@ -33,7 +34,7 @@
                 {% endif %}
             </div>
             <div>
-                <h3 class="training-subcat-title">⚠️ Points faibles</h3>
+                <h3 class="training-subcat-title">{{ icons.warning() }} Points faibles</h3>
                 {% if not t.weaknesses %}
                 <p class="subtitle">Aucun indicateur ne se distingue nettement.</p>
                 {% else %}

@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}Calendrier — Rugby Analytics{% endblock %}
 {% block content %}
 
 <div class="docs-header">
     <div>
-        <h1>🗓️ Calendrier du staff</h1>
+        <h1>{{ icons.calendar() }} Calendrier du staff</h1>
         <p class="subtitle">Événements divers du staff — clique sur un jour pour voir ou ajouter un événement.</p>
     </div>
 </div>

@@ -1,19 +1,20 @@
+{% import "_ppid_icons.html" as icons %}
 <div class="subnav no-print">
     <div class="subnav-inner">
         <details class="subnav-dropdown">
             <summary>☰</summary>
             <div class="landing-dropdown-content">
-                <a href="{{ url_for('player_home') }}">🏠 Mon espace</a>
-                <a href="{{ url_for('calendrier') }}">🗓️ Planning</a>
-                <a href="{{ url_for('player_documents') }}">📁 Mes documents</a>
-                <a href="{{ url_for('player_stats') }}">📊 Mes stats</a>
-                <a href="{{ url_for('player_evaluations') }}">🏉 Mes évaluations</a>
-                <a href="{{ url_for('logout') }}">🔒 Se déconnecter</a>
+                <a href="{{ url_for('player_home') }}">{{ icons.home() }} Mon espace</a>
+                <a href="{{ url_for('calendrier') }}">{{ icons.calendar() }} Planning</a>
+                <a href="{{ url_for('player_documents') }}">{{ icons.folder() }} Mes documents</a>
+                <a href="{{ url_for('player_stats') }}">{{ icons.chart() }} Mes stats</a>
+                <a href="{{ url_for('player_evaluations') }}">{{ icons.rugby() }} Mes évaluations</a>
+                <a href="{{ url_for('logout') }}">{{ icons.lock() }} Se déconnecter</a>
             </div>
         </details>
         <img src="{{ url_for('static', filename='logo.png') }}" class="subnav-logo" alt="{{ club_full_name }}">
         {% if player %}
-        <span class="subnav-context">👤 {{ player['first_name'] }} {{ player['last_name'] }}</span>
+        <span class="subnav-context">{{ icons.user_solid() }} {{ player['first_name'] }} {{ player['last_name'] }}</span>
         {% endif %}
     </div>
 </div>

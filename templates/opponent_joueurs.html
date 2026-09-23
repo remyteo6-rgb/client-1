@@ -1,13 +1,14 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}Joueurs — {{ team }}{% endblock %}
 {% block content %}
 
 <div class="page-header no-print">
     <div>
-        <h1>👥 Joueurs — {{ team }}</h1>
+        <h1>{{ icons.users() }} Joueurs — {{ team }}</h1>
         <p class="subtitle">Effectif complet avec leurs statistiques individuelles — {{ report_label }}.</p>
     </div>
-    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
 
 {% if not groups %}
@@ -18,7 +19,7 @@
 
 {% if threats %}
 <div class="card">
-    <h2>🎯 Joueurs à surveiller</h2>
+    <h2>{{ icons.target() }} Joueurs à surveiller</h2>
     <p class="subtitle">Pas "qui joue le plus" (voir tableau ci-dessous) mais qui pèse le plus sur chaque registre du jeu.</p>
     <div class="breakdown-chips">
         {% for t in threats %}<span class="chip">{{ t.label }} : <span class="demo-blur">{{ t.name }}</span> ({{ t.value }} {{ t.unit }})</span>{% endfor %}
@@ -28,7 +29,7 @@
 
 {% if most_used %}
 <div class="card">
-    <h2>🏉 Joueurs les plus utilisés</h2>
+    <h2>{{ icons.rugby() }} Joueurs les plus utilisés</h2>
     <p class="subtitle">Classés par titularisations puis temps de jeu total. L'export Pro D2 ne précise pas le poste de chaque joueur, donc pas de composition type par numéro — juste le niveau d'utilisation.</p>
     <table class="stat-table zebra-table">
         <thead><tr><th>#</th><th>Joueur</th><th>Titulaire</th><th>Remplaçant</th><th>Matchs</th><th>Temps de jeu (min)</th></tr></thead>

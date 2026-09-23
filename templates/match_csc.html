@@ -1,19 +1,20 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}CSC — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
 {% set active = 'csc' %}
 {% block content %}
 
 <div class="page-header no-print">
     <div>
-        <h1>🎯 CSC — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
+        <h1>{{ icons.target() }} CSC — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
         <p class="subtitle">Chasseur, Sniper et Combattant.</p>
     </div>
-    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
 
 {% if not data %}
 <div class="card empty-state">
-    <p>🎯 Ce match n'a pas été tagué avec le suivi Chasseur / Sniper / Combattant.</p>
+    <p>{{ icons.target() }} Ce match n'a pas été tagué avec le suivi Chasseur / Sniper / Combattant.</p>
     <p class="subtitle">Cette page s'active dès qu'un XML contenant ces groupes de labels est importé.</p>
 </div>
 {% else %}
@@ -38,7 +39,7 @@
 
     <div class="csc-board">
         <div class="csc-card">
-            <div class="csc-icon">🔭</div>
+            <div class="csc-icon">{{ icons.search() }}</div>
             <h2>Chasseur</h2>
             <div class="csc-total">{{ data.chasseur.total }}</div>
             {{ dominance(data.chasseur.dominance) }}
@@ -51,7 +52,7 @@
         </div>
 
         <div class="csc-card csc-card-main">
-            <div class="csc-icon">🎯</div>
+            <div class="csc-icon">{{ icons.target() }}</div>
             <h2>Sniper</h2>
             <div class="csc-total">{{ data.sniper.reussis }}<span class="csc-total-sur">/{{ data.sniper.total_tentes }}</span></div>
             {{ dominance(data.sniper.dominance) }}
@@ -78,7 +79,7 @@
         </div>
 
         <div class="csc-card">
-            <div class="csc-icon">🥊</div>
+            <div class="csc-icon">{{ icons.swords() }}</div>
             <h2>Combattant</h2>
             <div class="csc-total">{{ data.combattant.total }}</div>
             {{ dominance(data.combattant.dominance) }}

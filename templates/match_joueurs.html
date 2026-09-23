@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}Joueurs — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
 {% set active = 'joueurs' %}
 {% block content %}
@@ -7,20 +8,20 @@
 
 <div class="page-header no-print">
     <div>
-        <h1>👥 Joueurs — {{ match['own_team'] }}</h1>
+        <h1>{{ icons.users() }} Joueurs — {{ match['own_team'] }}</h1>
         <p class="subtitle">Vue d'ensemble individuelle du match. Clique sur l'en-tête d'une colonne pour trier. Le détail complet par secteur est disponible dans les blocs repliés en bas de page.</p>
     </div>
-    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
 
 <div class="card">
-    <h2>📋 Vue d'ensemble individuelle</h2>
+    <h2>{{ icons.clipboard() }} Vue d'ensemble individuelle</h2>
     {{ players_overview(player_cards, attack_table, defense_table, ruck_table) }}
 </div>
 
 <details class="card section-block">
     <summary>
-        <span class="section-title">⚔️ Détail attaque par joueur</span>
+        <span class="section-title">{{ icons.swords() }} Détail attaque par joueur</span>
         <span class="section-help">Contacts, duels, passes, offloads détaillés en +/-. Flèche = vs sa moyenne saison (survole pour la valeur).</span>
     </summary>
     <div class="section-body">
@@ -58,7 +59,7 @@
 
 <details class="card section-block">
     <summary>
-        <span class="section-title">🛡️ Détail défense par joueur</span>
+        <span class="section-title">{{ icons.shield() }} Détail défense par joueur</span>
         <span class="section-help">Plaquages par qualité (dominant / neutre / passif / raté), assists, discipline.</span>
     </summary>
     <div class="section-body">
@@ -91,7 +92,7 @@
 
 <details class="card section-block">
     <summary>
-        <span class="section-title">🤝 Détail ruck par joueur</span>
+        <span class="section-title">{{ icons.handshake() }} Détail ruck par joueur</span>
         <span class="section-help">Ruck offensif (arrivée 1er/2e homme, ancreur, raseur) et ruck défensif (gratteur, contre-ruck).</span>
     </summary>
     <div class="section-body">

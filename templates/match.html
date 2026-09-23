@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}{{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
 {% set active = 'overview' %}
 {% block content %}
@@ -29,9 +30,9 @@
     </div>
     <div style="display:flex; gap:10px;">
         {% if momentum_svg %}
-        <button class="btn btn-secondary" onclick="document.getElementById('momentum-dialog').showModal()">📈 Courbe momentum</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('momentum-dialog').showModal()">{{ icons.training() }} Courbe momentum</button>
         {% endif %}
-        <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+        <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
         {% if is_admin %}
         <form method="post" action="{{ url_for('delete_match', match_id=match['id']) }}" onsubmit="return confirm('Supprimer ce match ?');">
             <button class="btn btn-danger" type="submit">Supprimer</button>
@@ -150,7 +151,7 @@
 
 {% if score_needs_manual and session.get('is_admin') %}
 <div class="card no-print" style="border-left:4px solid var(--accent-gold);">
-    <p class="subtitle">⚠️ Score du match non renseigné — le REVIEW affichera les points dès que tu l'auras saisi.
+    <p class="subtitle">{{ icons.warning() }} Score du match non renseigné — le REVIEW affichera les points dès que tu l'auras saisi.
         <a href="#" onclick="document.getElementById('score-manual-form').style.display='flex'; return false;">Saisir le score</a></p>
 </div>
 {% endif %}
@@ -200,7 +201,7 @@
 
     {% if score_needs_manual %}
     <div class="score-manual-callout no-print" style="text-align:center; margin-top:8px;">
-        <p class="subtitle">⚠️ {{ dashboard.score_detail.own.tries or 0 }} essai{{ 's' if dashboard.score_detail.own.tries != 1 else '' }} chez nous, {{ dashboard.score_detail.adverse.tries or 0 }} chez {{ match['opponent'] }} — mais le score complet (transfos/pénalités/drops) n'est pas déductible du tagging pour ce match et doit être saisi à la main.
+        <p class="subtitle">{{ icons.warning() }} {{ dashboard.score_detail.own.tries or 0 }} essai{{ 's' if dashboard.score_detail.own.tries != 1 else '' }} chez nous, {{ dashboard.score_detail.adverse.tries or 0 }} chez {{ match['opponent'] }} — mais le score complet (transfos/pénalités/drops) n'est pas déductible du tagging pour ce match et doit être saisi à la main.
             {% if session.get('is_admin') %}<a href="#" onclick="document.getElementById('score-manual-form').style.display='flex'; return false;">Saisir le score</a>{% endif %}</p>
         {% if session.get('is_admin') %}
         <form id="score-manual-form" method="POST" action="{{ url_for('match_score_manual', match_id=match['id']) }}" style="display:none; gap:10px; align-items:flex-end; justify-content:center; margin-top:10px;">
@@ -230,7 +231,7 @@
     {% if dashboard %}
     <div class="bip-bar-wrap">
         <div class="bip-bar-label">
-            <span>⏱ Ball in Play</span>
+            <span>{{ icons.stopwatch() }} Ball in Play</span>
             <span>{{ dashboard.ball_in_play.duration_fmt }} / 80:00 · {{ dashboard.ball_in_play.pct_match }}%</span>
         </div>
         <div class="bip-bar-track"><div class="bip-bar-fill" style="width:{{ dashboard.ball_in_play.pct_match }}%;"></div></div>
@@ -317,7 +318,7 @@
    Il reste affiché pour les matchs de l'ancienne convention, où il est renseigné. #}
 {% if dashboard.entry_types_own or dashboard.entry_types_adverse %}
 <div class="card">
-    <h2>🚪 Comment on rentre en zone RAID</h2>
+    <h2>{{ icons.door() }} Comment on rentre en zone RAID</h2>
     <p class="subtitle">Origine des entrées en zone d'attaque : course (RUN), sortie de camp (EXIT) ou pénalité obtenue.</p>
     <div class="two-col">
         <div>
@@ -401,7 +402,7 @@
 
 {% if dashboard.bip_sequences and dashboard.bip_sequences.total %}
 <div class="card">
-    <h2>⏱️ Séquences de jeu (Ball in Play) par durée</h2>
+    <h2>{{ icons.stopwatch() }} Séquences de jeu (Ball in Play) par durée</h2>
     <p class="subtitle">Répartition des {{ dashboard.bip_sequences.total }} séquence{{ 's' if dashboard.bip_sequences.total != 1 else '' }} de "ballon en jeu" selon leur durée.</p>
     <table class="stat-table">
         <thead><tr><th>Durée</th><th>Nb de séquences</th><th>%</th></tr></thead>
@@ -420,7 +421,7 @@
 
 {% if session.get('is_admin') %}
 <div class="card no-print">
-    <h2>✏️ Score et détail saisis à la main</h2>
+    <h2>{{ icons.edit() }} Score et détail saisis à la main</h2>
     <p class="subtitle">Les essais sont comptés automatiquement depuis le XML. Les transformations,
         pénalités et drops ne sont pas déductibles du tagging : saisis-les ici (réussies / tentées).</p>
     <form id="score-manual-form" method="POST" action="{{ url_for('match_score_manual', match_id=match['id']) }}" class="manual-score-form">

@@ -1,15 +1,16 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}Data Analyse — Saison{% endblock %}
 
 {% block content %}
 
 <div class="page-header no-print">
     <div>
-        <h1>📊 Data Analyse — Saison</h1>
+        <h1>{{ icons.chart() }} Data Analyse — Saison</h1>
         <p class="subtitle">Comparaison automatique de chaque indicateur de jeu entre les matchs gagnés et les matchs perdus.</p>
     </div>
     {% if not analysis.insufficient_data %}
-    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
     {% endif %}
 </div>
 
@@ -37,14 +38,14 @@
 
 <div class="card no-print">
     <p class="subtitle">
-        ⚠️ Ceci compare simplement la moyenne de chaque indicateur en victoire et en défaite : c'est une corrélation
+        {{ icons.warning() }} Ceci compare simplement la moyenne de chaque indicateur en victoire et en défaite : c'est une corrélation
         observée sur tes matchs, pas une preuve que l'indicateur est la cause du résultat. Plus le nombre de matchs
         analysés est petit, plus il faut prendre ça comme une piste de travail plutôt qu'une certitude.
     </p>
 </div>
 
 <div class="card">
-    <h2>📋 Détail de tous les indicateurs comparés</h2>
+    <h2>{{ icons.clipboard() }} Détail de tous les indicateurs comparés</h2>
     <table class="stat-table zebra-table">
         <thead>
             <tr><th>Indicateur</th><th>Victoires</th><th>Défaites</th><th>Échantillon</th></tr>

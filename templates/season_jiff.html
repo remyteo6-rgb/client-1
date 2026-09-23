@@ -1,13 +1,14 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}JIFF — Saison{% endblock %}
 {% block content %}
 
 <div class="page-header no-print">
     <div>
-        <h1>🪪 JIFF — Saison</h1>
+        <h1>{{ icons.id_card() }} JIFF — Saison</h1>
         <p class="subtitle">Écart au quota LNR ({{ data.quota }} JIFF en moyenne par feuille de match), sur les matchs dont la composition a été validée parmi les {{ selected_count }} match{{ 's' if selected_count != 1 else '' }} sélectionné{{ 's' if selected_count != 1 else '' }}.</p>
     </div>
-    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
 
 {% if not data.rows %}
@@ -21,7 +22,7 @@
     <div class="kpi-card">
         <div class="kpi-label">Moyenne JIFF / feuille de match</div>
         <div class="kpi-value {{ 'kpi-own' if data.respecte_saison else 'kpi-adverse' }}">{{ data.avg_jiff }}</div>
-        <div class="kpi-help">Quota LNR : {{ data.quota }} minimum. {{ 'Quota respecté ✅' if data.respecte_saison else 'Quota non respecté ⚠️' }} ({{ data.avg_diff }} d'écart).</div>
+        <div class="kpi-help">Quota LNR : {{ data.quota }} minimum. {% if data.respecte_saison %}Quota respecté {{ icons.check_circle() }}{% else %}Quota non respecté {{ icons.warning() }}{% endif %} ({{ data.avg_diff }} d'écart).</div>
     </div>
 <div class="kpi-card">
         <div class="kpi-label">Matchs avec composition validée</div>
@@ -36,7 +37,7 @@
 </div>
 
 <div class="card chart-container">
-    <h2>📊 Écart JIFF par match (quota {{ data.quota }})</h2>
+    <h2>{{ icons.chart() }} Écart JIFF par match (quota {{ data.quota }})</h2>
     <p class="subtitle">Ligne pointillée = quota (0). Au-dessus = surplus de JIFF, en dessous = déficit, match par match.</p>
     <canvas id="jiffChart"></canvas>
 </div>

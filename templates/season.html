@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}Bilan de saison{% endblock %}
 {% block content %}
 {% set poss = stats.get('Possession', {}) %}
@@ -12,7 +13,7 @@
 {% set discipline = stats.get('Disciplines', {}) %}
 <div class="page-header no-print">
     <div>
-        <h1>📅 Bilan de saison</h1>
+        <h1>{{ icons.calendar() }} Bilan de saison</h1>
         <p class="subtitle">
             {% if all_matches %}
             {{ selected_count }} match{{ 's' if selected_count != 1 else '' }} sélectionné{{ 's' if selected_count != 1 else '' }} sur {{ total_count }} au total.
@@ -22,7 +23,7 @@
         </p>
     </div>
     {% if dashboard %}
-    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
     {% endif %}
 </div>
 {% if all_matches %}
@@ -76,7 +77,7 @@
     </div>
    <div class="bip-bar-wrap">
         <div class="bip-bar-label">
-            <span>⏱ Ball in Play moyen / match</span>
+            <span>{{ icons.stopwatch() }} Ball in Play moyen / match</span>
             <span>{{ dashboard.ball_in_play.avg_per_match_fmt }} / 80:00</span>
         </div>
         <div class="bip-bar-track"><div class="bip-bar-fill" style="width:{{ (dashboard.ball_in_play.avg_per_match / 4800 * 100) | round(1) }}%;"></div></div>
@@ -129,7 +130,7 @@
     </div>
 </div>
 <div class="card">
-    <h2>🚪 Comment on rentre en zone RAID</h2>
+    <h2>{{ icons.door() }} Comment on rentre en zone RAID</h2>
     <p class="subtitle">Origine des entrées en zone d'attaque, cumulée sur les matchs sélectionnés : course (RUN), sortie de camp (EXIT) ou pénalité obtenue.</p>
     <div class="two-col">
         <div>
@@ -201,7 +202,7 @@
 </div>
 {% if dashboard.bip_sequences and dashboard.bip_sequences.total %}
 <div class="card">
-    <h2>⏱️ Séquences de jeu (Ball in Play) par durée</h2>
+    <h2>{{ icons.stopwatch() }} Séquences de jeu (Ball in Play) par durée</h2>
     <p class="subtitle">Répartition des {{ dashboard.bip_sequences.total }} séquence{{ 's' if dashboard.bip_sequences.total != 1 else '' }} de "ballon en jeu" selon leur durée, cumulées sur les matchs sélectionnés.</p>
     <table class="stat-table zebra-table">
         <thead><tr><th>Durée</th><th>Nb de séquences</th><th>%</th></tr></thead>

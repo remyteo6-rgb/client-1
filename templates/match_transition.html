@@ -1,28 +1,29 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}Transition — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
 {% set active = 'transition' %}
 {% block content %}
 
 <div class="page-header no-print">
     <div>
-        <h1>🔄 Transition — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
+        <h1>{{ icons.refresh() }} Transition — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
         <p class="subtitle">Contre-attaques et turnovers, nous vs {{ match['opponent'] }}.</p>
     </div>
-    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
 
 {% set transition_coded = (data.contre_attaque.own.count is not none) or (data.turnover.own.count is not none)
     or (data.contre_attaque.adverse.count is not none) or (data.turnover.adverse.count is not none) %}
 {% if not transition_coded %}
 <div class="card empty-state">
-    <p>🔄 Transition pas encore codée dans le XML pour ce match.</p>
+    <p>{{ icons.refresh() }} Transition pas encore codée dans le XML pour ce match.</p>
     <p class="subtitle">Cette section s'activera automatiquement dès que le codage des contre-attaques et turnovers sera en place.</p>
 </div>
 {% else %}
-{% for key, label, icon in [("contre_attaque", "Contre-attaques", "⚡"), ("turnover", "Turnovers", "🔁")] %}
+{% for key, label, icon in [("contre_attaque", "Contre-attaques", "lightning"), ("turnover", "Turnovers", "refresh")] %}
 <div class="chart-row" style="margin-bottom:20px;">
     <div class="card">
-        <h2>{{ icon }} {{ label }} — {{ match['own_team'] }}</h2>
+        <h2>{{ icons.lightning() if icon == 'lightning' else icons.refresh() }} {{ label }} — {{ match['own_team'] }}</h2>
         <table class="stat-table">
             <tbody>
                 <tr><td>Nombre</td><td class="stat-own">{{ data[key].own.count if data[key].own.count is not none else '—' }}</td></tr>
@@ -43,7 +44,7 @@
         </table>
     </div>
     <div class="card">
-        <h2>{{ icon }} {{ label }} — {{ match['opponent'] }}</h2>
+        <h2>{{ icons.lightning() if icon == 'lightning' else icons.refresh() }} {{ label }} — {{ match['opponent'] }}</h2>
         <table class="stat-table">
             <tbody>
                 <tr><td>Nombre</td><td class="stat-adverse">{{ data[key].adverse.count if data[key].adverse.count is not none else '—' }}</td></tr>

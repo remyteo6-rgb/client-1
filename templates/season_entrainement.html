@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}Entraînement — Saison{% endblock %}
 
 {% macro period_card(period, prefix, idx) %}
@@ -57,15 +58,15 @@
 
 <div class="page-header no-print">
     <div>
-        <h1>🏋️ Entraînement — Saison</h1>
+        <h1>{{ icons.physical() }} Entraînement — Saison</h1>
         <p class="subtitle">Rapport du temps passé par thème, semaine par semaine ou mois par mois.</p>
     </div>
-    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
 
 <div class="chart-row no-print" style="margin-bottom:12px; gap:8px;">
-    <button class="btn" id="btnWeek" onclick="showPeriodView('week')">📅 Par semaine</button>
-    <button class="btn btn-secondary" id="btnMonth" onclick="showPeriodView('month')">🗓️ Par mois</button>
+    <button class="btn" id="btnWeek" onclick="showPeriodView('week')">{{ icons.calendar() }} Par semaine</button>
+    <button class="btn btn-secondary" id="btnMonth" onclick="showPeriodView('month')">{{ icons.calendar() }} Par mois</button>
 </div>
 
 <div id="weekView">
@@ -87,7 +88,7 @@
 {% if is_admin %}
 <details class="card section-block no-print">
     <summary>
-        <span class="section-title">➕ Enregistrer une nouvelle séance</span>
+        <span class="section-title">{{ icons.add() }} Enregistrer une nouvelle séance</span>
         <span class="section-help">Coche les éléments travaillés, avec la durée si tu veux.</span>
     </summary>
     <div class="section-body">
@@ -121,14 +122,14 @@
             </details>
             {% endfor %}
 
-            <button type="submit" class="btn" style="margin-top:12px;">✅ Enregistrer la séance</button>
+            <button type="submit" class="btn" style="margin-top:12px;">{{ icons.check_circle() }} Enregistrer la séance</button>
         </form>
     </div>
 </details>
 {% endif %}
 
 <div class="card">
-    <h2>🗓️ Historique des séances</h2>
+    <h2>{{ icons.calendar() }} Historique des séances</h2>
     {% if not sessions %}
     <p class="subtitle">Aucune séance enregistrée pour le moment.</p>
     {% else %}
@@ -145,7 +146,7 @@
         {% if is_admin %}
         <form method="post" action="{{ url_for('delete_training_session', session_id=s.id) }}" class="no-print"
               onsubmit="return confirm('Supprimer cette séance ?');">
-            <button type="submit" class="btn btn-secondary" style="font-size:12px; padding:4px 10px;">🗑️</button>
+            <button type="submit" class="btn btn-secondary" style="font-size:12px; padding:4px 10px;">{{ icons.delete() }}</button>
         </form>
         {% endif %}
     </div>

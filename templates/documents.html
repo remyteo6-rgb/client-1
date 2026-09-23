@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}Documents — Rugby Analytics{% endblock %}
 {% block content %}
 
 <div class="docs-header">
     <div>
-        <h1>📁 Documents du staff</h1>
+        <h1>{{ icons.folder() }} Documents du staff</h1>
         <div class="docs-breadcrumb">
             <a href="{{ url_for('documents') }}">Documents</a>
             {% for crumb in breadcrumb %}
@@ -30,12 +31,12 @@
             </div>
             {% include "_sharing_fields.html" %}
             <button type="submit" class="btn">Déposer ici</button>
-            <p class="docs-hint">💡 Pour une vidéo lourde, préfère « Ajouter un lien » (Hudl, YouTube, Drive...).</p>
+            <p class="docs-hint">{{ icons.idea() }} Pour une vidéo lourde, préfère « Ajouter un lien » (Hudl, YouTube, Drive...).</p>
         </form>
     </details>
 
     <details class="docs-action-panel">
-        <summary class="btn btn-secondary">🔗 Ajouter un lien</summary>
+        <summary class="btn btn-secondary">{{ icons.link() }} Ajouter un lien</summary>
         <form method="POST" action="{{ url_for('documents_add_link') }}" class="docs-form">
             <input type="hidden" name="folder_id" value="{{ folder['id'] if folder else '' }}">
             <div class="form-group">
@@ -52,7 +53,7 @@
     </details>
 
     <details class="docs-action-panel">
-        <summary class="btn btn-secondary">📂 Nouveau dossier</summary>
+        <summary class="btn btn-secondary">{{ icons.folder_open() }} Nouveau dossier</summary>
         <form method="POST" action="{{ url_for('documents_create_folder') }}" class="docs-form">
             <input type="hidden" name="parent_id" value="{{ folder['id'] if folder else '' }}">
             <div class="form-group">
@@ -65,7 +66,7 @@
 
     {% if folder %}
     <details class="docs-action-panel">
-        <summary class="btn btn-secondary">⚙️ Ce dossier</summary>
+        <summary class="btn btn-secondary">{{ icons.settings() }} Ce dossier</summary>
         <div class="docs-form">
             <form method="POST" action="{{ url_for('documents_rename_folder', folder_id=folder['id']) }}" class="docs-inline-form">
                 <input type="text" name="name" value="{{ folder['name'] }}" required>
@@ -84,7 +85,7 @@
 <div class="docs-folder-grid">
     {% for sub in subfolders %}
     <a class="docs-folder-card" href="{{ url_for('documents', folder_id=sub['id']) }}">
-        <span class="docs-folder-icon">📂</span>
+        <span class="docs-folder-icon">{{ icons.folder_open() }}</span>
         <span class="docs-folder-name">{{ sub['name'] }}</span>
         <span class="docs-folder-meta">{{ folder_counts.get(sub['id'], 0) }} élément{{ 's' if folder_counts.get(sub['id'], 0) != 1 else '' }}</span>
     </a>
@@ -127,15 +128,15 @@
                 <td>{{ d['size_human'] }}</td>
                 <td class="docs-td-actions">
                     {% if d['kind'] == 'file' %}
-                    <a class="docs-mini-btn" href="{{ url_for('documents_download', doc_id=d['id']) }}" title="Télécharger">⬇️</a>
+                    <a class="docs-mini-btn" href="{{ url_for('documents_download', doc_id=d['id']) }}" title="Télécharger">{{ icons.download() }}</a>
                     {% if d['inline'] %}
-                    <a class="docs-mini-btn" href="{{ url_for('documents_preview', doc_id=d['id']) }}" target="_blank" title="Aperçu">👁️</a>
+                    <a class="docs-mini-btn" href="{{ url_for('documents_preview', doc_id=d['id']) }}" target="_blank" title="Aperçu">{{ icons.eye() }}</a>
                     {% endif %}
                     {% endif %}
                     {% if d['can_delete'] %}
                     <form method="POST" action="{{ url_for('documents_delete', doc_id=d['id']) }}" class="docs-delete-form"
                           onsubmit="return confirm('Supprimer « {{ (d['filename'] or d['title'])|e }} » ?');">
-                        <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer">🗑️</button>
+                        <button type="submit" class="docs-mini-btn docs-mini-danger" title="Supprimer">{{ icons.delete() }}</button>
                     </form>
                     {% endif %}
                 </td>

@@ -1,13 +1,14 @@
 {% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
 {% block title %}Jeu au pied — Saison{% endblock %}
 {% block content %}
 
 <div class="page-header no-print">
     <div>
-        <h1>🦶 Jeu au pied — Saison</h1>
+        <h1>{{ icons.foot() }} Jeu au pied — Saison</h1>
         <p class="subtitle">Volume, distance et réussite des coups de pied, cumulé sur {{ selected_count }} match{{ 's' if selected_count != 1 else '' }} sélectionné{{ 's' if selected_count != 1 else '' }}.</p>
     </div>
-    <button class="btn btn-secondary" onclick="preparePrint()">🖨️ Imprimer / Exporter PDF</button>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
 
 {% if not data %}
@@ -46,7 +47,7 @@
 </div>
 
 <div class="card chart-container" style="margin-top:20px;">
-    <h2>🦶 Type de JAP</h2>
+    <h2>{{ icons.foot() }} Type de JAP</h2>
     <p class="subtitle">Répartition des coups de pied de {{ club_name }} par type codé, cumulé (une barre par type + numéro de joueur).</p>
     {% if data.own.sub_types %}
     <canvas id="kickTypeChart"></canvas>

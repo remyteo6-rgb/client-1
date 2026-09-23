@@ -1,3 +1,4 @@
+{% import "_ppid_icons.html" as icons %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -16,11 +17,11 @@
     <img src="{{ url_for('static', filename='logo.png') }}" class="landing-logo" alt="{{ club_full_name }}">
 
     <div class="landing-choice-row">
-        <a class="landing-choice-btn" href="{{ url_for('analyse_video') }}">🎥 Analyse vidéo</a>
-        <a class="landing-choice-btn" href="{{ url_for('cahier_charges') }}">📋 Cahier d'entraînement</a>
+        <a class="landing-choice-btn" href="{{ url_for('analyse_video') }}">{{ icons.video() }} Analyse vidéo</a>
+        <a class="landing-choice-btn" href="{{ url_for('cahier_charges') }}">{{ icons.clipboard() }} Cahier d'entraînement</a>
         {% if not demo_forced %}
-        <a class="landing-choice-btn" href="{{ url_for('documents') }}">📁 Documents</a>
-        <a class="landing-choice-btn" href="{{ url_for('calendrier') }}">🗓️ Calendrier</a>
+        <a class="landing-choice-btn" href="{{ url_for('documents') }}">{{ icons.folder() }} Documents</a>
+        <a class="landing-choice-btn" href="{{ url_for('calendrier') }}">{{ icons.calendar() }} Calendrier</a>
         {% endif %}
     </div>
 </div>
