@@ -37,7 +37,7 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
 app.config["MAX_CONTENT_LENGTH"] = 30 * 1024 * 1024  # 30MB max upload
-app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)  # reste connecté 30 jours
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=365)  # reste connecté tant qu'on ne se déconnecte pas (1 an)
 # Cookie de session : illisible par les scripts de la page, non transmis aux sites tiers,
 # et réservé au HTTPS une fois en ligne (en local, le site tourne en http).
 app.config["SESSION_COOKIE_HTTPONLY"] = True
