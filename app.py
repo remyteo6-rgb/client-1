@@ -1296,6 +1296,10 @@ def _fmt_fr(value, decimals=1, suffix="", always_decimals=False):
 # Formats du rapport disponibles dans les gabarits : "15,9" et "1" / "3,07".
 app.jinja_env.filters["fr"] = lambda v: _fmt_fr(v, 1)
 app.jinja_env.filters["fr2"] = lambda v: _fmt_fr(v, 2)
+# Nom affiché pour "qui a fait la modif" (cahier d'entraînement) quand l'email n'est pas
+# dans staff_names (ex. compte STAFF_EMAIL/STAFF_PASSWORD historique, sans prénom déclaré) :
+# à défaut, la partie avant l'arobase plutôt que l'email complet.
+app.jinja_env.filters["email_prefix"] = lambda e: (e or "").split("@")[0].capitalize()
 
 
 def _club_slug(name):
@@ -2712,36 +2716,66 @@ def _ppid_timeline(rugby_evals, physical_evals, entretiens):
     return items
 
 
-def _ppid_rugby_ratings_from_form(form):
+def _staff_display_names_map(db):
+    """Email -> prénom, pour afficher qui a fait chaque modif dans le cahier d'entraînement
+    (voir 'by' dans les ratings ci-dessous). Couvre l'admin et les comptes staff enregistrés
+    en base ; un email qui n'a pas de prénom déclaré (ex. ancien compte STAFF_EMAIL /
+    STAFF_PASSWORD par variables d'environnement) retombe sur la partie avant l'arobase,
+    gérée côté template plutôt qu'ici."""
+    names = {ADMIN_EMAIL.lower(): "Admin"}
+    for row in db.execute("SELECT email, first_name FROM staff_accounts").fetchall():
+        names[row["email"].lower()] = row["first_name"]
+    return names
+
+
+def _ppid_rugby_ratings_from_form(form, existing_raw, by_email):
+    """'by' = dernière personne à avoir changé la note OU le commentaire d'un critère
+    (affiché dans le cahier d'entraînement) : mis à jour seulement quand la valeur change
+    réellement par rapport à existing_raw, sinon on garde l'auteur précédent — sans quoi
+    rouvrir puis renregistrer un point d'étape sans rien changer réattribuerait la note à
+    la dernière personne connectée."""
+    existing = _ppid_ratings_view(existing_raw, PPID_RUGBY_CATEGORY_KEYS)
     ratings = {}
     for key in PPID_RUGBY_CATEGORY_KEYS:
-        note = (form.get(f"note__{key}") or "").strip()
-        commentaire = (form.get(f"commentaire__{key}") or "").strip()
+        note = (form.get(f"note__{key}") or "").strip() or None
+        commentaire = (form.get(f"commentaire__{key}") or "").strip() or None
         if note or commentaire:
-            ratings[key] = {"note": note or None, "commentaire": commentaire or None}
+            prev = existing.get(key) or {}
+            entry = {"note": note, "commentaire": commentaire}
+            if note != prev.get("note") or commentaire != prev.get("commentaire"):
+                entry["by"] = by_email
+            elif prev.get("by"):
+                entry["by"] = prev.get("by")
+            ratings[key] = entry
     return json.dumps(ratings, ensure_ascii=False)
 
 
-def _ppid_physical_coach_ratings_from_form(form, existing_raw):
+def _ppid_physical_coach_ratings_from_form(form, existing_raw, by_email):
     """Fusionne les notes 'coach' saisies par le staff avec les 'auto' déjà présentes
     (remplies par le joueur) : le formulaire staff ne doit jamais écraser l'auto-évaluation
-    du joueur, et inversement (voir ppid_physical_auto_update)."""
-    existing = _ppid_ratings_view(existing_raw, PPID_PHYSICAL_CATEGORIES)
+    du joueur, et inversement (voir ppid_physical_auto_update). 'by' suit la même logique
+    que côté rugby, mais uniquement sur le champ 'coach' (le seul renseigné depuis cette
+    page) : mis à jour seulement quand sa valeur change vraiment."""
+    existing = _ppid_ratings_view(existing_raw, [key for key, _label in PPID_PHYSICAL_CATEGORIES])
     ratings = {}
     for key, _label in PPID_PHYSICAL_CATEGORIES:
         coach = (form.get(f"coach__{key}") or "").strip()
-        entry = dict(existing.get(key) or {})
+        prev = existing.get(key) or {}
+        entry = dict(prev)
         if coach:
+            if coach != prev.get("coach"):
+                entry["by"] = by_email
             entry["coach"] = coach
         elif "coach" in entry:
             del entry["coach"]
+            entry.pop("by", None)
         if entry:
             ratings[key] = entry
     return json.dumps(ratings, ensure_ascii=False)
 
 
 def _ppid_physical_auto_ratings_from_form(form, existing_raw):
-    existing = _ppid_ratings_view(existing_raw, PPID_PHYSICAL_CATEGORIES)
+    existing = _ppid_ratings_view(existing_raw, [key for key, _label in PPID_PHYSICAL_CATEGORIES])
     ratings = {}
     for key, _label in PPID_PHYSICAL_CATEGORIES:
         auto = (form.get(f"auto__{key}") or "").strip()
@@ -2841,6 +2875,7 @@ def cahier_charges():
         rugby_evals=rugby_evals, physical_evals=physical_evals, entretiens=entretiens,
         rugby_evals_asc=rugby_evals_asc, physical_evals_asc=physical_evals_asc,
         ppid_timeline=_ppid_timeline(rugby_evals, physical_evals, entretiens),
+        staff_names=_staff_display_names_map(db),
         ppid_positions=PPID_POSITIONS,
         ppid_rugby_categories=_ppid_rugby_categories_for_position(selected_player.get("ppid_position") if selected_player else None),
         ppid_rugby_notes=PPID_RUGBY_NOTES, ppid_physical_categories=PPID_PHYSICAL_CATEGORIES,
@@ -2986,7 +3021,7 @@ def ppid_rugby_add(player_id):
         flash("Merci d'indiquer un intitulé de période (ex. « Novembre - Janvier »).", "error")
         return redirect(url_for("cahier_charges", joueur=player_id))
     eval_date = request.form.get("eval_date", "").strip() or None
-    ratings = _ppid_rugby_ratings_from_form(request.form)
+    ratings = _ppid_rugby_ratings_from_form(request.form, "{}", session.get("user_email", ""))
     objectifs = request.form.get("objectifs", "").strip() or None
     entrainements = request.form.get("entrainements", "").strip() or None
     db.execute(
@@ -3009,7 +3044,7 @@ def ppid_rugby_edit(eval_id):
         abort(404)
     period_label = request.form.get("period_label", "").strip() or row["period_label"]
     eval_date = request.form.get("eval_date", "").strip() or None
-    ratings = _ppid_rugby_ratings_from_form(request.form)
+    ratings = _ppid_rugby_ratings_from_form(request.form, row["ratings"], session.get("user_email", ""))
     objectifs = request.form.get("objectifs", "").strip() or None
     entrainements = request.form.get("entrainements", "").strip() or None
     db.execute(
@@ -3045,7 +3080,7 @@ def ppid_physical_add(player_id):
         flash("Merci d'indiquer un intitulé de période (ex. « Novembre - Janvier »).", "error")
         return redirect(url_for("cahier_charges", joueur=player_id))
     eval_date = request.form.get("eval_date", "").strip() or None
-    ratings = _ppid_physical_coach_ratings_from_form(request.form, "{}")
+    ratings = _ppid_physical_coach_ratings_from_form(request.form, "{}", session.get("user_email", ""))
     commentaires = request.form.get("commentaires", "").strip() or None
     axe_musculation = request.form.get("axe_musculation", "").strip() or None
     axe_terrain = request.form.get("axe_terrain", "").strip() or None
@@ -3070,7 +3105,7 @@ def ppid_physical_edit(eval_id):
         abort(404)
     period_label = request.form.get("period_label", "").strip() or row["period_label"]
     eval_date = request.form.get("eval_date", "").strip() or None
-    ratings = _ppid_physical_coach_ratings_from_form(request.form, row["ratings"])
+    ratings = _ppid_physical_coach_ratings_from_form(request.form, row["ratings"], session.get("user_email", ""))
     commentaires = request.form.get("commentaires", "").strip() or None
     axe_musculation = request.form.get("axe_musculation", "").strip() or None
     axe_terrain = request.form.get("axe_terrain", "").strip() or None
