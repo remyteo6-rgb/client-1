@@ -1198,6 +1198,11 @@ body.demo-mode .demo-blur {
 }
 .ppid-comment-toggle:hover { color: var(--text-primary); }
 .ppid-rate .ppid-comment-input { flex: 1 1 180px; min-width: 140px; }
+/* Qui a réglé cette note en dernier (cahier d'entraînement) — discret, à la suite des
+   boutons en saisie (.ppid-rate-by) ou sous la pastille en lecture (.ppid-grid-by). */
+.ppid-rate-by { font-size: 11px; color: var(--text-secondary); opacity: 0.75; white-space: nowrap; }
+.ppid-rate-by::before { content: "· "; }
+.ppid-grid-by { font-size: 10.5px; color: var(--text-secondary); opacity: 0.7; margin-top: 2px; }
 
 /* Les critères notés (bilan) restent à gauche et les objectifs / axes de travail sont
    affichés à droite à partir d'une largeur d'écran suffisante, pour que la carte soit
