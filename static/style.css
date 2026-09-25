@@ -21,18 +21,23 @@
     --adverse-color: #ffffff;
     --positive: #6fcf7a;
     --negative: #ff5c5c;
-    --radius: 8px;
+    --wine-deep: #3a0f26;
+    --radius: 2px;
     --gap: 16px;
-    --font-display: 'Oswald', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    /* Nouvelle identité "broadcast" (sept. 2026) : Barlow Condensed pour les titres/nav/
+       étiquettes, Anton réservé aux gros chiffres (scores), Barlow pour le texte courant.
+       Les pages du rapport vidéo (.review-board/.report-board) restent volontairement sur
+       l'ancienne police système : voir la règle de "pin" plus bas dans ce fichier. */
+    --font-display: 'Barlow Condensed', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-impact: 'Anton', 'Barlow Condensed', sans-serif;
+    --font-body: 'Barlow', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 * { margin:0; padding:0; box-sizing:border-box; }
 html, body { min-height: 100%; }
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: radial-gradient(ellipse at top, #2c1120 0%, #170a12 50%, #0a0509 100%);
-    background-attachment: fixed;
+    font-family: var(--font-body);
+    background: #0b0708;
     color: var(--text-primary);
-    body {
     line-height: 1.5;
     position: relative;
     padding-top: 60px;
@@ -68,9 +73,9 @@ a { color: inherit; text-decoration: none; }
     max-width: 1600px;
     margin: 24px auto;
     padding: 28px 32px;
-    background: rgba(18,6,13,0.55);
-    border-radius: 12px;
-    box-shadow: 0 8px 40px rgba(0,0,0,0.35);
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
     position: relative;
     z-index: 1;
 }
@@ -81,12 +86,13 @@ a { color: inherit; text-decoration: none; }
 .flash-error { background: rgba(200,16,46,0.18); color: var(--negative); }
 
 h1 {
-    font-family: var(--font-display); font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.6px; font-size: 24px; margin-bottom: 6px; color: var(--text-primary);
+    font-family: var(--font-display); font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.4px; font-size: 25px; margin-bottom: 6px; color: var(--text-primary);
 }
 h2 {
-    font-family: var(--font-display); font-weight: 500; letter-spacing: 0.3px;
+    font-family: var(--font-display); font-weight: 600; letter-spacing: 0.2px;
     font-size: 18px; margin-bottom: 12px; color: var(--text-primary);
+    text-transform: uppercase;
 }
 .subtitle { color: var(--text-secondary); font-size: 13px; margin-bottom: 20px; }
 
@@ -127,7 +133,7 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
 .form-group input, .form-group select, .form-group textarea {
     padding: 10px 12px;
     border: 1px solid rgba(255,255,255,0.25);
-    border-radius: 6px;
+    border-radius: 2px;
     font-size: 14px;
     background: rgba(255,255,255,0.05);
     color: var(--text-primary);
@@ -138,11 +144,13 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
     background: var(--accent);
     color: #ffffff;
     border: none;
-    padding: 12px 20px;
-    border-radius: 6px;
-    font-size: 13.5px;
-    font-weight: 700;
-    letter-spacing: 0.3px;
+    padding: 11px 20px;
+    border-radius: 2px;
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
     cursor: pointer;
     width: fit-content;
     transition: background-color .15s ease;
@@ -151,15 +159,19 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
 .btn-danger { background: transparent; color: var(--negative); border: 1px solid var(--negative); }
 .btn-secondary { background: transparent; color: var(--text-secondary); border: 1px solid rgba(255,255,255,0.3); }
 
-.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--gap); margin-bottom: var(--gap); }
-.kpi-card { background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: var(--radius); padding: 18px 20px; box-shadow: none; }
+.kpi-row {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1px; background: rgba(0,0,0,0.55);
+    border: 1px solid rgba(0,0,0,0.55); margin-bottom: var(--gap);
+}
+.kpi-card { background: var(--bg-card); border: none; border-radius: 0; padding: 18px 20px; box-shadow: none; }
 .kpi-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px; }
 .kpi-value { font-size: 24px; font-weight: 700; color: var(--text-primary); }
 .kpi-own { color: var(--own-color); }
 .kpi-adverse { color: var(--adverse-color); }
 .kpi-help { font-size: 11px; color: var(--text-secondary); margin-top: 6px; line-height: 1.4; }
 
-.highlights-card { border-left: 4px solid var(--accent-gold); }
+.highlights-card { border-top: 3px solid var(--accent-gold); }
 .highlights-card h2 { margin-bottom: 10px; }
 .highlights-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
 .highlights-list li {
@@ -176,7 +188,7 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
 .section-block {
     background: var(--bg-card);
     border: 1px solid var(--bg-card-border);
-    border-left: 4px solid var(--accent);
+    border-top: 3px solid var(--accent);
     border-radius: var(--radius);
     margin-bottom: var(--gap);
     padding: 0;
@@ -260,8 +272,8 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
    (accueil, matchs, adversaires, saison, connexion...), avec le menu ☰ toujours à
    gauche. Sur les pages de match, les onglets de secteur s'ajoutent à droite du logo. */
 .subnav {
-    background: rgba(10,4,6,0.94);
-    border-bottom: 1px solid rgba(255,255,255,0.18);
+    background: var(--wine-deep);
+    border-bottom: 2px solid var(--accent-gold);
     position: fixed;
     top: 0;
     left: 0;
@@ -303,8 +315,6 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
     .subnav-links > a,
     .subnav-links > details.subnav-sector-dropdown { display: none; }
     .subnav-page-dropdown { display: block; }
-}
-
     .subnav-links::-webkit-scrollbar { display: none; }
     .subnav-links a { padding: 12px 10px; font-size: 12.5px; }
 }
@@ -345,15 +355,18 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
 }
 .subnav-links a {
     color: rgba(255,255,255,0.75);
+    font-family: var(--font-display);
+    text-transform: uppercase;
     font-size: 13px;
     font-weight: 600;
+    letter-spacing: 0.04em;
     padding: 12px 14px;
     white-space: nowrap;
     border-bottom: 3px solid transparent;
     flex-shrink: 0;
 }
 .subnav-links a:hover { color: #fff; }
-.subnav-links a.active { color: #fff; border-bottom-color: var(--accent-gold); }
+.subnav-links a.active { color: #1a0f08; background: var(--accent-gold); border-bottom-color: transparent; }
 
 /* Sous-menu "Secteurs ▾" dans la sous-nav : regroupe Attaque/Défense/Ruck/Touches/
    Mêlée/JAP/Transition (et Discipline/Rucks côté Adversaires) pour éviter d'avoir
@@ -366,8 +379,11 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
     list-style: none;
     cursor: pointer;
     color: rgba(255,255,255,0.75);
+    font-family: var(--font-display);
+    text-transform: uppercase;
     font-size: 13px;
     font-weight: 600;
+    letter-spacing: 0.04em;
     padding: 12px 14px;
     white-space: nowrap;
     border-bottom: 3px solid transparent;
@@ -409,8 +425,11 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
     list-style: none;
     cursor: pointer;
     color: rgba(255,255,255,0.75);
+    font-family: var(--font-display);
+    text-transform: uppercase;
     font-size: 13px;
     font-weight: 600;
+    letter-spacing: 0.04em;
     padding: 12px 14px;
     white-space: nowrap;
     user-select: none;
@@ -464,7 +483,7 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
 }
 .team-badge-own { background: rgba(91,143,176,0.18); border-color: var(--own-color); color: var(--own-color); }
 .team-badge-adverse { background: rgba(195,208,214,0.18); border-color: var(--adverse-color); color: var(--adverse-color); }
-.scoreboard-hero-score { font-size: 46px; font-weight: 800; line-height: 1; }
+.scoreboard-hero-score { font-family: var(--font-impact); font-size: 50px; font-weight: 400; line-height: 1; }
 .scoreboard-hero-score.own { color: var(--own-color); }
 .scoreboard-hero-score.adverse { color: var(--adverse-color); }
 .scoreboard-hero-sep { font-size: 22px; color: rgba(255,255,255,0.35); }
@@ -534,7 +553,7 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
 }
 
 @media (max-width: 768px) {
-    .page { margin: 12px auto; padding: 18px 16px; border-radius: 8px; }
+    .page { margin: 12px auto; padding: 18px 16px; border-radius: 0; }
     h1 { font-size: 19px; }
     h2 { font-size: 15px; }
     .card, .kpi-card { padding: 14px 16px; }
@@ -592,12 +611,12 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
 .landing-body {
     margin: 0;
     min-height: 100vh;
-    background: radial-gradient(ellipse at top, #16222c 0%, #0c1116 55%, #060809 100%);
+    background: #0a0d10;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 96px 20px 40px;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font-body);
 }
 .landing-screen {
     display: flex;
@@ -633,11 +652,12 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
     border: 1px solid rgba(255,255,255,0.55);
     background: rgba(255,255,255,0.06);
     color: #fff;
-    font-weight: 700;
-    font-size: 14px;
-    letter-spacing: 1px;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    border-radius: 4px;
+    border-radius: 2px;
     transition: background 0.15s ease, border-color 0.15s ease;
 }
 .landing-link:hover {
@@ -674,8 +694,9 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
     text-transform: none;
 }
 .landing-match-score {
-    font-size: 32px;
-    font-weight: 800;
+    font-family: var(--font-impact);
+    font-size: 36px;
+    font-weight: 400;
     margin-bottom: 6px;
 }
 .landing-match-score .own { color: #5b8fb0; }
@@ -1240,8 +1261,8 @@ body.demo-mode .demo-blur {
 .ppid-trend-flat { color: var(--text-secondary); }
 
 .ppid-callout {
-    margin-top: 10px; padding: 8px 12px; border-radius: 6px; background: rgba(255,255,255,0.04);
-    border-left: 3px solid var(--accent); font-size: 12.5px; color: var(--text-secondary);
+    margin-top: 10px; padding: 8px 12px; border-radius: 2px; background: rgba(255,255,255,0.04);
+    border-top: 2px solid var(--accent); font-size: 12.5px; color: var(--text-secondary);
 }
 .ppid-callout strong { color: var(--text-primary); }
 
@@ -1287,8 +1308,8 @@ body.demo-mode .demo-blur {
 .ppid-criteria-card[open] .ppid-criteria-list { margin-top: 12px; }
 .ppid-criteria-list { list-style: none; display: flex; flex-direction: column; gap: 7px; margin: 0 0 10px; padding: 0; }
 .ppid-criteria-list li {
-    font-size: 12.5px; color: var(--text-primary); padding: 8px 12px; border-radius: 6px;
-    background: rgba(111,207,122,0.08); border-left: 3px solid var(--positive);
+    font-size: 12.5px; color: var(--text-primary); padding: 8px 12px; border-radius: 2px;
+    background: rgba(111,207,122,0.08); border-top: 2px solid var(--positive);
 }
 .ppid-full-grid { margin-top: 8px; }
 .ppid-full-grid summary { list-style: none; cursor: pointer; font-size: 12px; color: var(--text-secondary); }
@@ -1683,7 +1704,26 @@ body.demo-mode .demo-blur {
    Bloc volontairement sur fond clair, comme le rapport papier, alors que le
    reste du site est en thème sombre. Le fond de stade (static/review-bg.jpg)
    et les blasons (static/clubs/<club>.png) sont optionnels : sans eux, fond
-   neutre et pastilles aux initiales. */
+   neutre et pastilles aux initiales.
+
+   Ces pages sont déjà mises en forme à la main (export Keynote) : la refonte
+   "broadcast" de septembre 2026 ne doit pas les modifier. On fige donc ici les
+   jetons dont ce bloc dépend (--radius, --font-display) à leurs anciennes
+   valeurs, et on restaure explicitement les titres h1/h2 qu'il contient — ces
+   deux-là ne passent pas par une variable, donc la refonte globale ne les
+   toucherait pas sinon. */
+.review-board,
+.report-board {
+    --radius: 8px;
+    --font-display: 'Oswald', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+.review-board h1, .report-board h1 {
+    font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; font-size: 24px;
+}
+.review-board h2, .report-board h2 {
+    font-weight: 500; letter-spacing: 0.3px; font-size: 18px; text-transform: none;
+}
 .review-board,
 .report-board {
     position: relative;
@@ -2245,16 +2285,17 @@ span.review-crest {
 .ppid-grid-title {
     display: flex; align-items: center; gap: 14px;
     margin: 0 0 14px; padding: 14px 20px;
-    border: 1px solid var(--bg-card-border); border-left-width: 6px;
+    border: 1px solid var(--bg-card-border); border-top-width: 4px;
     border-radius: var(--radius);
     background: rgba(255, 255, 255, .07);
-    font-size: 1.6rem; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;
+    font-family: var(--font-display);
+    font-size: 1.6rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
     line-height: 1.1;
 }
 .ppid-grid-title svg { flex: none; width: 30px; height: 30px; }
-.ppid-title-rugby     { border-left-color: var(--positive); }
-.ppid-title-physique  { border-left-color: var(--own-color); }
-.ppid-title-entretien { border-left-color: var(--accent-gold); }
+.ppid-title-rugby     { border-top-color: var(--positive); }
+.ppid-title-physique  { border-top-color: var(--own-color); }
+.ppid-title-entretien { border-top-color: var(--accent-gold); }
 .ppid-title-rugby svg     { color: var(--positive); }
 .ppid-title-physique svg  { color: var(--own-color); }
 .ppid-title-entretien svg { color: var(--accent-gold); }
@@ -2280,7 +2321,7 @@ span.review-crest {
 .ppid-section-entretiens .ppid-entretien-note-preview { font-size: 14px; }
 .ppid-section-entretiens .ppid-entretien-row .ppid-entretien-notes {
     font-size: 1.05rem; line-height: 1.55; margin: 0 0 14px 22px;
-    padding: 14px 18px; border-left: 3px solid var(--accent-gold);
+    padding: 14px 18px; border-top: 2px solid var(--accent-gold);
 }
 .ppid-section-entretiens .ppid-entretien-row-actions { margin-left: 22px; margin-bottom: 14px; }
 .ppid-section-entretiens .ppid-entretien-more > summary { font-size: 13px; padding: 8px 2px; }
@@ -2309,8 +2350,8 @@ span.review-crest {
 .legal-page p, .legal-page li { font-size: .95rem; color: var(--text-primary); }
 .legal-page ul { margin: 8px 0 8px 18px; display: flex; flex-direction: column; gap: 6px; }
 .legal-note {
-    background: rgba(249, 162, 64, .14); border-left: 4px solid var(--accent-gold);
-    border-radius: 6px; padding: 12px 16px; margin: 0 0 18px; font-size: .9rem;
+    background: rgba(249, 162, 64, .14); border-top: 3px solid var(--accent-gold);
+    border-radius: 2px; padding: 12px 16px; margin: 0 0 18px; font-size: .9rem;
 }
 
 .erreur-page { text-align: center; padding: 54px 24px; }
