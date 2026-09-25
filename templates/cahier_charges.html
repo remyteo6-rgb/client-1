@@ -343,7 +343,8 @@
                                             <div class="ppid-cat-row">
                                                 <label>{{ label }}</label>
                                                 <div class="ppid-cat-inputs">
-                                                    {{ ppid_rate.rate_field('note__' ~ key, ppid_rugby_notes, value=ev.ratings[key].get('note') or '', comment_name='commentaire__' ~ key, comment_value=ev.ratings[key].get('commentaire') or '') }}
+                                                    {% set note_by = ev.ratings[key].get('by') %}
+                                                    {{ ppid_rate.rate_field('note__' ~ key, ppid_rugby_notes, value=ev.ratings[key].get('note') or '', comment_name='commentaire__' ~ key, comment_value=ev.ratings[key].get('commentaire') or '', modified_by=staff_names.get(note_by, note_by|email_prefix) if note_by else none) }}
                                                 </div>
                                             </div>
                                             {% endfor %}
@@ -391,6 +392,8 @@
                             {% elif trend == 'flat' %}<span class="ppid-trend ppid-trend-flat" title="Stable vs la période précédente">→</span>
                             {% endif %}
                             {% if ev.ratings[key].get('commentaire') %}<div class="ppid-grid-comment">{{ ev.ratings[key].get('commentaire') }}</div>{% endif %}
+                            {% set note_by = ev.ratings[key].get('by') %}
+                            {% if note_by %}<div class="ppid-grid-by">{{ staff_names.get(note_by, note_by|email_prefix) }}</div>{% endif %}
                         </td>
                         {% endfor %}
                     </tr>
@@ -432,7 +435,8 @@
                                             {% for key, label in ppid_physical_categories %}
                                             <div class="ppid-cat-row">
                                                 <label>{{ label }} <span class="docs-hint">(auto : {{ ev.ratings[key].get('auto') or '—' }})</span></label>
-                                                {{ ppid_rate.rate_field('coach__' ~ key, ppid_physical_notes, value=ev.ratings[key].get('coach') or '') }}
+                                                {% set coach_by = ev.ratings[key].get('by') %}
+                                                {{ ppid_rate.rate_field('coach__' ~ key, ppid_physical_notes, value=ev.ratings[key].get('coach') or '', modified_by=staff_names.get(coach_by, coach_by|email_prefix) if coach_by else none) }}
                                             </div>
                                             {% endfor %}
                                         </div>
@@ -489,6 +493,8 @@
                             {% elif trend == 'down' %}<span class="ppid-trend ppid-trend-down" title="Recul vs la période précédente (note coach)">↘</span>
                             {% elif trend == 'flat' %}<span class="ppid-trend ppid-trend-flat" title="Stable vs la période précédente (note coach)">→</span>
                             {% endif %}
+                            {% set coach_by = ev.ratings[key].get('by') %}
+                            {% if coach_by %}<div class="ppid-grid-by">{{ staff_names.get(coach_by, coach_by|email_prefix) }}</div>{% endif %}
                             <br>
                             <span class="ppid-pill {{ 'ppid-pill-exl' if auto=='Excellent' else ('ppid-pill-bien' if auto=='Bien' else ('ppid-pill-moy' if auto=='Moyen' else ('ppid-pill-pasbon' if auto=='Pas bon' else 'ppid-pill-empty'))) }}" title="Auto-évaluation joueur">{{ ppid_icons.user_outline(11) }} {{ auto or '—' }}</span>
                         </td>

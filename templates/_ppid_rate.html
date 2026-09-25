@@ -10,8 +10,10 @@
     - value : niveau déjà choisi (édition) ou '' (ajout)
     - comment_name : nom du champ commentaire, ou none pour ne pas en afficher un
     - comment_value : commentaire déjà saisi (édition) ou ''
+    - modified_by : prénom (déjà résolu) de la dernière personne à avoir réglé cette note,
+      ou none tant qu'elle n'a jamais été renseignée (voir 'by' dans les ratings, app.py)
 #}
-{% macro rate_field(name, notes, value='', comment_name=none, comment_value='') %}
+{% macro rate_field(name, notes, value='', comment_name=none, comment_value='', modified_by=none) %}
 <div class="ppid-rate">
     <input type="hidden" name="{{ name }}" value="{{ value }}">
     {% for n in notes %}
@@ -20,6 +22,9 @@
     {% if comment_name %}
     <button type="button" class="ppid-comment-toggle" style="{{ 'display:none;' if comment_value else '' }}">+ commentaire</button>
     <input type="text" name="{{ comment_name }}" class="ppid-comment-input" placeholder="Commentaire (optionnel)" value="{{ comment_value }}" style="{{ '' if comment_value else 'display:none;' }}">
+    {% endif %}
+    {% if modified_by %}
+    <span class="ppid-rate-by" title="Dernière modification de cette note">{{ modified_by }}</span>
     {% endif %}
 </div>
 {% endmacro %}
