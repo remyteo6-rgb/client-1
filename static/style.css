@@ -1139,16 +1139,26 @@ body.demo-mode .demo-blur {
 .ppid-profil-table thead th.ppid-col-active { background: var(--accent) !important; color: #fff; }
 
 .ppid-eval-form { max-width: 640px; }
-.ppid-cat-grid { display: flex; flex-direction: column; gap: 10px; }
-.ppid-cat-row { background: rgba(255,255,255,0.04); border: 1px solid var(--bg-card-border); border-radius: 6px; padding: 8px 10px; }
-.ppid-cat-row label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
-.ppid-cat-inputs { display: flex; gap: 8px; flex-wrap: wrap; }
+/* Critères d'un point d'étape (rugby/physique) : une ligne par critère (libellé à
+   gauche, boutons de notation à droite) séparée par un simple filet, plutôt qu'une
+   grosse boîte par critère — retenu le 25/09 parmi 3 options pour que la liste ne
+   prenne plus toute la page tout en restant aussi rapide à remplir. */
+.ppid-cat-grid { display: flex; flex-direction: column; }
+.ppid-cat-row {
+    border-bottom: 1px solid var(--bg-card-border);
+    padding: 9px 2px;
+    display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+}
+.ppid-cat-row:last-child { border-bottom: none; }
+.ppid-cat-row label { font-size: 12px; font-weight: 600; color: var(--text-secondary); flex: 1 1 210px; }
+.ppid-cat-inputs { display: flex; gap: 8px; flex-wrap: wrap; flex: 0 0 auto; }
 .ppid-cat-inputs select { flex-shrink: 0; }
 .ppid-cat-inputs input[type="text"] { flex: 1; min-width: 160px; }
 .ppid-cat-row select, .ppid-cat-row input[type="text"] {
     background: rgba(255,255,255,0.08); color: var(--text-primary); border: 1px solid rgba(255,255,255,0.25);
     border-radius: 5px; padding: 6px 8px; font-size: 12px;
 }
+.ppid-cat-row .ppid-rate-btn { padding: 5px 11px; font-size: 11.5px; }
 
 .ppid-timeline { display: flex; flex-direction: column; gap: 14px; }
 .ppid-eval-card { background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: var(--radius); padding: 14px 16px; }
