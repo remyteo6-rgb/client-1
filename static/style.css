@@ -327,6 +327,44 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
     flex-shrink: 0;
 }
 
+/* Recherche joueur dans la zone fixe du bandeau (hamburger/logo/contexte) : cette zone
+   ne défile jamais, contrairement aux onglets juste à côté, donc un accès toujours
+   visible ici a du sens — repliée en icône pour ne pas pousser les onglets, elle ne
+   s'élargit qu'au clic/focus. Accessible partout (pas seulement depuis le Cahier
+   d'entraînement) via nav_players, injecté par app.py pour les comptes qui y ont droit. */
+.subnav-search { position: relative; flex-shrink: 0; display: flex; align-items: center; margin-right: 10px; }
+.subnav-search-icon {
+    position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+    color: rgba(255,255,255,0.55); pointer-events: none; display: flex;
+}
+.subnav-search-input {
+    width: 34px; padding: 7px 10px 7px 30px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff;
+    transition: width 0.18s ease, background 0.18s ease; cursor: pointer;
+}
+.subnav-search-input::placeholder { color: rgba(255,255,255,0.55); }
+.subnav-search-input:focus, .subnav-search.open .subnav-search-input {
+    width: 190px; background: rgba(255,255,255,0.16); cursor: text; outline: none;
+}
+.subnav-search-suggestions {
+    display: none; position: absolute; top: calc(100% + 8px); left: 0; width: 260px; z-index: 60;
+    background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: var(--radius);
+    max-height: 360px; overflow-y: auto; box-shadow: 0 14px 32px rgba(0,0,0,0.3); padding: 6px 0;
+}
+.subnav-search.open .subnav-search-suggestions { display: block; }
+
+/* Fil d'Ariane des pages de match : posé juste sous le bandeau (voir le padding-top du
+   body), en dehors de <main> donc des .report-board/.review-board pixel-identiques. */
+.subnav-breadcrumb {
+    background: var(--bg-card); border-bottom: 1px solid var(--bg-card-border);
+    padding: 9px 20px; font-size: 12.5px; font-weight: 700; color: var(--text-secondary);
+    display: flex; align-items: center; gap: 7px; overflow-x: auto; white-space: nowrap;
+}
+.subnav-breadcrumb a { color: var(--accent-gold-text); text-decoration: none; }
+.subnav-breadcrumb a:hover { text-decoration: underline; }
+.subnav-breadcrumb-sep { opacity: 0.45; flex-shrink: 0; }
+.subnav-breadcrumb-current { color: var(--text-primary); }
+
 @media (max-width: 700px) {
     body { padding-top: 60px; }
     .subnav-context { max-width: 130px; font-size: 11px; }
@@ -335,6 +373,9 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
     .subnav-page-dropdown { display: block; }
     .subnav-links::-webkit-scrollbar { display: none; }
     .subnav-links a { padding: 12px 10px; font-size: 12.5px; }
+    .subnav-search-input:focus, .subnav-search.open .subnav-search-input { width: 130px; }
+    .subnav-search-suggestions { width: 220px; }
+    .subnav-breadcrumb { padding: 8px 14px; font-size: 11.5px; }
 }
 .subnav-dropdown {
     position: relative;
@@ -366,11 +407,19 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
 }
 .subnav-links {
     display: flex;
-    flex-wrap: wrap;
+    /* Une seule ligne toujours : si les onglets ne tiennent plus (recherche joueur
+       ajoutée dans la zone fixe à côté), ça défile horizontalement plutôt que de passer
+       à la ligne, ce qui doublerait la hauteur du bandeau fixe et ferait chevaucher le
+       contenu de la page (padding-top du body figé à 60px). */
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
     gap: 4px;
     row-gap: 0;
     padding-left: 8px;
+    min-width: 0;
 }
+.subnav-links::-webkit-scrollbar { display: none; }
 .subnav-links a {
     color: rgba(255,255,255,0.75);
     font-family: var(--font-display);
@@ -799,6 +848,15 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
     font-weight: 600;
 }
 .landing-dropdown-content a:hover { background: rgba(42,23,18,0.06); }
+/* Petits intitulés de section ("Navigation" / "Administration" / "Compte") et séparateurs
+   fins : le menu mélangeait auparavant navigation quotidienne et actions rares (sauvegarde,
+   déconnexion) sans aucun repère visuel. */
+.landing-dropdown-heading {
+    display: block; font-size: 10.5px; font-weight: 800; letter-spacing: 0.6px;
+    text-transform: uppercase; color: var(--accent-gold-text); padding: 10px 16px 4px;
+}
+.landing-dropdown-content > .landing-dropdown-heading:first-child { padding-top: 12px; }
+.landing-dropdown-sep { height: 1px; background: rgba(42,23,18,0.12); margin: 6px 12px; }
 
 /* Grille alignée (2 colonnes) pour les boutons de secteur sur la page d'accueil,
    plutôt qu'une longue colonne verticale. */
