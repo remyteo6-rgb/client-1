@@ -104,12 +104,24 @@ PUBLIC_ENDPOINTS = {"login", "static", "demo_login", "pwa_manifest", "pwa_servic
 
 @app.before_request
 def force_https():
-    """En ligne, le site n'est servi qu'en HTTPS : une arrivée en http est redirigée.
-    Render termine le TLS en amont et indique le protocole d'origine dans cet en-tête."""
+    """DÉSACTIVÉ (29/09) : cette redirection maison, censée renvoyer une arrivée en http
+    vers https, provoquait en réalité une boucle de redirection infinie empêchant toute
+    connexion — très probablement parce que l'en-tête X-Forwarded-Proto que Render (ou un
+    proxy intermédiaire) transmet à l'appli ne vaut pas fiablement "https" même pour une
+    vraie connexion https du visiteur, ce qui fait que la condition ci-dessous restait
+    vraie indéfiniment et que l'appli se redirigeait vers... la même adresse.
+    Render impose déjà lui-même le https sur les domaines *.onrender.com (une arrivée en
+    http y est automatiquement basculée avant même d'atteindre l'appli) : ce garde-fou
+    applicatif était donc redondant, et sa panne bien plus grave que le problème qu'il
+    tentait de résoudre (l'obligation occasionnelle de se connecter deux fois). On le
+    laisse désactivé tant qu'on n'a pas de moyen fiable de distinguer le vrai schéma
+    d'origine ; le HSTS ci-dessous (Strict-Transport-Security) suffit à faire repasser
+    en https les navigateurs qui ont déjà visité le site une fois."""
+    return
     if LOCAL_DEV:
         return
     if request.headers.get("X-Forwarded-Proto", "https") != "https":
-        return redirect(request.url.replace("http://", "https://", 1), code=301)
+        return redirect(request.url.replace("http://", "https://", 1), code=308)
 
 
 @app.after_request
