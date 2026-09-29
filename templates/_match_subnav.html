@@ -9,17 +9,15 @@
                 <a href="{{ url_for('cahier_charges') }}">{{ icons.clipboard() }} Cahier d'entraînement</a>
                 <a href="{{ url_for('logout') }}">{{ icons.lock() }} Se déconnecter</a>
                 {% else %}
+                <span class="landing-dropdown-heading">Navigation</span>
                 <a href="{{ url_for('landing') }}">{{ icons.home() }} Accueil</a>
-                {% if not demo_forced %}
-                <a href="#" id="demoModeToggle" onclick="toggleDemoMode(); return false;">{{ icons.eye_off() }} Mode démo (flouter les noms)</a>
-                {% endif %}
                 <details class="landing-dropdown-sub">
                     <summary>{{ icons.video() }} Analyse vidéo</summary>
                     <div class="landing-dropdown-sub-content">
                         <a href="{{ url_for('analyse_video') }}">Vue d'ensemble</a>
                         <a href="{{ url_for('index') }}">{{ icons.chart() }} Matchs</a>
                         {% if is_admin %}
-                        <a href="{{ url_for('upload') }}">+ Importer un XML</a>
+                        <a href="{{ url_for('upload') }}">+ Importer un match (XML)</a>
                         {% endif %}
                     </div>
                 </details>
@@ -30,16 +28,25 @@
                 <a href="{{ url_for('calendrier') }}">{{ icons.calendar() }} Calendrier</a>
                 {% endif %}
                 <a href="{{ url_for('cahier_charges') }}">{{ icons.clipboard() }} Cahier d'entraînement</a>
+
                 {% if is_admin %}
+                <div class="landing-dropdown-sep" role="separator"></div>
+                <span class="landing-dropdown-heading">Administration</span>
                 <details class="landing-dropdown-sub">
                     <summary>{{ icons.settings() }} Administration</summary>
                     <div class="landing-dropdown-sub-content">
                         <a href="{{ url_for('admin_joueurs') }}">{{ icons.users() }} Joueurs et accès</a>
-                        <a href="{{ url_for('upload') }}">+ Importer un XML</a>
+                        <a href="{{ url_for('upload') }}">+ Importer l'effectif (XML)</a>
                         <a href="{{ url_for('export_data') }}">{{ icons.save() }} Sauvegarder les données</a>
                         <a href="{{ url_for('import_data') }}">{{ icons.import_data() }} Restaurer une sauvegarde</a>
                     </div>
                 </details>
+                {% endif %}
+
+                <div class="landing-dropdown-sep" role="separator"></div>
+                <span class="landing-dropdown-heading">Compte</span>
+                {% if not demo_forced %}
+                <a href="#" id="demoModeToggle" onclick="toggleDemoMode(); return false;">{{ icons.eye_off() }} Mode démo (flouter les noms)</a>
                 {% endif %}
                 {% if logged_in %}
                 <a href="{{ url_for('logout') }}">{{ icons.lock() }} Se déconnecter</a>
@@ -52,6 +59,25 @@
         <img src="{{ url_for('static', filename='logo.png') }}" class="subnav-logo" alt="{{ club_full_name }}">
         {% if match is defined %}
         <span class="subnav-context" title="{{ match['own_team'] }} vs {{ match['opponent'] }}{% if match['match_date'] %} · {{ match['match_date'] }}{% endif %}">{{ icons.rugby() }} {{ match['own_team'] }} vs {{ match['opponent'] }}{% if match['match_date'] %} · {{ match['match_date'] }}{% endif %}</span>
+        {% endif %}
+
+        {% if nav_players %}
+        {# Recherche joueur accessible depuis n'importe quelle page (zone fixe, ne défile
+           jamais, contrairement à la rangée d'onglets juste à côté) : évite de devoir
+           repasser par ☰ → Cahier d'entraînement rien que pour retrouver un joueur. #}
+        <div class="subnav-search" id="subnavSearch">
+            <span class="subnav-search-icon">{{ icons.search(13) }}</span>
+            <input type="text" id="subnavSearchInput" class="subnav-search-input" autocomplete="off" placeholder="Rechercher un joueur…">
+            <div class="subnav-search-suggestions" id="subnavSearchSuggestions">
+                {% for p in nav_players %}
+                <a href="{{ url_for('cahier_charges', joueur=p['id']) }}" class="cc-suggestion-item" data-name="{{ (p['first_name'] ~ ' ' ~ p['last_name'])|lower }}">
+                    <span class="cc-suggestion-avatar">{{ (p['first_name'][:1] ~ p['last_name'][:1])|upper }}</span>
+                    <span class="cc-suggestion-name">{{ p['first_name'] }} {{ p['last_name'] }}</span>
+                </a>
+                {% endfor %}
+                <p class="cc-suggestion-empty" style="display:none;">Aucun joueur trouvé.</p>
+            </div>
+        </div>
         {% endif %}
 
         {% if match is defined %}
@@ -83,3 +109,87 @@
     </div>
     <div class="club-checker" aria-hidden="true"></div>
 </div>
+
+{% if match is defined %}
+{# Fil d'Ariane : au-dessus du contenu de la page (donc hors de .report-board /
+   .review-board), pour pouvoir remonter d'un cran sans rouvrir tout le menu ☰ — les 4
+   pages rapport (Bilan attaque/défense, CSC, Vue d'ensemble/Review) restent inchangées. #}
+<nav class="subnav-breadcrumb no-print" aria-label="Fil d'Ariane">
+    <a href="{{ url_for('landing') }}">Accueil</a>
+    <span class="subnav-breadcrumb-sep" aria-hidden="true">›</span>
+    <a href="{{ url_for('index') }}">Matchs</a>
+    <span class="subnav-breadcrumb-sep" aria-hidden="true">›</span>
+    <a href="{{ url_for('match_detail', match_id=match['id']) }}">{{ match['own_team'] }} vs {{ match['opponent'] }}</a>
+    {% if active and active != 'overview' %}
+    <span class="subnav-breadcrumb-sep" aria-hidden="true">›</span>
+    <span class="subnav-breadcrumb-current">{{ page_labels.get(active, '') }}</span>
+    {% endif %}
+</nav>
+{% endif %}
+
+{% if nav_players %}
+<script>
+(function () {
+    var wrap = document.getElementById('subnavSearch');
+    var input = document.getElementById('subnavSearchInput');
+    var panel = document.getElementById('subnavSearchSuggestions');
+    if (!wrap || !input || !panel) return;
+    var items = Array.prototype.slice.call(panel.querySelectorAll('.cc-suggestion-item'));
+    var emptyMsg = panel.querySelector('.cc-suggestion-empty');
+    var activeIndex = -1;
+
+    function visibleItems() {
+        return items.filter(function (el) { return el.style.display !== 'none'; });
+    }
+    function setActive(index) {
+        var visible = visibleItems();
+        visible.forEach(function (el) { el.classList.remove('is-active'); });
+        if (index >= 0 && index < visible.length) {
+            visible[index].classList.add('is-active');
+            visible[index].scrollIntoView({ block: 'nearest' });
+        }
+        activeIndex = index;
+    }
+    function filterSuggestions(query) {
+        query = query.trim().toLowerCase();
+        var anyVisible = false;
+        items.forEach(function (el) {
+            var match = !query || el.dataset.name.indexOf(query) !== -1;
+            el.style.display = match ? '' : 'none';
+            if (match) anyVisible = true;
+        });
+        emptyMsg.style.display = anyVisible ? 'none' : '';
+        activeIndex = -1;
+    }
+    function openPanel() { wrap.classList.add('open'); }
+    function closePanel() { wrap.classList.remove('open'); setActive(-1); }
+
+    input.addEventListener('focus', function () {
+        filterSuggestions('');
+        openPanel();
+    });
+    input.addEventListener('input', function () {
+        filterSuggestions(input.value);
+        openPanel();
+    });
+    input.addEventListener('blur', function () { setTimeout(closePanel, 150); });
+    input.addEventListener('keydown', function (e) {
+        var visible = visibleItems();
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setActive(Math.min(activeIndex + 1, visible.length - 1));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setActive(Math.max(activeIndex - 1, 0));
+        } else if (e.key === 'Enter') {
+            if (activeIndex >= 0 && visible[activeIndex]) {
+                e.preventDefault();
+                visible[activeIndex].click();
+            }
+        } else if (e.key === 'Escape') {
+            input.blur();
+        }
+    });
+})();
+</script>
+{% endif %}
