@@ -103,7 +103,7 @@
 const ownLabel = {{ match['own_team'] | tojson }};
 const advLabel = {{ match['opponent'] | tojson }};
 const OWN_COLOR = '#4f7fd6';
-const ADV_COLOR = '#c3d0d6';
+const ADV_COLOR = '#3a0f26';
 function pctFormatter(value, ctx) {
     const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
     return total ? Math.round(value / total * 100) + '%' : '';

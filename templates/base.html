@@ -14,7 +14,9 @@
 <script src="{{ url_for('static', filename='demo-mode.js') }}?v={{ asset_version }}"></script>
 <script src="{{ url_for('static', filename='sortable.js') }}?v={{ asset_version }}"></script>
     <script>
-if (window.Chart) { Chart.defaults.color = '#ffffff'; }
+/* Couleur de texte par défaut des graphiques Chart.js (légendes, axes) : alignée sur
+   --text-primary, qui est désormais sombre (fond de page clair). */
+if (window.Chart) { Chart.defaults.color = '#2a1712'; }
 </script>
 </head>
 <body data-demo-forced="{{ 'true' if demo_forced else 'false' }}">

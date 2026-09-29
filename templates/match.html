@@ -463,7 +463,7 @@ const ownLabel = {{ match['own_team'] | tojson }};
 const advLabel = {{ match['opponent'] | tojson }};
 const DASHBOARD = {{ dashboard | tojson if dashboard else 'null' }};
 const OWN_COLOR = '#5b8fb0';
-const ADV_COLOR = '#c3d0d6';
+const ADV_COLOR = '#3a0f26';
 
 function pctFormatter(value, ctx) {
     const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
