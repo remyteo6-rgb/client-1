@@ -237,7 +237,7 @@ def admin_required(view):
 
 @app.context_processor
 def inject_logged_in():
-    return {
+    ctx = {
         "logged_in": session.get("logged_in", False), "is_admin": session.get("is_admin", False),
         "is_player": session.get("is_player", False),
         # Accès staff limité au cahier d'entraînement : la navigation se réduit à cette page.
@@ -247,6 +247,21 @@ def inject_logged_in():
         "club_name": CLUB_NAME, "club_full_name": CLUB_FULL_NAME,
         "asset_version": ASSET_VERSION,
     }
+    # Liste légère (id + nom) de tous les joueurs, pour la recherche rapide dans la barre
+    # du haut (voir _match_subnav.html) — disponible sur toutes les pages plutôt que la
+    # seule page Cahier d'entraînement. Calculée seulement quand elle a un sens : connecté,
+    # pas un compte joueur, pas en mode démo (noms flous), et pas un accès staff limité
+    # (menu déjà réduit à une seule page pour ces comptes-là).
+    if ctx["logged_in"] and not ctx["is_player"] and not ctx["demo_forced"] and not ctx["is_staff_cahier"]:
+        try:
+            ctx["nav_players"] = get_db().execute(
+                "SELECT id, first_name, last_name FROM players ORDER BY last_name, first_name"
+            ).fetchall()
+        except Exception:
+            ctx["nav_players"] = []
+    else:
+        ctx["nav_players"] = []
+    return ctx
 
 # Contenu du service worker, généré en Python pour pouvoir y injecter ASSET_VERSION :
 # le nom du cache change donc à chaque redémarrage/déploiement, ce qui vide
