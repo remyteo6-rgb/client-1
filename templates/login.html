@@ -5,7 +5,7 @@
 <p class="subtitle">Connecte-toi avec l'email et le mot de passe qui t'ont été communiqués. Première connexion ? Utilise le mot de passe par défaut transmis par l'administrateur : il te sera aussitôt demandé d'en choisir un personnel.</p>
 
 <div class="card" style="max-width:420px;">
-    <form class="upload-form" method="post" action="{{ url_for('login') }}">
+    <form class="upload-form" id="login-form" method="post" action="{{ url_for('login') }}">
         <input type="hidden" name="next" value="{{ next_url }}">
         <div class="form-group">
             <label>Email *</label>
@@ -15,7 +15,87 @@
             <label>Mot de passe *</label>
             <input type="password" name="password" required>
         </div>
-        <button class="btn" type="submit">Se connecter</button>
+        <button class="btn" type="submit" id="login-submit">Se connecter</button>
+        <p id="login-status" class="subtitle" style="margin-top:10px; min-height:18px;" aria-live="polite"></p>
     </form>
 </div>
+
+<script>
+// Le serveur (hébergement gratuit) se met en veille faute d'utilisation et met parfois
+// 30 à 60s à redémarrer. Pour une simple navigation, le service worker gère déjà une
+// page d'attente qui réessaie toute seule (voir /reveil) — mais un formulaire envoyé en
+// POST n'est volontairement jamais intercepté par le service worker (pour ne jamais
+// rejouer un envoi de données), donc si le serveur dort encore au moment de la connexion,
+// la requête échoue purement et simplement et il fallait jusqu'ici s'y reprendre à la
+// main une seconde fois, une fois le serveur réveillé par cette première tentative.
+// Ce script ajoute le même filet de sécurité que la navigation : si l'envoi échoue faute
+// de réponse, on attend que le serveur redonne signe de vie (sondage de /ping, comme sur
+// l'écran de réveil) puis on renvoie automatiquement le même formulaire, sans que la
+// personne ait à retaper quoi que ce soit ni à cliquer une seconde fois.
+(function () {
+    var form = document.getElementById('login-form');
+    var btn = document.getElementById('login-submit');
+    var status = document.getElementById('login-status');
+    if (!form || !btn) return;
+    var texteOriginal = btn.textContent;
+    var enCours = false;
+
+    function afficherReponse(html) {
+        document.open();
+        document.write(html);
+        document.close();
+    }
+
+    function envoyer(estUneRelance) {
+        status.textContent = estUneRelance ? 'Le serveur est prêt, nouvel envoi…' : '';
+        var data = new FormData(form);
+        fetch(form.action, { method: 'POST', body: data, credentials: 'same-origin' })
+            .then(function (res) {
+                if (res.redirected) {
+                    window.location.href = res.url;
+                    return;
+                }
+                return res.text().then(afficherReponse);
+            })
+            .catch(function () {
+                // Aucune réponse du tout : très probablement le serveur encore endormi.
+                // On sonde /ping (léger, sans toucher à la base) jusqu'à ce qu'il réponde,
+                // puis on renvoie automatiquement le même formulaire, une seule fois.
+                attendreReveilPuisRenvoyer();
+            });
+    }
+
+    function attendreReveilPuisRenvoyer() {
+        btn.textContent = 'Le serveur se réveille…';
+        status.textContent = "Ça peut prendre jusqu'à une minute la première fois — pas besoin de retaper quoi que ce soit, ça continue automatiquement.";
+        var debut = Date.now();
+        var LIMITE = 90000; // au-delà, on laisse la main plutôt que de sonder indéfiniment
+        var sonde = setInterval(function () {
+            if (Date.now() - debut > LIMITE) {
+                clearInterval(sonde);
+                btn.disabled = false;
+                btn.textContent = texteOriginal;
+                status.textContent = "Le serveur met plus de temps que prévu à répondre. Réessaie dans un instant.";
+                return;
+            }
+            fetch('/ping', { cache: 'no-store' }).then(function (r) {
+                if (r.ok) {
+                    clearInterval(sonde);
+                    envoyer(true);
+                }
+            }).catch(function () { /* toujours endormi : on continue de sonder */ });
+        }, 1500);
+    }
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (enCours) return;
+        enCours = true;
+        btn.disabled = true;
+        btn.textContent = 'Connexion en cours…';
+        status.textContent = '';
+        envoyer(false);
+    });
+})();
+</script>
 {% endblock %}
