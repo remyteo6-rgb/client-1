@@ -283,7 +283,11 @@ const APP_SHELL = [
 // Écran d'attente gardé en cache : c'est lui qui s'affiche tout de suite quand le
 // serveur, mis en veille par l'hébergeur, met une trentaine de secondes à repartir.
 const PAGE_REVEIL = "/reveil";
-const DELAI_AVANT_REVEIL = 2500; // ms sans réponse avant d'afficher l'écran d'attente
+// ms sans réponse avant d'afficher l'écran d'attente. Volontairement généreux (un vrai
+// redémarrage à froid prend 30-40s, largement au-dessus) : une valeur trop basse
+// déclenche l'écran d'attente pour une page simplement un peu lente (grosse saison,
+// serveur gratuit peu puissant) et pas seulement pour un serveur endormi.
+const DELAI_AVANT_REVEIL = 8000;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -328,6 +332,14 @@ self.addEventListener("fetch", (event) => {
   // Le test de réveil ne passe jamais par le cache : il doit refléter l'état réel
   // du serveur.
   if (url.origin === self.location.origin && url.pathname === "/ping") return;
+
+  // Marqueur posé par reveil.html après être déjà passé une fois par l'écran d'attente
+  // pour cette navigation (voir reussi() dans reveil.html) : on laisse alors le
+  // navigateur gérer la requête normalement, sans réappliquer le délai-couperet
+  // ci-dessous. Sans ça, une page qui reste plus lente que DELAI_AVANT_REVEIL même une
+  // fois le serveur bien réveillé (grosse saison, machine gratuite lente) redéclenche
+  // l'écran d'attente à chaque tentative et boucle indéfiniment sans jamais s'afficher.
+  if (url.origin === self.location.origin && url.searchParams.has("sw_bypass")) return;
 
   // Ouverture d'une page : réseau d'abord, mais si rien ne répond au bout de
   // quelques secondes (serveur en train de redémarrer), on affiche l'écran
@@ -1249,7 +1261,8 @@ def match_joueurs(match_id):
     attack_table = compute_player_attack_table(match["instances"])
     defense_table = compute_player_defense_table(match["instances"])
     ruck_table = compute_player_ruck_table(match["instances"])
-    bilan_table = compute_player_bilan_table(match["instances"])
+    bilan_table = compute_player_bilan_table(match["instances"], attack_table=attack_table,
+                                              defense_table=defense_table, ruck_table=ruck_table)
     matches_with_instances, _, _, _ = _season_context()
     player_baselines = compute_player_season_baselines(matches_with_instances, exclude_id=match_id)
     player_cards = build_player_cards(
@@ -1810,7 +1823,8 @@ def season_joueurs():
     attack_table = compute_player_attack_table(instances)
     defense_table = compute_player_defense_table(instances)
     ruck_table = compute_player_ruck_table(instances)
-    bilan_table = compute_player_bilan_table(instances)
+    bilan_table = compute_player_bilan_table(instances, attack_table=attack_table,
+                                              defense_table=defense_table, ruck_table=ruck_table)
     player_cards = build_player_cards(bilan_table, attack_table, defense_table, ruck_table)
     return render_template("season_joueurs.html", groups=groups, active="joueurs",
                            qs=qs, selected_count=len(selected),

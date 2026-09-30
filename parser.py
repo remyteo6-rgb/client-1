@@ -2711,7 +2711,7 @@ def compute_player_ruck_table(instances):
     return {"rows": result, "totals": dict(totals)}
 
 
-def compute_player_bilan_table(instances):
+def compute_player_bilan_table(instances, attack_table=None, defense_table=None, ruck_table=None):
     """Vue d'ensemble individuelle : bilan positif/neutre/négatif par joueur, méthodologie
     du rapport vidéo de référence utilisé par le staff (celui qui gère déjà les stats
     indiv en dehors du site).
@@ -2726,10 +2726,16 @@ def compute_player_bilan_table(instances):
     manquées. Les arrivées en 3e soutien ou au-delà, les mêlées, les rôles de touche
     (lifteur/sauteur/lanceur), le jeu au pied brut et les courses ne sont pas comptabilisés
     dans le bilan (actions de volume pur), seulement affichés en brut ailleurs.
-    Bilan net = positives - négatives."""
-    attack = compute_player_attack_table(instances)
-    defense = compute_player_defense_table(instances)
-    ruck = compute_player_ruck_table(instances)
+    Bilan net = positives - négatives.
+
+    'instances' sert toujours au comptage brut 'actions_codees' (voir plus bas) ; les 3
+    tableaux de détail (attack_table/defense_table/ruck_table) peuvent en plus être passés
+    tout faits par l'appelant pour éviter de les recalculer une 2e fois quand il les a déjà
+    sous la main (pages joueurs, comparateur, moyennes saison, effectif saison) — sinon ils
+    sont recalculés ici à partir de 'instances'."""
+    attack = attack_table if attack_table is not None else compute_player_attack_table(instances)
+    defense = defense_table if defense_table is not None else compute_player_defense_table(instances)
+    ruck = ruck_table if ruck_table is not None else compute_player_ruck_table(instances)
     names = set()
     for t in (attack, defense, ruck):
         names.update(r["name"] for r in t["rows"])
@@ -2811,7 +2817,7 @@ def compute_player_season_baselines(matches_with_instances, exclude_id=None):
     attack = compute_player_attack_table(combined)
     defense = compute_player_defense_table(combined)
     ruck = compute_player_ruck_table(combined)
-    bilan = compute_player_bilan_table(combined)
+    bilan = compute_player_bilan_table(combined, attack_table=attack, defense_table=defense, ruck_table=ruck)
 
     result = {}
 
@@ -2935,7 +2941,7 @@ def compute_player_comparison(instances, player_a, player_b):
     attack = compute_player_attack_table(instances)
     defense = compute_player_defense_table(instances)
     ruck = compute_player_ruck_table(instances)
-    bilan = compute_player_bilan_table(instances)
+    bilan = compute_player_bilan_table(instances, attack_table=attack, defense_table=defense, ruck_table=ruck)
     return {
         "bilan_rows": [_find_or_zero(bilan["rows"], player_a, _zero_bilan_row),
                        _find_or_zero(bilan["rows"], player_b, _zero_bilan_row)],
@@ -3158,7 +3164,7 @@ def compute_squad_season_stats(instances, selected_matches=None):
     attack = compute_player_attack_table(instances)
     defense = compute_player_defense_table(instances)
     ruck = compute_player_ruck_table(instances)
-    bilan = compute_player_bilan_table(instances)
+    bilan = compute_player_bilan_table(instances, attack_table=attack, defense_table=defense, ruck_table=ruck)
     tracking = compute_player_tracking(selected_matches or [])
     groups = []
     for position in SQUAD_POSITION_ORDER:
