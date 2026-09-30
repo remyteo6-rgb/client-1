@@ -2843,6 +2843,33 @@ def compute_player_season_baselines(matches_with_instances, exclude_id=None):
     return result
 
 
+def _composition_numbers(composition):
+    """Construit {nom en casefold: numéro de maillot} à partir de la liste des 23 noms
+    saisis sur la page Composition d'un match (index 0 = n°1 ... index 22 = n°23)."""
+    numbers = {}
+    for i, n in enumerate(composition or []):
+        if n:
+            numbers[n.strip().casefold()] = i + 1
+    return numbers
+
+
+def order_rows_by_composition(rows, composition):
+    """Trie une liste de lignes joueur (chacune avec une clé 'name') par numéro de
+    maillot — comme sur les fiches de match (1 à 23) — et renseigne 'number' sur
+    chaque ligne. Les joueurs hors composition (pas alignés, ou composition pas encore
+    saisie) sont mis à la suite par ordre alphabétique plutôt que de disparaître. Ne
+    mute pas les lignes d'origine (utile quand la même ligne est partagée entre
+    plusieurs tableaux, ex. bilan/attack/defense/ruck)."""
+    numbers = _composition_numbers(composition)
+    out = []
+    for r in rows:
+        r2 = dict(r)
+        r2["number"] = numbers.get(r["name"].strip().casefold())
+        out.append(r2)
+    out.sort(key=lambda r: (r["number"] is None, r["number"] or 0, r["name"].casefold()))
+    return out
+
+
 def build_player_cards(bilan_table, attack_table, defense_table, ruck_table, composition=None):
     """Fusionne le tableau bilan (vue d'ensemble) avec les 3 tableaux de détail en une
     liste de lignes (une par joueur).
@@ -2858,15 +2885,9 @@ def build_player_cards(bilan_table, attack_table, defense_table, ruck_table, com
     for section, table in (("bilan", bilan_table), ("attack", attack_table), ("defense", defense_table), ("ruck", ruck_table)):
         for r in table["rows"]:
             cards.setdefault(r["name"], {"name": r["name"], "bilan": None, "attack": None, "defense": None, "ruck": None})[section] = r
-    out = []
-    for c in cards.values():
-        c["number"] = None
-        out.append(c)
+    out = list(cards.values())
 
-    numbers = {}
-    for i, n in enumerate(composition or []):
-        if n:
-            numbers[n.strip().casefold()] = i + 1
+    numbers = _composition_numbers(composition)
     for c in out:
         c["number"] = numbers.get(c["name"].strip().casefold())
     out.sort(key=lambda c: (c["number"] is None, c["number"] or 0, c["name"].casefold()))

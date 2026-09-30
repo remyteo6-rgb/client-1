@@ -22,7 +22,7 @@ from parser import (
     compute_player_comparison,
     TRAINING_TAXONOMY, group_training_sessions_by_period,
     PHASE_ICONS, PHASE_HELP, compute_match_baseline,
-    compute_player_season_baselines, build_player_cards,
+    compute_player_season_baselines, build_player_cards, order_rows_by_composition,
     compute_momentum, render_momentum_svg,
     compute_zone_gold_log, compute_new_convention_tries,
     compute_new_convention_overview, compute_csc, compute_bilan_attaque,
@@ -1265,8 +1265,16 @@ def match_joueurs(match_id):
                                               defense_table=defense_table, ruck_table=ruck_table)
     matches_with_instances, _, _, _ = _season_context()
     player_baselines = compute_player_season_baselines(matches_with_instances, exclude_id=match_id)
+    composition = match.get("composition")
     player_cards = build_player_cards(
-        bilan_table, attack_table, defense_table, ruck_table, composition=match.get("composition"))
+        bilan_table, attack_table, defense_table, ruck_table, composition=composition)
+    # Mêmes tableaux de détail, mais classés 1 à 23 comme sur les fiches (numéro de
+    # maillot saisi sur la page Composition), au lieu de l'ordre alphabétique brut des
+    # tableaux compute_player_*_table.
+    attack_table = {**attack_table, "rows": order_rows_by_composition(attack_table["rows"], composition)}
+    defense_table = {**defense_table, "rows": order_rows_by_composition(defense_table["rows"], composition)}
+    ruck_table = {**ruck_table, "rows": order_rows_by_composition(ruck_table["rows"], composition)}
+    bilan_table = {**bilan_table, "rows": order_rows_by_composition(bilan_table["rows"], composition)}
     return render_template("match_joueurs.html", match=match, attack_table=attack_table,
                            defense_table=defense_table, ruck_table=ruck_table,
                            bilan_table=bilan_table,
