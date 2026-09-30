@@ -18,10 +18,10 @@
         <tr class="cols-row">
             <th>Joueur</th>
             <th class="sep-l">Indice</th>
-            <th class="sep-l">Ballons portés</th><th>Déf. battus</th><th>Offloads</th><th>Breaks</th><th>Passes</th>
+            <th class="sep-l">Essais</th><th>Déf. battus</th><th>Offloads</th><th>Breaks</th><th>Passes</th>
             <th class="sep-l">Contact +</th><th>Contact −</th><th>Efficacité</th>
             <th class="sep-l">Plaquages</th><th>Dominants</th><th>Ratés</th><th>% Réussite</th>
-            <th class="sep-l">Grattages</th><th>Contre-rucks</th>
+            <th class="sep-l">Soutiens 1ers</th><th>Contre-rucks</th>
             <th class="sep-l">Fautes</th>
             <th class="sep-l">Indice</th>
         </tr>
@@ -35,7 +35,7 @@
         <tr>
             <td>{% if c.number %}{{ c.number }}. {% endif %}{{ c.name }}</td>
             <td class="sep-l stat-own" style="font-weight:800;">{{ c.total_points }}</td>
-            <td class="sep-l {{ 'stat-highlight-good' if hl.get('pdb') == 'good' }}">{{ a.get('pdb', 0) }}</td>
+            <td class="sep-l {{ 'stat-highlight-good' if hl.get('essai') == 'good' }}">{{ a.get('essai', 0) }}</td>
             <td class="{{ 'stat-highlight-good' if hl.get('def_battu') == 'good' }}">{{ a.get('def_battu', 0) }}</td>
             <td class="{{ 'stat-highlight-good' if hl.get('offload_plus') == 'good' }}">{{ a.get('offload_plus', 0) }}</td>
             <td class="{{ 'stat-highlight-good' if hl.get('break') == 'good' }}">{{ a.get('break', 0) }}</td>
@@ -47,8 +47,8 @@
             <td class="{{ 'stat-highlight-good' if hl.get('plaquage_dominant') == 'good' }}"><span class="{{ 'stat-pos' if d.get('plaquage_dominant') else '' }}">{{ d.get('plaquage_dominant', 0) }}</span></td>
             <td class="{{ 'stat-highlight-bad' if hl.get('plaquage_rate') == 'bad' }}"><span class="{{ 'stat-neg' if d.get('plaquage_rate') else '' }}">{{ d.get('plaquage_rate', 0) }}</span></td>
             <td>{{ d.get('tackle_pct') ~ '%' if d.get('tackle_pct') is not none else '—' }}</td>
-            <td class="sep-l {{ 'stat-highlight-good' if hl.get('gratteur_plus') == 'good' }}"><span class="{{ 'stat-pos' if ru.get('gratteur_plus') else '' }}">{{ ru.get('gratteur_plus', 0) }}</span></td>
-            <td class="{{ 'stat-highlight-good' if hl.get('contre_ruck_plus') == 'good' }}"><span class="{{ 'stat-pos' if ru.get('contre_ruck_plus') else '' }}">{{ ru.get('contre_ruck_plus', 0) }}</span></td>
+            <td class="sep-l">{{ ru.get('soutien_1er', 0) }}</td>
+            <td class="{{ 'stat-highlight-good' if hl.get('contre_ruck') == 'good' }}"><span class="{{ 'stat-pos' if ru.get('contre_ruck') else '' }}">{{ ru.get('contre_ruck', 0) }}</span></td>
             <td class="sep-l {{ 'stat-highlight-bad' if hl.get('discipline') == 'bad' }}"><span class="{{ 'stat-neg' if d.get('discipline') else '' }}">{{ d.get('discipline', 0) }}</span></td>
             <td class="sep-l stat-own" style="font-weight:800;">{{ c.total_points }}</td>
         </tr>
@@ -58,11 +58,11 @@
         <tr style="font-weight:700; border-top:2px solid rgba(255,255,255,0.3);">
             <td>TOTAL</td>
             <td class="sep-l">{{ attack_table.totals.get('points', 0) + defense_table.totals.get('points', 0) + ruck_table.totals.get('points', 0) }}</td>
-            <td class="sep-l">{{ attack_table.totals.get('pdb', 0) }}</td>
+            <td class="sep-l">{{ attack_table.totals.get('essai', 0) }}</td>
             <td>{{ attack_table.totals.get('def_battu', 0) }}</td>
             <td>{{ attack_table.totals.get('offload_plus', 0) }}</td>
             <td>{{ attack_table.totals.get('break', 0) }}</td>
-            <td>{{ attack_table.totals.get('passe_plus', 0) + attack_table.totals.get('passe_minus', 0) }}</td>
+            <td>{{ attack_table.totals.get('passe_plus', 0) + attack_table.totals.get('passe_minus', 0) + attack_table.totals.get('passe_neutre', 0) }}</td>
             <td class="sep-l">{{ attack_table.totals.get('contact_plus', 0) }}</td>
             <td>{{ attack_table.totals.get('contact_minus', 0) }}</td>
             <td>{% set ct = attack_table.totals.get('contact_plus', 0) + attack_table.totals.get('contact_minus', 0) %}{{ (attack_table.totals.get('contact_plus', 0) / ct * 100) | round if ct else '—' }}{{ '%' if ct }}</td>
@@ -70,8 +70,8 @@
             <td>{{ defense_table.totals.get('plaquage_dominant', 0) }}</td>
             <td>{{ defense_table.totals.get('plaquage_rate', 0) }}</td>
             <td>{% set tt = defense_table.totals.get('plaquage_dominant', 0) + defense_table.totals.get('plaquage_neutre', 0) + defense_table.totals.get('plaquage_passif', 0) + defense_table.totals.get('plaquage_rate', 0) %}{{ ((tt - defense_table.totals.get('plaquage_rate', 0)) / tt * 100) | round if tt else '—' }}{{ '%' if tt }}</td>
-            <td class="sep-l">{{ ruck_table.totals.get('gratteur_plus', 0) }}</td>
-            <td>{{ ruck_table.totals.get('contre_ruck_plus', 0) }}</td>
+            <td class="sep-l">{{ ruck_table.totals.get('soutien_1er', 0) }}</td>
+            <td>{{ ruck_table.totals.get('contre_ruck', 0) }}</td>
             <td class="sep-l">{{ defense_table.totals.get('discipline', 0) }}</td>
             <td class="sep-l">{{ attack_table.totals.get('points', 0) + defense_table.totals.get('points', 0) + ruck_table.totals.get('points', 0) }}</td>
         </tr>

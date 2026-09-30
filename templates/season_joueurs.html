@@ -44,22 +44,22 @@
         <table class="stat-table zebra-table">
             <thead>
                 <tr>
-                    <th>Joueur</th><th>Contact +/-</th><th>Total / %</th>
-                    <th>Duel +/-</th><th>Total / %</th>
-                    <th>Passes +/-</th><th>Total / %</th>
-                    <th>Offload +/-</th><th>Total / %</th>
-                    <th>PDB</th><th>Déf. battus</th><th>Break</th><th>Indice</th>
+                    <th>Joueur</th><th>Contact +/-/=</th><th>Total / %</th>
+                    <th>Passes +/-/=</th><th>Total / %</th>
+                    <th>Offload +/-/=</th><th>Total / %</th>
+                    <th>Déf. battus</th><th>Break</th><th>PDB</th>
+                    <th>Essais</th><th>Transfo.</th><th>Pénalités</th><th>Indice</th>
                 </tr>
             </thead>
             <tbody>
             {% for r in g.attack_rows %}
                 <tr>
                     <td>{{ r.name }}</td>
-                    <td>{{ r.contact_plus }} / {{ r.contact_minus }}</td><td>{{ r.contact_total }}{% if r.contact_pct is not none %} ({{ r.contact_pct }}%){% endif %}</td>
-                    <td>{{ r.duel_plus }} / {{ r.duel_minus }}</td><td>{{ r.duel_total }}{% if r.duel_pct is not none %} ({{ r.duel_pct }}%){% endif %}</td>
-                    <td>{{ r.passe_plus }} / {{ r.passe_minus }}</td><td>{{ r.passe_total }}{% if r.passe_pct is not none %} ({{ r.passe_pct }}%){% endif %}</td>
-                    <td>{{ r.offload_plus }} / {{ r.offload_minus }}</td><td>{{ r.offload_total }}{% if r.offload_pct is not none %} ({{ r.offload_pct }}%){% endif %}</td>
-                    <td>{{ r.pdb }}</td><td>{{ r.def_battu }}</td><td>{{ r.break }}</td>
+                    <td>{{ r.contact_plus }} / {{ r.contact_minus }} / {{ r.contact_neutre }}</td><td>{{ r.contact_total }}{% if r.contact_pct is not none %} ({{ r.contact_pct }}%){% endif %}</td>
+                    <td>{{ r.passe_plus }} / {{ r.passe_minus }} / {{ r.passe_neutre }}</td><td>{{ r.passe_total }}{% if r.passe_pct is not none %} ({{ r.passe_pct }}%){% endif %}</td>
+                    <td>{{ r.offload_plus }} / {{ r.offload_minus }} / {{ r.offload_neutre }}</td><td>{{ r.offload_total }}{% if r.offload_pct is not none %} ({{ r.offload_pct }}%){% endif %}</td>
+                    <td>{{ r.def_battu }}</td><td>{{ r.break }}</td><td>{{ r.pdb }}</td>
+                    <td>{{ r.essai }}</td><td>{{ r.transformation }}</td><td>{{ r.penalite }}</td>
                     <td class="stat-own">{{ r.points }}</td>
                 </tr>
             {% endfor %}
@@ -71,7 +71,7 @@
             <thead>
                 <tr>
                     <th>Joueur</th><th>Dominant (+)</th><th>Neutre (=)</th><th>Passif (-)</th><th>Raté</th>
-                    <th>Total / %</th><th>Assist +/-</th><th>Discipline</th><th>Indice</th>
+                    <th>Total / %</th><th>Combattant +/=/-</th><th>Total / %</th><th>Discipline</th><th>Indice</th>
                 </tr>
             </thead>
             <tbody>
@@ -83,7 +83,8 @@
                     <td>{{ r.plaquage_passif }}</td>
                     <td class="stat-adverse">{{ r.plaquage_rate }}</td>
                     <td>{{ r.tackle_total }}{% if r.tackle_pct is not none %} ({{ r.tackle_pct }}%){% endif %}</td>
-                    <td>{{ r.assist_plus }} / {{ r.assist_minus }}</td>
+                    <td>{{ r.combattant_plus }} / {{ r.combattant_neutre }} / {{ r.combattant_minus }}</td>
+                    <td>{{ r.combattant_total }}{% if r.combattant_pct is not none %} ({{ r.combattant_pct }}%){% endif %}</td>
                     <td>{{ r.discipline }}</td>
                     <td class="stat-own">{{ r.points }}</td>
                 </tr>
@@ -91,25 +92,26 @@
             </tbody>
         </table>
 
-        <h3 style="font-size:13px; margin:16px 0 8px; color:var(--text-secondary);">{{ icons.handshake() }} Ruck</h3>
+        <h3 style="font-size:13px; margin:16px 0 8px; color:var(--text-secondary);">{{ icons.handshake() }} Ruck &amp; conquête</h3>
         <table class="stat-table zebra-table">
             <thead>
                 <tr>
-                    <th>Joueur</th><th>1er homme +/-</th><th>2e homme +/-</th>
-                    <th>Ancreur +/-</th><th>Raseur +/-</th>
-                    <th>Gratteur +/- (%)</th><th>Contre-ruck +/- (%)</th><th>Indice</th>
+                    <th>Joueur</th><th>1er homme</th><th>2e homme</th><th>3e+ homme</th><th>Total soutiens</th>
+                    <th>Contre-ruck</th>
+                    <th>Lifteur</th><th>Sauteur</th><th>Lanceur</th><th>Réception</th><th>Interception</th><th>Indice</th>
                 </tr>
             </thead>
             <tbody>
             {% for r in g.ruck_rows %}
                 <tr>
                     <td>{{ r.name }}</td>
-                    <td>{{ r.arr1_plus }} / {{ r.arr1_minus }}</td>
-                    <td>{{ r.arr2_plus }} / {{ r.arr2_minus }}</td>
-                    <td>{{ r.ancreur_plus }} / {{ r.ancreur_minus }}</td>
-                    <td>{{ r.raseur_plus }} / {{ r.raseur_minus }}</td>
-                    <td>{{ r.gratteur_plus }} / {{ r.gratteur_minus }}{% if r.gratteur_pct is not none %} ({{ r.gratteur_pct }}%){% endif %}</td>
-                    <td>{{ r.contre_ruck_plus }} / {{ r.contre_ruck_minus }}{% if r.contre_ruck_pct is not none %} ({{ r.contre_ruck_pct }}%){% endif %}</td>
+                    <td>{{ r.soutien_1er }}</td>
+                    <td>{{ r.soutien_2eme }}</td>
+                    <td>{{ r.soutien_3plus }}</td>
+                    <td>{{ r.soutien_total }}</td>
+                    <td>{{ r.contre_ruck }}</td>
+                    <td>{{ r.lifteur }}</td><td>{{ r.sauteur }}</td><td>{{ r.lanceur }}</td>
+                    <td>{{ r.reception_touche }}</td><td>{{ r.interception }}</td>
                     <td class="stat-own">{{ r.points }}</td>
                 </tr>
             {% endfor %}
