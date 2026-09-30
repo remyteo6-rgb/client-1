@@ -22,7 +22,8 @@ from parser import (
     compute_player_comparison,
     TRAINING_TAXONOMY, group_training_sessions_by_period,
     PHASE_ICONS, PHASE_HELP, compute_match_baseline,
-    compute_player_season_baselines, build_player_cards, order_rows_by_composition,
+    compute_player_season_baselines, build_player_cards, order_rows_by_reference_order,
+    player_row_order,
     compute_momentum, render_momentum_svg,
     compute_zone_gold_log, compute_new_convention_tries,
     compute_new_convention_overview, compute_csc, compute_bilan_attaque,
@@ -705,6 +706,8 @@ def init_db():
         db.execute("ALTER TABLE matches ADD COLUMN manual_stats_json TEXT")
     if "composition_json" not in cols:
         db.execute("ALTER TABLE matches ADD COLUMN composition_json TEXT")
+    if "row_order_json" not in cols:
+        db.execute("ALTER TABLE matches ADD COLUMN row_order_json TEXT")
     if "player_match_stats_json" not in cols:
         db.execute("ALTER TABLE matches ADD COLUMN player_match_stats_json TEXT")
     if "ubb_overview_json" not in cols:
@@ -967,12 +970,14 @@ def upload():
         return redirect(url_for("upload"))
     stats, players = aggregate_match_stats(parsed["instances"])
     zones = aggregate_zones(parsed["instances"])
+    row_order = player_row_order(parsed["instances"], parsed.get("row_order"))
     db = get_db()
     cur = db.execute(
         """INSERT INTO matches
            (created_at, match_date, own_team, opponent, competition, venue, own_team_tag,
-            filename, total_instances, stats_json, players_json, zones_json, instances_json)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            filename, total_instances, stats_json, players_json, zones_json, instances_json,
+            row_order_json)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
            RETURNING id""",
         (
             datetime.utcnow().isoformat(),
@@ -988,6 +993,7 @@ def upload():
             json.dumps(players),
             json.dumps(zones),
             json.dumps(parsed["instances"]),
+            json.dumps(row_order),
         ),
     )
     match_id = cur.fetchone()["id"]
@@ -1070,6 +1076,7 @@ def _row_to_match(row):
     m["instances"] = json.loads(m.pop("instances_json") or "[]")
     m["manual_stats"] = json.loads(m.pop("manual_stats_json", None) or "{}")
     m["composition"] = json.loads(m.pop("composition_json", None) or "[]")
+    m["row_order"] = json.loads(m.pop("row_order_json", None) or "[]")
     m["player_match_stats"] = json.loads(m.pop("player_match_stats_json", None) or "{}")
     m["ubb_overview"] = json.loads(m.pop("ubb_overview_json", None) or "{}")
     return m
@@ -1265,16 +1272,19 @@ def match_joueurs(match_id):
                                               defense_table=defense_table, ruck_table=ruck_table)
     matches_with_instances, _, _, _ = _season_context()
     player_baselines = compute_player_season_baselines(matches_with_instances, exclude_id=match_id)
-    composition = match.get("composition")
+    # Ordre d'affichage : celui des boutons joueurs dans le fichier Sportscode envoyé
+    # (row_order — l'ordre où le staff a rangé l'effectif, typiquement n°1 à n°23), et
+    # seulement à défaut la composition saisie à la main sur le site (matchs importés
+    # avant l'ajout du row_order, ou fichier qui n'en fournissait pas).
+    ordered_names = match.get("row_order") or match.get("composition")
     player_cards = build_player_cards(
-        bilan_table, attack_table, defense_table, ruck_table, composition=composition)
-    # Mêmes tableaux de détail, mais classés 1 à 23 comme sur les fiches (numéro de
-    # maillot saisi sur la page Composition), au lieu de l'ordre alphabétique brut des
-    # tableaux compute_player_*_table.
-    attack_table = {**attack_table, "rows": order_rows_by_composition(attack_table["rows"], composition)}
-    defense_table = {**defense_table, "rows": order_rows_by_composition(defense_table["rows"], composition)}
-    ruck_table = {**ruck_table, "rows": order_rows_by_composition(ruck_table["rows"], composition)}
-    bilan_table = {**bilan_table, "rows": order_rows_by_composition(bilan_table["rows"], composition)}
+        bilan_table, attack_table, defense_table, ruck_table, ordered_names=ordered_names)
+    # Mêmes tableaux de détail, mais classés dans cet ordre au lieu de l'ordre
+    # alphabétique brut des tableaux compute_player_*_table.
+    attack_table = {**attack_table, "rows": order_rows_by_reference_order(attack_table["rows"], ordered_names)}
+    defense_table = {**defense_table, "rows": order_rows_by_reference_order(defense_table["rows"], ordered_names)}
+    ruck_table = {**ruck_table, "rows": order_rows_by_reference_order(ruck_table["rows"], ordered_names)}
+    bilan_table = {**bilan_table, "rows": order_rows_by_reference_order(bilan_table["rows"], ordered_names)}
     return render_template("match_joueurs.html", match=match, attack_table=attack_table,
                            defense_table=defense_table, ruck_table=ruck_table,
                            bilan_table=bilan_table,

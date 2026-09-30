@@ -76,6 +76,7 @@ def parse_sportscode_xml(path, own_team_label=None):
         'own_team_tag': str,        # detected label used for "our" side (e.g. "Nice")
         'instances': [ {...}, ... ],
         'code_catalog': {code_raw: count},
+        'row_order': [code_raw, ...],  # ordre des boutons dans Sportscode (balise ROWS)
       }
     """
     tree = ET.parse(path)
@@ -83,6 +84,18 @@ def parse_sportscode_xml(path, own_team_label=None):
     all_instances = root.find("ALL_INSTANCES")
     if all_instances is None:
         raise ValueError("Fichier XML invalide : balise ALL_INSTANCES introuvable (export Sportscode attendu).")
+
+    # Ordre des boutons/lignes tel que configuré dans Sportscode (balise <ROWS>), dans
+    # l'ordre du fichier : pour les codes joueurs, c'est l'ordre exact dans lequel
+    # l'analyste vidéo a rangé l'effectif (typiquement n°1 à n°23) — Téo veut que les
+    # tableaux joueurs du site respectent cet ordre plutôt qu'un tri alphabétique.
+    row_order = []
+    rows_el = root.find("ROWS")
+    if rows_el is not None:
+        for row in rows_el.findall("row"):
+            code = (row.findtext("code") or "").strip()
+            if code:
+                row_order.append(code)
 
     own_tag_votes = defaultdict(int)
     instances = []
@@ -163,6 +176,7 @@ def parse_sportscode_xml(path, own_team_label=None):
         "own_team_tag": detected_tag,
         "instances": instances,
         "code_catalog": dict(code_catalog),
+        "row_order": row_order,
     }
 
 
@@ -1713,6 +1727,18 @@ def _new_convention_player_names(instances):
     return names
 
 
+def player_row_order(instances, row_order):
+    """Filtre 'row_order' (ordre des boutons du fichier Sportscode, voir
+    parse_sportscode_xml) pour ne garder que les codes joueurs (mêmes critères que
+    _new_convention_player_names), dans leur ordre d'origine — celui-là même dans
+    lequel l'analyste vidéo a rangé l'effectif (typiquement n°1 à n°23). Les boutons
+    d'équipe/catégorie (ex. 'UBB POSSESSION') sont écartés pour que la numérotation
+    obtenue commence bien à 1 pour le premier joueur, plutôt que de reprendre l'index
+    brut dans la liste complète des boutons."""
+    player_names = _new_convention_player_names(instances)
+    return [c for c in (row_order or []) if c in player_names]
+
+
 def compute_player_attack_table(instances):
     """Contact, passes, offloads, soutien au ruck, déchet/discipline offensive par joueur
     (convention 2026 : groupes 'Contacts'/'Passes'/'Offload'/'Disciplines').
@@ -2843,24 +2869,30 @@ def compute_player_season_baselines(matches_with_instances, exclude_id=None):
     return result
 
 
-def _composition_numbers(composition):
-    """Construit {nom en casefold: numéro de maillot} à partir de la liste des 23 noms
-    saisis sur la page Composition d'un match (index 0 = n°1 ... index 22 = n°23)."""
+def _name_order_index(ordered_names):
+    """Construit {nom en casefold: position (1, 2, 3...)} à partir d'une liste de noms
+    déjà dans l'ordre voulu. Sert aussi bien pour l'ordre des boutons joueurs du fichier
+    Sportscode (row_order, voir parse_sportscode_xml — l'ordre où l'analyste vidéo a
+    rangé l'effectif, typiquement n°1 à n°23) que pour la composition saisie à la main
+    sur le site (numéro de maillot). Le row_order du XML fait foi quand il est
+    disponible (demande de Téo : garder le même ordre que dans le fichier envoyé) ;
+    la composition ne sert qu'en repli pour les matchs importés avant l'ajout du
+    row_order, ou si le fichier n'en fournissait pas."""
     numbers = {}
-    for i, n in enumerate(composition or []):
+    for i, n in enumerate(ordered_names or []):
         if n:
-            numbers[n.strip().casefold()] = i + 1
+            numbers.setdefault(n.strip().casefold(), i + 1)
     return numbers
 
 
-def order_rows_by_composition(rows, composition):
-    """Trie une liste de lignes joueur (chacune avec une clé 'name') par numéro de
-    maillot — comme sur les fiches de match (1 à 23) — et renseigne 'number' sur
-    chaque ligne. Les joueurs hors composition (pas alignés, ou composition pas encore
-    saisie) sont mis à la suite par ordre alphabétique plutôt que de disparaître. Ne
-    mute pas les lignes d'origine (utile quand la même ligne est partagée entre
-    plusieurs tableaux, ex. bilan/attack/defense/ruck)."""
-    numbers = _composition_numbers(composition)
+def order_rows_by_reference_order(rows, ordered_names):
+    """Trie une liste de lignes joueur (chacune avec une clé 'name') selon 'ordered_names'
+    (row_order du XML, ou à défaut composition saisie sur le site) et renseigne 'number'
+    (position 1, 2, 3...) sur chaque ligne. Les joueurs absents de 'ordered_names' sont
+    mis à la suite par ordre alphabétique plutôt que de disparaître. Ne mute pas les
+    lignes d'origine (utile quand la même ligne est partagée entre plusieurs tableaux,
+    ex. bilan/attack/defense/ruck)."""
+    numbers = _name_order_index(ordered_names)
     out = []
     for r in rows:
         r2 = dict(r)
@@ -2870,14 +2902,14 @@ def order_rows_by_composition(rows, composition):
     return out
 
 
-def build_player_cards(bilan_table, attack_table, defense_table, ruck_table, composition=None):
+def build_player_cards(bilan_table, attack_table, defense_table, ruck_table, ordered_names=None):
     """Fusionne le tableau bilan (vue d'ensemble) avec les 3 tableaux de détail en une
     liste de lignes (une par joueur).
 
     Ordre (pas de classement à la performance, demande de Téo) :
-    - si une composition est fournie (liste des 23 noms saisis sur la page Composition,
-      index 0 = n°1 ... index 22 = n°23), les joueurs sont ordonnés par numéro de maillot
-      (avec 'number' renseigné), les joueurs hors composition à la suite par ordre
+    - si 'ordered_names' est fourni (row_order du XML, ou composition saisie sur le site
+      en repli — voir _name_order_index), les joueurs sont ordonnés en conséquence
+      (avec 'number' renseigné), les joueurs hors liste à la suite par ordre
       alphabétique ;
     - sinon, ordre alphabétique. La comparaison des noms est insensible à la casse
       (le XML tague 'ROUET', la feuille de composition 'Rouet')."""
@@ -2887,7 +2919,7 @@ def build_player_cards(bilan_table, attack_table, defense_table, ruck_table, com
             cards.setdefault(r["name"], {"name": r["name"], "bilan": None, "attack": None, "defense": None, "ruck": None})[section] = r
     out = list(cards.values())
 
-    numbers = _composition_numbers(composition)
+    numbers = _name_order_index(ordered_names)
     for c in out:
         c["number"] = numbers.get(c["name"].strip().casefold())
     out.sort(key=lambda c: (c["number"] is None, c["number"] or 0, c["name"].casefold()))
