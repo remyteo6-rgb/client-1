@@ -1000,6 +1000,9 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
    le côté victoire/défaite : c'est le sens de la stat qui décide de la couleur. */
 .stat-pos, .stat-table tbody td.stat-pos { color: var(--positive); font-weight: 700; }
 .stat-neg, .stat-table tbody td.stat-neg { color: var(--negative); font-weight: 700; }
+/* % sous le seuil de significativité (ex : moins de 3 tentatives de plaquage) : grisé
+   plutôt que masqué, pour rester visible mais clairement signalé comme peu fiable. */
+.stat-muted, .stat-table tbody td.stat-muted { color: var(--text-secondary); opacity: 0.65; }
 /* Page Data Analyse : comparaison victoire/défaite par indicateur */
 .kpi-compare-row {
     display: flex;
