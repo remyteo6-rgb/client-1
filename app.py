@@ -2891,28 +2891,7 @@ def cahier_charges():
         columns.setdefault(r["status"], []).append(r)
     docs_view = []
     rugby_evals, physical_evals, entretiens = [], [], []
-    match_stats_name = None
-    match_stats = None
-    match_stats_played = 0
-    match_stats_total = 0
     if selected_player:
-        matches_with_instances, _, _, _ = _season_context()
-        match_stats_total = len(matches_with_instances)
-        season_instances = _season_instances(matches_with_instances)
-        if season_instances:
-            match_stats_name = _match_player_stats_name(selected_player, season_instances)
-            if match_stats_name:
-                comparison = compute_player_comparison(season_instances, match_stats_name, match_stats_name)
-                match_stats = {
-                    "bilan": comparison["bilan_rows"][0],
-                    "attack": comparison["attack_rows"][0],
-                    "defense": comparison["defense_rows"][0],
-                    "ruck": comparison["ruck_rows"][0],
-                }
-                match_stats_played = sum(
-                    1 for m in matches_with_instances
-                    if any(i["kind"] == "player" and i["code_raw"] == match_stats_name for i in m["instances"])
-                )
         docs = db.execute(
             """SELECT * FROM documents WHERE shared_player_id = %s AND visibility = 'player'
                ORDER BY uploaded_at DESC, id DESC""",
@@ -2958,8 +2937,6 @@ def cahier_charges():
         status_labels=CHARGES_STATUS_LABELS, total_count=len(rows),
         grouped_players=grouped_players, selected_player=selected_player, joueur_id=joueur_id, docs=docs_view,
         rugby_evals=rugby_evals, physical_evals=physical_evals, entretiens=entretiens,
-        match_stats=match_stats, match_stats_matched=bool(match_stats_name),
-        match_stats_played=match_stats_played, match_stats_total=match_stats_total,
         rugby_evals_asc=rugby_evals_asc, physical_evals_asc=physical_evals_asc,
         ppid_timeline=_ppid_timeline(rugby_evals, physical_evals, entretiens),
         staff_names=_staff_display_names_map(db),
