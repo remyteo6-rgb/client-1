@@ -33,70 +33,103 @@
     {% else %}
     <div class="card section-block" style="display:block; padding:16px;">
 
-        <h3 style="font-size:13px; margin-bottom:8px; color:var(--text-secondary);">{{ icons.swords() }} Attaque</h3>
+        <h3 style="font-size:13px; margin-bottom:8px; color:var(--text-secondary);">{{ icons.clipboard() }} Vue d'ensemble (bilan positif/neutre/négatif)</h3>
         <table class="stat-table zebra-table">
             <thead>
                 <tr>
-                    <th>Contact +/-/=</th><th>Total / %</th>
-                    <th>Passes +/-/=</th><th>Total / %</th>
-                    <th>Offload +/-/=</th><th>Total / %</th>
-                    <th>Déf. battus</th><th>Break</th><th>PDB</th>
-                    <th>Essais</th><th>Transfo.</th><th>Pénalités</th><th>Indice</th>
+                    <th>Actions codées</th>
+                    <th class="sep-l">Positives</th><th>Neutres</th><th>Négatives</th>
+                    <th class="sep-l">Total signées</th><th class="sep-l">Bilan net</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td>{{ attack.contact_plus }} / {{ attack.contact_minus }} / {{ attack.contact_neutre }}</td><td>{{ attack.contact_total }}{% if attack.contact_pct is not none %} ({{ attack.contact_pct }}%){% endif %}</td>
-                    <td>{{ attack.passe_plus }} / {{ attack.passe_minus }} / {{ attack.passe_neutre }}</td><td>{{ attack.passe_total }}{% if attack.passe_pct is not none %} ({{ attack.passe_pct }}%){% endif %}</td>
-                    <td>{{ attack.offload_plus }} / {{ attack.offload_minus }} / {{ attack.offload_neutre }}</td><td>{{ attack.offload_total }}{% if attack.offload_pct is not none %} ({{ attack.offload_pct }}%){% endif %}</td>
-                    <td>{{ attack.def_battu }}</td><td>{{ attack.break }}</td><td>{{ attack.pdb }}</td>
-                    <td>{{ attack.essai }}</td><td>{{ attack.transformation }}</td><td>{{ attack.penalite }}</td>
-                    <td class="stat-own">{{ attack.points }}</td>
+                    <td>{{ bilan.actions_codees }}</td>
+                    <td class="sep-l stat-pos">{{ bilan.positives }}</td>
+                    <td>{{ bilan.neutres }}</td>
+                    <td class="stat-neg">{{ bilan.negatives }}</td>
+                    <td class="sep-l">{{ bilan.total_signees }}</td>
+                    <td class="sep-l stat-own">{{ bilan.bilan_net }}</td>
                 </tr>
             </tbody>
         </table>
 
-        <h3 style="font-size:13px; margin:16px 0 8px; color:var(--text-secondary);">{{ icons.shield() }} Défense</h3>
+        <h3 style="font-size:13px; margin:16px 0 8px; color:var(--text-secondary);">{{ icons.shield() }} Défense, plaquages et combat</h3>
         <table class="stat-table zebra-table">
             <thead>
                 <tr>
-                    <th>Dominant (+)</th><th>Neutre (=)</th><th>Passif (-)</th><th>Raté</th>
-                    <th>Total / %</th><th>Combattant +/=/-</th><th>Total / %</th><th>Discipline</th><th>Indice</th>
+                    <th>Réus.</th><th>Man.</th><th>Tent.</th><th>%</th>
+                    <th class="sep-l">Bas</th><th>Haut</th>
+                    <th class="sep-l">Qualité +/=/-</th>
+                    <th class="sep-l">Combattant Tot./Dom./Subis</th>
+                    <th class="sep-l">Chasseur Tot./+/-</th>
+                    <th class="sep-l">Ballons récup.</th>
                 </tr>
             </thead>
             <tbody>
+                {% set reussis = defense.plaquage_dominant + defense.plaquage_neutre + defense.plaquage_passif %}
                 <tr>
-                    <td class="stat-own">{{ defense.plaquage_dominant }}</td>
-                    <td>{{ defense.plaquage_neutre }}</td>
-                    <td>{{ defense.plaquage_passif }}</td>
-                    <td class="stat-adverse">{{ defense.plaquage_rate }}</td>
-                    <td>{{ defense.tackle_total }}{% if defense.tackle_pct is not none %} ({{ defense.tackle_pct }}%){% endif %}</td>
-                    <td>{{ defense.combattant_plus }} / {{ defense.combattant_neutre }} / {{ defense.combattant_minus }}</td>
-                    <td>{{ defense.combattant_total }}{% if defense.combattant_pct is not none %} ({{ defense.combattant_pct }}%){% endif %}</td>
-                    <td>{{ defense.discipline }}</td>
-                    <td class="stat-own">{{ defense.points }}</td>
+                    <td class="stat-pos">{{ reussis }}</td>
+                    <td class="stat-neg">{{ defense.plaquage_rate }}</td>
+                    <td>{{ defense.plaquage_tentes }}</td>
+                    <td class="{{ 'stat-muted' if defense.plaquage_low_sample }}">{{ defense.plaquage_pct ~ '%' if defense.plaquage_pct is not none else '—' }}</td>
+                    <td class="sep-l">{{ defense.plaquage_bas }}</td><td>{{ defense.plaquage_haut }}</td>
+                    <td class="sep-l"><span class="stat-pos">{{ defense.plaquage_dominant }}</span> / {{ defense.plaquage_neutre }} / <span class="stat-neg">{{ defense.plaquage_passif }}</span></td>
+                    <td class="sep-l">{{ defense.combattant_total }} / <span class="stat-pos">{{ defense.combattant_plus }}</span> / <span class="stat-neg">{{ defense.combattant_minus }}</span></td>
+                    <td class="sep-l">{{ defense.chasseur_total }} / <span class="stat-pos">{{ defense.chasseur_plus }}</span> / <span class="stat-neg">{{ defense.chasseur_minus }}</span></td>
+                    <td class="sep-l stat-own">{{ defense.ballons_recuperes }}</td>
                 </tr>
             </tbody>
         </table>
 
-        <h3 style="font-size:13px; margin:16px 0 8px; color:var(--text-secondary);">{{ icons.handshake() }} Ruck &amp; conquête</h3>
+        <h3 style="font-size:13px; margin:16px 0 8px; color:var(--text-secondary);">{{ icons.swords() }} Jeu au contact, passes et soutien</h3>
         <table class="stat-table zebra-table">
             <thead>
                 <tr>
-                    <th>1er homme</th><th>2e homme</th><th>3e+ homme</th><th>Total soutiens</th>
-                    <th>Contre-ruck</th>
-                    <th>Lifteur</th><th>Sauteur</th><th>Lanceur</th><th>Réception</th><th>Interception</th><th>Indice</th>
+                    <th>Contact +/=/-</th><th>Total / %</th>
+                    <th class="sep-l">Déf. battus</th><th>Courses</th><th>Break</th>
+                    <th class="sep-l">Passes +/=/-</th><th>Total / % propres</th>
+                    <th class="sep-l">Offload +/=/-</th><th>Total / %</th>
+                    <th class="sep-l">Soutien 1er/2e/3e+</th>
+                    <th class="sep-l">Ball. perdus</th><th>Pén. off.</th><th>Pén. déf.</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td>{{ ruck.soutien_1er }}</td>
-                    <td>{{ ruck.soutien_2eme }}</td>
-                    <td>{{ ruck.soutien_3plus }}</td>
-                    <td>{{ ruck.soutien_total }}</td>
-                    <td>{{ ruck.contre_ruck }}</td>
-                    <td>{{ ruck.lifteur }}</td><td>{{ ruck.sauteur }}</td><td>{{ ruck.lanceur }}</td>
-                    <td>{{ ruck.reception_touche }}</td><td>{{ ruck.interception }}</td>
+                    <td><span class="stat-pos">{{ attack.contact_plus }}</span> / {{ attack.contact_neutre }} / <span class="stat-neg">{{ attack.contact_minus }}</span></td>
+                    <td>{{ attack.contact_total }}{% if attack.contact_pct is not none %} ({{ attack.contact_pct }}%){% endif %}</td>
+                    <td class="sep-l">{{ attack.def_battu }}</td><td>{{ attack.cartouche }}</td><td>{{ attack.break }}</td>
+                    <td class="sep-l"><span class="stat-pos">{{ attack.passe_plus }}</span> / {{ attack.passe_neutre }} / <span class="stat-neg">{{ attack.passe_minus }}</span></td>
+                    <td>{{ attack.passe_total }}{% if attack.passe_pct is not none %} ({{ attack.passe_pct }}%){% endif %}</td>
+                    <td class="sep-l"><span class="stat-pos">{{ attack.offload_plus }}</span> / {{ attack.offload_neutre }} / <span class="stat-neg">{{ attack.offload_minus }}</span></td>
+                    <td>{{ attack.offload_total }}{% if attack.offload_pct is not none %} ({{ attack.offload_pct }}%){% endif %}</td>
+                    <td class="sep-l">{{ attack.soutien_1er }} / {{ attack.soutien_2eme }} / {{ attack.soutien_3plus }}</td>
+                    <td class="sep-l"><span class="stat-neg">{{ attack.pdb }}</span></td>
+                    <td><span class="stat-neg">{{ attack.penalite_off }}</span></td>
+                    <td><span class="stat-neg">{{ attack.penalite_def }}</span></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 style="font-size:13px; margin:16px 0 8px; color:var(--text-secondary);">{{ icons.handshake() }} Conquête, jeu au pied et marque</h3>
+        <table class="stat-table zebra-table">
+            <thead>
+                <tr>
+                    <th>Mêlées</th><th>Sauteur</th><th>Lifteur</th><th>Lanceurs</th>
+                    <th class="sep-l">JAP</th><th>Coups d'envoi</th><th>Récep. CE</th><th>RCE +/=/-</th>
+                    <th class="sep-l">Duels aér. +/=</th>
+                    <th class="sep-l">Essais</th><th>Transfo. (réus./tent.)</th><th>Points</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{ ruck.melee_conquete }}</td>
+                    <td>{{ ruck.sauteur }}</td><td>{{ ruck.lifteur }}</td><td>{{ ruck.lanceur }}</td>
+                    <td class="sep-l">{{ ruck.jap }}</td><td>{{ ruck.coup_envoi }}</td><td>{{ ruck.recep_ce }}</td>
+                    <td><span class="stat-pos">{{ ruck.rce_plus }}</span> / {{ ruck.rce_neutre }} / <span class="stat-neg">{{ ruck.rce_minus }}</span></td>
+                    <td class="sep-l"><span class="stat-pos">{{ ruck.duels_aer_plus }}</span> / {{ ruck.duels_aer_neutre }}</td>
+                    <td class="sep-l stat-pos">{{ ruck.essai }}</td>
+                    <td>{{ ruck.transfo_reussies }} / {{ ruck.transfo_tentees }}</td>
                     <td class="stat-own">{{ ruck.points }}</td>
                 </tr>
             </tbody>

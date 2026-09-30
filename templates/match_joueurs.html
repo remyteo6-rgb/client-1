@@ -16,23 +16,64 @@
 
 <div class="card">
     <h2>{{ icons.clipboard() }} Vue d'ensemble individuelle</h2>
-    {{ players_overview(player_cards, attack_table, defense_table, ruck_table) }}
+    <p class="section-help">Bilan positif / neutre / négatif par joueur (méthodologie staff). Bilan net = positives − négatives.</p>
+    {{ players_overview(player_cards, bilan_table) }}
 </div>
 
 <details class="card section-block">
     <summary>
-        <span class="section-title">{{ icons.swords() }} Détail attaque par joueur</span>
-        <span class="section-help">Contacts, passes, offloads détaillés en +/-, actions individuelles (essais, transformations, défenseurs battus, breaks, pertes de balle). Flèche = vs sa moyenne saison (survole pour la valeur).</span>
+        <span class="section-title">{{ icons.shield() }} Défense, plaquages et combat</span>
+        <span class="section-help">Plaquages (Snipers : réussis/manqués/tentés/%, hauteur haut/bas, qualité +/=/-), Combattant (total/dominant/subis), Chasseur (montées sur jeu au pied, +/-), ballons récupérés dans le jeu (contre-rucks + ballons gagnés + interceptions). % grisé sous 3 tentatives.</span>
     </summary>
     <div class="section-body">
         <table class="stat-table zebra-table sortable">
             <thead>
                 <tr class="cols-row">
-                    <th>Joueur</th><th>Contact +/-/=</th><th>Total / %</th>
-                    <th>Passes +/-/=</th><th>Total / %</th>
-                    <th>Offload +/-/=</th><th>Total / %</th>
-                    <th>Déf. battus</th><th>Break</th><th>PDB</th>
-                    <th>Essais</th><th>Transfo.</th><th>Pénalités</th><th>Indice</th>
+                    <th>Joueur</th><th>Réus.</th><th>Man.</th><th>Tent.</th><th>%</th>
+                    <th class="sep-l">Bas</th><th>Haut</th>
+                    <th class="sep-l">Qualité +/=/-</th>
+                    <th class="sep-l">Combattant Tot./Dom./Subis</th>
+                    <th class="sep-l">Chasseur Tot./+/-</th>
+                    <th class="sep-l">Ballons récup.</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in defense_table.rows %}
+                {% set pb = ((player_baselines or {}).get(r.name) or {}).get('defense') %}
+                {% set reussis = r.plaquage_dominant + r.plaquage_neutre + r.plaquage_passif %}
+                <tr>
+                    <td>{{ r.name }}</td>
+                    <td class="stat-pos">{{ reussis }}</td>
+                    <td class="stat-neg">{{ r.plaquage_rate }}</td>
+                    <td>{{ r.plaquage_tentes }}</td>
+                    <td class="{{ 'stat-muted' if r.plaquage_low_sample }}">{{ r.plaquage_pct ~ '%' if r.plaquage_pct is not none else '—' }}{% if pb and r.plaquage_pct is not none %}{{ kpi_arrow(r.plaquage_pct, pb.plaquage_pct, true, '%') }}{% endif %}</td>
+                    <td class="sep-l">{{ r.plaquage_bas }}</td><td>{{ r.plaquage_haut }}</td>
+                    <td class="sep-l"><span class="{{ 'stat-pos' if r.plaquage_dominant else '' }}">{{ r.plaquage_dominant }}</span> / {{ r.plaquage_neutre }} / <span class="{{ 'stat-neg' if r.plaquage_passif else '' }}">{{ r.plaquage_passif }}</span></td>
+                    <td class="sep-l">{{ r.combattant_total }} / <span class="stat-pos">{{ r.combattant_plus }}</span> / <span class="stat-neg">{{ r.combattant_minus }}</span></td>
+                    <td class="sep-l">{{ r.chasseur_total }} / <span class="stat-pos">{{ r.chasseur_plus }}</span> / <span class="stat-neg">{{ r.chasseur_minus }}</span></td>
+                    <td class="sep-l stat-own">{{ r.ballons_recuperes }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</details>
+
+<details class="card section-block">
+    <summary>
+        <span class="section-title">{{ icons.swords() }} Jeu au contact, passes et soutien</span>
+        <span class="section-help">Contact +/=/-, franchissements (déf. battus, courses, breaks), passes +/=/- (% propres = + et = réunis), offloads +/=/-, soutien au ruck (1er/2e/3e+), déchet/discipline (ballons perdus, pénalités off. et déf.).</span>
+    </summary>
+    <div class="section-body">
+        <table class="stat-table zebra-table sortable">
+            <thead>
+                <tr class="cols-row">
+                    <th>Joueur</th><th>Contact +/=/-</th><th>Total / %</th>
+                    <th class="sep-l">Déf. battus</th><th>Courses</th><th>Break</th>
+                    <th class="sep-l">Passes +/=/-</th><th>Total / % propres</th>
+                    <th class="sep-l">Offload +/=/-</th><th>Total / %</th>
+                    <th class="sep-l">Soutien 1er/2e/3e+</th>
+                    <th class="sep-l">Ball. perdus</th><th>Pén. off.</th><th>Pén. déf.</th>
                 </tr>
             </thead>
             <tbody>
@@ -40,15 +81,17 @@
                 {% set pb = ((player_baselines or {}).get(r.name) or {}).get('attack') %}
                 <tr>
                     <td>{{ r.name }}</td>
-                    <td><span class="{{ 'stat-pos' if r.contact_plus else '' }}">{{ r.contact_plus }}</span> / <span class="{{ 'stat-neg' if r.contact_minus else '' }}">{{ r.contact_minus }}</span> / {{ r.contact_neutre }}</td>
+                    <td><span class="{{ 'stat-pos' if r.contact_plus else '' }}">{{ r.contact_plus }}</span> / {{ r.contact_neutre }} / <span class="{{ 'stat-neg' if r.contact_minus else '' }}">{{ r.contact_minus }}</span></td>
                     <td>{{ r.contact_total }}{% if r.contact_pct is not none %} ({{ r.contact_pct }}%){% endif %}{% if pb and r.contact_pct is not none %}{{ kpi_arrow(r.contact_pct, pb.contact_pct, true, '%') }}{% endif %}</td>
-                    <td><span class="{{ 'stat-pos' if r.passe_plus else '' }}">{{ r.passe_plus }}</span> / <span class="{{ 'stat-neg' if r.passe_minus else '' }}">{{ r.passe_minus }}</span> / {{ r.passe_neutre }}</td>
+                    <td class="sep-l">{{ r.def_battu }}</td><td>{{ r.cartouche }}</td><td>{{ r.break }}</td>
+                    <td class="sep-l"><span class="{{ 'stat-pos' if r.passe_plus else '' }}">{{ r.passe_plus }}</span> / {{ r.passe_neutre }} / <span class="{{ 'stat-neg' if r.passe_minus else '' }}">{{ r.passe_minus }}</span></td>
                     <td>{{ r.passe_total }}{% if r.passe_pct is not none %} ({{ r.passe_pct }}%){% endif %}{% if pb and r.passe_pct is not none %}{{ kpi_arrow(r.passe_pct, pb.passe_pct, true, '%') }}{% endif %}</td>
-                    <td><span class="{{ 'stat-pos' if r.offload_plus else '' }}">{{ r.offload_plus }}</span> / <span class="{{ 'stat-neg' if r.offload_minus else '' }}">{{ r.offload_minus }}</span> / {{ r.offload_neutre }}</td>
+                    <td class="sep-l"><span class="{{ 'stat-pos' if r.offload_plus else '' }}">{{ r.offload_plus }}</span> / {{ r.offload_neutre }} / <span class="{{ 'stat-neg' if r.offload_minus else '' }}">{{ r.offload_minus }}</span></td>
                     <td>{{ r.offload_total }}{% if r.offload_pct is not none %} ({{ r.offload_pct }}%){% endif %}{% if pb and r.offload_pct is not none %}{{ kpi_arrow(r.offload_pct, pb.offload_pct, true, '%') }}{% endif %}</td>
-                    <td>{{ r.def_battu }}</td><td>{{ r.break }}</td><td><span class="{{ 'stat-neg' if r.pdb else '' }}">{{ r.pdb }}</span></td>
-                    <td>{{ r.essai }}</td><td>{{ r.transformation }}</td><td><span class="{{ 'stat-neg' if r.penalite else '' }}">{{ r.penalite }}</span></td>
-                    <td class="stat-own">{{ r.points }}{% if pb %}{{ kpi_arrow(r.points, pb.points_avg, true) }}{% endif %}</td>
+                    <td class="sep-l">{{ r.soutien_1er }} / {{ r.soutien_2eme }} / {{ r.soutien_3plus }}</td>
+                    <td class="sep-l"><span class="{{ 'stat-neg' if r.pdb else '' }}">{{ r.pdb }}</span></td>
+                    <td><span class="{{ 'stat-neg' if r.penalite_off else '' }}">{{ r.penalite_off }}</span></td>
+                    <td><span class="{{ 'stat-neg' if r.penalite_def else '' }}">{{ r.penalite_def }}</span></td>
                 </tr>
             {% endfor %}
             </tbody>
@@ -58,54 +101,17 @@
 
 <details class="card section-block">
     <summary>
-        <span class="section-title">{{ icons.shield() }} Détail défense par joueur</span>
-        <span class="section-help">Plaquages ("Sniper" : dominant / neutre / passif / raté, avec hauteur haut/bas), combats au sol ("Combattant"), discipline défensive.</span>
+        <span class="section-title">{{ icons.handshake() }} Conquête, jeu au pied et marque</span>
+        <span class="section-help">Rôles de touche (sauteur/lifteur/lanceurs), jeu au pied (JAP, coups d'envoi, réceptions CE, qualifiés +/=/- par le groupe RCE), duels aériens (+/=), essais, transformations (réussies/tentées), points réels marqués.</span>
     </summary>
     <div class="section-body">
         <table class="stat-table zebra-table sortable">
             <thead>
                 <tr class="cols-row">
-                    <th>Joueur</th><th>Dominant (+)</th><th>Neutre (=)</th><th>Passif (-)</th><th>Raté</th>
-                    <th>Total / %</th><th>Bas</th><th>Haut</th>
-                    <th>Combattant +/=/-</th><th>Total / %</th><th>Balle</th>
-                    <th>Discipline</th><th>Indice</th>
-                </tr>
-            </thead>
-            <tbody>
-            {% for r in defense_table.rows %}
-                {% set pb = ((player_baselines or {}).get(r.name) or {}).get('defense') %}
-                <tr>
-                    <td>{{ r.name }}</td>
-                    <td><span class="{{ 'stat-pos' if r.plaquage_dominant else '' }}">{{ r.plaquage_dominant }}</span></td>
-                    <td>{{ r.plaquage_neutre }}</td>
-                    <td>{{ r.plaquage_passif }}</td>
-                    <td><span class="{{ 'stat-neg' if r.plaquage_rate else '' }}">{{ r.plaquage_rate }}</span></td>
-                    <td>{{ r.tackle_total }}{% if r.tackle_pct is not none %} ({{ r.tackle_pct }}%){% endif %}{% if pb and r.tackle_pct is not none %}{{ kpi_arrow(r.tackle_pct, pb.tackle_pct, true, '%') }}{% endif %}</td>
-                    <td>{{ r.plaquage_bas }}</td><td>{{ r.plaquage_haut }}</td>
-                    <td><span class="{{ 'stat-pos' if r.combattant_plus else '' }}">{{ r.combattant_plus }}</span> / {{ r.combattant_neutre }} / <span class="{{ 'stat-neg' if r.combattant_minus else '' }}">{{ r.combattant_minus }}</span></td>
-                    <td>{{ r.combattant_total }}{% if r.combattant_pct is not none %} ({{ r.combattant_pct }}%){% endif %}{% if pb and r.combattant_pct is not none %}{{ kpi_arrow(r.combattant_pct, pb.combattant_pct, true, '%') }}{% endif %}</td>
-                    <td>{{ r.combattant_balle }}</td>
-                    <td><span class="{{ 'stat-neg' if r.discipline else '' }}">{{ r.discipline }}</span></td>
-                    <td class="stat-own">{{ r.points }}{% if pb %}{{ kpi_arrow(r.points, pb.points_avg, true) }}{% endif %}</td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</details>
-
-<details class="card section-block">
-    <summary>
-        <span class="section-title">{{ icons.handshake() }} Détail ruck &amp; conquête par joueur</span>
-        <span class="section-help">Ordre d'arrivée au soutien (1er/2e/3e homme), contre-rucks défensifs, rôles de touche (lifteur/sauteur/lanceur/réception).</span>
-    </summary>
-    <div class="section-body">
-        <table class="stat-table zebra-table sortable">
-            <thead>
-                <tr class="cols-row">
-                    <th>Joueur</th><th>1er homme</th><th>2e homme</th><th>3e+ homme</th><th>Total soutiens</th>
-                    <th>Contre-ruck</th>
-                    <th>Lifteur</th><th>Sauteur</th><th>Lanceur</th><th>Réception</th><th>Interception</th><th>Indice</th>
+                    <th>Joueur</th><th>Mêlées</th><th>Sauteur</th><th>Lifteur</th><th>Lanceurs</th>
+                    <th class="sep-l">JAP</th><th>Coups d'envoi</th><th>Récep. CE</th><th>RCE +/=/-</th>
+                    <th class="sep-l">Duels aér. +/=</th>
+                    <th class="sep-l">Essais</th><th>Transfo. (réus./tent.)</th><th>Points</th>
                 </tr>
             </thead>
             <tbody>
@@ -113,14 +119,14 @@
                 {% set pb = ((player_baselines or {}).get(r.name) or {}).get('ruck') %}
                 <tr>
                     <td>{{ r.name }}</td>
-                    <td>{{ r.soutien_1er }}</td>
-                    <td>{{ r.soutien_2eme }}</td>
-                    <td>{{ r.soutien_3plus }}</td>
-                    <td>{{ r.soutien_total }}{% if pb and pb.soutien_total is not none %}{{ kpi_arrow(r.soutien_total, pb.soutien_total, true) }}{% endif %}</td>
-                    <td><span class="{{ 'stat-pos' if r.contre_ruck else '' }}">{{ r.contre_ruck }}</span>{% if pb and pb.contre_ruck is not none %}{{ kpi_arrow(r.contre_ruck, pb.contre_ruck, true) }}{% endif %}</td>
-                    <td>{{ r.lifteur }}</td><td>{{ r.sauteur }}</td><td>{{ r.lanceur }}</td>
-                    <td>{{ r.reception_touche }}</td><td>{{ r.interception }}</td>
-                    <td class="stat-own">{{ r.points }}{% if pb %}{{ kpi_arrow(r.points, pb.points_avg, true) }}{% endif %}</td>
+                    <td>{{ r.melee_conquete }}</td>
+                    <td>{{ r.sauteur }}</td><td>{{ r.lifteur }}</td><td>{{ r.lanceur }}</td>
+                    <td class="sep-l">{{ r.jap }}</td><td>{{ r.coup_envoi }}</td><td>{{ r.recep_ce }}</td>
+                    <td><span class="stat-pos">{{ r.rce_plus }}</span> / {{ r.rce_neutre }} / <span class="stat-neg">{{ r.rce_minus }}</span></td>
+                    <td class="sep-l"><span class="stat-pos">{{ r.duels_aer_plus }}</span> / {{ r.duels_aer_neutre }}</td>
+                    <td class="sep-l stat-pos">{{ r.essai }}</td>
+                    <td>{{ r.transfo_reussies }} / {{ r.transfo_tentees }}</td>
+                    <td class="stat-own">{{ r.points }}{% if pb and pb.points_total is not none %}{{ kpi_arrow(r.points, pb.points_total, true) }}{% endif %}</td>
                 </tr>
             {% endfor %}
             </tbody>
