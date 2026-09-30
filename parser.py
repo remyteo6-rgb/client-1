@@ -1468,8 +1468,8 @@ def compute_ruck_sector(instances):
     ruck_adverse = _cat_count(instances, "Ruck", "adverse")
     speed_own = compute_ruck_speed(instances, "own")
     speed_adverse = compute_ruck_speed(instances, "adverse")
-    totals = compute_player_ruck_table(instances)["totals"]
-    contre_ruck = totals.get("contre_ruck", 0)
+    totals = compute_player_defense_table(instances)["totals"]
+    contre_ruck = totals.get("ballons_recuperes", 0)
     # Rucks codés avec le qualificatif "50" (ex: "33 - Ruck Nice 50") = ruck dans les 50m.
     ruck_50_own = sum(1 for i in instances if i["category"] == "Ruck" and i["side"] == "own" and i.get("zone_extra") == "50")
     ruck_50_adverse = sum(1 for i in instances if i["category"] == "Ruck" and i["side"] == "adverse" and i.get("zone_extra") == "50")
@@ -1673,20 +1673,23 @@ def _player_names(instances):
 
 
 # ---- Tableaux joueurs (convention 2026) --------------------------------------
-# Mêmes groupes de labels que le CSC et le Bilan attaque (voir plus haut) : "JOUEURS
-# OFF" fait foi pour les totaux d'actions, les groupes "Contacts"/"Passes"/"Offload"
-# ne font que qualifier certaines d'entre elles en +/-/=, et "Snipers"/"Chasseur"/
-# "Combattant"/"Disciplines" sont les rôles défensifs (comme sur la page CSC), mais
-# ici recensés joueur par joueur plutôt qu'agrégés pour l'équipe. Remplace l'ancien
-# tableau (Duel Contact/Duel Espace/plaquage/assistant/faute), qui ne correspond à
-# aucune convention de tagging encore utilisée.
+# Alignés sur la méthodologie du rapport vidéo de référence "Statistiques
+# individuelles Bordeaux" (bilan positif/neutre/négatif + détail par secteur) :
+# "JOUEURS OFF" fait foi pour les totaux d'actions individuelles, les groupes
+# "Contacts"/"Passes"/"Offload"/"RCE"/"Aériens" qualifient certaines d'entre elles
+# en +/-/= (ou +/- pour Chasseur, +/= pour Duels aériens/Rebonds), et
+# "Snipers"/"Chasseur"/"Combattant"/"Disciplines" sont les rôles défensifs (comme
+# sur la page CSC), ici recensés joueur par joueur plutôt qu'agrégés pour l'équipe.
 
 _ATTACK_ACTION_KEYS = {
-    "DEF BATTUS": "def_battu", "PDB": "pdb", "SOUTIENS OFF": "soutien",
+    "DEF BATTUS": "def_battu", "PDB": "pdb",
     "BREAK": "break", "CARTOUCHES": "cartouche", "MELEES": "melee_portee",
-    "JAP": "jap", "COUP D'ENVOI": "coup_envoi", "ESSAIS": "essai",
-    "TRANSFORMATIONS": "transformation",
 }
+
+# Regroupe les "ballons gagnés" et "contre-rucks" (groupe Chasseur) avec les
+# interceptions (Joueurs Off) : le rapport de référence les affiche sous une seule
+# colonne "Ballons récupérés dans le jeu".
+CHASSEUR_RECUP_TEXTS = {"CONTRE RUCK", "BALLONS GAGNES"}
 
 
 def _new_convention_player_names(instances):
@@ -1711,94 +1714,111 @@ def _new_convention_player_names(instances):
 
 
 def compute_player_attack_table(instances):
-    """Contacts, passes, offloads, ballons portés/perdus, breaks, points par joueur
-    (convention 2026 : groupes 'Joueurs Off'/'Contacts'/'Passes'/'Offload'/'Disciplines')."""
+    """Contact, passes, offloads, soutien au ruck, déchet/discipline offensive par joueur
+    (convention 2026 : groupes 'Contacts'/'Passes'/'Offload'/'Disciplines').
+
+    « % propres » (passes) et « % réussite » (offload) comptent les + ET les = comme
+    réussis, seuls les - (imprécis) comptent contre — c'est la même règle que pour le
+    contact, et celle du rapport vidéo de référence (« % propres regroupe les + et les
+    = »). Les essais/transformations sont sur le tableau Conquête (voir
+    compute_player_ruck_table), pas ici."""
     rows = {}
     for name in _new_convention_player_names(instances):
         rows[name] = {"contact_plus": 0, "contact_minus": 0, "contact_neutre": 0,
                       "passe_plus": 0, "passe_minus": 0, "passe_neutre": 0, "passes": 0,
                       "offload_plus": 0, "offload_minus": 0, "offload_neutre": 0, "offloads": 0,
-                      "def_battu": 0, "pdb": 0, "soutien": 0, "break": 0, "cartouche": 0,
-                      "melee_portee": 0, "jap": 0, "coup_envoi": 0, "essai": 0,
-                      "transformation": 0, "penalite": 0}
+                      "def_battu": 0, "pdb": 0, "soutien_1er": 0, "soutien_2eme": 0, "soutien_3plus": 0,
+                      "break": 0, "cartouche": 0, "melee_portee": 0, "penalite_off": 0, "penalite_def": 0}
 
     for i in instances:
         code = i["code_raw"]
         if code not in rows:
             continue
         row = rows[code]
+        groups = {}
         for lab in i["labels"]:
-            grp = _normalize_tag(lab["group"])
-            txt = _normalize_tag(lab["text"])
-            if grp == "CONTACTS":
-                if txt == "+":
-                    row["contact_plus"] += 1
-                elif txt == "-":
-                    row["contact_minus"] += 1
-                elif txt == "=":
-                    row["contact_neutre"] += 1
-            elif grp == "PASSES":
-                if txt == "+":
-                    row["passe_plus"] += 1
-                elif txt == "-":
-                    row["passe_minus"] += 1
-                elif txt == "=":
-                    row["passe_neutre"] += 1
-            elif grp == "OFFLOAD":
-                if txt == "+":
-                    row["offload_plus"] += 1
-                elif txt == "-":
-                    row["offload_minus"] += 1
-                elif txt == "=":
-                    row["offload_neutre"] += 1
-            elif grp == "DISCIPLINES" and txt == "DISCIPLINES OFF":
-                row["penalite"] += 1
-            elif grp == "JOUEURS OFF":
-                if txt in PLAYER_ACTION_OFFLOAD:
-                    row["offloads"] += 1
-                elif txt == "PASSES":
-                    row["passes"] += 1
-                elif txt in _ATTACK_ACTION_KEYS:
-                    row[_ATTACK_ACTION_KEYS[txt]] += 1
+            groups.setdefault(_normalize_tag(lab["group"]), set()).add(_normalize_tag(lab["text"]))
+        off = groups.get("JOUEURS OFF", set())
+
+        c = groups.get("CONTACTS", set())
+        if "CONTACTS" in off:
+            if "+" in c:
+                row["contact_plus"] += 1
+            elif "-" in c:
+                row["contact_minus"] += 1
+            else:
+                row["contact_neutre"] += 1
+        p = groups.get("PASSES", set())
+        if "PASSES" in off:
+            row["passes"] += 1
+            if "+" in p:
+                row["passe_plus"] += 1
+            elif "-" in p:
+                row["passe_minus"] += 1
+            else:
+                row["passe_neutre"] += 1
+        o = groups.get("OFFLOAD", set())
+        if off & PLAYER_ACTION_OFFLOAD:
+            row["offloads"] += 1
+            if "+" in o:
+                row["offload_plus"] += 1
+            elif "-" in o:
+                row["offload_minus"] += 1
+            else:
+                row["offload_neutre"] += 1
+        if "SOUTIENS OFF" in off:
+            if "1ER" in off:
+                row["soutien_1er"] += 1
+            elif "2EME" in off:
+                row["soutien_2eme"] += 1
+            elif "3+" in off:
+                row["soutien_3plus"] += 1
+        disc = groups.get("DISCIPLINES", set())
+        if "DISCIPLINES OFF" in disc:
+            row["penalite_off"] += 1
+        if "DISCIPLINES DEF" in disc:
+            row["penalite_def"] += 1
+        for txt in off:
+            if txt in _ATTACK_ACTION_KEYS:
+                row[_ATTACK_ACTION_KEYS[txt]] += 1
 
     result = []
     totals = defaultdict(int)
     for name, r in rows.items():
         contact_tot = r["contact_plus"] + r["contact_minus"] + r["contact_neutre"]
         offload_tot = r["offload_plus"] + r["offload_minus"] + r["offload_neutre"]
-        if contact_tot + r["passes"] + offload_tot + sum(r[k] for k in _ATTACK_ACTION_KEYS.values()) == 0:
+        soutien_total = r["soutien_1er"] + r["soutien_2eme"] + r["soutien_3plus"]
+        if (contact_tot + r["passes"] + offload_tot + soutien_total + r["def_battu"] + r["pdb"]
+                + r["break"] + r["cartouche"] + r["melee_portee"] + r["penalite_off"] + r["penalite_def"]) == 0:
             continue
-        points = (r["contact_plus"] - r["contact_minus"]
-                  + r["passe_plus"] - r["passe_minus"]
-                  + r["offload_plus"] * 2 - r["offload_minus"]
-                  + r["def_battu"] * 2 + r["break"] * 3 - r["pdb"] * 2
-                  + r["essai"] * 5 - r["penalite"] * 2)
-        passe_tot = r["passe_plus"] + r["passe_minus"] + r["passe_neutre"]
+        passe_pct_num = r["passe_plus"] + r["passe_neutre"]
+        offload_pct_num = r["offload_plus"] + r["offload_neutre"]
         row_out = {
             "name": name, **r,
             "contact_total": contact_tot, "contact_pct": round(r["contact_plus"] / contact_tot * 100) if contact_tot else None,
-            "passe_total": r["passes"], "passe_pct": round(r["passe_plus"] / passe_tot * 100) if passe_tot else None,
-            "offload_total": r["offloads"], "offload_pct": round(r["offload_plus"] / offload_tot * 100) if offload_tot else None,
-            "points": points,
+            "passe_total": r["passes"], "passe_pct": round(passe_pct_num / r["passes"] * 100) if r["passes"] else None,
+            "offload_total": r["offloads"], "offload_pct": round(offload_pct_num / r["offloads"] * 100) if r["offloads"] else None,
+            "soutien_total": soutien_total,
         }
         result.append(row_out)
         for k, v in r.items():
             totals[k] += v
-        totals["points"] += points
-    result.sort(key=lambda x: -x["points"])
+    result.sort(key=lambda x: x["name"].casefold())
     return {"rows": result, "totals": dict(totals)}
 
 
 def compute_player_defense_table(instances):
-    """Plaquages (Sniper : dominant/neutre/passif/raté), Combattant, discipline
-    défensive, points par joueur (convention 2026 : groupes 'Snipers'/'Combattant'/
-    'Disciplines' — mêmes groupes que la page CSC, ici par joueur plutôt qu'agrégés)."""
+    """Plaquages (Snipers : réussis/manqués/tentés, hauteur, qualité +/=/-), Combattant,
+    Chasseur (montées sur jeu au pied, +/-) et ballons récupérés dans le jeu (contre-rucks
+    + ballons gagnés + interceptions) par joueur — mêmes groupes que la page CSC et le
+    rapport vidéo de référence, ici par joueur plutôt qu'agrégés pour l'équipe."""
     rows = {}
     for name in _new_convention_player_names(instances):
         rows[name] = {"plaquage_dominant": 0, "plaquage_neutre": 0, "plaquage_passif": 0, "plaquage_rate": 0,
                       "plaquage_bas": 0, "plaquage_haut": 0,
                       "combattant_plus": 0, "combattant_neutre": 0, "combattant_minus": 0, "combattant_balle": 0,
-                      "discipline": 0}
+                      "chasseur_plus": 0, "chasseur_neutre": 0, "chasseur_minus": 0,
+                      "ballons_recuperes": 0}
 
     for i in instances:
         code = i["code_raw"]
@@ -1826,38 +1846,45 @@ def compute_player_defense_table(instances):
                 row["combattant_plus"] += 1
             elif "-" in combattant_vals:
                 row["combattant_minus"] += 1
-            elif "=" in combattant_vals:
+            else:
                 row["combattant_neutre"] += 1
             if "BALLE" in combattant_vals:
                 row["combattant_balle"] += 1
-        for lab in i["labels"]:
-            if _normalize_tag(lab["group"]) == "DISCIPLINES" and _normalize_tag(lab["text"]) == "DISCIPLINES DEF":
-                row["discipline"] += 1
+        chasseur_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "CHASSEUR"}
+        if "CHASSEUR" in chasseur_vals:
+            if "+" in chasseur_vals:
+                row["chasseur_plus"] += 1
+            elif "-" in chasseur_vals:
+                row["chasseur_minus"] += 1
+            else:
+                row["chasseur_neutre"] += 1
+        if chasseur_vals & CHASSEUR_RECUP_TEXTS:
+            row["ballons_recuperes"] += 1
+        off_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "JOUEURS OFF"}
+        if "INTERCEPTION" in off_vals:
+            row["ballons_recuperes"] += 1
 
     result = []
     totals = defaultdict(int)
     for name, r in rows.items():
         tackle_total = r["plaquage_dominant"] + r["plaquage_neutre"] + r["plaquage_passif"] + r["plaquage_rate"]
+        chasseur_total = r["chasseur_plus"] + r["chasseur_neutre"] + r["chasseur_minus"]
         combattant_total = r["combattant_plus"] + r["combattant_neutre"] + r["combattant_minus"]
-        if tackle_total + combattant_total + r["discipline"] == 0:
+        if tackle_total + combattant_total + chasseur_total + r["ballons_recuperes"] == 0:
             continue
         made = r["plaquage_dominant"] + r["plaquage_neutre"] + r["plaquage_passif"]
-        points = (r["plaquage_dominant"] * 2 + r["plaquage_neutre"] * 1
-                  - r["plaquage_rate"] * 2 + r["combattant_plus"] - r["combattant_minus"]
-                  - r["discipline"] * 2)
         row_out = {
             "name": name, **r,
-            "tackle_total": tackle_total,
-            "tackle_pct": round(made / tackle_total * 100, 2) if tackle_total else None,
+            "plaquage_tentes": tackle_total,
+            "plaquage_pct": round(made / tackle_total * 100) if tackle_total else None,
+            "plaquage_low_sample": tackle_total < 3,
             "combattant_total": combattant_total,
-            "combattant_pct": round((r["combattant_plus"] + r["combattant_neutre"]) / combattant_total * 100) if combattant_total else None,
-            "points": points,
+            "chasseur_total": chasseur_total,
         }
         result.append(row_out)
         for k, v in r.items():
             totals[k] += v
-        totals["points"] += points
-    result.sort(key=lambda x: -x["points"])
+    result.sort(key=lambda x: x["name"].casefold())
     return {"rows": result, "totals": dict(totals)}
 
 
@@ -2598,17 +2625,19 @@ def compute_season_dashboard(selected_matches):
 
 
 def compute_player_ruck_table(instances):
-    """Ruck & conquête par joueur (convention 2026) : ordre d'arrivée au soutien
-    (1er/2e/3e+, groupe 'Joueurs Off' / 'SOUTIENS OFF'), contre-rucks défensifs
-    (groupe 'Chasseur' / 'CONTRE RUCK'), et rôles de touche (LIFTEUR/SAUTEUR/LANCE/
-    RECEPTION CE/INTERCEPTION, également dans 'Joueurs Off'). Remplace l'ancien
-    tableau ('RUCK'/'ancreur'/'raseur'/'gratteur'), qui ne correspond à aucune
-    convention de tagging encore utilisée."""
+    """Conquête, jeu au pied et marque par joueur (convention 2026) : mêlées/touche
+    (LIFTEUR/SAUTEUR/LANCE), jeu au pied (JAP/COUP D'ENVOI/RECEPTION CE, qualifiés +/=/-
+    par le groupe 'RCE'), duels aériens (groupe 'AERIENS', +/=), essais et
+    transformations (réussies vs tentées : seules les instances 'TRANSFORMATIONS'
+    portant en plus le label 'SPECIFIQUES'='REUSSI' sont des transformations réussies),
+    et les points réels marqués par le joueur (5 × essais + 2 × transfos réussies)."""
     rows = {}
     for name in _new_convention_player_names(instances):
-        rows[name] = {"soutien_1er": 0, "soutien_2eme": 0, "soutien_3plus": 0,
-                      "contre_ruck": 0, "lifteur": 0, "sauteur": 0, "lanceur": 0,
-                      "reception_touche": 0, "interception": 0}
+        rows[name] = {"melee_conquete": 0, "lifteur": 0, "sauteur": 0, "lanceur": 0,
+                      "jap": 0, "coup_envoi": 0, "recep_ce": 0,
+                      "rce_plus": 0, "rce_neutre": 0, "rce_minus": 0,
+                      "duels_aer_plus": 0, "duels_aer_neutre": 0,
+                      "essai": 0, "transfo_reussies": 0, "transfo_tentees": 0}
 
     for i in instances:
         code = i["code_raw"]
@@ -2616,54 +2645,160 @@ def compute_player_ruck_table(instances):
             continue
         row = rows[code]
         off_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "JOUEURS OFF"}
-        if "SOUTIENS OFF" in off_vals:
-            if "1ER" in off_vals:
-                row["soutien_1er"] += 1
-            elif "2EME" in off_vals:
-                row["soutien_2eme"] += 1
-            elif "3+" in off_vals:
-                row["soutien_3plus"] += 1
+        if "MELEES" in off_vals:
+            row["melee_conquete"] += 1
         if "LIFTEUR" in off_vals:
             row["lifteur"] += 1
         if "SAUTEUR" in off_vals:
             row["sauteur"] += 1
         if "LANCE" in off_vals:
             row["lanceur"] += 1
+        if "JAP" in off_vals:
+            row["jap"] += 1
+        if "ESSAIS" in off_vals:
+            row["essai"] += 1
+        specifiques = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "SPECIFIQUES"}
+        if "TRANSFORMATIONS" in off_vals:
+            row["transfo_tentees"] += 1
+            if "REUSSI" in specifiques:
+                row["transfo_reussies"] += 1
+        rce_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "RCE"}
+        if "COUP D'ENVOI" in off_vals:
+            row["coup_envoi"] += 1
+            if "+" in rce_vals:
+                row["rce_plus"] += 1
+            elif "-" in rce_vals:
+                row["rce_minus"] += 1
+            elif rce_vals:
+                row["rce_neutre"] += 1
         if "RECEPTION CE" in off_vals:
-            row["reception_touche"] += 1
-        if "INTERCEPTION" in off_vals:
-            row["interception"] += 1
-        chasseur_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "CHASSEUR"}
-        if "CONTRE RUCK" in chasseur_vals:
-            row["contre_ruck"] += 1
+            row["recep_ce"] += 1
+            if "+" in rce_vals:
+                row["rce_plus"] += 1
+            elif "-" in rce_vals:
+                row["rce_minus"] += 1
+            elif rce_vals:
+                row["rce_neutre"] += 1
+        aeriens_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "AERIENS"}
+        if aeriens_vals:
+            if "+" in aeriens_vals:
+                row["duels_aer_plus"] += 1
+            elif "=" in aeriens_vals:
+                row["duels_aer_neutre"] += 1
 
     result = []
     totals = defaultdict(int)
     for name, r in rows.items():
         if sum(r.values()) == 0:
             continue
-        soutien_total = r["soutien_1er"] + r["soutien_2eme"] + r["soutien_3plus"]
-        touche_total = r["lifteur"] + r["sauteur"] + r["lanceur"] + r["reception_touche"]
-        points = (r["soutien_1er"] * 2 + r["soutien_2eme"] + r["contre_ruck"] * 3
-                  + r["interception"] * 3 + touche_total)
+        touche_total = r["lifteur"] + r["sauteur"] + r["lanceur"]
+        rce_total = r["rce_plus"] + r["rce_neutre"] + r["rce_minus"]
+        duels_aer_total = r["duels_aer_plus"] + r["duels_aer_neutre"]
+        points = r["essai"] * 5 + r["transfo_reussies"] * 2
         row_out = {
             "name": name, **r,
-            "soutien_total": soutien_total,
+            "touche_total": touche_total,
+            "coup_envoi_recep_total": r["coup_envoi"] + r["recep_ce"],
+            "rce_total": rce_total,
+            "duels_aer_total": duels_aer_total,
             "points": points,
         }
         result.append(row_out)
         for k, v in r.items():
             totals[k] += v
         totals["points"] += points
-    result.sort(key=lambda x: -x["points"])
+    result.sort(key=lambda x: x["name"].casefold())
+    return {"rows": result, "totals": dict(totals)}
+
+
+def compute_player_bilan_table(instances):
+    """Vue d'ensemble individuelle : bilan positif/neutre/négatif par joueur, méthodologie
+    du rapport vidéo de référence utilisé par le staff (celui qui gère déjà les stats
+    indiv en dehors du site).
+
+    Positives : les actions codées + (contact, passe, offload, plaquage, combattant,
+    chasseur, RCE, duels aériens), chaque défenseur battu, chaque arrivée en 1er soutien
+    au ruck, les franchissements (breaks), les ballons récupérés dans le jeu (contre-rucks,
+    ballons gagnés, interceptions), les essais et les transformations réussies.
+    Neutres : les actions codées = et les arrivées en 2e soutien au ruck.
+    Négatives : les actions codées - ainsi que les plaquages manqués (ratés), les ballons
+    perdus (PDB), les pénalités concédées (attaque et défense) et les transformations
+    manquées. Les arrivées en 3e soutien ou au-delà, les mêlées, les rôles de touche
+    (lifteur/sauteur/lanceur), le jeu au pied brut et les courses ne sont pas comptabilisés
+    dans le bilan (actions de volume pur), seulement affichés en brut ailleurs.
+    Bilan net = positives - négatives."""
+    attack = compute_player_attack_table(instances)
+    defense = compute_player_defense_table(instances)
+    ruck = compute_player_ruck_table(instances)
+    names = set()
+    for t in (attack, defense, ruck):
+        names.update(r["name"] for r in t["rows"])
+
+    a_by_name = {r["name"]: r for r in attack["rows"]}
+    d_by_name = {r["name"]: r for r in defense["rows"]}
+    u_by_name = {r["name"]: r for r in ruck["rows"]}
+
+    # "Actions codées" = total brut de toutes les actions individuelles taguées pour le
+    # joueur (y compris les actions de volume pur non comptées dans le bilan, ex. soutien
+    # 3e+, rôles de touche) — distinct du "Total signées" (= positives + neutres +
+    # négatives uniquement), comme dans le rapport de référence.
+    raw_actions = defaultdict(int)
+    for i in instances:
+        tokens = _normalize_tag(i["code_raw"]).split()
+        if tokens[:1] and tokens[0] in ("UBB", "ADV", "ADVERSE"):
+            continue
+        for lab in i["labels"]:
+            if _normalize_tag(lab["group"]) in ("JOUEURS OFF", "SNIPERS", "CHASSEUR", "COMBATTANT", "DISCIPLINES"):
+                raw_actions[i["code_raw"]] += 1
+                break
+
+    result = []
+    totals = defaultdict(int)
+    for name in names:
+        a = a_by_name.get(name) or _zero_attack_row(name)
+        d = d_by_name.get(name) or _zero_defense_row(name)
+        u = u_by_name.get(name) or _zero_ruck_row(name)
+
+        positives = (a["contact_plus"] + a["passe_plus"] + a["offload_plus"]
+                     + a["def_battu"] + a["soutien_1er"] + a["break"]
+                     + d["plaquage_dominant"] + d["combattant_plus"] + d["chasseur_plus"]
+                     + d["ballons_recuperes"]
+                     + u["rce_plus"] + u["duels_aer_plus"]
+                     + u["essai"] + u["transfo_reussies"])
+        neutres = (a["contact_neutre"] + a["passe_neutre"] + a["offload_neutre"]
+                   + a["soutien_2eme"]
+                   + d["plaquage_neutre"] + d["combattant_neutre"] + d["chasseur_neutre"]
+                   + u["rce_neutre"] + u["duels_aer_neutre"])
+        negatives = (a["contact_minus"] + a["passe_minus"] + a["offload_minus"]
+                     + a["pdb"] + a["penalite_off"] + a["penalite_def"]
+                     + d["plaquage_rate"] + d["combattant_minus"] + d["chasseur_minus"]
+                     + u["transfo_tentees"] - u["transfo_reussies"])
+
+        actions_codees = raw_actions.get(name, 0)
+        if actions_codees == 0:
+            continue
+        row_out = {
+            "name": name,
+            "actions_codees": actions_codees,
+            "positives": positives,
+            "neutres": neutres,
+            "negatives": negatives,
+            "total_signees": positives + neutres + negatives,
+            "bilan_net": positives - negatives,
+        }
+        result.append(row_out)
+        for k, v in row_out.items():
+            if k != "name":
+                totals[k] += v
+    result.sort(key=lambda x: -x["bilan_net"])
     return {"rows": result, "totals": dict(totals)}
 
 
 def compute_player_season_baselines(matches_with_instances, exclude_id=None):
     """Moyennes saison PAR JOUEUR (hors le match affiché), pour comparer la perf d'un
     joueur sur un match à ce qu'il fait d'habitude. Les % sont recalculés sur le cumul
-    des autres matchs ; l'indice ('points') est ramené à une moyenne par match joué
-    (nombre de matchs où le joueur apparaît). Renvoie None s'il n'y a pas d'autre match."""
+    des autres matchs ; le bilan net est ramené à une moyenne par match joué (nombre de
+    matchs où le joueur apparaît). Renvoie None s'il n'y a pas d'autre match."""
     others = [m for m in matches_with_instances if m["id"] != exclude_id and m["instances"]]
     if not others:
         return None
@@ -2676,6 +2811,7 @@ def compute_player_season_baselines(matches_with_instances, exclude_id=None):
     attack = compute_player_attack_table(combined)
     defense = compute_player_defense_table(combined)
     ruck = compute_player_ruck_table(combined)
+    bilan = compute_player_bilan_table(combined)
 
     result = {}
 
@@ -2683,30 +2819,27 @@ def compute_player_season_baselines(matches_with_instances, exclude_id=None):
         return result.setdefault(name, {"matches": appearances.get(name, 0)})
 
     for r in attack["rows"]:
-        n = appearances.get(r["name"], 0) or 1
         _entry(r["name"])["attack"] = {
             "contact_pct": r["contact_pct"], "passe_pct": r["passe_pct"],
             "offload_pct": r["offload_pct"],
-            "points_avg": round(r["points"] / n, 1),
         }
     for r in defense["rows"]:
-        n = appearances.get(r["name"], 0) or 1
         _entry(r["name"])["defense"] = {
-            "tackle_pct": r["tackle_pct"], "combattant_pct": r["combattant_pct"],
-            "points_avg": round(r["points"] / n, 1),
+            "plaquage_pct": r["plaquage_pct"],
         }
     for r in ruck["rows"]:
-        n = appearances.get(r["name"], 0) or 1
         _entry(r["name"])["ruck"] = {
-            "contre_ruck": r["contre_ruck"], "soutien_total": r["soutien_total"],
-            "points_avg": round(r["points"] / n, 1),
+            "points_total": r["points"],
         }
+    for r in bilan["rows"]:
+        n = appearances.get(r["name"], 0) or 1
+        _entry(r["name"])["bilan_net_avg"] = round(r["bilan_net"] / n, 1)
     return result
 
 
-def build_player_cards(attack_table, defense_table, ruck_table, composition=None):
-    """Fusionne les 3 tableaux joueurs en une liste de lignes (une par joueur) avec
-    l'indice attaque / défense / ruck + indice global.
+def build_player_cards(bilan_table, attack_table, defense_table, ruck_table, composition=None):
+    """Fusionne le tableau bilan (vue d'ensemble) avec les 3 tableaux de détail en une
+    liste de lignes (une par joueur).
 
     Ordre (pas de classement à la performance, demande de Téo) :
     - si une composition est fournie (liste des 23 noms saisis sur la page Composition,
@@ -2716,12 +2849,11 @@ def build_player_cards(attack_table, defense_table, ruck_table, composition=None
     - sinon, ordre alphabétique. La comparaison des noms est insensible à la casse
       (le XML tague 'ROUET', la feuille de composition 'Rouet')."""
     cards = {}
-    for section, table in (("attack", attack_table), ("defense", defense_table), ("ruck", ruck_table)):
+    for section, table in (("bilan", bilan_table), ("attack", attack_table), ("defense", defense_table), ("ruck", ruck_table)):
         for r in table["rows"]:
-            cards.setdefault(r["name"], {"name": r["name"], "attack": None, "defense": None, "ruck": None})[section] = r
+            cards.setdefault(r["name"], {"name": r["name"], "bilan": None, "attack": None, "defense": None, "ruck": None})[section] = r
     out = []
     for c in cards.values():
-        c["total_points"] = sum((c[s] or {}).get("points", 0) for s in ("attack", "defense", "ruck"))
         c["number"] = None
         out.append(c)
 
@@ -2735,61 +2867,6 @@ def build_player_cards(attack_table, defense_table, ruck_table, composition=None
     return out
 
 
-# Colonnes du tableau "vue d'ensemble individuelle" où repérer automatiquement l'extrême :
-# GOOD = plus haut est mieux, on surligne le(s) meilleur(s) ; BAD = plus haut est pire
-# (fautes, plaquages ratés, ballons perdus en contact), on surligne le(s) pire(s).
-_OVERVIEW_GOOD_METRICS = [
-    ("attack", "def_battu"), ("attack", "offload_plus"),
-    ("attack", "break"), ("attack", "essai"), ("attack", "contact_plus"),
-    ("defense", "plaquage_dominant"), ("defense", "combattant_plus"), ("ruck", "contre_ruck"),
-]
-_OVERVIEW_BAD_METRICS = [
-    ("attack", "contact_minus"), ("defense", "plaquage_rate"), ("defense", "discipline"),
-]
-
-
-def compute_overview_highlights(player_cards):
-    """Repère, pour chaque colonne clé du tableau vue d'ensemble, le(s) joueur(s) qui font
-    le mieux (à surligner en vert) et, pour les colonnes où plus haut est mauvais (fautes,
-    plaquages ratés, pertes en contact), le(s) joueur(s) qui font le moins bien (à surligner
-    en rouge) — pour faire ressortir les extrêmes d'un coup d'œil dans un tableau dense,
-    sans avoir à trier colonne par colonne. Seules les valeurs > 0 sont éligibles (on ne
-    surligne pas des '0' partagés par tout l'effectif). Renvoie {nom_joueur: {colonne: 'good'|'bad'}}."""
-    def _get(card, section, key):
-        v = (card.get(section) or {}).get(key)
-        return v if isinstance(v, (int, float)) else None
-
-    highlights = {c["name"]: {} for c in player_cards}
-    for section, key in _OVERVIEW_GOOD_METRICS:
-        vals = [(c["name"], _get(c, section, key)) for c in player_cards]
-        vals = [(n, v) for n, v in vals if v]
-        if not vals:
-            continue
-        best = max(v for _, v in vals)
-        for n, v in vals:
-            if v == best:
-                highlights[n][key] = "good"
-    for section, key in _OVERVIEW_BAD_METRICS:
-        vals = [(c["name"], _get(c, section, key)) for c in player_cards]
-        vals = [(n, v) for n, v in vals if v]
-        if not vals:
-            continue
-        worst = max(v for _, v in vals)
-        for n, v in vals:
-            if v == worst:
-                highlights[n][key] = "bad"
-    return highlights
-
-
-def attach_overview_highlights(player_cards):
-    """Calcule et attache à chaque carte joueur ('hl') les surlignages du tableau vue
-    d'ensemble (voir compute_overview_highlights). Renvoie la même liste, mutée."""
-    highlights = compute_overview_highlights(player_cards)
-    for c in player_cards:
-        c["hl"] = highlights.get(c["name"], {})
-    return player_cards
-
-
 # ---- Comparateur de joueurs (saison) ------------------------------------------
 
 def _zero_attack_row(name):
@@ -2800,9 +2877,9 @@ def _zero_attack_row(name):
         "passe_total": 0, "passe_pct": None,
         "offload_plus": 0, "offload_minus": 0, "offload_neutre": 0, "offloads": 0,
         "offload_total": 0, "offload_pct": None,
-        "def_battu": 0, "pdb": 0, "soutien": 0, "break": 0, "cartouche": 0,
-        "melee_portee": 0, "jap": 0, "coup_envoi": 0, "essai": 0,
-        "transformation": 0, "penalite": 0, "points": 0,
+        "def_battu": 0, "pdb": 0, "soutien_1er": 0, "soutien_2eme": 0, "soutien_3plus": 0,
+        "soutien_total": 0, "break": 0, "cartouche": 0,
+        "melee_portee": 0, "penalite_off": 0, "penalite_def": 0,
     }
 
 
@@ -2810,19 +2887,29 @@ def _zero_defense_row(name):
     return {
         "name": name, "plaquage_dominant": 0, "plaquage_neutre": 0, "plaquage_passif": 0,
         "plaquage_rate": 0, "plaquage_bas": 0, "plaquage_haut": 0,
-        "tackle_total": 0, "tackle_pct": None,
+        "plaquage_tentes": 0, "plaquage_pct": None, "plaquage_low_sample": True,
         "combattant_plus": 0, "combattant_neutre": 0, "combattant_minus": 0, "combattant_balle": 0,
-        "combattant_total": 0, "combattant_pct": None,
-        "discipline": 0, "points": 0,
+        "combattant_total": 0,
+        "chasseur_plus": 0, "chasseur_neutre": 0, "chasseur_minus": 0, "chasseur_total": 0,
+        "ballons_recuperes": 0,
     }
 
 
 def _zero_ruck_row(name):
     return {
-        "name": name, "soutien_1er": 0, "soutien_2eme": 0, "soutien_3plus": 0, "soutien_total": 0,
-        "contre_ruck": 0, "lifteur": 0, "sauteur": 0, "lanceur": 0,
-        "reception_touche": 0, "interception": 0,
+        "name": name, "melee_conquete": 0, "lifteur": 0, "sauteur": 0, "lanceur": 0, "touche_total": 0,
+        "jap": 0, "coup_envoi": 0, "recep_ce": 0, "coup_envoi_recep_total": 0,
+        "rce_plus": 0, "rce_neutre": 0, "rce_minus": 0, "rce_total": 0,
+        "duels_aer_plus": 0, "duels_aer_neutre": 0, "duels_aer_total": 0,
+        "essai": 0, "transfo_reussies": 0, "transfo_tentees": 0,
         "points": 0,
+    }
+
+
+def _zero_bilan_row(name):
+    return {
+        "name": name, "actions_codees": 0, "positives": 0, "neutres": 0, "negatives": 0,
+        "total_signees": 0, "bilan_net": 0,
     }
 
 
@@ -2840,15 +2927,18 @@ def _find_or_zero(rows, name, zero_fn):
 
 
 def compute_player_comparison(instances, player_a, player_b):
-    """Page Comparateur (saison) : reprend exactement les 3 tableaux de la page Joueurs
-    (attaque/défense/ruck), calculés sur les matchs sélectionnés, et ne garde que les
-    2 lignes des joueurs choisis dans les menus déroulants. Si un joueur n'a aucune
+    """Page Comparateur (saison) : reprend exactement les tableaux de la page Joueurs
+    (bilan/attaque/défense/ruck), calculés sur les matchs sélectionnés, et ne garde que
+    les 2 lignes des joueurs choisis dans les menus déroulants. Si un joueur n'a aucune
     statistique sur la sélection (n'a pas joué, ou pas de data codée), on affiche une
     ligne à zéro plutôt que de le faire disparaître."""
     attack = compute_player_attack_table(instances)
     defense = compute_player_defense_table(instances)
     ruck = compute_player_ruck_table(instances)
+    bilan = compute_player_bilan_table(instances)
     return {
+        "bilan_rows": [_find_or_zero(bilan["rows"], player_a, _zero_bilan_row),
+                       _find_or_zero(bilan["rows"], player_b, _zero_bilan_row)],
         "attack_rows": [_find_or_zero(attack["rows"], player_a, _zero_attack_row),
                         _find_or_zero(attack["rows"], player_b, _zero_attack_row)],
         "defense_rows": [_find_or_zero(defense["rows"], player_a, _zero_defense_row),
@@ -3068,12 +3158,14 @@ def compute_squad_season_stats(instances, selected_matches=None):
     attack = compute_player_attack_table(instances)
     defense = compute_player_defense_table(instances)
     ruck = compute_player_ruck_table(instances)
+    bilan = compute_player_bilan_table(instances)
     tracking = compute_player_tracking(selected_matches or [])
     groups = []
     for position in SQUAD_POSITION_ORDER:
         names = SQUAD_ROSTER[position]
         groups.append({
             "position": position,
+            "bilan_rows": [_find_or_zero(bilan["rows"], n, _zero_bilan_row) for n in names],
             "attack_rows": [_find_or_zero(attack["rows"], n, _zero_attack_row) for n in names],
             "defense_rows": [_find_or_zero(defense["rows"], n, _zero_defense_row) for n in names],
             "ruck_rows": [_find_or_zero(ruck["rows"], n, _zero_ruck_row) for n in names],

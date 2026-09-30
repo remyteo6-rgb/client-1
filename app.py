@@ -15,6 +15,7 @@ from parser import (
     SECTION_ICONS, SECTION_HELP, CATEGORY_HELP, generate_highlights, compute_radar_metrics,
     compute_score, compute_phase_timing,
     compute_player_attack_table, compute_player_defense_table, compute_player_ruck_table,
+    compute_player_bilan_table,
     compute_overview_dashboard, compute_squad_season_stats,
     compute_possession_log, compute_possession_summary,
     SQUAD_ROSTER, SQUAD_POSITION_ORDER, is_jiff,
@@ -22,7 +23,7 @@ from parser import (
     TRAINING_TAXONOMY, group_training_sessions_by_period,
     PHASE_ICONS, PHASE_HELP, compute_match_baseline,
     compute_player_season_baselines, build_player_cards,
-    attach_overview_highlights, compute_momentum, render_momentum_svg,
+    compute_momentum, render_momentum_svg,
     compute_zone_gold_log, compute_new_convention_tries,
     compute_new_convention_overview, compute_csc, compute_bilan_attaque,
     compute_bilan_defense,
@@ -1248,12 +1249,14 @@ def match_joueurs(match_id):
     attack_table = compute_player_attack_table(match["instances"])
     defense_table = compute_player_defense_table(match["instances"])
     ruck_table = compute_player_ruck_table(match["instances"])
+    bilan_table = compute_player_bilan_table(match["instances"])
     matches_with_instances, _, _, _ = _season_context()
     player_baselines = compute_player_season_baselines(matches_with_instances, exclude_id=match_id)
-    player_cards = attach_overview_highlights(build_player_cards(
-        attack_table, defense_table, ruck_table, composition=match.get("composition")))
+    player_cards = build_player_cards(
+        bilan_table, attack_table, defense_table, ruck_table, composition=match.get("composition"))
     return render_template("match_joueurs.html", match=match, attack_table=attack_table,
                            defense_table=defense_table, ruck_table=ruck_table,
+                           bilan_table=bilan_table,
                            player_baselines=player_baselines, player_cards=player_cards)
 
 
@@ -1807,11 +1810,12 @@ def season_joueurs():
     attack_table = compute_player_attack_table(instances)
     defense_table = compute_player_defense_table(instances)
     ruck_table = compute_player_ruck_table(instances)
-    player_cards = attach_overview_highlights(build_player_cards(attack_table, defense_table, ruck_table))
+    bilan_table = compute_player_bilan_table(instances)
+    player_cards = build_player_cards(bilan_table, attack_table, defense_table, ruck_table)
     return render_template("season_joueurs.html", groups=groups, active="joueurs",
                            qs=qs, selected_count=len(selected),
                            attack_table=attack_table, defense_table=defense_table,
-                           ruck_table=ruck_table, player_cards=player_cards)
+                           ruck_table=ruck_table, bilan_table=bilan_table, player_cards=player_cards)
 
 
 @app.route("/season/entrainement", methods=["GET", "POST"])
@@ -2295,20 +2299,21 @@ def player_stats():
     matches_with_instances, selected, selected_ids, qs = _season_context()
     instances = _season_instances(selected)
     matched_name = _match_player_stats_name(player, instances) if instances else None
-    attack_row = defense_row = ruck_row = None
+    attack_row = defense_row = ruck_row = bilan_row = None
     matches_played = 0
     if matched_name:
         comparison = compute_player_comparison(instances, matched_name, matched_name)
         attack_row = comparison["attack_rows"][0]
         defense_row = comparison["defense_rows"][0]
         ruck_row = comparison["ruck_rows"][0]
+        bilan_row = comparison["bilan_rows"][0]
         matches_played = sum(
             1 for m in selected
             if any(i["kind"] == "player" and i["code_raw"] == matched_name for i in m["instances"])
         )
     return render_template(
         "player_stats.html", player=player, matched_name=matched_name,
-        attack=attack_row, defense=defense_row, ruck=ruck_row,
+        attack=attack_row, defense=defense_row, ruck=ruck_row, bilan=bilan_row,
         matches_played=matches_played, total_matches=len(matches_with_instances),
     )
 
