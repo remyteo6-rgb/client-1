@@ -42,7 +42,7 @@
                 {% set pb = ((player_baselines or {}).get(r.name) or {}).get('defense') %}
                 {% set reussis = r.plaquage_dominant + r.plaquage_neutre + r.plaquage_passif %}
                 <tr>
-                    <td>{{ r.name }}</td>
+                    <td>{% if r.number %}{{ r.number }}. {% endif %}{{ r.name }}</td>
                     <td class="stat-pos">{{ reussis }}</td>
                     <td class="stat-neg">{{ r.plaquage_rate }}</td>
                     <td>{{ r.plaquage_tentes }}</td>
@@ -80,7 +80,7 @@
             {% for r in attack_table.rows %}
                 {% set pb = ((player_baselines or {}).get(r.name) or {}).get('attack') %}
                 <tr>
-                    <td>{{ r.name }}</td>
+                    <td>{% if r.number %}{{ r.number }}. {% endif %}{{ r.name }}</td>
                     <td><span class="{{ 'stat-pos' if r.contact_plus else '' }}">{{ r.contact_plus }}</span> / {{ r.contact_neutre }} / <span class="{{ 'stat-neg' if r.contact_minus else '' }}">{{ r.contact_minus }}</span></td>
                     <td>{{ r.contact_total }}{% if r.contact_pct is not none %} ({{ r.contact_pct }}%){% endif %}{% if pb and r.contact_pct is not none %}{{ kpi_arrow(r.contact_pct, pb.contact_pct, true, '%') }}{% endif %}</td>
                     <td class="sep-l">{{ r.def_battu }}</td><td>{{ r.cartouche }}</td><td>{{ r.break }}</td>
@@ -118,7 +118,7 @@
             {% for r in ruck_table.rows %}
                 {% set pb = ((player_baselines or {}).get(r.name) or {}).get('ruck') %}
                 <tr>
-                    <td>{{ r.name }}</td>
+                    <td>{% if r.number %}{{ r.number }}. {% endif %}{{ r.name }}</td>
                     <td>{{ r.melee_conquete }}</td>
                     <td>{{ r.sauteur }}</td><td>{{ r.lifteur }}</td><td>{{ r.lanceur }}</td>
                     <td class="sep-l">{{ r.jap }}</td><td>{{ r.coup_envoi }}</td><td>{{ r.recep_ce }}</td>
