@@ -23,4 +23,12 @@ if ("serviceWorker" in navigator) {
         navigator.serviceWorker.register("/sw.js").catch(function () {});
     });
 }
+// Nettoyage du marqueur "?sw_bypass=1" ajouté par l'écran de réveil (voir reveil.html et
+// le service worker) une fois qu'on a atterri sur la vraie page : il ne doit jamais
+// rester visible dans la barre d'adresse. replaceState ne recharge pas la page.
+if (location.search.indexOf("sw_bypass=1") !== -1) {
+    var u = new URL(location.href);
+    u.searchParams.delete("sw_bypass");
+    history.replaceState(null, "", u.pathname + (u.search ? u.search : "") + u.hash);
+}
 </script>

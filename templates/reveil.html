@@ -144,7 +144,18 @@
         progression.style.width = '100%';
         restant.textContent = 'Transformation !';
         message.textContent = 'Ouverture de la page…';
-        setTimeout(function () { location.reload(); }, 450);
+        // On ne fait pas un simple location.reload() : la page visée peut rester plus
+        // lente que le délai-couperet du service worker même une fois le serveur bien
+        // réveillé (grosse saison, machine gratuite), ce qui redéclencherait cet écran
+        // en boucle indéfiniment. Le marqueur "sw_bypass" dit au service worker de ne
+        // pas réappliquer sa bascule sur cette tentative : au pire la page prend
+        // quelques secondes de plus à s'afficher, mais elle s'affiche (voir le nettoyage
+        // du marqueur dans _pwa_head.html une fois la vraie page chargée).
+        setTimeout(function () {
+            var url = new URL(location.href);
+            url.searchParams.set('sw_bypass', '1');
+            location.href = url.toString();
+        }, 450);
     }
 
     function sonder() {
