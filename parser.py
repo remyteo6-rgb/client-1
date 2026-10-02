@@ -30,6 +30,30 @@ CONTROL_CODES = {"Ball In Play", "COACH"}
 SIDE_ADVERSE_TOKENS = {"Adverse", "Adv"}
 
 
+def _detect_adverse_token(instances):
+    """Auto-détecte le préfixe d'équipe adverse pour la convention 2026 ('<EQUIPE>
+    <Categorie>', ex: 'UBB POSSESSION' / 'USC POSSESSION') : chaque adversaire est tagué
+    avec son propre nom plutôt qu'un mot générique fixe ('ADV'/'ADVERSE'), donc il change
+    à chaque match et ne peut pas être codé en dur comme 'UBB' (toujours nous).
+
+    Principe : un vrai préfixe d'équipe revient en tête d'une dizaine de codes distincts
+    différents (ex: 'USC POSSESSION', 'USC RUMBLE', 'USC PDB', 'USC TOUCHES'...), alors
+    qu'un nom de famille de joueur ('SILVAIN POUVREAU') ne préfixe jamais que lui-même.
+    On prend donc le premier mot (hors 'UBB'/'ADV'/'ADVERSE') qui préfixe le plus de codes
+    distincts, à condition qu'il en préfixe au moins 3 pour écarter les faux positifs.
+    Renvoie None si rien de tel n'est détecté (fichier à l'ancienne convention, ou déjà
+    tagué 'ADV'/'ADVERSE' directement — auquel cas ces mots génériques suffisent déjà)."""
+    prefix_codes = defaultdict(set)
+    for i in instances:
+        tokens = _normalize_tag(i.get("code_raw")).split()
+        if len(tokens) >= 2 and tokens[0] not in ("UBB", "ADV", "ADVERSE"):
+            prefix_codes[tokens[0]].add(tuple(tokens))
+    candidates = {tok: codes for tok, codes in prefix_codes.items() if len(codes) >= 3}
+    if not candidates:
+        return None
+    return max(candidates, key=lambda t: len(candidates[t]))
+
+
 def _split_side(rest):
     """Given the text after 'N - ', split off trailing side/zone qualifiers.
 
@@ -463,17 +487,18 @@ def compute_score(instances):
     return {"own": own, "adverse": adv, "own_tries": own_tries, "adverse_tries": adv_tries}
 
 
-def _new_convention_side(tokens):
+def _new_convention_side(tokens, adv_token=None):
     """Détecte le côté (own/adverse) pour la nouvelle convention de tagging à partir
-    des tokens normalisés d'un code : préfixe UBB/ADV en tête (ex: "UBB Essai"), ou
-    suffixe "A" en fin pour les codes de zone sans préfixe (ex: "GOLD A"). Renvoie
-    'own' par défaut si rien ne l'indique clairement (mieux vaut sur-compter chez
-    nous que rater un essai à cause d'un tag ambigu)."""
+    des tokens normalisés d'un code : préfixe UBB/ADV (ou le vrai nom de l'adversaire,
+    détecté par _detect_adverse_token et passé ici en 'adv_token', ex: "USC Essai")
+    en tête, ou suffixe "A" en fin pour les codes de zone sans préfixe (ex: "GOLD A").
+    Renvoie 'own' par défaut si rien ne l'indique clairement (mieux vaut sur-compter
+    chez nous que rater un essai à cause d'un tag ambigu)."""
     if not tokens:
         return "own"
     if tokens[0] == "UBB":
         return "own"
-    if tokens[0] in ("ADV", "ADVERSE"):
+    if tokens[0] in ("ADV", "ADVERSE") or (adv_token and tokens[0] == adv_token):
         return "adverse"
     if tokens[-1] in ("A", "ADV", "ADVERSE"):
         return "adverse"
@@ -482,11 +507,12 @@ def _new_convention_side(tokens):
 
 def compute_new_convention_tries(instances):
     """Nombre d'essais marqués, calculé de façon fiable pour la nouvelle convention
-    de tagging (un code "UBB Essai" / "ADV Essai" taggé = un essai marqué, sans
-    ambiguïté possible — contrairement aux transformations/pénalités/drops dont on
+    de tagging (un code "UBB Essai" / "<Adversaire> Essai" taggé = un essai marqué,
+    sans ambiguïté possible — contrairement aux transformations/pénalités/drops dont on
     ne peut pas distinguer la réussite de l'échec avec cette convention, donc on ne
     les compte pas ici). Renvoie None si aucun tel code n'existe dans ce match
     (ancienne convention, ou pas encore taggé) plutôt qu'un faux 0-0."""
+    adv_token = _detect_adverse_token(instances)
     own_tries = adv_tries = 0
     found = False
     for inst in instances:
@@ -494,7 +520,7 @@ def compute_new_convention_tries(instances):
         if "ESSAI" not in tokens:
             continue
         found = True
-        if _new_convention_side(tokens) == "own":
+        if _new_convention_side(tokens, adv_token) == "own":
             own_tries += 1
         else:
             adv_tries += 1
@@ -503,14 +529,16 @@ def compute_new_convention_tries(instances):
     return {"own_tries": own_tries, "adverse_tries": adv_tries}
 
 
-def _new_convention_code_match(tokens, suffix_tokens):
+def _new_convention_code_match(tokens, suffix_tokens, adv_token=None):
     """Vrai si un code normalisé (déjà splitté en tokens) est bien 'UBB <suffixe>' ou
-    'ADV <suffixe>' — ex: suffix_tokens=['TOUCHES'] matche 'UBB Touches' mais pas
-    'UBB Jeu touches' (3 tokens, contient 'JEU' en plus). Évite les faux positifs entre
-    codes proches (ex: Touches vs Jeu touches, Mêlées vs Jeu mêlées)."""
+    '<Adverse> <suffixe>' (mot générique 'ADV'/'ADVERSE', ou le vrai nom de l'adversaire
+    détecté pour ce match et passé en 'adv_token') — ex: suffix_tokens=['TOUCHES']
+    matche 'UBB Touches' mais pas 'UBB Jeu touches' (3 tokens, contient 'JEU' en plus).
+    Évite les faux positifs entre codes proches (ex: Touches vs Jeu touches, Mêlées vs
+    Jeu mêlées)."""
     if len(tokens) != 1 + len(suffix_tokens):
         return False
-    if tokens[0] not in ("UBB", "ADV", "ADVERSE"):
+    if tokens[0] not in ("UBB", "ADV", "ADVERSE") and tokens[0] != adv_token:
         return False
     return tokens[1:] == suffix_tokens
 
@@ -583,12 +611,18 @@ def compute_new_convention_overview(instances):
     occupation_periods = defaultdict(lambda: {"own": 0.0, "adverse": 0.0})
     bip_durations = []
     found = False
+    adv_token = _detect_adverse_token(instances)
 
     for inst in instances:
         tokens = _normalize_tag(inst.get("code_raw")).split()
         if not tokens:
             continue
-        side = "own" if tokens[0] == "UBB" else ("adverse" if tokens[0] in ("ADV", "ADVERSE") else None)
+        if tokens[0] == "UBB":
+            side = "own"
+        elif tokens[0] in ("ADV", "ADVERSE") or (adv_token and tokens[0] == adv_token):
+            side = "adverse"
+        else:
+            side = None
 
         if tokens == ["BIP"]:
             # Temps de jeu effectif : chaque code "BIP" est une séquence ballon en jeu
@@ -609,8 +643,8 @@ def compute_new_convention_overview(instances):
             period = _new_convention_period(inst)
             if period:
                 occupation_periods[period][zone_side] += seconds
-        elif _new_convention_code_match(tokens, ["POSSESSION"]):
-            # % de possession = temps total "UBB POSSESSION" vs "ADV POSSESSION"
+        elif _new_convention_code_match(tokens, ["POSSESSION"], adv_token):
+            # % de possession = temps total "UBB POSSESSION" vs "<Adverse> POSSESSION"
             # (méthode confirmée par le staff, conforme au rapport vidéo).
             found = True
             seconds = max(inst.get("duration") or 0, 0)
@@ -618,25 +652,25 @@ def compute_new_convention_overview(instances):
             period = _new_convention_period(inst)
             if period:
                 possession_periods[period][side] += seconds
-        elif _new_convention_code_match(tokens, ["TOUCHES"]):
+        elif _new_convention_code_match(tokens, ["TOUCHES"], adv_token):
             found = True
             touches[side].append(inst)
-        elif _new_convention_code_match(tokens, ["MELEES"]):
+        elif _new_convention_code_match(tokens, ["MELEES"], adv_token):
             found = True
             melees[side].append(inst)
-        elif _new_convention_code_match(tokens, ["DISCIPLINES"]):
+        elif _new_convention_code_match(tokens, ["DISCIPLINES"], adv_token):
             found = True
             disciplines[side] += 1
-        elif _new_convention_code_match(tokens, ["BREAK"]):
+        elif _new_convention_code_match(tokens, ["BREAK"], adv_token):
             found = True
             breaks[side] += 1
-        elif _new_convention_code_match(tokens, ["PDB"]):
+        elif _new_convention_code_match(tokens, ["PDB"], adv_token):
             # Pertes de balle. Comme partout dans cette convention, le préfixe désigne
-            # l'équipe qui subit l'action : "UBB PDB" = ballon perdu par nous, "ADV PDB"
-            # = ballon perdu par l'adversaire (donc récupéré par nous).
+            # l'équipe qui subit l'action : "UBB PDB" = ballon perdu par nous, "<Adverse>
+            # PDB" = ballon perdu par l'adversaire (donc récupéré par nous).
             found = True
             pdb[side] += 1
-        elif _new_convention_code_match(tokens, ["GLA"]) and side == "own":
+        elif _new_convention_code_match(tokens, ["GLA"], adv_token) and side == "own":
             found = True
             for lab in inst.get("labels") or []:
                 txt = _normalize_tag(lab.get("text"))
@@ -644,8 +678,9 @@ def compute_new_convention_overview(instances):
                     gla_plus += 1
                 elif txt.endswith("-"):
                     gla_minus += 1
-        elif _new_convention_code_match(tokens, ["OFLOAD"]) or _new_convention_code_match(tokens, ["OFFLOAD"]):
-            found = True  # "ADV Ofload" (offloads adverses, comptés directement)
+        elif (_new_convention_code_match(tokens, ["OFLOAD"], adv_token)
+              or _new_convention_code_match(tokens, ["OFFLOAD"], adv_token)):
+            found = True  # "<Adverse> Ofload" (offloads adverses, comptés directement)
             offload_adverse += 1
         elif side is None:
             # Codes joueurs individuels (ex: "HUTTEAU") : chez nous, les actions sont
@@ -1061,13 +1096,15 @@ def compute_bilan_defense(instances, adverse_points=None, zone_gold=None):
     snipers_reussis = Counter()
     snipers_rates = 0
     found = False
+    adv_token = _detect_adverse_token(instances)
+    adv_set = {"ADV", "ADVERSE"} | ({adv_token} if adv_token else set())
 
     for inst in instances:
         code = _normalize_tag(inst.get("code_raw"))
         tokens = code.split()
         quart = _new_convention_period(inst)
 
-        if _new_convention_code_match(tokens, ["ESSAI"]) and tokens[0] in ("ADV", "ADVERSE"):
+        if _new_convention_code_match(tokens, ["ESSAI"], adv_token) and tokens[0] in adv_set:
             found = True
             essais += 1
             if quart:
@@ -1075,10 +1112,10 @@ def compute_bilan_defense(instances, adverse_points=None, zone_gold=None):
             for lab in inst.get("labels") or []:
                 if _normalize_tag(lab.get("group")) == "ORIGINE POSSESSION":
                     origines[_normalize_tag(lab.get("text"))] += 1
-        elif _new_convention_code_match(tokens, ["BREAK"]) and tokens[0] in ("ADV", "ADVERSE"):
+        elif _new_convention_code_match(tokens, ["BREAK"], adv_token) and tokens[0] in adv_set:
             found = True
             franchissements += 1
-        elif _new_convention_code_match(tokens, ["PDB"]) and tokens[0] in ("ADV", "ADVERSE"):
+        elif _new_convention_code_match(tokens, ["PDB"], adv_token) and tokens[0] in adv_set:
             found = True
             # Un ballon perdu ne compte qu'une fois, même si le tagueur a posé deux
             # fois le même libellé sur l'instance.
@@ -1710,15 +1747,19 @@ def _new_convention_player_names(instances):
     """Noms de joueurs réels : tout code qui porte au moins un label des groupes propres
     aux actions individuelles (JOUEURS OFF/SNIPERS/CHASSEUR/COMBATTANT/DISCIPLINES).
 
-    Exclut les codes "bucket" par équipe (ex. 'UBB DEF BATTUS', 'UBB POSSESSION') : quand
-    l'analyste n'a pas pu identifier le porteur de balle en direct, il arrive qu'il tague
-    l'action sur un code d'équipe générique plutôt que sur un joueur — ce code porte alors
-    lui aussi ces groupes, mais commence toujours par le préfixe d'équipe ('UBB'/'ADV'/
-    'ADVERSE'), jamais par un nom de famille."""
+    Exclut les codes "bucket" par équipe (ex. 'UBB DEF BATTUS', 'UBB POSSESSION', ou côté
+    adverse 'USC POSSESSION' — le vrai nom de l'adversaire, détecté par
+    _detect_adverse_token, change à chaque match) : quand l'analyste n'a pas pu
+    identifier le porteur de balle en direct, il arrive qu'il tague l'action sur un code
+    d'équipe générique plutôt que sur un joueur — ce code porte alors lui aussi ces
+    groupes, mais commence toujours par le préfixe d'équipe, jamais par un nom de
+    famille."""
+    adv_token = _detect_adverse_token(instances)
+    bucket_prefixes = {"UBB", "ADV", "ADVERSE"} | ({adv_token} if adv_token else set())
     names = set()
     for i in instances:
         tokens = _normalize_tag(i["code_raw"]).split()
-        if tokens[:1] and tokens[0] in ("UBB", "ADV", "ADVERSE"):
+        if tokens[:1] and tokens[0] in bucket_prefixes:
             continue
         for lab in i["labels"]:
             if _normalize_tag(lab["group"]) in ("JOUEURS OFF", "SNIPERS", "CHASSEUR", "COMBATTANT", "DISCIPLINES"):
@@ -2246,6 +2287,13 @@ def compute_momentum(instances, equipe=MOMENTUM_EQUIPE, libelle=""):
     _k = lambda s: s.replace("{E}", equipe)
     codes_pdb = {_k(a): v for a, v in MOMENTUM_CODES_PDB_TPL.items()}
     codes_penalite = {_k(a): v for a, v in MOMENTUM_CODES_PENALITE_TPL.items()}
+    # Le mot "ADV" du gabarit est un repli générique : si l'adversaire est tagué avec son
+    # propre nom (ex. "USC PDB" plutôt que "ADV PDB"), on ajoute aussi ces variantes sans
+    # retirer "ADV" (compatibilité avec d'anciens matchs qui l'utiliseraient tel quel).
+    adv_token = _detect_adverse_token(instances)
+    if adv_token:
+        codes_pdb.update({k.replace("ADV", adv_token): v for k, v in MOMENTUM_CODES_PDB_TPL.items() if "ADV" in k})
+        codes_penalite.update({k.replace("ADV", adv_token): v for k, v in MOMENTUM_CODES_PENALITE_TPL.items() if "ADV" in k})
 
     d1, f1, d2, f2 = _momentum_periodes(inst)
     duree1 = f1 - d1
@@ -2775,9 +2823,11 @@ def compute_player_bilan_table(instances, attack_table=None, defense_table=None,
     # 3e+, rôles de touche) — distinct du "Total signées" (= positives + neutres +
     # négatives uniquement), comme dans le rapport de référence.
     raw_actions = defaultdict(int)
+    adv_token = _detect_adverse_token(instances)
+    bucket_prefixes = {"UBB", "ADV", "ADVERSE"} | ({adv_token} if adv_token else set())
     for i in instances:
         tokens = _normalize_tag(i["code_raw"]).split()
-        if tokens[:1] and tokens[0] in ("UBB", "ADV", "ADVERSE"):
+        if tokens[:1] and tokens[0] in bucket_prefixes:
             continue
         for lab in i["labels"]:
             if _normalize_tag(lab["group"]) in ("JOUEURS OFF", "SNIPERS", "CHASSEUR", "COMBATTANT", "DISCIPLINES"):
@@ -3441,10 +3491,14 @@ POSSESSION_QUARTER_ORDER = ["0-20", "20-40", "40-60", "60-80"]
 
 
 def compute_possession_summary(instances):
-    """Résumé simplifié des possessions 'UBB POSSESSION' / 'ADV POSSESSION' (nouvelle
-    convention Journée 1+) : nombre de possessions et répartition par tranche de jeu pour
-    chaque équipe, sans détail d'origine/résultat (pas taguable avec cette convention,
-    voir commentaire ci-dessus). Renvoie None si ce match n'a pas ce tagging."""
+    """Résumé simplifié des possessions 'UBB POSSESSION' / '<Adversaire> POSSESSION'
+    (nouvelle convention Journée 1+) : nombre de possessions et répartition par tranche
+    de jeu pour chaque équipe, sans détail d'origine/résultat (pas taguable avec cette
+    convention, voir commentaire ci-dessus). L'adversaire est tagué avec son propre nom
+    (ex. 'USC'), détecté automatiquement par match plutôt qu'un mot générique 'ADV' fixe.
+    Renvoie None si ce match n'a pas ce tagging."""
+    adv_token = _detect_adverse_token(instances)
+    adv_tokens = {"ADV", "ADVERSE"} | ({adv_token} if adv_token else set())
     sides = {"own": [], "adverse": []}
     for inst in instances:
         tokens = _normalize_tag(inst.get("code_raw")).split()
@@ -3452,7 +3506,7 @@ def compute_possession_summary(instances):
             continue
         if tokens[:1] == ["UBB"]:
             sides["own"].append(inst)
-        elif tokens[:1] in (["ADV"], ["ADVERSE"]):
+        elif tokens[:1] and tokens[0] in adv_tokens:
             sides["adverse"].append(inst)
 
     if not sides["own"] and not sides["adverse"]:
@@ -3537,12 +3591,17 @@ def compute_zone_gold_log(instances, own_points=None, adverse_points=None):
     calculer les points par entrée — laisser à None si indisponible plutôt que
     d'afficher un chiffre faux.
     """
+    adv_token = _detect_adverse_token(instances)
     own_rows, adv_rows = [], []
     for inst in instances:
         tokens = _normalize_tag(inst.get("code_raw")).split()
         if "GOLD" not in tokens:
             continue
-        is_adverse = tokens[-1] in ("A", "ADV", "ADVERSE")
+        # Suffixe "A" (ancien/alternatif gabarit de zone) OU préfixe d'équipe en tête
+        # ("USC GOLD" — le vrai nom de l'adversaire, détecté par match).
+        is_adverse = (tokens[-1] in ("A", "ADV", "ADVERSE")
+                      or tokens[0] in ("ADV", "ADVERSE")
+                      or (adv_token and tokens[0] == adv_token))
         result = None
         for lab in inst.get("labels") or []:
             if _normalize_tag(lab.get("group")) in ZONE_GOLD_RESULT_GROUPS:
