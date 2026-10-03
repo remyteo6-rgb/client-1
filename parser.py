@@ -529,6 +529,85 @@ def compute_new_convention_tries(instances):
     return {"own_tries": own_tries, "adverse_tries": adv_tries}
 
 
+SCORE_KIND_TOKENS = {
+    "tries": {"ESSAI", "ESSAIS"},
+    "conversions": {"TRANSFO", "TRANSFOS", "TRANSFORMATION", "TRANSFORMATIONS"},
+    "penalties": {"PENALITE", "PENALITES"},
+    "drops": {"DROP", "DROPS"},
+}
+SCORE_TRY_POINTS = 5
+
+
+def _points_label(inst):
+    """Valeur numérique du label 'Points' d'une instance (ex: 2, 3, 0), ou None."""
+    for lab in inst.get("labels") or []:
+        if _normalize_tag(lab.get("group")) == "POINTS":
+            try:
+                return int((lab.get("text") or "").strip())
+            except ValueError:
+                return None
+    return None
+
+
+def compute_new_convention_score(instances):
+    """Score complet du match reconstruit depuis le XML (convention 2026), pour ne plus
+    avoir à le saisir à la main :
+      - essai = un code '<EQUIPE> Essai' (5 points) — on compte le code lui-même, pas
+        le label 'Points', que l'analyste pose aussi sur d'autres instances actives au
+        même moment (possession, zone Gold, Ball in play) et qui ferait doublon ;
+      - transformation / drop = code '<EQUIPE> Transfo' / '<EQUIPE> Drop' : c'est un
+        coup de pied tenté, réussi si son label 'Points' est > 0 ;
+      - pénalité = code '<EQUIPE> Pénalité' AVEC un label 'Points' (3 = réussie, 0 =
+        manquée). Sans label 'Points', ce n'est pas une pénalité tentée au but (jouée à
+        la main, en touche...) : elle n'entre pas dans le score.
+    Le préfixe désigne l'équipe qui marque : 'UBB' = nous, le vrai nom de l'adversaire
+    (détecté par _detect_adverse_token, ex. 'USC') = eux.
+
+    Renvoie None si aucun de ces codes n'existe (ancienne convention, ou pas tagué),
+    sinon {'own': points, 'adverse': points, 'detail': {'own': {...}, 'adverse': {...}}}
+    où chaque détail porte tries, conversions(_att), penalties(_att), drops(_att) — le
+    même format que la saisie manuelle, pour alimenter la fiche match telle quelle."""
+    adv_token = _detect_adverse_token(instances)
+    detail = {side: {"tries": 0, "conversions": 0, "conversions_att": 0,
+                     "penalties": 0, "penalties_att": 0, "drops": 0, "drops_att": 0}
+              for side in ("own", "adverse")}
+    points = {"own": 0, "adverse": 0}
+    found = False
+
+    for inst in instances:
+        tokens = _normalize_tag(inst.get("code_raw")).split()
+        if len(tokens) != 2:
+            continue
+        if tokens[0] == "UBB":
+            side = "own"
+        elif tokens[0] in ("ADV", "ADVERSE") or (adv_token and tokens[0] == adv_token):
+            side = "adverse"
+        else:
+            continue
+        kind = next((k for k, toks in SCORE_KIND_TOKENS.items() if tokens[1] in toks), None)
+        if kind is None:
+            continue
+
+        if kind == "tries":
+            found = True
+            detail[side]["tries"] += 1
+            points[side] += SCORE_TRY_POINTS
+            continue
+
+        value = _points_label(inst)
+        if kind == "penalties" and value is None:
+            continue  # pénalité non tentée au but
+        found = True
+        detail[side][f"{kind}_att"] += 1
+        if value and value > 0:
+            detail[side][kind] += 1
+            points[side] += value
+
+    if not found:
+        return None
+    return {"own": points["own"], "adverse": points["adverse"], "detail": detail}
+
+
 def _new_convention_code_match(tokens, suffix_tokens, adv_token=None):
     """Vrai si un code normalisé (déjà splitté en tokens) est bien 'UBB <suffixe>' ou
     '<Adverse> <suffixe>' (mot générique 'ADV'/'ADVERSE', ou le vrai nom de l'adversaire
@@ -3587,9 +3666,17 @@ def compute_zone_gold_log(instances, own_points=None, adverse_points=None):
     ignorés. Renvoie None si rien de tel n'est tagué dans ce match (ancienne
     convention, ou pas encore taggé).
 
-    own_points / adverse_points : score final de chaque équipe si connu, pour
-    calculer les points par entrée — laisser à None si indisponible plutôt que
-    d'afficher un chiffre faux.
+    Points par entrée = points marqués À LA SUITE d'une entrée en zone Gold (essais,
+    transformations, pénalités réussies dans les 22m), divisés par le nombre d'entrées —
+    pas le score total du match (une pénalité de loin n'a rien à voir avec l'efficacité
+    dans les 22m). Ces points se lisent sur le label "Points" posé par l'analyste sur
+    l'entrée elle-même (ex: 7 pour un essai transformé, 3 pour une pénalité réussie ;
+    plusieurs labels "Points" sur la même entrée, ex. 5 + 2, sont additionnés). Une
+    entrée sans label "Points" compte pour 0. Si aucune entrée du match ne porte ce
+    label, on renvoie None (non tagué) plutôt qu'un faux 0.
+
+    own_points / adverse_points : conservés pour compatibilité d'appel, plus utilisés
+    (c'était le score total du match, ce qui faussait le ratio).
     """
     adv_token = _detect_adverse_token(instances)
     own_rows, adv_rows = [], []
@@ -3609,10 +3696,18 @@ def compute_zone_gold_log(instances, own_points=None, adverse_points=None):
                 break
         if result is None:
             continue  # tag d'occupation de zone, pas une entrée avec résultat
+        entry_points = None
+        for lab in inst.get("labels") or []:
+            if _normalize_tag(lab.get("group")) == "POINTS":
+                try:
+                    entry_points = (entry_points or 0) + int((lab.get("text") or "").strip())
+                except ValueError:
+                    pass
         row = {
             "start": inst.get("start"),
             "result": result,
             "result_class": ZONE_GOLD_RESULT_CLASS.get(_normalize_tag(result), "neu"),
+            "points": entry_points,
         }
         (adv_rows if is_adverse else own_rows).append(row)
 
@@ -3622,21 +3717,28 @@ def compute_zone_gold_log(instances, own_points=None, adverse_points=None):
     own_rows.sort(key=lambda r: r["start"])
     adv_rows.sort(key=lambda r: r["start"])
 
-    def _summary(rows, points):
+    def _summary(rows):
         total = len(rows)
         lost = sum(1 for r in rows if r["result_class"] == "neg")
         positive = sum(1 for r in rows if r["result_class"] == "pos")
+        tagged = [r for r in rows if r["points"] is not None]
+        points = sum(r["points"] for r in tagged)
         return {
             "rows": rows,
             "total": total,
             "ballons_perdus": lost,
             "efficacite": round(100 * positive / total, 1) if total else None,
-            "points_par_entree": round(points / total, 2) if (points and total) else None,
+            "points": points if tagged else None,
+            "points_par_entree": round(points / total, 2) if (tagged and total) else None,
+            # Contrôle de tagging : une entrée finie en essai sans label "Points" fausse
+            # le ratio (l'essai compterait pour 0) — signalé à l'écran.
+            "essais_sans_points": sum(1 for r in rows if r["points"] is None
+                                      and _normalize_tag(r["result"]) == "ESSAI"),
         }
 
     return {
-        "own": _summary(own_rows, own_points),
-        "adverse": _summary(adv_rows, adverse_points),
+        "own": _summary(own_rows),
+        "adverse": _summary(adv_rows),
     }
 
 

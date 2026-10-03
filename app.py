@@ -25,7 +25,7 @@ from parser import (
     compute_player_season_baselines, build_player_cards, order_rows_by_reference_order,
     player_row_order,
     compute_momentum, render_momentum_svg,
-    compute_zone_gold_log, compute_new_convention_tries,
+    compute_zone_gold_log, compute_new_convention_tries, compute_new_convention_score,
     compute_new_convention_overview, compute_csc, compute_bilan_attaque,
     compute_bilan_defense,
 )
@@ -726,25 +726,6 @@ def init_db():
             items_json TEXT
         )
     """)
-    # Rapport hebdomadaire Pro D2 (fichier Excel) : une seule ligne à la fois, chaque
-    # nouvel import remplace le précédent (pas d'historique semaine par semaine).
-    db.execute("""
-        CREATE TABLE IF NOT EXISTS prod2_reports (
-            id SERIAL PRIMARY KEY,
-            uploaded_at TEXT NOT NULL,
-            filename TEXT,
-            data_json TEXT
-        )
-    """)
-    # Prochain adversaire sélectionné pour la page "Prochain match" : une seule ligne à la
-    # fois (comme prod2_reports), remplacée à chaque changement de sélection.
-    db.execute("""
-        CREATE TABLE IF NOT EXISTS next_opponent (
-            id SERIAL PRIMARY KEY,
-            team TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )
-    """)
     # Comptes joueurs : espace limité (planning en lecture seule, documents qui leur sont
     # partagés, leurs propres stats). Groupes (Avants/Trois-quarts...) génériques et gérables
     # par l'admin, utilisés à la fois pour classer les joueurs et pour cibler le partage
@@ -1155,8 +1136,13 @@ def match_detail(match_id):
         if score_source or score_needs_manual:
             dashboard["score_detail"]["own"]["tries"] = own_tries
             dashboard["score_detail"]["adverse"]["tries"] = adverse_tries
-            # Transformations / pénalités / drops : non déductibles du tagging, donc
-            # repris de la saisie manuelle du staff quand elle existe.
+            # Transformations / pénalités / drops : reconstruits depuis le XML (labels
+            # "Points" de la convention 2026), puis écrasés par la saisie manuelle du
+            # staff là où elle existe (correction d'un oubli de tagging).
+            new_score = compute_new_convention_score(match["instances"])
+            if new_score:
+                for side in ("own", "adverse"):
+                    dashboard["score_detail"][side].update(new_score["detail"][side])
             manual_stats = match.get("manual_stats") or {}
             for side in ("own", "adverse"):
                 for kind in ("conversions", "penalties", "drops"):
@@ -1234,6 +1220,12 @@ def match_detail(match_id):
             dashboard["entries"] = zone_gold["own"]["total"]
             dashboard["entries_adverse"] = zone_gold["adverse"]["total"]
             dashboard["entries_label"] = "zone Gold"
+            # Points marqués à la suite des entrées (label "Points" sur l'entrée), et
+            # non le score total du match — voir compute_zone_gold_log.
+            dashboard["entry_points"] = zone_gold["own"]["points"]
+            dashboard["entry_points_adverse"] = zone_gold["adverse"]["points"]
+            dashboard["entry_points_missing"] = (zone_gold["own"]["essais_sans_points"]
+                                                 + zone_gold["adverse"]["essais_sans_points"])
         review = _build_review(overview_new, score, zone_gold)
         if review:
             review["assets"] = _review_assets(match)
@@ -1564,10 +1556,15 @@ def _resolve_match_score(match):
     score_source = "manual" if (own_points is not None or adverse_points is not None) else None
     auto_score = compute_score(match["instances"])
     if own_points is None and adverse_points is None:
-        # Le score calculé automatiquement ne marche que pour l'ancienne convention
-        # de tagging numérotée ; pour la nouvelle convention (codes "UBB Essai" etc.)
-        # il faut le saisir à la main tant que ce n'est pas encore branché.
-        if auto_score["own"] or auto_score["adverse"]:
+        # Pas de correction manuelle : score reconstruit depuis le XML. D'abord la
+        # convention 2026 ("UBB Essai", "UBB Transfo", "<Adversaire> Pénalité" + label
+        # Points — voir compute_new_convention_score), sinon l'ancienne convention
+        # numérotée. La saisie manuelle reste possible pour corriger un oubli de tagging.
+        new_score = compute_new_convention_score(match["instances"])
+        if new_score:
+            own_points, adverse_points = new_score["own"], new_score["adverse"]
+            score_source = "auto"
+        elif auto_score["own"] or auto_score["adverse"]:
             own_points, adverse_points = auto_score["own"], auto_score["adverse"]
             score_source = "auto"
     new_tries = compute_new_convention_tries(match["instances"])
