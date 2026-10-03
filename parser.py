@@ -536,6 +536,7 @@ SCORE_KIND_TOKENS = {
     "drops": {"DROP", "DROPS"},
 }
 SCORE_TRY_POINTS = 5
+SCORE_DEFAULT_POINTS = {"conversions": 2, "penalties": 3, "drops": 3}
 
 
 def _points_label(inst):
@@ -555,11 +556,9 @@ def compute_new_convention_score(instances):
       - essai = un code '<EQUIPE> Essai' (5 points) — on compte le code lui-même, pas
         le label 'Points', que l'analyste pose aussi sur d'autres instances actives au
         même moment (possession, zone Gold, Ball in play) et qui ferait doublon ;
-      - transformation / drop = code '<EQUIPE> Transfo' / '<EQUIPE> Drop' : c'est un
-        coup de pied tenté, réussi si son label 'Points' est > 0 ;
-      - pénalité = code '<EQUIPE> Pénalité' AVEC un label 'Points' (3 = réussie, 0 =
-        manquée). Sans label 'Points', ce n'est pas une pénalité tentée au but (jouée à
-        la main, en touche...) : elle n'entre pas dans le score.
+      - transformation / pénalité / drop = code '<EQUIPE> Transfo' / 'Pénalité' /
+        'Drop' : un coup de pied tenté au but, RÉUSSI par défaut (2 / 3 / 3 points),
+        sauf si son label 'Points' dit autre chose (0 = manqué).
     Le préfixe désigne l'équipe qui marque : 'UBB' = nous, le vrai nom de l'adversaire
     (détecté par _detect_adverse_token, ex. 'USC') = eux.
 
@@ -595,11 +594,13 @@ def compute_new_convention_score(instances):
             continue
 
         value = _points_label(inst)
-        if kind == "penalties" and value is None:
-            continue  # pénalité non tentée au but
+        if value is None:
+            # Pas de label "Points" : le tir est réussi (valeur par défaut). Vérifié sur
+            # USC-UBB (21-28) : 3 pénalités sans label étaient bien des pénalités réussies.
+            value = SCORE_DEFAULT_POINTS[kind]
         found = True
         detail[side][f"{kind}_att"] += 1
-        if value and value > 0:
+        if value > 0:
             detail[side][kind] += 1
             points[side] += value
 
@@ -2321,6 +2322,18 @@ MOMENTUM_CODES_PDB_TPL = {"{E} PDB": +1, "ADV PDB": -1}
 MOMENTUM_CODES_PENALITE_TPL = {"{E} Penalités concedées": +1, "ADV Penalités concedées": -1}
 MOMENTUM_VALEUR_POINTS = {"Essai": 5, "Transformation": 2, "Pénalité": 3, "Drop": 3}
 MOMENTUM_CODE_MARQUE = "Marque"
+# Lettre du marqueur sur la courbe (E = essai, P = pénalité, D = drop).
+MOMENTUM_LETTRE_MARQUE = {"Essai": "E", "Pénalité": "P", "Drop": "D"}
+# Convention 2026 : mêmes zones, en codes normalisés ('GOLD', 'USC RUMBLE'...), et
+# marques lues sur les codes '<EQUIPE> Essai/Transfo/Pénalité/Drop'.
+MOMENTUM_NC_ZONES = {z.upper(): m for z, m in MOMENTUM_ZONES.items()}
+MOMENTUM_NC_MARQUES = {
+    "ESSAI": "Essai", "ESSAIS": "Essai",
+    "TRANSFO": "Transformation", "TRANSFOS": "Transformation",
+    "TRANSFORMATION": "Transformation", "TRANSFORMATIONS": "Transformation",
+    "PENALITE": "Pénalité", "PENALITES": "Pénalité",
+    "DROP": "Drop", "DROPS": "Drop",
+}
 
 MOMENTUM_BIN, MOMENTUM_DEMI_VIE = 30.0, 90.0
 MOMENTUM_POIDS_ETAT = 0.80
@@ -2356,6 +2369,7 @@ def compute_momentum(instances, equipe=MOMENTUM_EQUIPE, libelle=""):
     inst = sorted(
         (
             {"s": i["start"], "e": i["end"], "c": i.get("code_raw") or "",
+             "n": tuple(_normalize_tag(i.get("code_raw")).split()),
              "L": [(l.get("group"), l.get("text")) for l in i.get("labels") or []]}
             for i in instances
         ),
@@ -2373,6 +2387,17 @@ def compute_momentum(instances, equipe=MOMENTUM_EQUIPE, libelle=""):
     if adv_token:
         codes_pdb.update({k.replace("ADV", adv_token): v for k, v in MOMENTUM_CODES_PDB_TPL.items() if "ADV" in k})
         codes_penalite.update({k.replace("ADV", adv_token): v for k, v in MOMENTUM_CODES_PENALITE_TPL.items() if "ADV" in k})
+
+    # Convention 2026 ('<EQUIPE> <Catégorie>', zones GOLD/RUMBLE/COP/ROUGE) : côté de
+    # chaque code lu sur ses tokens normalisés. +1 = nous, -1 = l'adversaire (son vrai
+    # nom, ex. 'USC', ou 'ADV'/'ADVERSE'), 0 = ni l'un ni l'autre.
+    E = _normalize_tag(equipe)
+    A = {"ADV", "ADVERSE"} | ({adv_token} if adv_token else set())
+
+    def _nc_side(n, *suffixes):
+        if len(n) != 2 or n[1] not in suffixes:
+            return 0
+        return 1 if n[0] == E else (-1 if n[0] in A else 0)
 
     d1, f1, d2, f2 = _momentum_periodes(inst)
     duree1 = f1 - d1
@@ -2399,7 +2424,34 @@ def compute_momentum(instances, equipe=MOMENTUM_EQUIPE, libelle=""):
             tt = tj(x["s"])
             if not any(m["equipe"] == eq and tt - m["t"] < 60 for m in marques):
                 marques.append({"t": tt, "equipe": eq, "type": t})
-    bins_marque = {int(m["t"] / MOMENTUM_BIN) for m in marques}
+    # Convention 2026 : 'UBB Essai' / 'USC Pénalité' / 'UBB Transfo' / '... Drop'. Les
+    # points viennent du label "Points" (0 = coup de pied manqué), sinon de la valeur
+    # par défaut — même règle que compute_new_convention_score.
+    for x in inst:
+        n = x["n"]
+        if len(n) != 2 or n[1] not in MOMENTUM_NC_MARQUES or pause(x["s"]):
+            continue
+        cote = 1 if n[0] == E else (-1 if n[0] in A else 0)
+        if not cote:
+            continue
+        eq = equipe if cote > 0 else "ADV"
+        t = MOMENTUM_NC_MARQUES[n[1]]
+        pts = MOMENTUM_VALEUR_POINTS[t]
+        if t != "Essai":
+            for g, txt in x["L"]:
+                if _normalize_tag(g) == "POINTS":
+                    try:
+                        pts = int((txt or "").strip())
+                    except ValueError:
+                        pass
+                    break
+        score[eq] += pts
+        if t == "Transformation":
+            continue
+        tt = tj(x["s"])
+        if not any(m["equipe"] == eq and tt - m["t"] < 60 for m in marques):
+            marques.append({"t": tt, "equipe": eq, "type": t, "manque": pts == 0})
+    bins_marque = {int(m["t"] / MOMENTUM_BIN) for m in marques if not m.get("manque")}
 
     # ---- 1. occupation : état territorial maintenu (zones Gold/Rumble/Cop/Rouge)
     obs = []
@@ -2411,6 +2463,23 @@ def compute_momentum(instances, equipe=MOMENTUM_EQUIPE, libelle=""):
                 obs.append((tj(x["s"]), _momentum_ep(m))); break
             if x["c"] == f"Défense {z}":
                 obs.append((tj(x["s"]), -_momentum_ep(100.0 - m))); break
+        else:
+            # Convention 2026 : zone nue ('GOLD') = ballon chez nous dans cette zone de
+            # notre sens d'attaque ; zone préfixée par l'adversaire ('USC GOLD') ou
+            # suffixée 'A' ('GOLD A') = ballon chez eux, dans la même zone de LEUR sens
+            # d'attaque (leur Gold = nos 22m) ; 'UBB Ruck Rumble' = ruck à nous.
+            n = x["n"]
+            zone = cote = None
+            if len(n) == 1 and n[0] in MOMENTUM_NC_ZONES:
+                zone, cote = n[0], 1
+            elif len(n) == 2 and n[0] in MOMENTUM_NC_ZONES and n[1] == "A":
+                zone, cote = n[0], -1
+            elif len(n) == 2 and n[0] in A and n[1] in MOMENTUM_NC_ZONES:
+                zone, cote = n[1], -1
+            elif len(n) == 3 and n[0] == E and n[1] == "RUCK" and n[2] in MOMENTUM_NC_ZONES:
+                zone, cote = n[2], 1
+            if zone:
+                obs.append((tj(x["s"]), cote * _momentum_ep(MOMENTUM_NC_ZONES[zone])))
     obs.sort()
     terr, cur, k = [], 0.0, 0
     for b in range(N):
@@ -2421,7 +2490,8 @@ def compute_momentum(instances, equipe=MOMENTUM_EQUIPE, libelle=""):
     # ---- 2. possession : secondes signées par tranche
     poss, sec = [0.0] * N, {equipe: 0.0, "ADV": 0.0}
     for x in inst:
-        s = next((v for p, v in MOMENTUM_CODE_POSSESSION.items() if x["c"].startswith(p)), 0)
+        s = (next((v for p, v in MOMENTUM_CODE_POSSESSION.items() if x["c"].startswith(p)), 0)
+             or _nc_side(x["n"], "POSSESSION"))
         if not s or pause(x["s"]):
             continue
         sec[equipe if s > 0 else "ADV"] += x["e"] - x["s"]
@@ -2443,11 +2513,16 @@ def compute_momentum(instances, equipe=MOMENTUM_EQUIPE, libelle=""):
         if pause(x["s"]):
             continue
         b = min(int(tj(x["s"]) / MOMENTUM_BIN), N - 1)
-        if x["c"] in codes_pdb:
-            s = codes_pdb[x["c"]]; ev[b] += MOMENTUM_POIDS_PDB * s
+        # Pertes de balle : "UBB PDB" = ballon perdu par nous (+1, pèse contre nous),
+        # "<Adversaire> PDB" = perdu par eux. Pénalités concédées : ancien gabarit
+        # "... Penalités concedées", ou "UBB DISCIPLINES" / "<Adversaire> Disciplines".
+        s = codes_pdb.get(x["c"]) or _nc_side(x["n"], "PDB")
+        if s:
+            ev[b] += MOMENTUM_POIDS_PDB * s
             cpt["pdb_pour" if s > 0 else "pdb_contre"] += 1
-        if x["c"] in codes_penalite:
-            s = codes_penalite[x["c"]]; ev[b] += MOMENTUM_POIDS_PENALITE * s
+        s = codes_penalite.get(x["c"]) or _nc_side(x["n"], "DISCIPLINES", "DISCIPLINE")
+        if s:
+            ev[b] += MOMENTUM_POIDS_PENALITE * s
             cpt["pen_pour" if s > 0 else "pen_contre"] += 1
 
     # ---- signal, en points espérés absolus, puis lissage (demi-vie 90s)
@@ -2524,7 +2599,8 @@ def _momentum_controls(inst, r, equipe):
     laisser un indicateur silencieusement faux ou vide."""
     al = []
     vues = {z for z in MOMENTUM_ZONES for x in inst
-            if x["c"] in (f"Possession {z}", f"Défense {z}", f"{equipe} Ruck {z}")}
+            if x["c"] in (f"Possession {z}", f"Défense {z}", f"{equipe} Ruck {z}")
+            or z.upper() in x.get("n", ())}
     if set(MOMENTUM_ZONES) - vues:
         al.append("occupation : zones jamais taguées avec ce modèle — vérifie que ce match "
                   "utilise bien le gabarit de tagging du suivi momentum")
@@ -2535,7 +2611,8 @@ def _momentum_controls(inst, r, equipe):
     if r["pen_pour"] + r["pen_contre"] < 8:
         al.append(f"pénalités : {r['pen_pour']+r['pen_contre']} au total, saisie partielle")
     if r["score_pour"] + r["score_contre"] == 0:
-        al.append("points : aucune marque taguée (code \"Marque\") — le score momentum reste à 0-0")
+        al.append("points : aucune marque taguée (codes \"Marque\" ou \"UBB Essai\"/\"Transfo\"/\"Pénalité\") "
+                  "— le score momentum reste à 0-0")
     if r["marques_sans_type"]:
         al.append(f"points : {r['marques_sans_type']} marque(s) sans type — comptées comme essais, "
                   f"vérifie le score {r['score_pour']}-{r['score_contre']}")
@@ -2554,7 +2631,9 @@ def render_momentum_svg(r):
     BIN = r["bin"]
     ECHELLE = r["echelle"]
     EQUIPE = r["equipe"]
-    VERT, ROUGE, TRAIT = "#1f7a5c", "#a8321f", "#d3dacf"
+    # Couleurs du rapport vidéo : bordeaux UBB au-dessus, gris adversaire en dessous
+    # (noms de variables conservés : VERT = nous, ROUGE = eux).
+    VERT, ROUGE, TRAIT = "#6b1a33", "#8a939b", "#d3dacf"
     X0, P = 62.0, max(3.0, min(9.0, 1080.0 / n))
     BW, W = P * 0.78, 62 + n * P + 50
     AT, AB, MH = 250.0, 272.0, 140.0
@@ -2585,7 +2664,8 @@ def render_momentum_svg(r):
                  f'y2="{cy+10 if haut else cy-10}" stroke="{c}" stroke-width="1.5"/>'
                  f'<circle cx="{x:.1f}" cy="{cy}" r="9" fill="{c}"/>'
                  f'<text x="{x:.1f}" y="{cy+4}" text-anchor="middle" fill="#fff" '
-                 f'font-family="monospace" font-size="9" font-weight="700">E</text>')
+                 f'font-family="monospace" font-size="9" font-weight="700">'
+                 f'{MOMENTUM_LETTRE_MARQUE.get(m.get("type"), "E")}</text>')
     for mn in range(0, int(n * BIN / 60) + 1, 10):
         o.append(f'<text x="{bx(mn*60/BIN)+BW/2:.1f}" y="{AT+15:.0f}" text-anchor="middle" '
                  f'fill="#3b453a" font-family="monospace" font-size="10" font-weight="700">{mn}</text>')
