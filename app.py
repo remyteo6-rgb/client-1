@@ -190,6 +190,7 @@ PLAYER_ALLOWED_ENDPOINTS = {
 # analyse vidéo, effectif, calendrier, administration — lui est fermé.
 STAFF_CAHIER_ALLOWED_ENDPOINTS = {
     "cahier_charges", "cahier_charges_add", "cahier_charges_status", "cahier_charges_delete",
+    "cahier_player_add",
     "cahier_charges_upload", "cahier_charges_add_link", "cahier_charges_doc_delete",
     "ppid_rugby_add", "ppid_rugby_edit", "ppid_rugby_delete",
     "ppid_physical_add", "ppid_physical_edit", "ppid_physical_delete",
@@ -902,6 +903,11 @@ def init_db():
             updated_at TEXT
         )
     """)
+    # Identifiant d'origine des lignes reprises depuis la mini-application du staff (cahier
+    # hébergé sur Claude) : permet de réimporter le même fichier plusieurs fois sans créer de
+    # doublons — une ligne déjà importée est mise à jour au lieu d'être recréée.
+    for table in ("ppid_rugby_evals", "ppid_physical_evals", "ppid_entretiens", "charges_items", "documents"):
+        db.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS ext_id TEXT")
     # Groupes de joueurs par défaut (l'admin peut en ajouter d'autres ensuite).
     for default_group in ("Avants", "Trois-quarts"):
         db.execute(
@@ -1746,6 +1752,186 @@ def export_ppid():
         mimetype="application/json",
         headers={"Content-Disposition": f"attachment; filename=cahier_entrainement_{ts}.json"},
     )
+
+
+def _ppid_norm_name(first, last):
+    """Prénom + nom comparables (casse, accents, espaces) pour retrouver un joueur du site
+    à partir d'une fiche créée dans la mini-application, qui n'a pas d'identifiant du site."""
+    txt = unicodedata.normalize("NFKD", f"{first or ''} {last or ''}")
+    txt = "".join(c for c in txt if not unicodedata.combining(c))
+    return " ".join(txt.lower().split())
+
+
+@app.route("/admin/import-ppid", methods=["GET", "POST"])
+@admin_required
+def import_ppid():
+    """Reprend dans le site le cahier d'entraînement exporté depuis la mini-application du
+    staff (bouton « Exporter vers le site ») — ou un export du site lui-même. Ajoute ce qui
+    est nouveau et met à jour ce qui existe déjà (repéré par l'id du site ou par ext_id),
+    sans jamais rien supprimer : une fiche supprimée dans la mini-app reste sur le site.
+    Les joueurs sont retrouvés par leur id du site, sinon par prénom + nom ; un joueur
+    inconnu du site n'est pas créé (il faut un e-mail) et ses fiches sont signalées."""
+    if request.method == "GET":
+        return render_template("admin_import_ppid.html", summary=None)
+    file = request.files.get("ppid_file")
+    if not file or file.filename == "":
+        flash("Merci de sélectionner le fichier exporté (.json).", "error")
+        return redirect(url_for("import_ppid"))
+    try:
+        data = json.loads(file.read().decode("utf-8"))
+    except Exception as exc:
+        flash(f"Fichier illisible : {exc}", "error")
+        return redirect(url_for("import_ppid"))
+    if not isinstance(data, dict) or data.get("format") != "ppid-export-v1":
+        flash("Ce fichier n'est pas un export du cahier d'entraînement.", "error")
+        return redirect(url_for("import_ppid"))
+
+    db = get_db()
+    now = datetime.utcnow().isoformat()
+    by = "mini-app"
+    summary = {"players_updated": 0, "players_unknown": [], "skipped_items": 0}
+    for kind in ("rugby", "physique", "entretiens", "taches", "liens"):
+        summary[kind] = {"added": 0, "updated": 0}
+
+    site_players = db.execute("SELECT id, first_name, last_name, ppid_position, group_id FROM players").fetchall()
+    by_id = {p["id"]: p for p in site_players}
+    by_name = {_ppid_norm_name(p["first_name"], p["last_name"]): p for p in site_players}
+    groups = {g["name"]: g["id"] for g in db.execute("SELECT id, name FROM player_groups").fetchall()}
+
+    player_map = {}  # clé du fichier (ext_id ou id) -> id du joueur sur le site
+    for p in data.get("players") or []:
+        site = by_id.get(p.get("id")) if p.get("id") is not None else None
+        if not site:
+            site = by_name.get(_ppid_norm_name(p.get("first_name"), p.get("last_name")))
+        if not site:
+            summary["players_unknown"].append(f"{p.get('first_name', '')} {p.get('last_name', '')}".strip())
+            continue
+        for key in (p.get("ext_id"), p.get("id")):
+            if key is not None:
+                player_map[str(key)] = site["id"]
+        new_pos = p.get("ppid_position") if p.get("ppid_position") in PPID_POSITIONS else site["ppid_position"]
+        new_group = groups.get(p.get("group_name"), site["group_id"])
+        if new_pos != site["ppid_position"] or new_group != site["group_id"]:
+            db.execute("UPDATE players SET ppid_position = %s, group_id = %s WHERE id = %s", (new_pos, new_group, site["id"]))
+            summary["players_updated"] += 1
+
+    def _player_for(item, allow_general=False):
+        for key in (item.get("player_ext"), item.get("player_id")):
+            if key is not None and str(key) in player_map:
+                return player_map[str(key)]
+        if allow_general and item.get("player_ext") is None and item.get("player_id") is None:
+            return None
+        return False  # joueur introuvable : on saute la ligne
+
+    def _existing(table, item, pid):
+        # L'id du site n'est retenu que s'il désigne bien une fiche du MÊME joueur : garde-fou
+        # contre un fichier venu d'une autre base, où les numéros ne correspondraient pas.
+        if item.get("id") is not None:
+            row = db.execute(f"SELECT id FROM {table} WHERE id = %s AND player_id IS NOT DISTINCT FROM %s",
+                             (item["id"], pid)).fetchone()
+            if row:
+                return row["id"]
+        if item.get("ext_id"):
+            row = db.execute(f"SELECT id FROM {table} WHERE ext_id = %s", (item["ext_id"],)).fetchone()
+            if row:
+                return row["id"]
+        return None
+
+    def _ratings(raw):
+        if isinstance(raw, str):
+            return raw or "{}"
+        return json.dumps(raw or {}, ensure_ascii=False)
+
+    for ev in data.get("rugby_evals") or []:
+        pid = _player_for(ev)
+        if pid is False:
+            summary["skipped_items"] += 1
+            continue
+        values = (ev.get("period_label") or "Point d'étape", ev.get("eval_date"), _ratings(ev.get("ratings")),
+                  ev.get("objectifs"), ev.get("entrainements"))
+        row_id = _existing("ppid_rugby_evals", ev, pid)
+        if row_id:
+            db.execute("""UPDATE ppid_rugby_evals SET period_label = %s, eval_date = %s, ratings = %s,
+                          objectifs = %s, entrainements = %s, updated_at = %s WHERE id = %s""", values + (now, row_id))
+            summary["rugby"]["updated"] += 1
+        else:
+            db.execute("""INSERT INTO ppid_rugby_evals (player_id, period_label, eval_date, ratings, objectifs,
+                          entrainements, created_by, created_at, ext_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                       (pid,) + values + (by, ev.get("created_at") or now, ev.get("ext_id")))
+            summary["rugby"]["added"] += 1
+
+    for ev in data.get("physical_evals") or []:
+        pid = _player_for(ev)
+        if pid is False:
+            summary["skipped_items"] += 1
+            continue
+        values = (ev.get("period_label") or "Point d'étape", ev.get("eval_date"), _ratings(ev.get("ratings")),
+                  ev.get("commentaires"), ev.get("axe_musculation"), ev.get("axe_terrain"))
+        row_id = _existing("ppid_physical_evals", ev, pid)
+        if row_id:
+            db.execute("""UPDATE ppid_physical_evals SET period_label = %s, eval_date = %s, ratings = %s, commentaires = %s,
+                          axe_musculation = %s, axe_terrain = %s, updated_at = %s WHERE id = %s""", values + (now, row_id))
+            summary["physique"]["updated"] += 1
+        else:
+            db.execute("""INSERT INTO ppid_physical_evals (player_id, period_label, eval_date, ratings, commentaires,
+                          axe_musculation, axe_terrain, created_by, created_at, ext_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                       (pid,) + values + (by, ev.get("created_at") or now, ev.get("ext_id")))
+            summary["physique"]["added"] += 1
+
+    for e in data.get("entretiens") or []:
+        pid = _player_for(e)
+        if pid is False:
+            summary["skipped_items"] += 1
+            continue
+        etype = e.get("entretien_type") if e.get("entretien_type") in PPID_ENTRETIEN_TYPES else "Autre"
+        values = (e.get("entretien_date") or now[:10], etype, e.get("notes"))
+        row_id = _existing("ppid_entretiens", e, pid)
+        if row_id:
+            db.execute("""UPDATE ppid_entretiens SET entretien_date = %s, entretien_type = %s, notes = %s,
+                          updated_at = %s WHERE id = %s""", values + (now, row_id))
+            summary["entretiens"]["updated"] += 1
+        else:
+            db.execute("""INSERT INTO ppid_entretiens (player_id, entretien_date, entretien_type, notes, created_by,
+                          created_at, ext_id) VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+                       (pid,) + values + (by, e.get("created_at") or now, e.get("ext_id")))
+            summary["entretiens"]["added"] += 1
+
+    for t in data.get("taches") or []:
+        pid = _player_for(t, allow_general=True)
+        if pid is False:
+            summary["skipped_items"] += 1
+            continue
+        status = t.get("status") if t.get("status") in CHARGES_STATUSES else "a_faire"
+        values = (t.get("title") or "Tâche", t.get("description"), status)
+        row_id = _existing("charges_items", t, pid)
+        if row_id:
+            db.execute("UPDATE charges_items SET title = %s, description = %s, status = %s, updated_at = %s WHERE id = %s",
+                       values + (now, row_id))
+            summary["taches"]["updated"] += 1
+        else:
+            db.execute("""INSERT INTO charges_items (title, description, status, created_by, created_at, player_id, ext_id)
+                          VALUES (%s,%s,%s,%s,%s,%s,%s)""", values + (by, t.get("created_at") or now, pid, t.get("ext_id")))
+            summary["taches"]["added"] += 1
+
+    for d in data.get("links") or []:
+        pid = _player_for(d)
+        url = (d.get("url") or "").strip()
+        if pid is False or not url.startswith(("http://", "https://")):
+            summary["skipped_items"] += 1
+            continue
+        row = db.execute("SELECT id FROM documents WHERE ext_id = %s", (d.get("ext_id"),)).fetchone() if d.get("ext_id") else None
+        if row:
+            db.execute("UPDATE documents SET url = %s, title = %s WHERE id = %s", (url, d.get("title") or url, row["id"]))
+            summary["liens"]["updated"] += 1
+        else:
+            db.execute("""INSERT INTO documents (kind, url, title, uploaded_by, uploaded_at, visibility, shared_player_id, ext_id)
+                          VALUES ('link', %s, %s, %s, %s, 'player', %s, %s)""",
+                       (url, d.get("title") or url, by, d.get("created_at") or now, pid, d.get("ext_id")))
+            summary["liens"]["added"] += 1
+
+    db.commit()
+    summary["files_not_included"] = data.get("files_not_included") or 0
+    return render_template("admin_import_ppid.html", summary=summary)
 
 
 @app.route("/admin/import", methods=["GET", "POST"])
@@ -2986,6 +3172,42 @@ def cahier_charges():
     )
 
 
+@app.route("/cahier-des-charges/joueur/ajouter", methods=["POST"])
+def cahier_player_add():
+    """Bouton « + Joueur » du cahier : un nouveau joueur intègre le CDF en cours de saison.
+    Ouvert à l'admin et au staff (pas aux comptes joueurs ni au mode démo). L'email est
+    obligatoire : c'est l'identifiant du joueur pour son espace « Mes évaluations »."""
+    if not session.get("logged_in") or session.get("is_player") or session.get("demo_forced"):
+        abort(403)
+    first_name = request.form.get("first_name", "").strip()
+    last_name = request.form.get("last_name", "").strip()
+    email = request.form.get("email", "").strip().lower()
+    poste = request.form.get("ppid_position") or None
+    if poste and poste not in PPID_POSITIONS:
+        abort(400)
+    if not first_name or not last_name or "@" not in email:
+        flash("Merci de renseigner le prénom, le nom et un email valide.", "error")
+        return redirect(url_for("cahier_charges"))
+    db = get_db()
+    if db.execute("SELECT 1 FROM players WHERE email = %s", (email,)).fetchone():
+        flash("Un joueur avec cet email existe déjà.", "error")
+        return redirect(url_for("cahier_charges"))
+    if db.execute("SELECT 1 FROM staff_accounts WHERE email = %s", (email,)).fetchone():
+        flash("Cet email est déjà celui d'un accès staff.", "error")
+        return redirect(url_for("cahier_charges"))
+    forwards = {"Pilier", "Talon", "2L", "3LC", "3LA"}
+    group_name = ("Avants" if poste in forwards else "Trois-quarts") if poste else None
+    group = db.execute("SELECT id FROM player_groups WHERE name = %s", (group_name,)).fetchone() if group_name else None
+    row = db.execute(
+        """INSERT INTO players (first_name, last_name, email, group_id, ppid_position, created_at)
+           VALUES (%s, %s, %s, %s, %s, %s) RETURNING id""",
+        (first_name, last_name, email, group["id"] if group else None, poste, datetime.utcnow().isoformat()),
+    ).fetchone()
+    db.commit()
+    flash(f"{first_name} {last_name} ajouté au cahier d'entraînement.", "success")
+    return redirect(url_for("cahier_charges", joueur=row["id"]))
+
+
 @app.route("/cahier-des-charges/ajouter", methods=["POST"])
 def cahier_charges_add():
     title = request.form.get("title", "").strip()
@@ -3448,6 +3670,14 @@ def admin_joueurs_importer():
     except Exception:
         flash("Fichier Excel illisible. Vérifie que c'est bien un fichier .xlsx.", "error")
         return redirect(url_for("admin_joueurs"))
+    if request.form.get("synchroniser"):
+        # Mode « l'effectif = exactement ce fichier » : rien n'est modifié tout de suite,
+        # on affiche d'abord le récapitulatif (ajouts / postes / suppressions) à valider.
+        rows, error = _roster_rows_from_sheet(ws)
+        if error:
+            flash(error, "error")
+            return redirect(url_for("admin_joueurs"))
+        return _render_roster_sync_preview(rows)
     # Repère la ligne d'en-têtes (contient "Mail" ou "Email") pour situer les colonnes
     # NOM Prénom / Poste / Mail, plutôt que de figer des numéros de colonnes qui
     # casseraient si le fichier du club change légèrement de mise en page.
@@ -3524,6 +3754,180 @@ def admin_joueurs_importer():
             f"{', '.join(ppid_unresolved)}."
         )
     flash(msg, "success")
+    return redirect(url_for("admin_joueurs"))
+
+
+# ---------------------------------------------------------------------------
+# Synchronisation de l'effectif avec la liste officielle du club (fichier Excel
+# « NOM Prénom / Poste / Mail ») : ajoute les nouveaux, met à jour nom/email/poste
+# PPID/groupe des joueurs présents, et SUPPRIME ceux qui ne sont plus dans la liste
+# (avec tout leur historique). Toujours en 2 temps : récapitulatif puis confirmation.
+# ---------------------------------------------------------------------------
+
+def _roster_rows_from_sheet(ws):
+    """Lit la feuille Excel du club et renvoie (lignes, erreur). Chaque ligne :
+    first_name, last_name, email, poste (texte brut de la colonne « Poste »)."""
+    header_row, col_nom, col_poste, col_mail = None, None, None, None
+    for r in range(1, min(ws.max_row, 10) + 1):
+        for c in range(1, ws.max_column + 1):
+            v = ws.cell(row=r, column=c).value
+            if not isinstance(v, str):
+                continue
+            low = v.strip().lower()
+            if "mail" in low:
+                col_mail = c
+            elif "poste" in low:
+                col_poste = c
+            elif "nom" in low and col_nom is None:
+                col_nom = c
+        if col_mail:
+            header_row = r
+            break
+    if not header_row or not col_nom or not col_mail:
+        return None, "Colonnes attendues introuvables (il faut au moins une colonne « NOM Prénom » et une colonne « Mail »)."
+    rows, seen = [], set()
+    for r in range(header_row + 1, ws.max_row + 1):
+        nom_prenom = ws.cell(row=r, column=col_nom).value
+        mail = ws.cell(row=r, column=col_mail).value
+        poste = ws.cell(row=r, column=col_poste).value if col_poste else None
+        if not nom_prenom:
+            continue
+        first, last = _split_player_name(str(nom_prenom).strip())
+        if not last:
+            continue
+        email = str(mail or "").strip().lower()
+        if not re.fullmatch(r"[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+", email):
+            email = ""  # email absent ou mal saisi (ex. « m,gazzotti@… ») : on garde celui du site
+        key = _ppid_norm_name(first, last)
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append({"first_name": first, "last_name": last, "email": email, "poste": str(poste or "").strip()})
+    if not rows:
+        return None, "Aucun joueur trouvé dans le fichier."
+    return rows, None
+
+
+def _roster_target_position(poste, current):
+    """Poste PPID à appliquer d'après la colonne « Poste » de la liste. Si le texte est
+    trop vague (« 3ème L » sans aile/centre, « Arrière / Ailier »…), on garde le poste
+    actuel quand il reste cohérent, sinon on prend le plus probable (3LA pour une 3ème ligne)."""
+    pos = _classify_ppid_position(poste)
+    if pos:
+        return pos
+    if _classify_player_position(poste) == "3ème ligne":
+        return current if current in ("3LA", "3LC") else "3LA"
+    return current
+
+
+def _roster_sync_plan(db, rows):
+    """Compare la liste au contenu de la base, sans rien modifier."""
+    groups = {g["name"]: g["id"] for g in db.execute("SELECT id, name FROM player_groups").fetchall()}
+    group_names = {v: k for k, v in groups.items()}
+    players = db.execute("SELECT id, first_name, last_name, email, ppid_position, group_id FROM players").fetchall()
+    by_email = {(p["email"] or "").strip().lower(): p for p in players}
+    by_name = {_ppid_norm_name(p["first_name"], p["last_name"]): p for p in players}
+    kept_ids, add, update, unchanged = set(), [], [], []
+    for row in rows:
+        site = (by_email.get(row["email"]) if row["email"] else None) \
+            or by_name.get(_ppid_norm_name(row["first_name"], row["last_name"]))
+        cat = _classify_player_position(row["poste"])
+        group_name = _default_group_name_for_category(cat)
+        if site is None:
+            if not row["email"]:
+                add.append(dict(row, ppid_position=_roster_target_position(row["poste"], None),
+                                group_name=group_name, error="email manquant ou invalide : non ajouté"))
+                continue
+            add.append(dict(row, ppid_position=_roster_target_position(row["poste"], None), group_name=group_name, error=None))
+            continue
+        kept_ids.add(site["id"])
+        new_pos = _roster_target_position(row["poste"], site["ppid_position"])
+        new_group_id = groups.get(group_name, site["group_id"]) if group_name else site["group_id"]
+        new_email = row["email"] or site["email"]
+        owner = by_email.get(new_email)
+        if owner is not None and owner["id"] != site["id"]:
+            new_email = site["email"]  # email déjà pris par une autre fiche : on garde l'actuel
+        changes = []
+        if new_pos != site["ppid_position"]:
+            changes.append(f"poste {site['ppid_position'] or '—'} → {new_pos or '—'}")
+        if new_group_id != site["group_id"]:
+            changes.append(f"groupe {group_names.get(site['group_id'], '—')} → {group_names.get(new_group_id, '—')}")
+        if (new_email or "").lower() != (site["email"] or "").lower():
+            changes.append(f"email → {new_email}")
+        if (row["first_name"], row["last_name"]) != (site["first_name"], site["last_name"]):
+            changes.append(f"nom → {row['first_name']} {row['last_name']}")
+        item = {"id": site["id"], "first_name": row["first_name"], "last_name": row["last_name"],
+                "email": new_email, "ppid_position": new_pos, "group_id": new_group_id, "changes": changes,
+                "poste": row["poste"]}
+        (update if changes else unchanged).append(item)
+    delete = []
+    for p in players:
+        if p["id"] in kept_ids:
+            continue
+        counts = db.execute(
+            """SELECT
+                 (SELECT COUNT(*) FROM ppid_rugby_evals WHERE player_id = %(id)s) AS rugby,
+                 (SELECT COUNT(*) FROM ppid_physical_evals WHERE player_id = %(id)s) AS physique,
+                 (SELECT COUNT(*) FROM ppid_entretiens WHERE player_id = %(id)s) AS entretiens,
+                 (SELECT COUNT(*) FROM charges_items WHERE player_id = %(id)s) AS taches,
+                 (SELECT COUNT(*) FROM documents WHERE shared_player_id = %(id)s AND visibility = 'player') AS documents""",
+            {"id": p["id"]},
+        ).fetchone()
+        delete.append({"id": p["id"], "first_name": p["first_name"], "last_name": p["last_name"],
+                       "counts": dict(counts), "history": sum(dict(counts).values())})
+    delete.sort(key=lambda d: (d["last_name"], d["first_name"]))
+    return {"to_add": add, "to_update": update, "unchanged": unchanged, "to_delete": delete, "groups": groups}
+
+
+def _render_roster_sync_preview(rows):
+    db = get_db()
+    plan = _roster_sync_plan(db, rows)
+    return render_template("admin_effectif_sync.html", plan=plan,
+                           rows_json=json.dumps(rows, ensure_ascii=False))
+
+
+@app.route("/admin/joueurs/synchroniser", methods=["POST"])
+@admin_required
+def admin_joueurs_synchroniser():
+    try:
+        rows = json.loads(request.form.get("rows_json") or "[]")
+        assert isinstance(rows, list) and rows
+        rows = [{k: str(r.get(k) or "") for k in ("first_name", "last_name", "email", "poste")} for r in rows]
+    except Exception:
+        flash("Données de synchronisation illisibles : réimporte le fichier.", "error")
+        return redirect(url_for("admin_joueurs"))
+    # Seuls les joueurs affichés comme « à supprimer » sur le récapitulatif peuvent l'être.
+    confirmed_ids = {int(x) for x in request.form.getlist("delete_ids") if str(x).isdigit()}
+    db = get_db()
+    plan = _roster_sync_plan(db, rows)  # recalculé : la base a pu bouger entre-temps
+    now = datetime.utcnow().isoformat()
+    added = 0
+    for a in plan["to_add"]:
+        if a["error"]:
+            continue
+        db.execute(
+            """INSERT INTO players (first_name, last_name, email, group_id, ppid_position, created_at)
+               VALUES (%s, %s, %s, %s, %s, %s)""",
+            (a["first_name"], a["last_name"], a["email"], plan["groups"].get(a["group_name"]),
+             a["ppid_position"], now),
+        )
+        added += 1
+    for u in plan["to_update"]:
+        db.execute(
+            """UPDATE players SET first_name = %s, last_name = %s, email = %s, ppid_position = %s, group_id = %s
+               WHERE id = %s""",
+            (u["first_name"], u["last_name"], u["email"], u["ppid_position"], u["group_id"], u["id"]),
+        )
+    to_delete = [d["id"] for d in plan["to_delete"] if d["id"] in confirmed_ids]
+    if to_delete:
+        # Les documents partagés avec ces joueurs deviendraient orphelins (ON DELETE SET NULL) :
+        # on les retire avec eux. Évaluations, entretiens et tâches partent en cascade.
+        db.execute("DELETE FROM documents WHERE shared_player_id = ANY(%s) AND visibility = 'player'", (to_delete,))
+        db.execute("DELETE FROM players WHERE id = ANY(%s)", (to_delete,))
+    db.commit()
+    flash(f"Effectif synchronisé : {added} ajouté(s), {len(plan['to_update'])} mis à jour, "
+          f"{len(to_delete)} supprimé(s). {len(plan['to_add']) + len(plan['to_update']) + len(plan['unchanged']) - sum(1 for a in plan['to_add'] if a['error'])} joueurs dans l'effectif.",
+          "success")
     return redirect(url_for("admin_joueurs"))
 
 
