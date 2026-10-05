@@ -640,11 +640,19 @@ PLAYER_ACTION_OFFLOAD = {"OFLLOADS", "OFFLOADS", "OFLLOAD", "OFFLOAD", "OFLOAD",
 PLAYER_ACTION_PENALTY = {"PENALITE", "PENALITES"}
 
 
-def _new_convention_zone_side(tokens):
-    """Pour un code de zone ("GOLD", "COP A"...), renvoie quelle équipe occupe le
-    terrain adverse pendant cette séquence : 'own' si le ballon est dans le camp
-    adverse, 'adverse' s'il est dans le nôtre. Renvoie None si ce n'est pas un code
-    de zone."""
+def _new_convention_zone_side(tokens, adv_token=None):
+    """Pour un code de zone ("GOLD", "COP A", "USC COP"...), renvoie quelle équipe
+    occupe le terrain adverse pendant cette séquence : 'own' si le ballon est dans le
+    camp adverse, 'adverse' s'il est dans le nôtre. Renvoie None si ce n'est pas un code
+    de zone.
+
+    Une zone vue du camp adverse s'écrit soit avec le suffixe "A" ("GOLD A"), soit
+    préfixée par le nom de l'adversaire ("USC GOLD", détecté par _detect_adverse_token) :
+    dans les deux cas elle est inversée (leur Gold = nos 22m). Validé sur USC-UBB :
+    55,3 % / 44,7 % contre 55,1 % / 44,9 % au rapport (60/40 sans les zones préfixées)."""
+    if (adv_token and len(tokens) == 2 and tokens[0] in ({adv_token, "ADV", "ADVERSE"})
+            and tokens[1] in (ZONE_OWN_HALF | ZONE_ADVERSE_HALF)):
+        tokens = [tokens[1], "A"]
     if not tokens or tokens[0] not in (ZONE_OWN_HALF | ZONE_ADVERSE_HALF):
         return None
     if len(tokens) > 2 or (len(tokens) == 2 and tokens[1] != "A"):
@@ -704,19 +712,20 @@ def compute_new_convention_overview(instances):
         else:
             side = None
 
-        if tokens == ["BIP"]:
-            # Temps de jeu effectif : chaque code "BIP" est une séquence ballon en jeu
-            # (l'autre face de la pièce étant les codes "TIME OFF", non comptés ici).
+        if tokens in (["BIP"], ["BALL", "IN", "PLAY"]):
+            # Temps de jeu effectif : chaque code "BIP" / "Ball in play" (nom utilisé
+            # dans les fichiers 2026) est une séquence ballon en jeu (l'autre face de la
+            # pièce étant les codes "TIME OFF", non comptés ici).
             found = True
             bip_durations.append(max(inst.get("duration") or 0, 0))
             continue
 
-        zone_side = _new_convention_zone_side(tokens)
+        zone_side = _new_convention_zone_side(tokens, adv_token)
         if zone_side:
-            # Occupation du terrain = temps passé dans le camp adverse. Les zones sont
-            # taguées sans préfixe d'équipe : COP et ROUGE sont dans notre camp, GOLD et
-            # RUMBLE dans le camp adverse — et inversement pour les zones adverses
-            # (suffixe "A"), où GOLD A / RUMBLE A se situent donc dans notre camp.
+            # Occupation du terrain = temps passé dans le camp adverse. Zones nues : COP
+            # et ROUGE dans notre camp, GOLD et RUMBLE dans le camp adverse — et
+            # inversement pour les zones vues du camp adverse ("GOLD A" ou "USC GOLD"),
+            # qui se situent donc dans notre camp.
             found = True
             seconds = max(inst.get("duration") or 0, 0)
             occupation[zone_side] += seconds
