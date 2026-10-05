@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Importer le cahier d'entraînement{% endblock %}
+{% block content %}
+<h1>Importer le cahier d'entraînement</h1>
+<p class="subtitle">Dépose ici le fichier téléchargé avec le bouton « Exporter vers le site » de la mini-application du staff.
+Ce qui est nouveau est ajouté, ce qui existe déjà est mis à jour, et rien n'est supprimé : tu peux réimporter le même fichier sans créer de doublons.
+Comme le reste du P.P.I.D, ces fiches seront visibles par chaque joueur dans « Mes évaluations ».</p>
+
+{% if summary %}
+<div class="card">
+    <h2>Import terminé</h2>
+    <ul>
+        <li>Points d'étape rugby : {{ summary.rugby.added }} ajouté(s), {{ summary.rugby.updated }} mis à jour</li>
+        <li>Points d'étape physique : {{ summary.physique.added }} ajouté(s), {{ summary.physique.updated }} mis à jour</li>
+        <li>Entretiens : {{ summary.entretiens.added }} ajouté(s), {{ summary.entretiens.updated }} mis à jour</li>
+        <li>Tâches : {{ summary.taches.added }} ajoutée(s), {{ summary.taches.updated }} mise(s) à jour</li>
+        <li>Liens de documents : {{ summary.liens.added }} ajouté(s), {{ summary.liens.updated }} mis à jour</li>
+        <li>Fiches joueurs (poste PPID / groupe) mises à jour : {{ summary.players_updated }}</li>
+    </ul>
+    {% if summary.players_unknown %}
+    <p class="subtitle">Joueurs absents du site, non importés ({{ summary.players_unknown|length }}) : {{ summary.players_unknown|join(', ') }}.
+        Ajoute-les d'abord dans ☰ → Gestion des joueurs, puis réimporte le fichier.</p>
+    {% endif %}
+    {% if summary.skipped_items %}
+    <p class="subtitle">{{ summary.skipped_items }} fiche(s) non importée(s) car leur joueur n'existe pas sur le site.</p>
+    {% endif %}
+    {% if summary.files_not_included %}
+    <p class="subtitle">{{ summary.files_not_included }} fichier(s) déposé(s) dans la mini-app ne sont pas dans l'export : redépose-les sur le site si besoin.</p>
+    {% endif %}
+    <a class="btn" href="{{ url_for('cahier_charges') }}">Ouvrir le cahier d'entraînement</a>
+</div>
+{% endif %}
+
+<div class="card">
+    <form method="post" enctype="multipart/form-data" action="{{ url_for('import_ppid') }}">
+        <div class="form-group">
+            <label>Fichier exporté (.json) *</label>
+            <input type="file" name="ppid_file" accept=".json" required>
+        </div>
+        <button class="btn" type="submit">Importer</button>
+    </form>
+</div>
+{% endblock %}

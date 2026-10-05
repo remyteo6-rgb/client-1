@@ -18,6 +18,10 @@
                 <label>Fichier .xlsx (colonnes « NOM Prénom », « Poste », « Mail »)</label>
                 <input type="file" name="fichier" accept=".xlsx" required>
             </div>
+            <label class="docs-check" style="display:flex;gap:8px;align-items:flex-start;margin:8px 0 12px;font-size:14px;font-weight:normal;">
+                <input type="checkbox" name="synchroniser" value="1">
+                L'effectif devient exactement cette liste : postes repris du fichier et joueurs absents du fichier supprimés (récapitulatif à valider avant toute modification)
+            </label>
             <button type="submit" class="btn">Importer</button>
             <p class="docs-hint">{{ icons.idea() }} Un joueur déjà présent (même email) est mis à jour plutôt que dupliqué. Le groupe (Avants/Trois-quarts) ET le poste PPID sont proposés automatiquement à partir de la colonne « Poste » — modifiables ensuite pour chaque joueur ci-dessous. Un poste trop vague (« 3ème ligne » sans aile/centre, « Charnière » sans mêlée/ouverture) reste à régler à la main : le message de fin d'import te dit pour qui.</p>
         </form>

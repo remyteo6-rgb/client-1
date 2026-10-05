@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Synchroniser l'effectif — Rugby Analytics{% endblock %}
+{% block content %}
+{% set n_add = plan.to_add|selectattr('error', 'none')|list|length %}
+<h1>Synchroniser l'effectif</h1>
+<p class="subtitle">Rien n'a encore été modifié. Vérifie le récapitulatif puis confirme en bas de page.
+Après validation, l'effectif comptera {{ n_add + plan.to_update|length + plan.unchanged|length }} joueurs.</p>
+
+<form method="POST" action="{{ url_for('admin_joueurs_synchroniser') }}">
+    <input type="hidden" name="rows_json" value="{{ rows_json }}">
+
+    {% if plan.to_delete %}
+    <div class="card sync-danger">
+        <h2>À supprimer définitivement ({{ plan.to_delete|length }})</h2>
+        <p class="subtitle">Ces joueurs ne sont pas dans la liste. Leur fiche et tout leur historique (points d'étape, entretiens, tâches, documents partagés) seront effacés. Décoche un joueur pour le garder.</p>
+        <table class="table">
+            <thead><tr><th></th><th>Joueur</th><th>Historique effacé</th></tr></thead>
+            <tbody>
+            {% for d in plan.to_delete %}
+            <tr>
+                <td><input type="checkbox" name="delete_ids" value="{{ d.id }}" checked></td>
+                <td>{{ d.first_name }} {{ d.last_name }}</td>
+                <td>
+                    {% if d.history %}
+                    <strong>
+                    {% if d.counts.rugby %}{{ d.counts.rugby }} pt(s) rugby · {% endif %}
+                    {% if d.counts.physique %}{{ d.counts.physique }} pt(s) physique · {% endif %}
+                    {% if d.counts.entretiens %}{{ d.counts.entretiens }} entretien(s) · {% endif %}
+                    {% if d.counts.taches %}{{ d.counts.taches }} tâche(s) · {% endif %}
+                    {% if d.counts.documents %}{{ d.counts.documents }} document(s){% endif %}
+                    </strong>
+                    {% else %}—{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if plan.to_add %}
+    <div class="card">
+        <h2>À ajouter ({{ plan.to_add|length }})</h2>
+        <table class="table">
+            <thead><tr><th>Joueur</th><th>Email</th><th>Poste</th></tr></thead>
+            <tbody>
+            {% for a in plan.to_add %}
+            <tr>
+                <td>{{ a.first_name }} {{ a.last_name }}</td>
+                <td>{{ a.email or '—' }}{% if a.error %} <em>({{ a.error }})</em>{% endif %}</td>
+                <td>{{ a.ppid_position or 'à définir' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if plan.to_update %}
+    <div class="card">
+        <h2>À mettre à jour ({{ plan.to_update|length }})</h2>
+        <table class="table">
+            <thead><tr><th>Joueur</th><th>Poste dans la liste</th><th>Changements</th></tr></thead>
+            <tbody>
+            {% for u in plan.to_update %}
+            <tr>
+                <td>{{ u.first_name }} {{ u.last_name }}</td>
+                <td>{{ u.poste or '—' }}</td>
+                <td>{{ u.changes|join(' · ') }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <p class="subtitle">Déjà à jour : {{ plan.unchanged|length }} joueur(s){% if plan.unchanged %} ({{ plan.unchanged|map(attribute='last_name')|join(', ') }}){% endif %}.</p>
+
+    <div class="sync-actions">
+        <a class="btn btn-secondary" href="{{ url_for('admin_joueurs') }}">Annuler</a>
+        <button type="submit" class="btn">Confirmer la synchronisation</button>
+    </div>
+</form>
+
+<style>
+.sync-danger { border-left: 4px solid #b3261e; }
+.card .table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.card .table th, .card .table td { text-align: left; padding: 6px 10px; border-bottom: 1px solid rgba(42,23,18,0.1); font-weight: normal; }
+.card .table th { font-weight: 700; }
+.sync-actions { display: flex; gap: 12px; margin: 16px 0 32px; flex-wrap: wrap; }
+.docs-check { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0 12px; font-size: 14px; }
+</style>
+{% endblock %}

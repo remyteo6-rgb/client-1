@@ -46,6 +46,49 @@
         {% else %}
         <p class="cc-tab-empty">Aucun joueur pour le moment — importe ton effectif depuis ☰ → Gestion des joueurs.</p>
         {% endif %}
+        {% if not demo_forced %}
+        <style>
+            .cc-nav-top { flex-wrap: wrap; }
+            .cc-add-player { margin-left: auto; }
+            .cc-add-player[open] { flex-basis: 100%; min-width: 0; box-sizing: border-box; }
+            .cc-add-player > form { min-width: 0; }
+            .cc-add-player .cal-form-row .form-group { min-width: 0; }
+            .cc-add-player input, .cc-add-player select { width: 100%; box-sizing: border-box; }
+            @media (max-width: 600px) { .cc-add-player .cal-form-row { flex-direction: column; } }
+        </style>
+        <details class="docs-action-panel cc-add-player">
+            <summary class="btn btn-secondary">{{ ppid_icons.add(13) }} Joueur</summary>
+            <form method="POST" action="{{ url_for('cahier_player_add') }}" class="docs-form">
+                <div class="cal-form-row">
+                    <div class="form-group">
+                        <label>Prénom</label>
+                        <input type="text" name="first_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Nom</label>
+                        <input type="text" name="last_name" required>
+                    </div>
+                </div>
+                <div class="cal-form-row">
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Poste</label>
+                        <select name="ppid_position">
+                            <option value="">— À définir —</option>
+                            {% for pos in ppid_positions %}
+                            <option value="{{ pos }}">{{ pos }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" class="btn">Ajouter au cahier</button>
+                <p class="docs-hint">Le groupe Avants / Trois-quarts est déduit du poste. Le joueur pourra se connecter avec cet email pour voir ses évaluations.</p>
+            </form>
+        </details>
+        {% endif %}
     </div>
 </div>
 
