@@ -1707,6 +1707,47 @@ def export_data():
     )
 
 
+@app.route("/admin/export-ppid")
+@admin_required
+def export_ppid():
+    """Sauvegarde JSON du cahier d'entraînement (PPID) : joueurs, points d'étape rugby et
+    physique, entretiens et tâches. Sert à reprendre ces données dans la mini-application
+    du staff hébergée sur Claude. Volontairement SANS e-mails ni mots de passe des joueurs
+    (seuls les noms, postes et groupes sortent du site), et sans les documents déposés
+    (fichiers trop lourds, ils restent sur le site)."""
+    db = get_db()
+    players = db.execute(
+        """SELECT p.id, p.first_name, p.last_name, p.ppid_position, g.name AS group_name
+           FROM players p LEFT JOIN player_groups g ON g.id = p.group_id
+           ORDER BY p.last_name, p.first_name"""
+    ).fetchall()
+
+    def _rows(sql):
+        return [dict(r) for r in db.execute(sql).fetchall()]
+
+    payload = {
+        "format": "ppid-export-v1",
+        "exported_at": datetime.utcnow().isoformat(),
+        "players": [dict(p) for p in players],
+        "rugby_evals": _rows("""SELECT id, player_id, period_label, eval_date, ratings, objectifs,
+                                       entrainements, created_at, updated_at
+                                FROM ppid_rugby_evals ORDER BY id"""),
+        "physical_evals": _rows("""SELECT id, player_id, period_label, eval_date, ratings, commentaires,
+                                          axe_musculation, axe_terrain, created_at, updated_at
+                                   FROM ppid_physical_evals ORDER BY id"""),
+        "entretiens": _rows("""SELECT id, player_id, entretien_date, entretien_type, notes, created_at
+                               FROM ppid_entretiens ORDER BY id"""),
+        "taches": _rows("""SELECT id, player_id, title, description, status, created_at, updated_at
+                           FROM charges_items ORDER BY id"""),
+    }
+    ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    return Response(
+        json.dumps(payload, ensure_ascii=False, indent=2, default=str),
+        mimetype="application/json",
+        headers={"Content-Disposition": f"attachment; filename=cahier_entrainement_{ts}.json"},
+    )
+
+
 @app.route("/admin/import", methods=["GET", "POST"])
 @admin_required
 def import_data():
