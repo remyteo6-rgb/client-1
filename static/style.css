@@ -2143,6 +2143,8 @@ span.review-crest {
 .bil-tile-green  { background: #38a24a; }
 .bil-tile-orange { background: #e0912f; }
 .bil-tile-red    { background: #d9463c; }
+.bil-tile-gold   { background: #b8912f; }
+.bil-tiles-4 .bil-tile span { font-size: .52rem; }
 
 .bil-hbar { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .bil-hbar-label {
