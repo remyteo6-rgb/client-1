@@ -29,6 +29,11 @@
     {% endif %}
     {% endfor %}
 </div>
+<div class="csc-legend">
+    {% for part in parts %}{% if part.count %}
+    <span><i class="csc-seg-{{ part.tone }}"></i>{{ part.label }} <b>{{ part.count }}</b> ({{ part.pct|round|int }} %)</span>
+    {% endif %}{% endfor %}
+</div>
 {% endmacro %}
 
 <div class="report-board">
