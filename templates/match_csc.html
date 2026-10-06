@@ -86,8 +86,8 @@
 
             <div class="csc-block-title">Travail ballon / clash</div>
             <div class="csc-tiles">
-                <div class="csc-tile">
-                    <strong>{{ data.combattant.combat_ballon_pct if data.combattant.combat_ballon_pct is not none else '—' }}{% if data.combattant.combat_ballon_pct is not none %} %{% endif %}</strong>
+                <div class="csc-tile" title="{% if data.combattant.combat_ballon_pct is not none %}{{ data.combattant.balle }} combats au ballon sur {{ data.combattant.total }}{% else %}Non tagué : label « Balle » du groupe Combattant{% endif %}">
+                    <strong>{{ (data.combattant.combat_ballon_pct|string)|replace('.', ',') if data.combattant.combat_ballon_pct is not none else '—' }}{% if data.combattant.combat_ballon_pct is not none %} %{% endif %}</strong>
                     <span>Combat au ballon</span>
                 </div>
                 <div class="csc-tile"><strong>{{ data.combattant.plus }}</strong><span>Clash +</span></div>
