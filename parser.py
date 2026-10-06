@@ -1067,6 +1067,160 @@ def compute_csc(instances):
     }
 
 
+# ---- Discipline (page "DISCIPLINE" du rapport vidéo) --------------------------
+# Catégories du rapport et libellés acceptés dans le groupe de labels « Catégorie »
+# posé sur la faute du joueur. À défaut, « Disciplines Off » = Attack, « Disciplines
+# Def » = Defence (ce qui est déjà tagué).
+DISCIPLINE_CATEGORIES = [
+    ("Attack", {"ATTACK", "ATTAQUE", "OFF", "OFFENSIVE", "DISCIPLINES OFF"}),
+    ("Defence", {"DEFENCE", "DEFENSE", "DEF", "DEFENSIVE", "DISCIPLINES DEF"}),
+    ("Set Piece", {"SET PIECE", "CONQUETE", "PHASE STATIQUE", "PHASES STATIQUES", "MELEE", "TOUCHE"}),
+    ("Other", {"OTHER", "AUTRE", "AUTRES"}),
+]
+DISCIPLINE_REASON_GROUPS = {"RAISON", "RAISONS", "MOTIF", "RAISON FAUTE"}
+DISCIPLINE_CATEGORY_GROUPS = {"CATEGORIE", "CATEGORIE FAUTE", "TYPE FAUTE"}
+DISCIPLINE_CARD_GROUPS = {"CARTON", "CARTONS"}
+
+
+def _discipline_category(texts):
+    for label, keys in DISCIPLINE_CATEGORIES:
+        if texts & keys:
+            return label
+    return None
+
+
+def _reasons_text(counter):
+    """« Mêlée x3, Tirage maillot » : chaque raison avec son nombre d'occurrences."""
+    return ", ".join(f"{r} x{n}" if n > 1 else r for r, n in counter.most_common())
+
+
+def compute_team_discipline_counts(instances):
+    """Pénalités concédées (codes « <EQUIPE> Disciplines ») : {'own': n, 'adverse': n}, ou
+    None si le match n'en a aucune (ancienne convention)."""
+    adv_token = _detect_adverse_token(instances)
+    out = {"own": 0, "adverse": 0}
+    found = False
+    for inst in instances:
+        tokens = _normalize_tag(inst.get("code_raw")).split()
+        if len(tokens) == 2 and tokens[1] == "DISCIPLINES":
+            if tokens[0] == "UBB":
+                out["own"] += 1; found = True
+            elif tokens[0] in ("ADV", "ADVERSE") or tokens[0] == adv_token:
+                out["adverse"] += 1; found = True
+    return out if found else None
+
+
+def compute_discipline(instances, row_order=None, cards=None):
+    """Page "DISCIPLINE" du rapport : fautes par joueur (avec raison et carton), par
+    période (nous / eux), par catégorie (Attack / Defence / Set Piece / Other).
+
+    - Nombre de fautes d'équipe et par période : codes « UBB Disciplines » /
+      « <ADV> Disciplines » et leur Chrono.
+    - Fautes par joueur : instances du joueur portant un label du groupe Disciplines
+      (ou Joueurs Off « Pénalité »), une faute par instance.
+    - Raison : label du groupe « Raison » sur la faute du joueur ; catégorie : groupe
+      « Catégorie », sinon Disciplines Off/Def ; carton : groupe « Carton » ou feuille
+      de match (page Composition). Rien n'est inventé : sans label, la case reste vide.
+    `cards` : {nom_joueur: {"yellow": n, "red": n}} (page Composition)."""
+    adv_token = _detect_adverse_token(instances)
+    team_tokens = {"UBB", "ADV", "ADVERSE"} | ({adv_token} if adv_token else set())
+    period_of = _period_lookup(instances)
+    par_periode = {"own": Counter(), "adverse": Counter()}
+    team = compute_team_discipline_counts(instances)
+    for inst in instances:
+        tokens = _normalize_tag(inst.get("code_raw")).split()
+        if len(tokens) == 2 and tokens[1] == "DISCIPLINES":
+            side = "own" if tokens[0] == "UBB" else ("adverse" if tokens[0] in team_tokens else None)
+            q = period_of(inst)
+            if side and q:
+                par_periode[side][q] += 1
+
+    players = {}
+    categories = {label: {"count": 0, "reasons": Counter()} for label, _k in DISCIPLINE_CATEGORIES}
+    sans_categorie = 0
+    for inst in instances:
+        code = (inst.get("code_raw") or "").strip()
+        tokens = _normalize_tag(code).split()
+        if not tokens or tokens[0] in team_tokens:
+            continue
+        groups = {}
+        for lab in inst.get("labels") or []:
+            groups.setdefault(_normalize_tag(lab.get("group")), []).append((lab.get("text") or "").strip())
+        disc = {_normalize_tag(t) for t in groups.get("DISCIPLINES", [])}
+        joueurs_off = {_normalize_tag(t) for t in groups.get(PLAYER_ACTION_GROUP, [])}
+        if not disc and not (joueurs_off & PLAYER_ACTION_PENALTY):
+            continue
+        row = players.setdefault(code, {"name": code, "fautes": 0, "reasons": Counter(), "yellow": 0, "red": 0})
+        row["fautes"] += 1
+        reasons = [t for g in DISCIPLINE_REASON_GROUPS for t in groups.get(g, []) if t]
+        for r in reasons:
+            row["reasons"][r] += 1
+        cat_texts = {_normalize_tag(t) for g in DISCIPLINE_CATEGORY_GROUPS for t in groups.get(g, [])}
+        cat = _discipline_category(cat_texts) or _discipline_category(disc)
+        if cat:
+            categories[cat]["count"] += 1
+            for r in reasons:
+                categories[cat]["reasons"][r] += 1
+        else:
+            sans_categorie += 1
+        for g in DISCIPLINE_CARD_GROUPS:
+            for t in groups.get(g, []):
+                nt = _normalize_tag(t)
+                if "JAUNE" in nt or "YELLOW" in nt:
+                    row["yellow"] += 1
+                elif "ROUGE" in nt or "RED" in nt:
+                    row["red"] += 1
+
+    if team is None and not players:
+        return None
+
+    # Ordre de la feuille de match (n°1 à 23, boutons du fichier Sportscode), puis les
+    # éventuels joueurs fautifs absents de cet ordre.
+    order = list(row_order or [])
+    names = order + sorted(n for n in players if n not in order)
+    rows = []
+    for idx, name in enumerate(names):
+        r = players.get(name) or {"name": name, "fautes": 0, "reasons": Counter(), "yellow": 0, "red": 0}
+        card = _match_card(name, cards)
+        rows.append({
+            "name": name, "fautes": r["fautes"], "raison": _reasons_text(r["reasons"]),
+            "yellow": max(r["yellow"], card.get("yellow", 0)), "red": max(r["red"], card.get("red", 0)),
+            # n°1-8 et 16-20 = avants (feuille de match classique), le reste = 3/4.
+            "groupe": ("avants" if (idx < 8 or 15 <= idx < 20) else "3/4") if idx < len(order) else None,
+        })
+    return {
+        "team": team or {"own": None, "adverse": None},
+        "par_periode": {side: {q: par_periode[side].get(q, 0) for q in POSSESSION_QUARTER_ORDER}
+                        for side in ("own", "adverse")},
+        "premiere_mi_temps": sum(par_periode["own"].get(q, 0) for q in ("0-20", "20-40")),
+        "rows": rows,
+        "avants": sum(r["fautes"] for r in rows if r["groupe"] == "avants"),
+        "trois_quarts": sum(r["fautes"] for r in rows if r["groupe"] == "3/4"),
+        "joueurs_total": sum(r["fautes"] for r in rows),
+        "categories": [{"label": label, "count": categories[label]["count"],
+                        "reasons": [f"{r} x{n}" if n > 1 else r for r, n in categories[label]["reasons"].most_common()]}
+                       for label, _k in DISCIPLINE_CATEGORIES],
+        "sans_categorie": sans_categorie,
+        "raisons_taguees": any(r["raison"] for r in rows),
+    }
+
+
+def _match_card(name, cards):
+    """Cartons d'un joueur saisis sur la page Composition (noms écrits à la main, ex.
+    « Combrinck » pour le code « COMBRICK ») : rapprochement tolérant aux fautes."""
+    if not cards:
+        return {}
+    import difflib
+    key = _normalize_tag(name).replace("-", " ").replace(".", " ")
+    best, score = None, 0
+    for other, val in cards.items():
+        k2 = _normalize_tag(other).replace("-", " ").replace(".", " ")
+        ratio = difflib.SequenceMatcher(None, key, k2).ratio()
+        if ratio > score:
+            best, score = val, ratio
+    return (best or {}) if score >= 0.8 else {}
+
+
 # ---- Bilan attaque (page "ATTAQUE / BILAN" du rapport vidéo) -----------------
 # Cibles fixées par le staff, affichées en titre des blocs correspondants.
 BILAN_CIBLES = {"zone_gold": 7, "offloads": 13, "plaquages_casses": 18}

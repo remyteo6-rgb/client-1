@@ -12,6 +12,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, render_template, request, redirect, url_for, flash, g, abort, session, Response, jsonify
 from parser import (
     ZONE_GOLD_CHOICES,
+    compute_discipline,
+    compute_team_discipline_counts,
     parse_sportscode_xml, aggregate_match_stats, aggregate_zones, CATEGORY_SECTIONS,
     SECTION_ICONS, SECTION_HELP, CATEGORY_HELP, generate_highlights, compute_radar_metrics,
     compute_score, compute_phase_timing,
@@ -1694,6 +1696,36 @@ def match_zone_gold_entry(match_id):
     db.commit()
     zone_gold = compute_zone_gold_log(match["instances"], overrides=gold)
     return jsonify({"ok": True, "summary": _gold_summary_fmt(zone_gold)})
+
+
+@app.route("/match/<int:match_id>/discipline")
+def match_discipline(match_id):
+    """Page "DISCIPLINE" du rapport vidéo : fautes par joueur, par période, par
+    catégorie, et suivi des fautes match après match sur la saison."""
+    match = _get_match_or_404(match_id)
+    if _no_instances_guard(match):
+        flash("Ce match a été importé avant la mise à jour détaillée par secteur : "
+              "réimporte le fichier XML pour voir cette page.", "error")
+        return redirect(url_for("match_detail", match_id=match_id))
+    data = compute_discipline(match["instances"], match.get("row_order"),
+                              match.get("player_match_stats"))
+    # Suivi saison : chaque match importé, dans l'ordre chronologique, jusqu'à celui-ci.
+    db = get_db()
+    suivi = []
+    for row in db.execute("SELECT id, opponent, match_date, created_at, instances_json FROM matches "
+                          "ORDER BY COALESCE(match_date, created_at), id").fetchall():
+        counts = compute_team_discipline_counts(json.loads(row["instances_json"] or "[]"))
+        if counts:
+            opp = row["opponent"] or "?"
+            words = opp.split()
+            short = opp if len(opp) <= 5 else ("".join(w[0] for w in words) if len(words) > 1 else opp[:3])
+            suivi.append({"id": row["id"], "opponent": opp, "short": short.upper(), "own": counts["own"],
+                          "adverse": counts["adverse"], "crest": _club_crest_url(row["opponent"]),
+                          "current": row["id"] == match_id})
+        if row["id"] == match_id:
+            break
+    return render_template("match_discipline.html", match=match, data=data, suivi=suivi,
+                           assets=_review_assets(match))
 
 
 @app.route("/match/<int:match_id>/csc")
