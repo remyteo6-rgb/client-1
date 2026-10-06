@@ -279,10 +279,10 @@
         {% if baseline %}{{ kpi_compare(dashboard.points_per_entry, baseline.points_per_entry, true) }}{% endif %}
         {% set entries_label = dashboard.entries_label or 'zone RAID' %}
         {% if 'entry_points' in dashboard %}
-        <div class="kpi-help">Points marqués à la suite d'une entrée en zone Gold (label « Points » sur l'entrée), divisés par le nombre d'entrées.
+        <div class="kpi-help">Points marqués à la suite d'une entrée en zone Gold (codes Essai / Transfo / Pénalité rattachés à l'entrée), divisés par le nombre d'entrées.
             Nous : {{ dashboard.entries }} entrée{{ 's' if dashboard.entries != 1 else '' }} pour {{ dashboard.entry_points if dashboard.entry_points is not none else '?' }} points.
             {{ match['opponent'] }} : {{ dashboard.entries_adverse }} entrée{{ 's' if dashboard.entries_adverse != 1 else '' }} pour {{ dashboard.entry_points_adverse if dashboard.entry_points_adverse is not none else '?' }} points.
-            {% if dashboard.entry_points_missing %}{{ icons.warning() }} {{ dashboard.entry_points_missing }} entrée{{ 's' if dashboard.entry_points_missing != 1 else '' }} finie{{ 's' if dashboard.entry_points_missing != 1 else '' }} en essai sans label « Points » : ratio sous-estimé.{% endif %}
+            {% if dashboard.entry_points_missing %}{{ icons.warning() }} {{ dashboard.entry_points_missing }} entrée{{ 's' if dashboard.entry_points_missing != 1 else '' }} finie{{ 's' if dashboard.entry_points_missing != 1 else '' }} en essai sans code « Essai » rattaché : ratio sous-estimé.{% endif %}
             {% if baseline %} Flèche = comparaison à la moyenne saison (hors ce match).{% endif %}</div>
         {% else %}
         <div class="kpi-help">Nous : {{ dashboard.entries }} entrée{{ 's' if dashboard.entries != 1 else '' }} en {{ entries_label }} pour {{ score.own }} points. {{ match['opponent'] }} : {{ dashboard.entries_adverse }} entrée{{ 's' if dashboard.entries_adverse != 1 else '' }} en {{ entries_label }} pour {{ score.adverse }} points.{% if baseline %} Flèche = comparaison à la moyenne saison (hors ce match).{% endif %}</div>

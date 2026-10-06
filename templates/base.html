@@ -84,8 +84,18 @@ if (window.Chart) { Chart.defaults.color = '#2a1712'; }
                    au-delà, on réduit le tout pour qu'il tienne dans le cadre. */
                 inner.style.height = 'auto';
                 var haut = inner.scrollHeight;
-                inner.style.height = '';
-                inner.style.setProperty('--content-scale', haut > dispo ? (dispo / haut) : 1);
+                if (haut > dispo) {
+                    /* Le contenu garde sa hauteur naturelle (sinon les colonnes sont
+                       tassées dans le cadre et leur bas déborde, ex. la ligne « Connecté »
+                       du bloc Punch), puis le tout est réduit depuis le haut pour tenir. */
+                    inner.style.height = haut + 'px';
+                    inner.style.transformOrigin = 'top center';
+                    inner.style.setProperty('--content-scale', dispo / haut);
+                } else {
+                    inner.style.height = '';
+                    inner.style.transformOrigin = '';
+                    inner.style.setProperty('--content-scale', 1);
+                }
             }
             var largeur = slide.clientWidth || W;
             var echelle = largeur / W;

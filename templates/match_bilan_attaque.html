@@ -120,7 +120,7 @@
                 <div class="bil-line bil-line-muted"><span>Libération « i »</span><strong>{{ data.liberation_i_pct ~ ' %' if data.liberation_i_pct is not none else '—' }}</strong></div>
                 <div class="bil-line"><span>Plaquages cassés</span><strong>{{ data.plaquages_casses }}</strong></div>
                 <div class="bil-line bil-line-sub"><span>Offloads</span><strong>{{ data.offloads }}</strong></div>
-                <div class="bil-line bil-line-sub"><span>Offloads / Contacts</span><strong>{{ data.offloads }}/{{ data.contacts }}</strong></div>
+                <div class="bil-line bil-line-sub" title="{{ data.offloads }} offloads pour {{ data.contacts_joueurs }} contacts"><span>Offloads / Contacts</span><strong>{{ (data.offloads_contacts_pct ~ ' %')|replace('.', ',') if data.offloads_contacts_pct is not none else '—' }}</strong></div>
                 <div class="bil-line bil-line-sub"><span>Passes</span><strong>{{ data.passes }}</strong></div>
                 <div class="bil-line"><span>Clics</span><strong>{{ data.clics }}</strong></div>
             </div>
@@ -134,13 +134,13 @@
                 </div>
                 <div class="bil-panel-body">
                     {% if data.offloads_detail %}
-                    <div class="bil-tiles">
+                    <div class="bil-tiles {{ 'bil-tiles-4' if data.offloads_detail|length == 4 else '' }}">
                         {% for item in data.offloads_detail %}
                         <div class="bil-tile {{ item.tone }}"><strong>{{ item.count }}</strong><span>{{ item.label }}</span></div>
                         {% endfor %}
                     </div>
                     {% else %}
-                    <p class="bil-empty">Répartition super / positifs gardés / négatifs gardés / négatifs perdus : non taguée</p>
+                    <p class="bil-empty">Répartition des offloads non taguée (groupe de labels « Offload »)</p>
                     {% endif %}
                 </div>
             </div>
@@ -152,10 +152,15 @@
                 </div>
                 <div class="bil-panel-body">
                     <div class="bil-mini-title">{{ data.plaquages_detail.joueurs }} joueurs différents</div>
+                    {% set rc_total = data.plaquages_detail.ring + data.plaquages_detail.cordes %}
+                    {% if data.plaquages_detail.ring_corde_tagues %}
                     <div class="bil-hbar"><span class="bil-hbar-label">Ring</span>
-                        <span class="bil-hbar-fill" style="width:{{ (100 * data.plaquages_detail.ring / data.plaquages_casses) | round | int if data.plaquages_casses else 0 }}%">{{ data.plaquages_detail.ring }}</span></div>
+                        <span class="bil-hbar-fill" style="width:{{ (100 * data.plaquages_detail.ring / rc_total) | round | int if rc_total else 0 }}%">{{ data.plaquages_detail.ring }}</span></div>
                     <div class="bil-hbar"><span class="bil-hbar-label">Corde</span>
-                        <span class="bil-hbar-fill" style="width:{{ (100 * data.plaquages_detail.cordes / data.plaquages_casses) | round | int if data.plaquages_casses else 0 }}%">{{ data.plaquages_detail.cordes }}</span></div>
+                        <span class="bil-hbar-fill" style="width:{{ (100 * data.plaquages_detail.cordes / rc_total) | round | int if rc_total else 0 }}%">{{ data.plaquages_detail.cordes }}</span></div>
+                    {% else %}
+                    <p class="bil-empty">Ring / Corde non tagués (labels « Ring » ou « Cordes » sur le code « UBB DEF BATTUS »)</p>
+                    {% endif %}
                     {{ bar_chart(data.plaquages_detail.par_quart, 'bil-bar-green') }}
                 </div>
             </div>

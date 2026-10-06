@@ -11,7 +11,7 @@
 </div>
 
 <div class="docs-actions">
-    <details class="docs-action-panel">
+    <details class="docs-action-panel" id="import-excel" {{ 'open' if request.args.get('importer') else '' }}>
         <summary class="btn">{{ icons.import_data() }} Importer un fichier Excel</summary>
         <form method="POST" action="{{ url_for('admin_joueurs_importer') }}" enctype="multipart/form-data" class="docs-form">
             <div class="form-group">

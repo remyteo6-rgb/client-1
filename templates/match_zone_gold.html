@@ -39,15 +39,15 @@
         </tbody>
     </table>
     <p class="subtitle" style="margin-top:10px;">Points / entrée = points marqués à la suite d'une entrée en zone Gold
-        (essais, transformations, pénalités réussies dans les 22m), lus sur le label « Points » de l'entrée, divisés par
-        le nombre d'entrées. Une entrée sans label « Points » compte pour 0.</p>
+        (essais, transformations, pénalités réussies dans les 22m), calculés à partir des codes Essai / Transfo / Pénalité / Drop
+        rattachés à chaque entrée, divisés par le nombre d'entrées. Plus besoin de label « Points » sur l'entrée.</p>
     {% set manquants = data.own.essais_sans_points + data.adverse.essais_sans_points %}
     {% if data.own.points is none and data.adverse.points is none %}
-    <p class="subtitle">{{ icons.warning() }} Aucune entrée de ce match ne porte de label « Points » : ajoute-le sur les
-        entrées qui ont rapporté des points dans le XML pour obtenir le ratio.</p>
+    <p class="subtitle">{{ icons.warning() }} Aucun code de score (Essai, Transfo, Pénalité) ni label « Points » dans ce match :
+        le ratio ne peut pas être calculé.</p>
     {% elif manquants %}
     <p class="subtitle">{{ icons.warning() }} {{ manquants }} entrée{{ 's' if manquants != 1 else '' }} finie{{ 's' if manquants != 1 else '' }}
-        en essai sans label « Points » (repérées ci-dessous) : le ratio est sous-estimé tant qu'elles ne sont pas complétées dans le XML.</p>
+        en essai sans code « Essai » au même moment (repérées ci-dessous) : le ratio est sous-estimé tant que le code n'est pas ajouté dans le XML.</p>
     {% endif %}
 </div>
 
@@ -58,7 +58,7 @@
             <thead><tr><th style="width:40px;">#</th><th>Résultat</th><th style="width:70px;">Points</th></tr></thead>
             <tbody>
             {% for row in data.own.rows %}
-                <tr><td>{{ loop.index }}</td><td><span class="possession-result possession-result-{{ row.result_class }}">{{ row.result }}</span></td><td>{% if row.points is not none %}{{ row.points }}{% elif row.result|upper == 'ESSAI' %}<span title="Essai sans label « Points »">{{ icons.warning() }}</span>{% else %}—{% endif %}</td></tr>
+                <tr><td>{{ loop.index }}</td><td><span class="possession-result possession-result-{{ row.result_class }}">{{ row.result }}</span></td><td>{% if row.points is not none %}{{ row.points }}{% elif row.result|upper == 'ESSAI' %}<span title="Essai sans code « Essai » rattaché">{{ icons.warning() }}</span>{% else %}—{% endif %}</td></tr>
             {% else %}
                 <tr><td colspan="3" class="subtitle">Aucune entrée taguée.</td></tr>
             {% endfor %}
@@ -71,7 +71,7 @@
             <thead><tr><th style="width:40px;">#</th><th>Résultat</th><th style="width:70px;">Points</th></tr></thead>
             <tbody>
             {% for row in data.adverse.rows %}
-                <tr><td>{{ loop.index }}</td><td><span class="possession-result possession-result-{{ row.result_class }}">{{ row.result }}</span></td><td>{% if row.points is not none %}{{ row.points }}{% elif row.result|upper == 'ESSAI' %}<span title="Essai sans label « Points »">{{ icons.warning() }}</span>{% else %}—{% endif %}</td></tr>
+                <tr><td>{{ loop.index }}</td><td><span class="possession-result possession-result-{{ row.result_class }}">{{ row.result }}</span></td><td>{% if row.points is not none %}{{ row.points }}{% elif row.result|upper == 'ESSAI' %}<span title="Essai sans code « Essai » rattaché">{{ icons.warning() }}</span>{% else %}—{% endif %}</td></tr>
             {% else %}
                 <tr><td colspan="3" class="subtitle">Aucune entrée taguée.</td></tr>
             {% endfor %}

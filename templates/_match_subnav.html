@@ -36,7 +36,7 @@
                     <summary>{{ icons.settings() }} Administration</summary>
                     <div class="landing-dropdown-sub-content">
                         <a href="{{ url_for('admin_joueurs') }}">{{ icons.users() }} Joueurs et accès</a>
-                        <a href="{{ url_for('upload') }}">+ Importer l'effectif (XML)</a>
+                        <a href="{{ url_for('admin_joueurs', importer=1) }}#import-excel">+ Importer l'effectif (Excel)</a>
                         <a href="{{ url_for('export_data') }}">{{ icons.save() }} Sauvegarder les données</a>
                         <a href="{{ url_for('export_ppid') }}">{{ icons.save() }} Exporter le cahier d'entraînement</a>
                         <a href="{{ url_for('import_ppid') }}">{{ icons.import_data() }} Importer le cahier d'entraînement</a>
