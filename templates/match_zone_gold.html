@@ -7,7 +7,7 @@
 <div class="page-header no-print">
     <div>
         <h1>{{ icons.square(13, '', '#f5c518') }} Zone Gold — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
-        <p class="subtitle">Entrées dans les 22m, nous vs {{ match['opponent'] }}.</p>
+        <p class="subtitle">{{ match['competition'] or 'Journée' }}{% if match['match_date'] %} · {{ match['match_date'] }}{% endif %}</p>
     </div>
     <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
@@ -19,70 +19,134 @@
 </div>
 {% else %}
 
-<div class="card" style="margin-bottom:20px;">
-    <table class="stat-table">
-        <thead>
-            <tr><th></th><th class="stat-own">{{ match['own_team'] }}</th><th class="stat-adverse">{{ match['opponent'] }}</th></tr>
-        </thead>
-        <tbody>
-            <tr><td>Nombre d'entrées</td><td class="stat-own">{{ data.own.total }}</td><td class="stat-adverse">{{ data.adverse.total }}</td></tr>
-            <tr><td>Ballons perdus</td><td class="stat-own">{{ data.own.ballons_perdus }}</td><td class="stat-adverse">{{ data.adverse.ballons_perdus }}</td></tr>
-            <tr><td>% Efficacité</td>
-                <td class="stat-own">{{ data.own.efficacite }}%{% if data.own.efficacite is none %}—{% endif %}</td>
-                <td class="stat-adverse">{{ data.adverse.efficacite }}%{% if data.adverse.efficacite is none %}—{% endif %}</td></tr>
-            <tr><td>Points marqués dans les 22m</td>
-                <td class="stat-own">{{ data.own.points if data.own.points is not none else '—' }}</td>
-                <td class="stat-adverse">{{ data.adverse.points if data.adverse.points is not none else '—' }}</td></tr>
-            <tr><td>Points / entrée</td>
-                <td class="stat-own">{{ data.own.points_par_entree if data.own.points_par_entree is not none else '—' }}</td>
-                <td class="stat-adverse">{{ data.adverse.points_par_entree if data.adverse.points_par_entree is not none else '—' }}</td></tr>
-        </tbody>
-    </table>
-    <p class="subtitle" style="margin-top:10px;">Points / entrée = points marqués à la suite d'une entrée en zone Gold
-        (essais, transformations, pénalités réussies dans les 22m), calculés à partir des codes Essai / Transfo / Pénalité / Drop
-        rattachés à chaque entrée, divisés par le nombre d'entrées. Plus besoin de label « Points » sur l'entrée.</p>
-    {% set manquants = data.own.essais_sans_points + data.adverse.essais_sans_points %}
-    {% if data.own.points is none and data.adverse.points is none %}
-    <p class="subtitle">{{ icons.warning() }} Aucun code de score (Essai, Transfo, Pénalité) ni label « Points » dans ce match :
-        le ratio ne peut pas être calculé.</p>
-    {% elif manquants %}
-    <p class="subtitle">{{ icons.warning() }} {{ manquants }} entrée{{ 's' if manquants != 1 else '' }} finie{{ 's' if manquants != 1 else '' }}
-        en essai sans code « Essai » au même moment (repérées ci-dessous) : le ratio est sous-estimé tant que le code n'est pas ajouté dans le XML.</p>
-    {% endif %}
+{% set own_abbr = 'UBB' %}
+{# Sigle de l'adversaire : son préfixe dans le XML (USC, SUA…), sinon les initiales de
+   son nom (« Aviron Bayonnais » → AB) quand le fichier le code « ADV ». #}
+{% set opp_name = match['opponent'] or 'ADV' %}
+{% set opp_words = opp_name.split() %}
+{% set adv_abbr = (data.adv_token or (opp_name if opp_name|length <= 5 else (opp_words|map('first')|join)))|upper %}
+
+{# Liste des entrées d'une équipe, coupée par le bandeau « Mi-temps » comme dans le rapport. #}
+{% macro entrees(rows, adverse, side) %}
+<table class="zg-table">
+    <thead><tr><th class="zg-num">#</th><th>Possession entrée 22m</th><th class="zg-res">Résultats</th></tr></thead>
+    <tbody>
+    {% for row in rows %}
+        {% if loop.index0 > 0 and row.half == 2 and rows[loop.index0 - 1].half == 1 %}
+        <tr class="zg-half"><td colspan="3">Mi-temps</td></tr>
+        {% elif loop.first and row.half == 2 %}
+        <tr class="zg-half"><td colspan="3">Mi-temps</td></tr>
+        {% endif %}
+        <tr data-side="{{ side }}" data-key="{{ row.key }}">
+            <td class="zg-num">{{ loop.index }}</td>
+            {% if is_admin %}
+            <td class="zg-origin"><input class="zg-origin-input" type="text" maxlength="60" value="{{ row.origine or '' }}"
+                placeholder="—" aria-label="Possession entrée 22m, entrée {{ loop.index }}"></td>
+            <td class="zg-res zg-res-{{ row.result_class }}">{{ row.result_display }}</td>
+            {% else %}
+            <td class="zg-origin">{{ row.origine or '—' }}</td>
+            <td class="zg-res zg-res-{{ row.result_class }}">{{ row.result_display }}</td>
+            {% endif %}
+        </tr>
+    {% else %}
+        <tr><td colspan="3" class="zg-empty">Aucune entrée taguée.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endmacro %}
+
+<div class="report-board">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">ATTAQUE</span>
+        <span class="zg-heading">
+            <span class="zg-heading-title">ZONE GOLD</span>
+            <span class="zg-heading-sub">{{ (match['competition'] or '')|upper }}</span>
+        </span>
+    </div>
+
+    <div class="zg-board">
+        <div class="zg-panel">
+            <div class="zg-panel-head">{{ match['own_team']|upper }}</div>
+            {{ entrees(data.own.rows, false, 'own') }}
+        </div>
+
+        <div class="zg-panel zg-panel-comp">
+            <div class="zg-panel-head">Comparatif</div>
+            <div class="zg-comp-teams"><span>{{ own_abbr }}</span><span class="zg-adv">{{ adv_abbr }}</span></div>
+            <div class="zg-comp-row">
+                <strong data-zg="own.total">{{ data.own.total }}</strong><span>Nombres d'Entrées</span><strong class="zg-adv" data-zg="adverse.total">{{ data.adverse.total }}</strong>
+            </div>
+            <div class="zg-comp-row zg-comp-alt">
+                <strong data-zg="own.ballons_perdus">{{ data.own.ballons_perdus }}</strong><span>Ballons Perdus</span><strong class="zg-adv" data-zg="adverse.ballons_perdus">{{ data.adverse.ballons_perdus }}</strong>
+            </div>
+            <div class="zg-comp-row">
+                <strong data-zg="own.efficacite">{% if data.own.efficacite is not none %}{{ data.own.efficacite|round|int }} %{% else %}—{% endif %}</strong>
+                <span>% Efficacité</span>
+                <strong class="zg-adv" data-zg="adverse.efficacite">{% if data.adverse.efficacite is not none %}{{ data.adverse.efficacite|round|int }} %{% else %}—{% endif %}</strong>
+            </div>
+            <div class="zg-comp-row zg-comp-alt">
+                <strong data-zg="own.points_par_entree">{{ data.own.points_par_entree|fr2 if data.own.points_par_entree is not none else '—' }}</strong>
+                <span>Points / Entrée</span>
+                <strong class="zg-adv" data-zg="adverse.points_par_entree">{{ data.adverse.points_par_entree|fr2 if data.adverse.points_par_entree is not none else '—' }}</strong>
+            </div>
+        </div>
+
+        <div class="zg-panel">
+            <div class="zg-panel-head zg-head-adv">{{ match['opponent']|upper }}</div>
+            {{ entrees(data.adverse.rows, true, 'adverse') }}
+        </div>
+    </div>
 </div>
 
-<div class="chart-row">
-    <div class="card">
-        <h2>{{ match['own_team'] }}</h2>
-        <table class="stat-table possession-table">
-            <thead><tr><th style="width:40px;">#</th><th>Résultat</th><th style="width:70px;">Points</th></tr></thead>
-            <tbody>
-            {% for row in data.own.rows %}
-                <tr><td>{{ loop.index }}</td><td><span class="possession-result possession-result-{{ row.result_class }}">{{ row.result }}</span></td><td>{% if row.points is not none %}{{ row.points }}{% elif row.result|upper == 'ESSAI' %}<span title="Essai sans code « Essai » rattaché">{{ icons.warning() }}</span>{% else %}—{% endif %}</td></tr>
-            {% else %}
-                <tr><td colspan="3" class="subtitle">Aucune entrée taguée.</td></tr>
-            {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    <div class="card">
-        <h2>{{ match['opponent'] }}</h2>
-        <table class="stat-table possession-table">
-            <thead><tr><th style="width:40px;">#</th><th>Résultat</th><th style="width:70px;">Points</th></tr></thead>
-            <tbody>
-            {% for row in data.adverse.rows %}
-                <tr><td>{{ loop.index }}</td><td><span class="possession-result possession-result-{{ row.result_class }}">{{ row.result }}</span></td><td>{% if row.points is not none %}{{ row.points }}{% elif row.result|upper == 'ESSAI' %}<span title="Essai sans code « Essai » rattaché">{{ icons.warning() }}</span>{% else %}—{% endif %}</td></tr>
-            {% else %}
-                <tr><td colspan="3" class="subtitle">Aucune entrée taguée.</td></tr>
-            {% endfor %}
-            </tbody>
-        </table>
-    </div>
+<div class="card no-print zg-notes">
+    <p class="subtitle">Points / entrée = points marqués à la suite d'une entrée dans les 22m (essais, transformations, pénalités réussies),
+        calculés à partir des codes Essai / Transfo / Pénalité / Drop rattachés à chaque entrée, divisés par le nombre d'entrées.
+        Ballons perdus = toutes les entrées qui ne finissent ni en essai ni en pénalité obtenue.</p>
+    {% set manquants = data.own.essais_sans_points + data.adverse.essais_sans_points %}
+    {% if manquants %}
+    <p class="subtitle">{{ icons.warning() }} {{ manquants }} entrée{{ 's' if manquants != 1 else '' }} finie{{ 's' if manquants != 1 else '' }}
+        en essai sans code « Essai » au même moment : le ratio est sous-estimé tant que le code n'est pas ajouté dans le XML.</p>
+    {% endif %}
+    {% if is_admin %}
+    <p class="subtitle">{{ icons.edit() }} Tape directement dans la colonne « Possession entrée 22m » (Touche, Jeu, Jeu rapide…) puis Entrée :
+        c'est enregistré tout de suite. Les résultats viennent du XML (label « Resultat Z.Marque ») ; le bandeau « Mi-temps » est placé
+        automatiquement à la pause du match. <span id="zgStatus" class="zg-status" role="status"></span></p>
+    {% endif %}
 </div>
 
 {% endif %}
 
 <script>
 function preparePrint() { setTimeout(() => window.print(), 100); }
+{% if is_admin and data %}
+(function () {
+    var url = "{{ url_for('match_zone_gold_entry', match_id=match['id']) }}";
+    var status = document.getElementById('zgStatus');
+    function say(txt, err) { if (!status) return; status.textContent = txt; status.classList.toggle('zg-status-err', !!err); }
+    function save(row, body) {
+        body.side = row.dataset.side; body.key = row.dataset.key;
+        say('Enregistrement…');
+        return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'same-origin' })
+            .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+            .then(function (res) {
+                ['own', 'adverse'].forEach(function (side) {
+                    Object.keys(res.summary[side]).forEach(function (k) {
+                        var el = document.querySelector('[data-zg="' + side + '.' + k + '"]');
+                        if (el) el.textContent = res.summary[side][k];
+                    });
+                });
+                say('Enregistré.');
+            })
+            .catch(function () { say("L'enregistrement n'a pas abouti : recharge la page et réessaie.", true); });
+    }
+    document.querySelectorAll('.zg-origin-input').forEach(function (input) {
+        var last = input.value;
+        function commit() { if (input.value.trim() === last.trim()) return; last = input.value; input.value = input.value.toUpperCase(); save(input.closest('tr'), { origine: input.value }); }
+        input.addEventListener('change', commit);
+        input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
+    });
+})();
+{% endif %}
 </script>
 {% endblock %}
