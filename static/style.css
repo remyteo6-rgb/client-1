@@ -2752,3 +2752,42 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
 .report-slide .tch-table { flex: 1 1 auto; height: auto; }
 .tch-table col.c-num { width: 13%; } .tch-table col.c-lan { width: 23%; } .tch-table col.c-x { width: 16%; }
 .tch-table td.tch-lan { font-size: 1.25rem; white-space: nowrap; overflow: hidden; }
+
+/* ---- Page Joueurs : diapo « BILAN » (même lecture que le rapport du staff) ---- */
+.bjr-panel { background: rgba(255,255,255,.94); border: 1px solid #c9ccd6; border-top: 3px solid #6b1a2b; margin-top: 4px; }
+.bjr-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 15px; color: #1b1b1b; font-variant-numeric: tabular-nums; }
+.bjr-c-num { width: 54px; } .bjr-c-poste { width: 150px; } .bjr-c-nom { width: 190px; } .bjr-c-min { width: 56px; }
+.bjr-c-val { width: 104px; } .bjr-c-bar { width: auto; }
+.bjr-table th, .bjr-table td { padding: 0 6px; height: 31px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bjr-groups th { height: 26px; font-size: 12px; font-weight: 800; letter-spacing: 1.6px; text-transform: uppercase; color: #fff; }
+.bjr-groups .bjr-g-joueur { background: transparent; color: #5d6170; text-align: left; padding-left: 4px; }
+.bjr-g-volume { background: #1b2540; }
+.bjr-g-bilan { background: #6b1a2b; }
+.bjr-g-lecture { background: #5b3a4b; }
+.bjr-cols th { font-size: 14px; font-weight: 700; color: #4a4e5a; border-bottom: 1.5px solid #c9ccd6; height: 28px; white-space: normal; line-height: 1.1; padding-top: 3px; padding-bottom: 3px; }
+.bjr-table td.bjr-min { color: #4a4e5a; font-weight: 600; }
+.bjr-table th, .bjr-table td { border-left: 0; border-right: 0; }
+.bjr-table .bjr-left { text-align: left; }
+.bjr-table tbody tr:nth-child(even) { background: #f4f5f7; }
+.bjr-table tbody td { border-bottom: 1px solid #e3e5ea; font-weight: 600; }
+.bjr-num { padding: 0 4px 0 2px !important; }
+.bjr-num span { display: block; background: #7a1f35; color: #fff; font-weight: 800; font-size: 13.5px; border-radius: 2px; line-height: 21px; }
+.bjr-table .bjr-poste { text-align: left; font-weight: 500; color: #555a66; font-size: 14px; }
+.bjr-table .bjr-nom { text-align: left; font-weight: 800; font-size: 16px; letter-spacing: .2px; }
+.bjr-table td.bjr-zero { color: #b5b8c0; font-weight: 400; }
+.bjr-table td.bjr-pos { background: #e3f1e5; color: #2e7d3a; font-weight: 800; font-size: 16px; }
+.bjr-table td.bjr-neg { background: #f8dfe0; color: #c0313a; font-weight: 800; font-size: 16px; }
+.bjr-table td.bjr-net { font-weight: 800; font-size: 16px; }
+.bjr-table td.bjr-net-pos { background: #e3f1e5; color: #2e7d3a; }
+.bjr-table td.bjr-net-neg { background: #f8dfe0; color: #c0313a; }
+.bjr-table .bjr-barcell { padding: 0 6px 0 10px; }
+.bjr-bar { display: flex; height: 19px; width: 100%; background: #b6bac2; }
+.bjr-seg { display: flex; align-items: center; justify-content: center; min-width: 0; overflow: hidden; color: #fff; font-size: 12.5px; font-weight: 800; }
+.bjr-seg-pos { background: #2f7a3e; }
+.bjr-seg-neu { background: #b6bac2; color: #2a2e38; font-weight: 700; }
+.bjr-seg-neg { background: #b02a35; }
+.bjr-table tfoot td { background: #1b2540; color: #fff; font-weight: 800; font-size: 16px; height: 34px; border-top: 3px solid #6b1a2b; }
+.bjr-table tfoot .bjr-nom { letter-spacing: 1.6px; text-transform: uppercase; font-size: 15px; }
+.bjr-table tfoot .bjr-zero { color: #fff; }
+.report-slide .bjr-panel { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.report-slide .bjr-table { flex: 1; height: 100%; }
