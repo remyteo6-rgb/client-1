@@ -2803,7 +2803,11 @@ def _momentum_ep(m):
 MOMENTUM_CODE_POSSESSION = {"01 - Possession": +1, "02 - Possesion": -1}
 MOMENTUM_POIDS_POSSESSION = 0.30
 MOMENTUM_POIDS_PDB = -2.0
-MOMENTUM_POIDS_PENALITE = -2.0
+MOMENTUM_POIDS_PENALITE = -2.5          # pénalité concédée (spécification de Téo)
+MOMENTUM_POIDS_JAUNE = -3.0             # carton jaune : au moment de la sanction...
+MOMENTUM_POIDS_JAUNE_INFERIORITE = -3.0 # ...puis réparti sur les 10 min d'infériorité
+MOMENTUM_DUREE_JAUNE = 600.0
+MOMENTUM_POIDS_ROUGE = -6.0
 MOMENTUM_CODES_PDB_TPL = {"{E} PDB": +1, "ADV PDB": -1}
 MOMENTUM_CODES_PENALITE_TPL = {"{E} Penalités concedées": +1, "ADV Penalités concedées": -1}
 MOMENTUM_VALEUR_POINTS = {"Essai": 5, "Transformation": 2, "Pénalité": 3, "Drop": 3}
@@ -2828,14 +2832,25 @@ MOMENTUM_AMORTI_ESSAI = 0.30
 MOMENTUM_SEUIL_TF, MOMENTUM_DUREE_TF = 0.80, 120.0
 MOMENTUM_FENETRE_CONV = 90.0
 MOMENTUM_ECHELLE = 3.50
-MOMENTUM_TROU_MI_TEMPS = 300.0
+MOMENTUM_TROU_MI_TEMPS = 240.0  # mi-temps = silence du fichier d'au moins 4 min
 
 
 def _momentum_periodes(inst):
-    """Détecte les 2 mi-temps via la plus grande coupure temporelle du flux codé."""
+    """Détecte les 2 mi-temps : la mi-temps est le plus long SILENCE du fichier (aucune
+    instance en cours) d'au moins 4 min. On suit la fin la plus tardive déjà vue, pour
+    qu'une longue instance (possession, Ball in play) qui chevauche ne cache pas le trou."""
     d1, f2 = inst[0]["s"], max(x["e"] for x in inst)
-    trous = [(b["s"] - a["e"], a["e"], b["s"]) for a, b in zip(inst, inst[1:])
-             if b["s"] - a["e"] > MOMENTUM_TROU_MI_TEMPS]
+    # Les codes de chronométrage (« Time off », « Temps de récupération »...) ou toute
+    # instance de plus de 4 min ne sont pas des actions : ils peuvent couvrir la pause.
+    actions = [x for x in inst
+               if x["e"] - x["s"] < MOMENTUM_TROU_MI_TEMPS
+               and not ({"TIME", "TEMPS", "RECUPERATION"} & set(x.get("n", ())))]
+    actions = actions or inst
+    trous, fin_max = [], actions[0]["e"]
+    for b in actions[1:]:
+        if b["s"] - fin_max >= MOMENTUM_TROU_MI_TEMPS:
+            trous.append((b["s"] - fin_max, fin_max, b["s"]))
+        fin_max = max(fin_max, b["e"])
     if not trous:
         return d1, f2, f2, f2
     _, f1, d2 = max(trous)
@@ -2889,10 +2904,13 @@ def compute_momentum(instances, equipe=MOMENTUM_EQUIPE, libelle=""):
     duree1 = f1 - d1
     if duree1 <= 0:
         return None
-    tj = lambda t: t - d1 if t <= f1 else duree1 + (t - d2)
+    # La mi-temps est retirée de l'axe et la 2e période redémarre sur une frontière de
+    # tranche de 30 s (le graphique passe directement de la 41e à la 42e minute).
+    bin_mt = int(math.ceil(duree1 / MOMENTUM_BIN)) if f1 < f2 else int(duree1 / MOMENTUM_BIN) + 1
+    debut2 = bin_mt * MOMENTUM_BIN
+    tj = lambda t: t - d1 if t <= f1 else debut2 + (t - d2)
     pause = lambda t: f1 < t < d2
     N = int(tj(f2) / MOMENTUM_BIN) + 1
-    bin_mt = int(duree1 / MOMENTUM_BIN)
 
     # ---- 5. points : score et marqueurs (codes "Marque" + label "Type de marque")
     marques, score, sans_type = [], {equipe: 0, "ADV": 0}, 0
@@ -2966,6 +2984,12 @@ def compute_momentum(instances, equipe=MOMENTUM_EQUIPE, libelle=""):
                 zone, cote = n[2], 1
             if zone:
                 obs.append((tj(x["s"]), cote * _momentum_ep(MOMENTUM_NC_ZONES[zone])))
+    # Remise à zéro du territoire après chaque marque (le renvoi remet le jeu au centre) :
+    # une observation « 0 » à l'instant de la marque, que le prochain marqueur de zone
+    # remplacera.
+    for m in marques:
+        if not m.get("manque"):
+            obs.append((m["t"] + 0.01, 0.0))
     obs.sort()
     terr, cur, k = [], 0.0, 0
     for b in range(N):
@@ -2994,7 +3018,7 @@ def compute_momentum(instances, equipe=MOMENTUM_EQUIPE, libelle=""):
 
     # ---- 3 et 4 : pertes de balle et pénalités concédées, en points
     ev = [0.0] * N
-    cpt = {"pdb_pour": 0, "pdb_contre": 0, "pen_pour": 0, "pen_contre": 0}
+    cpt = {"pdb_pour": 0, "pdb_contre": 0, "pen_pour": 0, "pen_contre": 0, "cartons": 0}
     for x in inst:
         if pause(x["s"]):
             continue
@@ -3010,11 +3034,32 @@ def compute_momentum(instances, equipe=MOMENTUM_EQUIPE, libelle=""):
         if s:
             ev[b] += MOMENTUM_POIDS_PENALITE * s
             cpt["pen_pour" if s > 0 else "pen_contre"] += 1
+            # Carton (label « Carton : Jaune / Rouge », ou libellé « Carton jaune ») posé
+            # sur la pénalité : jaune = −3 tout de suite puis −3 étalés sur 10 min
+            # d'infériorité ; rouge = −6. Signé comme la pénalité.
+            textes = {_normalize_tag(t) for _g, t in x["L"]}
+            if any("ROUGE" in t for t in textes):
+                ev[b] += MOMENTUM_POIDS_ROUGE * s
+                cpt["cartons"] += 1
+            elif any("JAUNE" in t for t in textes):
+                ev[b] += MOMENTUM_POIDS_JAUNE * s
+                nb = int(MOMENTUM_DUREE_JAUNE / MOMENTUM_BIN)
+                for j in range(1, nb + 1):
+                    if b + j < N and (b < bin_mt) == (b + j < bin_mt):
+                        ev[b + j] += MOMENTUM_POIDS_JAUNE_INFERIORITE * s / nb
+                cpt["cartons"] += 1
 
     # ---- signal, en points espérés absolus, puis lissage (demi-vie 90s)
     dt = [0.0] + [terr[b] - terr[b - 1] for b in range(1, N)]
     if bin_mt < N:
         dt[bin_mt] = 0.0
+    # Pas de transition sur le renvoi après une marque : sinon encaisser un essai (le
+    # territoire repasse à 0 depuis nos 22m) ferait remonter la courbe de celui qui
+    # vient de l'encaisser.
+    for mb in bins_marque:
+        for b in (mb, mb + 1):
+            if b < N:
+                dt[b] = 0.0
     brut = [ev[b] + MOMENTUM_POIDS_ETAT * terr[b] + MOMENTUM_POIDS_TRANSIT * dt[b]
             + MOMENTUM_POIDS_POSSESSION * (poss[b] / MOMENTUM_BIN) for b in range(N)]
     alpha = 1 - 0.5 ** (MOMENTUM_BIN / MOMENTUM_DEMI_VIE)
@@ -3064,9 +3109,10 @@ def compute_momentum(instances, equipe=MOMENTUM_EQUIPE, libelle=""):
         "marques_sans_type": sans_type,
         "essais_pour": sum(1 for m in marques if m["equipe"] == equipe),
         "essais_contre": sum(1 for m in marques if m["equipe"] == "ADV"),
-        "essais_pour_hors_tf": sum(1 for m in marques if m["equipe"] == equipe
+        # Essais seulement (pas les pénalités ni les drops), hors de tout temps fort.
+        "essais_pour_hors_tf": sum(1 for m in marques if m["equipe"] == equipe and m.get("type") == "Essai"
                                    and round(m["t"], 1) not in couvert),
-        "essais_contre_hors_tf": sum(1 for m in marques if m["equipe"] == "ADV"
+        "essais_contre_hors_tf": sum(1 for m in marques if m["equipe"] == "ADV" and m.get("type") == "Essai"
                                      and round(m["t"], 1) not in couvert),
         "tf_crees": n_c, "tf_convertis": k_c, "taux_cree": p_c,
         "tf_subis": n_s, "tf_encaisses": k_s, "taux_subi": p_s,
@@ -3125,7 +3171,8 @@ def render_momentum_svg(r):
     AT, AB, MH = 250.0, 272.0, 140.0
     bx = lambda i: X0 + i * P
     o = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 40 {W:.0f} 520" '
-         f'width="{W:.0f}" height="520" role="img" aria-label="Courbe de momentum">',
+         f'style="width:100%;height:auto;display:block" preserveAspectRatio="xMidYMid meet" '
+         f'role="img" aria-label="Courbe de momentum">',
          '<g transform="translate(0,40)">',
          f'<rect x="{X0-4:.0f}" y="{AT}" width="{n*P+8:.0f}" height="{AB-AT}" fill="#e5eae3" stroke="{TRAIT}"/>']
     for i, v in enumerate(r["sig"]):
