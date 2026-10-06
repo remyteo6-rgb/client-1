@@ -1226,7 +1226,7 @@ def match_detail(match_id):
             dashboard["entries"] = zone_gold["own"]["total"]
             dashboard["entries_adverse"] = zone_gold["adverse"]["total"]
             dashboard["entries_label"] = "zone Gold"
-            # Points marqués à la suite des entrées (label "Points" sur l'entrée), et
+            # Points marqués à la suite des entrées (codes de score rattachés), et
             # non le score total du match — voir compute_zone_gold_log.
             dashboard["entry_points"] = zone_gold["own"]["points"]
             dashboard["entry_points_adverse"] = zone_gold["adverse"]["points"]
@@ -1599,9 +1599,9 @@ def match_bilan_attaque(match_id):
         "total": gold.get("total"),
         "ballons_perdus": gold.get("ballons_perdus"),
         "efficacite": _fmt_fr(gold.get("efficacite"), 1, " %"),
-        "points_par_entree": _fmt_fr(
-            (own_points / gold["total"]) if own_points and gold.get("total") else None,
-            2, always_decimals=True),
+        # Points marqués à la suite des entrées (codes de score rattachés à chaque entrée,
+        # voir compute_zone_gold_log) — plus le score total du match.
+        "points_par_entree": _fmt_fr(gold.get("points_par_entree"), 2, always_decimals=True),
     } if gold else None
     return render_template(
         "match_bilan_attaque.html", match=match,

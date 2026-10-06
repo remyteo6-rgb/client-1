@@ -30,6 +30,14 @@ CONTROL_CODES = {"Ball In Play", "COACH"}
 SIDE_ADVERSE_TOKENS = {"Adverse", "Adv"}
 
 
+# Premiers mots de codes qui ne sont PAS des équipes mais des familles de codes
+# ("Jab Shape +", "Jab Connecté -", "Punch Shape +", "Time off", "Ball in play"...) :
+# sans cette liste, "JAB" préfixe 4 codes distincts et serait pris pour l'adversaire
+# (cas réel : UBB-AB, où l'adversaire est tagué "ADV").
+NON_TEAM_PREFIXES = {"JAB", "PUNCH", "TIME", "BALL", "KICK", "RESTART", "GOLD", "RUMBLE",
+                     "COP", "ROUGE"}
+
+
 def _detect_adverse_token(instances):
     """Auto-détecte le préfixe d'équipe adverse pour la convention 2026 ('<EQUIPE>
     <Categorie>', ex: 'UBB POSSESSION' / 'USC POSSESSION') : chaque adversaire est tagué
@@ -46,7 +54,8 @@ def _detect_adverse_token(instances):
     prefix_codes = defaultdict(set)
     for i in instances:
         tokens = _normalize_tag(i.get("code_raw")).split()
-        if len(tokens) >= 2 and tokens[0] not in ("UBB", "ADV", "ADVERSE"):
+        if len(tokens) >= 2 and tokens[0] not in ("UBB", "ADV", "ADVERSE") \
+                and tokens[0] not in NON_TEAM_PREFIXES:
             prefix_codes[tokens[0]].add(tuple(tokens))
     candidates = {tok: codes for tok, codes in prefix_codes.items() if len(codes) >= 3}
     if not candidates:
@@ -550,6 +559,77 @@ def _points_label(inst):
     return None
 
 
+def _scoring_events(instances, adv_token=None):
+    """Liste des actions de score du match (convention 2026), dans l'ordre du temps :
+    {'side': 'own'|'adverse', 'kind': 'tries'|'conversions'|'penalties'|'drops',
+     'points': points marqués (0 = tir manqué), 'start', 'end', 'inst'}.
+    Mêmes règles que compute_new_convention_score : essai = 5 points (le code, pas le
+    label), coup de pied réussi par défaut sauf label "Points" à 0. Source unique pour
+    le score, les points par quart-temps et les points par entrée en zone Gold."""
+    events = []
+    for inst in instances:
+        tokens = _normalize_tag(inst.get("code_raw")).split()
+        if len(tokens) != 2:
+            continue
+        if tokens[0] == "UBB":
+            side = "own"
+        elif tokens[0] in ("ADV", "ADVERSE") or (adv_token and tokens[0] == adv_token):
+            side = "adverse"
+        else:
+            continue
+        kind = next((k for k, toks in SCORE_KIND_TOKENS.items() if tokens[1] in toks), None)
+        if kind is None:
+            continue
+        if kind == "tries":
+            value = SCORE_TRY_POINTS
+        else:
+            value = _points_label(inst)
+            if value is None:
+                value = SCORE_DEFAULT_POINTS[kind]
+        events.append({"side": side, "kind": kind, "points": max(value, 0),
+                       "start": inst.get("start") or 0, "end": inst.get("end") or inst.get("start") or 0,
+                       "inst": inst})
+    events.sort(key=lambda e: e["start"])
+    return events
+
+
+def _period_lookup(instances):
+    """Renvoie une fonction inst -> tranche de jeu ('0-20'...). Si l'instance n'a pas de
+    label Chrono (oubli de tagging), on prend celui de la dernière instance taguée qui
+    commence avant elle : une transformation oubliée tombe ainsi dans le quart-temps de
+    son essai."""
+    import bisect
+    marks = sorted((i.get("start") or 0, _new_convention_period(i))
+                   for i in instances if _new_convention_period(i))
+    starts = [m[0] for m in marks]
+
+    def lookup(inst):
+        own = _new_convention_period(inst)
+        if own or not marks:
+            return own
+        k = bisect.bisect_right(starts, inst.get("start") or 0) - 1
+        return marks[max(k, 0)][1]
+    return lookup
+
+
+def compute_points_par_quart(instances, side="own"):
+    """Points marqués par tranche de 20 minutes ({'0-20': 12, ...}) pour 'own' (UBB) ou
+    'adverse', ou None si aucune action de score n'est taguée."""
+    adv_token = _detect_adverse_token(instances)
+    events = _scoring_events(instances, adv_token)
+    if not events:
+        return None
+    period_of = _period_lookup(instances)
+    out = {q: 0 for q in POSSESSION_QUARTER_ORDER}
+    for e in events:
+        if e["side"] != side:
+            continue
+        q = period_of(e["inst"])
+        if q in out:
+            out[q] += e["points"]
+    return out
+
+
 def compute_new_convention_score(instances):
     """Score complet du match reconstruit depuis le XML (convention 2026), pour ne plus
     avoir à le saisir à la main :
@@ -571,40 +651,21 @@ def compute_new_convention_score(instances):
                      "penalties": 0, "penalties_att": 0, "drops": 0, "drops_att": 0}
               for side in ("own", "adverse")}
     points = {"own": 0, "adverse": 0}
-    found = False
-
-    for inst in instances:
-        tokens = _normalize_tag(inst.get("code_raw")).split()
-        if len(tokens) != 2:
-            continue
-        if tokens[0] == "UBB":
-            side = "own"
-        elif tokens[0] in ("ADV", "ADVERSE") or (adv_token and tokens[0] == adv_token):
-            side = "adverse"
-        else:
-            continue
-        kind = next((k for k, toks in SCORE_KIND_TOKENS.items() if tokens[1] in toks), None)
-        if kind is None:
-            continue
-
+    # Pas de label "Points" sur un tir = réussi (valeur par défaut). Vérifié sur USC-UBB
+    # (21-28) : 3 pénalités sans label étaient bien des pénalités réussies.
+    events = _scoring_events(instances, adv_token)
+    for e in events:
+        side, kind = e["side"], e["kind"]
         if kind == "tries":
-            found = True
             detail[side]["tries"] += 1
-            points[side] += SCORE_TRY_POINTS
+            points[side] += e["points"]
             continue
-
-        value = _points_label(inst)
-        if value is None:
-            # Pas de label "Points" : le tir est réussi (valeur par défaut). Vérifié sur
-            # USC-UBB (21-28) : 3 pénalités sans label étaient bien des pénalités réussies.
-            value = SCORE_DEFAULT_POINTS[kind]
-        found = True
         detail[side][f"{kind}_att"] += 1
-        if value > 0:
+        if e["points"] > 0:
             detail[side][kind] += 1
-            points[side] += value
+            points[side] += e["points"]
 
-    if not found:
+    if not events:
         return None
     return {"own": points["own"], "adverse": points["adverse"], "detail": detail}
 
@@ -1015,6 +1076,31 @@ def _bilan_pair(plus, minus):
             "pct": round(100 * plus / total, 1) if total else None}
 
 
+# Les 4 familles d'offloads du rapport, et les libellés acceptés dans le groupe de
+# labels "Offload" de Sportscode (comparés sans accents ni majuscules).
+OFFLOAD_FAMILLES = [
+    ("Super", "bil-tile-gold", {"SUPER", "SUPER OFFLOAD", "SUPERS"}),
+    ("Positifs gardés", "bil-tile-green", {"POSITIF GARDE", "POSITIFS GARDES", "+ GARDE", "+ GARDES", "GARDE +"}),
+    ("Négatifs gardés", "bil-tile-orange", {"NEGATIF GARDE", "NEGATIFS GARDES", "- GARDE", "- GARDES", "GARDE -"}),
+    ("Négatifs perdus", "bil-tile-red", {"NEGATIF PERDU", "NEGATIFS PERDUS", "- PERDU", "- PERDUS", "PERDU", "PERDUS"}),
+]
+
+
+def _offloads_detail(qualif):
+    """Cases de la répartition des offloads. Si les 4 familles du rapport sont taguées,
+    on les affiche ; sinon, on montre le + / = / − du groupe "Offload" tel qu'il est tagué
+    (anciens fichiers). None si aucun label n'est posé."""
+    if not qualif:
+        return None
+    familles = [{"label": label, "tone": tone, "count": sum(qualif.get(k, 0) for k in cles)}
+                for label, tone, cles in OFFLOAD_FAMILLES]
+    if any(f["count"] for f in familles):
+        return familles
+    return [{"label": "Positifs", "tone": "bil-tile-green", "count": qualif.get("+", 0)},
+            {"label": "Neutres", "tone": "bil-tile-orange", "count": qualif.get("=", 0)},
+            {"label": "Négatifs", "tone": "bil-tile-red", "count": qualif.get("-", 0)}]
+
+
 def compute_bilan_attaque(instances, own_points=None):
     """Page "Bilan attaque" du rapport. Renvoie None si le match n'est pas tagué avec
     cette convention. Les cases du rapport qu'on ne sait pas déduire du XML valent
@@ -1024,6 +1110,7 @@ def compute_bilan_attaque(instances, own_points=None):
     contacts = Counter()
     vitesse = Counter()
     def_battus = Counter()
+    offload_qualif = Counter()
     joueurs_def_battus = set()
     actions = Counter()
     gla_plus = gla_total = 0
@@ -1055,6 +1142,8 @@ def compute_bilan_attaque(instances, own_points=None):
                 contacts[texte] += 1
             elif groupe == "VITESSE RUCK":
                 vitesse[texte] += 1
+            elif groupe in ("OFFLOAD", "OFFLOADS", "OFLLOAD", "OFLLOADS"):
+                offload_qualif[texte] += 1
             elif groupe == "DEF BATTUS":
                 # Qualificatif du plaquage cassé (RING / CORDE), porté par le code
                 # d'équipe.
@@ -1082,13 +1171,13 @@ def compute_bilan_attaque(instances, own_points=None):
     contacts_total = sum(contacts.values())
     offloads = sum(actions.get(k, 0) for k in PLAYER_ACTION_OFFLOAD)
     plaquages_casses = actions.get("DEF BATTUS", 0)
+    contacts_joueurs = actions.get("CONTACTS", 0) or contacts_total
 
     return {
         "cibles": BILAN_CIBLES,
         "essais_par_quart": {q: par_quart["essais"].get(q, 0) for q in POSSESSION_QUARTER_ORDER},
-        # Le détail des points par quart-temps demanderait de connaître l'instant de
-        # chaque transformation et pénalité, qui ne sont pas tagués.
-        "points_par_quart": None,
+        # Lus sur les codes Essai / Transfo / Pénalité / Drop et leur label Chrono.
+        "points_par_quart": compute_points_par_quart(instances, "own"),
         "jab": {"shape": _bilan_pair(codes.get("JAB SHAPE +", 0), codes.get("JAB SHAPE -", 0)),
                 "connecte": _bilan_pair(codes.get("JAB CONNECTE +", 0), codes.get("JAB CONNECTE -", 0))},
         "punch": {"shape": _bilan_pair(codes.get("PUNCH SHAPE +", 0), codes.get("PUNCH SHAPE -", 0)),
@@ -1102,15 +1191,17 @@ def compute_bilan_attaque(instances, own_points=None):
         "liberation_i_pct": None,
         "plaquages_casses": plaquages_casses,
         "offloads": offloads,
+        # Offloads / contacts : les deux lus sur les joueurs (labels Joueurs Off).
+        "offloads_contacts_pct": _pct(offloads, contacts_joueurs),
+        "contacts_joueurs": contacts_joueurs,
         "passes": actions.get("PASSES", 0),
         "clics": codes.get("UBB CLIC", 0),
-        # Les quatre familles d'offloads du rapport (super, positifs gardés, négatifs
-        # gardés, négatifs perdus) ne sont pas distinguées dans le tagging.
-        "offloads_detail": None,
+        "offloads_detail": _offloads_detail(offload_qualif),
         "plaquages_detail": {
             "joueurs": len(joueurs_def_battus),
-            "ring": def_battus.get("RING", 0),
-            "cordes": def_battus.get("CORDES", 0),
+            "ring": def_battus.get("RING", 0) + def_battus.get("RINGS", 0),
+            "cordes": def_battus.get("CORDES", 0) + def_battus.get("CORDE", 0),
+            "ring_corde_tagues": bool(sum(def_battus.values())),
             "par_quart": {q: par_quart["plaquages_casses"].get(q, 0) for q in POSSESSION_QUARTER_ORDER},
         },
         "vitesse_liberation": {
@@ -1255,9 +1346,7 @@ def compute_bilan_defense(instances, adverse_points=None, zone_gold=None):
         "franchi_origines": [{"label": p, "count": 0} for p in DEFENSE_FRANCHI_ORIGINES],
         "clash": _defense_ligne(DEFENSE_CLASH, clash),
         "essais_par_quart": {q: essais_par_quart.get(q, 0) for q in POSSESSION_QUARTER_ORDER},
-        # Les points par quart-temps demanderaient de savoir quelles transformations
-        # adverses ont été réussies : ce n'est pas tagué.
-        "points_par_quart": None,
+        "points_par_quart": compute_points_par_quart(instances, "adverse"),
         "top_defensif": [{"name": nom, "snipers": n} for nom, n in snipers_reussis.most_common(3)],
     }
 
@@ -3743,6 +3832,64 @@ ZONE_GOLD_RESULT_CLASS = {
 }
 
 
+# Fenêtres de rattachement d'une action de score à une entrée en zone Gold (secondes
+# vidéo) : l'essai peut être codé un peu avant le début de l'entrée, la pénalité est
+# tirée après la fin de l'entrée, la transformation suit l'essai d'une à deux minutes.
+GOLD_SCORE_BEFORE = 20
+GOLD_SCORE_AFTER = 150
+GOLD_CONVERSION_AFTER = 240
+
+
+def _attach_entry_points(rows, events, side):
+    """Points marqués à la suite de chaque entrée en zone Gold, lus sur les codes de
+    score du match (Essai, Transfo, Pénalité, Drop) plutôt que sur des labels saisis à la
+    main : chaque action de score de l'équipe est rattachée à la dernière entrée qui a
+    commencé avant elle (et pas plus de GOLD_SCORE_AFTER s après sa fin), et une
+    transformation suit son essai. Une entrée sans action de score vaut 0. Seule
+    exception : une entrée finie en essai sans code Essai rattachable garde son label
+    "Points" s'il existe, sinon reste None (signalée à l'écran)."""
+    team = [e for e in events if e["side"] == side]
+    for r in rows:
+        r["points"] = 0
+        r["points_auto"] = True
+    used = set()
+    for idx, e in enumerate(team):
+        if e["kind"] == "conversions":
+            continue
+        best = None
+        for r in rows:
+            result = _normalize_tag(r["result"])
+            # Une pénalité ne compte que pour une entrée finie sur pénalité obtenue, un
+            # drop pour une entrée qui n'a pas fini sur ballon perdu : évite d'attribuer
+            # à l'entrée précédente une pénalité tentée de loin quelques instants après.
+            if e["kind"] == "penalties" and "PENALITE" not in result:
+                continue
+            if e["kind"] == "drops" and r["result_class"] == "neg":
+                continue
+            if r["start"] - GOLD_SCORE_BEFORE <= e["start"] <= r["end"] + GOLD_SCORE_AFTER:
+                if best is None or r["start"] > best["start"]:
+                    if r["start"] <= e["start"] + GOLD_SCORE_BEFORE:
+                        best = r
+        if best is None:
+            continue
+        best["points"] += e["points"]
+        used.add(idx)
+        if e["kind"] == "tries":
+            # Transformation : le premier tir de l'équipe après l'essai, avant l'essai suivant.
+            for j in range(idx + 1, len(team)):
+                nxt = team[j]
+                if nxt["kind"] == "tries" or nxt["start"] > e["start"] + GOLD_CONVERSION_AFTER:
+                    break
+                if nxt["kind"] == "conversions" and j not in used:
+                    best["points"] += nxt["points"]
+                    used.add(j)
+                    break
+    for r in rows:
+        if _normalize_tag(r["result"]) == "ESSAI" and r["points"] == 0:
+            r["points"] = r.get("label_points")
+            r["points_auto"] = False
+
+
 def compute_zone_gold_log(instances, own_points=None, adverse_points=None):
     """Journal des entrées en zone Gold (22m adverse pour nous / notre 22m pour
     l'adversaire), façon page 'Zone Gold' du rapport vidéo : liste des entrées
@@ -3758,17 +3905,17 @@ def compute_zone_gold_log(instances, own_points=None, adverse_points=None):
     Points par entrée = points marqués À LA SUITE d'une entrée en zone Gold (essais,
     transformations, pénalités réussies dans les 22m), divisés par le nombre d'entrées —
     pas le score total du match (une pénalité de loin n'a rien à voir avec l'efficacité
-    dans les 22m). Ces points se lisent sur le label "Points" posé par l'analyste sur
-    l'entrée elle-même (ex: 7 pour un essai transformé, 3 pour une pénalité réussie ;
-    plusieurs labels "Points" sur la même entrée, ex. 5 + 2, sont additionnés). Une
-    entrée sans label "Points" compte pour 0. Si aucune entrée du match ne porte ce
-    label, on renvoie None (non tagué) plutôt qu'un faux 0.
+    dans les 22m). Ces points sont calculés à partir des codes de score du match (voir
+    _attach_entry_points) : plus besoin de label "Points" sur l'entrée. Pour un match
+    sans aucun code de score, on retombe sur les labels "Points" posés sur les entrées
+    (ancienne méthode), et None si rien n'est tagué plutôt qu'un faux 0.
 
     own_points / adverse_points : conservés pour compatibilité d'appel, plus utilisés
     (c'était le score total du match, ce qui faussait le ratio).
     """
     adv_token = _detect_adverse_token(instances)
     own_rows, adv_rows = [], []
+    events = _scoring_events(instances, adv_token)
     for inst in instances:
         tokens = _normalize_tag(inst.get("code_raw")).split()
         if "GOLD" not in tokens:
@@ -3794,9 +3941,12 @@ def compute_zone_gold_log(instances, own_points=None, adverse_points=None):
                     pass
         row = {
             "start": inst.get("start"),
+            "end": inst.get("end") or inst.get("start"),
+            "side": "adverse" if is_adverse else "own",
             "result": result,
             "result_class": ZONE_GOLD_RESULT_CLASS.get(_normalize_tag(result), "neu"),
             "points": entry_points,
+            "label_points": entry_points,
         }
         (adv_rows if is_adverse else own_rows).append(row)
 
@@ -3805,6 +3955,9 @@ def compute_zone_gold_log(instances, own_points=None, adverse_points=None):
 
     own_rows.sort(key=lambda r: r["start"])
     adv_rows.sort(key=lambda r: r["start"])
+    if events:
+        _attach_entry_points(own_rows, events, "own")
+        _attach_entry_points(adv_rows, events, "adverse")
 
     def _summary(rows):
         total = len(rows)
