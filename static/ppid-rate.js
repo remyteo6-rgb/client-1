@@ -23,9 +23,36 @@
             if (!group2) return;
             var input = group2.querySelector('.ppid-comment-input');
             if (!input) return;
+            var wrap = group2.querySelector('.ppid-comment-wrap');
+            if (wrap) wrap.style.display = '';
             input.style.display = '';
             toggle.style.display = 'none';
             input.focus();
         }
+    });
+})();
+
+// Couleur d'écriture d'un texte saisi (voir color_pick dans _ppid_rate.html) : un clic sur
+// une pastille enregistre la couleur dans le champ caché et colore aussitôt le texte du champ
+// voisin (.txtc-target dans le même .txtc-scope), pour voir le rendu avant d'enregistrer.
+(function () {
+    var COLORS = ['noir', 'rouge', 'vert', 'bleu', 'orange', 'violet'];
+    document.addEventListener('click', function (e) {
+        var dot = e.target.closest('.txtc-dot');
+        if (!dot) return;
+        e.preventDefault();
+        var pick = dot.closest('.txtc-pick');
+        if (!pick) return;
+        var color = dot.dataset.color;
+        pick.querySelectorAll('.txtc-dot').forEach(function (b) { b.classList.toggle('is-active', b === dot); });
+        var hidden = pick.querySelector('input[type="hidden"]');
+        if (hidden) hidden.value = color === 'noir' ? '' : color;
+        var scope = pick.closest('.txtc-scope');
+        if (!scope) return;
+        scope.querySelectorAll('.txtc-target').forEach(function (t) {
+            COLORS.forEach(function (c) { t.classList.remove('txtc-' + c); });
+            t.classList.toggle('txtc', color !== 'noir');
+            if (color !== 'noir') t.classList.add('txtc-' + color);
+        });
     });
 })();

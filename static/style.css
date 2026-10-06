@@ -1309,7 +1309,29 @@ body.demo-mode .demo-blur {
     text-decoration: underline dotted; cursor: pointer; padding: 4px 2px;
 }
 .ppid-comment-toggle:hover { color: var(--text-primary); }
+.ppid-rate .ppid-comment-wrap { flex: 1 1 260px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .ppid-rate .ppid-comment-input { flex: 1 1 180px; min-width: 140px; }
+
+/* Couleur d'écriture choisie par le rédacteur (objectifs, commentaires, notes…) : une
+   pastille par couleur à côté du champ ; le texte prend la couleur à la saisie et partout
+   où il est affiché (classes txtc-<couleur>, voir TEXT_COLORS dans app.py). */
+.txtc-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.txtc-head label { margin-bottom: 0; }
+.form-group .txtc-head { margin-bottom: 6px; }
+.txtc-pick { display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; }
+.txtc-dot {
+    width: 17px; height: 17px; border-radius: 50%; padding: 0; cursor: pointer;
+    background: var(--dot); border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(42,23,18,0.25);
+    transition: transform .1s ease, box-shadow .1s ease;
+}
+.txtc-dot:hover { transform: scale(1.15); }
+.txtc-dot.is-active { box-shadow: 0 0 0 2px var(--dot); transform: scale(1.1); }
+.txtc { font-weight: 600; }
+.txtc.txtc-rouge  { color: #c62828 !important; }
+.txtc.txtc-vert   { color: #2e7d32 !important; }
+.txtc.txtc-bleu   { color: #1565c0 !important; }
+.txtc.txtc-orange { color: #ef6c00 !important; }
+.txtc.txtc-violet { color: #7b1fa2 !important; }
 /* Qui a réglé cette note en dernier (cahier d'entraînement) — discret, à la suite des
    boutons en saisie (.ppid-rate-by) ou sous la pastille en lecture (.ppid-grid-by). */
 .ppid-rate-by { font-size: 11px; color: var(--text-secondary); opacity: 0.75; white-space: nowrap; }
