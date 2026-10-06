@@ -1353,6 +1353,43 @@ def _match_card(name, cards):
     return (best or {}) if score >= 0.8 else {}
 
 
+# ---- Touches (page "TOUCHES" du rapport vidéo) --------------------------------
+def compute_touches_page(instances, manual=None):
+    """Nos touches dans l'ordre du match, pour la page TOUCHES du rapport.
+
+    Lu dans le XML (codes « UBB Touches », groupe Conquête) : QB (TQB + = ✓, TQB − ou
+    rien = ✗) et Résultat (Gagné = ✓, Perdu = ✗). Saisi à la main sur la page
+    (`manual` = {clé: {"lancement", "lance", "annonce"}}) : le lancement annoncé
+    (« 61 TANK », « 50 »...) et la validation du lancer et de l'annonce."""
+    manual = manual or {}
+    touches = sorted((i for i in instances if _normalize_tag(i.get("code_raw")) == "UBB TOUCHES"),
+                     key=lambda i: i.get("start") or 0)
+    rows, cumul = [], 0
+    for n, inst in enumerate(touches, start=1):
+        vals = {_normalize_tag(l.get("text")) for l in inst.get("labels") or []
+                if _normalize_tag(l.get("group")) in ("CONQUETE", "CONQUÊTE")}
+        gagne = "GAGNE" in vals or "GAGNEE" in vals
+        perdu = "PERDU" in vals or "PERDUE" in vals
+        resultat = True if gagne else (False if perdu else None)
+        qb = True if "TQB +" in vals else (False if (vals or resultat is not None) else None)
+        key = gold_entry_key(inst.get("start"))
+        man = manual.get(key) or {}
+        lance = man.get("lance") if man.get("lance") in ("ok", "ko") else ""
+        annonce = man.get("annonce") if man.get("annonce") in ("ok", "ko") else ""
+        cumul += 1 if resultat else (-1 if resultat is False else 0)
+        cause = ""
+        if resultat is False:
+            cause = "ANNONCE" if annonce == "ko" else ("LANCÉ" if lance == "ko" else "")
+        rows.append({"num": n, "key": key, "lancement": man.get("lancement") or "",
+                     "lance": lance, "annonce": annonce, "qb": qb, "resultat": resultat,
+                     "cumul": cumul, "cause": cause})
+    if not rows:
+        return None
+    gagnees = sum(1 for r in rows if r["resultat"])
+    return {"rows": rows, "total": len(rows), "gagnees": gagnees,
+            "pct": round(100 * gagnees / len(rows), 1) if rows else None}
+
+
 # ---- Bilan attaque (page "ATTAQUE / BILAN" du rapport vidéo) -----------------
 # Cibles fixées par le staff, affichées en titre des blocs correspondants.
 BILAN_CIBLES = {"zone_gold": 7, "offloads": 13, "plaquages_casses": 18}

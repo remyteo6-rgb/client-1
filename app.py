@@ -12,6 +12,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, render_template, request, redirect, url_for, flash, g, abort, session, Response, jsonify
 from parser import (
     ZONE_GOLD_CHOICES,
+    compute_touches_page,
     compute_discipline,
     compute_team_discipline_counts,
     parse_sportscode_xml, aggregate_match_stats, aggregate_zones, CATEGORY_SECTIONS,
@@ -1769,6 +1770,41 @@ def match_discipline_save(match_id):
     return jsonify({"ok": True, "avants": data["avants"], "trois_quarts": data["trois_quarts"],
                     "equipe": data["joueurs_total"],
                     "categories": {c["label"]: c["count"] for c in data["categories"]}})
+
+
+@app.route("/match/<int:match_id>/touches")
+def match_touches(match_id):
+    """Page "TOUCHES" du rapport vidéo : nos lancers dans l'ordre et leur évolution."""
+    match = _get_match_or_404(match_id)
+    if _no_instances_guard(match):
+        flash("Ce match a été importé avant la mise à jour détaillée par secteur : "
+              "réimporte le fichier XML pour voir cette page.", "error")
+        return redirect(url_for("match_detail", match_id=match_id))
+    data = compute_touches_page(match["instances"], (match.get("manual_stats") or {}).get("touches"))
+    return render_template("match_touches.html", match=match, data=data, assets=_review_assets(match))
+
+
+@app.route("/match/<int:match_id>/touches/saisie", methods=["POST"])
+@admin_required
+def match_touches_save(match_id):
+    """Saisie à la main sur la page Touches : lancement (texte), lancer et annonce
+    validés ou non (« ok » / « ko » / vide)."""
+    match = _get_match_or_404(match_id)
+    payload = request.get_json(silent=True) or {}
+    key, field, value = str(payload.get("key") or ""), payload.get("field"), payload.get("value")
+    if not key or field not in ("lancement", "lance", "annonce"):
+        abort(400)
+    manual = match.get("manual_stats") or {}
+    entry = manual.setdefault("touches", {}).setdefault(key, {})
+    if field == "lancement":
+        entry[field] = str(value or "").strip()[:30]
+    else:
+        entry[field] = value if value in ("ok", "ko") else ""
+    db = get_db()
+    db.execute("UPDATE matches SET manual_stats_json = %s WHERE id = %s", (json.dumps(manual), match_id))
+    db.commit()
+    data = compute_touches_page(match["instances"], manual["touches"])
+    return jsonify({"ok": True, "rows": [{"key": r["key"], "cause": r["cause"]} for r in data["rows"]]})
 
 
 @app.route("/match/<int:match_id>/csc")
