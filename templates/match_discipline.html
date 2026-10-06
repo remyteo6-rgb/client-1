@@ -43,17 +43,27 @@
                 <thead><tr><th></th><th class="dis-num">Fautes</th><th class="dis-card-col"></th><th>Raison</th></tr></thead>
                 <tbody>
                 {% for r in data.rows %}
-                <tr>
+                <tr data-key="{{ r.key }}">
                     <th>{{ r.name }}</th>
+                    {% if is_admin %}
+                    <td class="dis-num"><input class="dis-in dis-in-num" type="number" min="0" max="9" inputmode="numeric"
+                        value="{{ r.fautes or '' }}" placeholder="" data-field="fautes" aria-label="Fautes de {{ r.name }}"></td>
+                    <td class="dis-card-col"><button type="button" class="dis-card-btn" data-carton="{{ r.carton }}"
+                        title="Cliquer : aucun → carton jaune → carton rouge" aria-label="Carton de {{ r.name }}">
+                        <span class="dis-card{{ ' dis-card-red' if r.carton == 'R' else '' }}{{ ' dis-card-none' if not r.carton else '' }}"></span></button></td>
+                    <td class="dis-reason"><input class="dis-in" type="text" maxlength="120" value="{{ r.raison }}"
+                        data-field="raison" aria-label="Raison des fautes de {{ r.name }}"></td>
+                    {% else %}
                     <td class="dis-num">{{ r.fautes or '' }}</td>
-                    <td class="dis-card-col">{% if r.red %}<span class="dis-card dis-card-red" title="Carton rouge"></span>{% elif r.yellow %}<span class="dis-card" title="Carton jaune"></span>{% endif %}</td>
+                    <td class="dis-card-col">{% if r.carton == 'R' %}<span class="dis-card dis-card-red" title="Carton rouge"></span>{% elif r.carton == 'J' %}<span class="dis-card" title="Carton jaune"></span>{% endif %}</td>
                     <td class="dis-reason">{{ r.raison }}</td>
+                    {% endif %}
                 </tr>
                 {% endfor %}
                 </tbody>
                 <tfoot>
-                    <tr><th>Avants</th><td class="dis-num">{{ data.avants }}</td><td colspan="2"></td></tr>
-                    <tr><th>3/4</th><td class="dis-num">{{ data.trois_quarts }}</td><td colspan="2"></td></tr>
+                    <tr><th>Avants</th><td class="dis-num" id="disAvants">{{ data.avants }}</td><td colspan="2"></td></tr>
+                    <tr><th>3/4</th><td class="dis-num" id="disTrois">{{ data.trois_quarts }}</td><td colspan="2"></td></tr>
                     <tr><th>Équipe</th><td class="dis-num">{{ data.team.own if data.team.own is not none else data.joueurs_total }}</td><td colspan="2"></td></tr>
                 </tfoot>
             </table>
@@ -68,7 +78,7 @@
                         <div class="dis-bars">
                             {% for side, cls in [('own', 'dis-bar-own'), ('adverse', 'dis-bar-adv')] %}
                             {% if pp[side][q] %}
-                            <div class="dis-bar {{ cls }}" style="height:{{ (100 * pp[side][q] / maxp)|round|int }}%"><b>{{ pp[side][q] }}</b></div>
+                            <div class="dis-bar {{ cls }}" style="height:{{ (100 * pp[side][q] / maxp)|round|int }}%"><b class="{{ 'is-out' if (100 * pp[side][q] / maxp) < 24 else '' }}">{{ pp[side][q] }}</b></div>
                             {% else %}
                             <div class="dis-bar-empty"></div>
                             {% endif %}
@@ -82,16 +92,22 @@
 
             <div class="dis-cats">
                 {% for c in data.categories %}
-                <div class="dis-cat">
+                <div class="dis-cat" data-cat="{{ c.label }}">
                     <div class="dis-cat-barzone">
+                        {% set num %}{% if is_admin %}<input class="dis-in dis-in-cat" type="number" min="0" max="40" value="{{ c.count }}" data-field="count" aria-label="Fautes {{ c.label }}">{% else %}<b>{{ c.count }}</b>{% endif %}{% endset %}
                         {% if c.count %}
-                        <div class="dis-cat-bar" style="height:{{ [(100 * c.count / maxc)|round|int, 14]|max }}%"><b>{{ c.count }}</b></div>
+                        <div class="dis-cat-bar" style="height:{{ [(100 * c.count / maxc)|round|int, 14]|max }}%">{{ num }}</div>
                         {% else %}
-                        <div class="dis-cat-zero">0</div>
+                        <div class="dis-cat-zero">{{ num }}</div>
                         {% endif %}
                     </div>
                     <div class="dis-cat-label">{{ c.label }}</div>
+                    {% if is_admin %}
+                    <textarea class="dis-in dis-cat-text" rows="4" data-field="reasons" placeholder="Une raison par ligne"
+                        aria-label="Détail {{ c.label }}">{{ c.reasons_text }}</textarea>
+                    {% else %}
                     <div class="dis-cat-reasons">{% for r in c.reasons %}<span>{{ r }}</span>{% endfor %}</div>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
@@ -125,13 +141,13 @@
 </div>
 
 <div class="card no-print dis-notes">
-    <p class="subtitle">Fautes d'équipe et par période : codes « UBB Disciplines » / « {{ match['opponent'] }} Disciplines » et leur Chrono.
-        Fautes par joueur : labels « Disciplines » sur le joueur. Le chiffre dans le bandeau « Fautes par période » = nos fautes en 1re mi-temps.</p>
-    {% if not data.raisons_taguees %}
-    <p class="subtitle">{{ icons.warning() }} Colonne « Raison » vide : ajoute sur la faute du joueur un label du groupe « Raison »
-        (Mêlée, Plaqueur dans la zone, Ballon gardé au sol, Hors-jeu…). Pour Set Piece et Other, un label du groupe « Catégorie »
-        (Attack, Defence, Set Piece, Other) ; sans lui, « Disciplines Off » compte en Attack et « Disciplines Def » en Defence.
-        Les cartons viennent de la page Composition (ou d'un label « Carton » : Jaune / Rouge).</p>
+    <p class="subtitle">Fautes d'équipe, par période et score des fautes : codes « UBB Disciplines » / « {{ match['opponent'] }} Disciplines ».
+        Fautes par joueur : labels « Disciplines » sur le joueur (corrigeables). Le chiffre du bandeau « Fautes par période » = nos fautes en 1re mi-temps.
+        L'ordre des joueurs et la répartition avants / 3/4 suivent la page Composition quand elle est remplie.</p>
+    {% if is_admin %}
+    <p class="subtitle">{{ icons.edit() }} Tout se saisit directement sur la diapo : nombre de fautes et raison de chaque joueur, carton (clic sur la case :
+        aucun → jaune → rouge), nombre de fautes et détail (une raison par ligne) de chaque catégorie. C'est enregistré dès que tu quittes la case.
+        <span id="disStatus" class="zg-status" role="status"></span></p>
     {% endif %}
 </div>
 
@@ -139,5 +155,43 @@
 
 <script>
 function preparePrint() { setTimeout(() => window.print(), 100); }
+{% if is_admin and data %}
+(function () {
+    var url = "{{ url_for('match_discipline_save', match_id=match['id']) }}";
+    var status = document.getElementById('disStatus');
+    function say(t, err) { if (status) { status.textContent = t; status.classList.toggle('zg-status-err', !!err); } }
+    function save(kind, key, field, value) {
+        say('Enregistrement…');
+        return fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ kind: kind, key: key, field: field, value: value }) })
+            .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+            .then(function (res) {
+                document.getElementById('disAvants').textContent = res.avants;
+                document.getElementById('disTrois').textContent = res.trois_quarts;
+                say('Enregistré.');
+            })
+            .catch(function () { say("L'enregistrement n'a pas abouti : recharge la page et réessaie.", true); });
+    }
+    function bind(el, kind, key) {
+        var last = el.value;
+        el.addEventListener('change', function () { if (el.value === last) return; last = el.value; save(kind, key, el.dataset.field, el.value); });
+        if (el.tagName === 'INPUT') el.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
+    }
+    document.querySelectorAll('.dis-table tbody tr[data-key]').forEach(function (tr) {
+        tr.querySelectorAll('.dis-in').forEach(function (el) { bind(el, 'player', tr.dataset.key); });
+        var btn = tr.querySelector('.dis-card-btn');
+        if (btn) btn.addEventListener('click', function () {
+            var next = { '': 'J', 'J': 'R', 'R': '' }[btn.dataset.carton || ''];
+            btn.dataset.carton = next;
+            var sq = btn.querySelector('.dis-card');
+            sq.classList.toggle('dis-card-none', next === ''); sq.classList.toggle('dis-card-red', next === 'R');
+            save('player', tr.dataset.key, 'carton', next);
+        });
+    });
+    document.querySelectorAll('.dis-cat[data-cat]').forEach(function (box) {
+        box.querySelectorAll('.dis-in').forEach(function (el) { bind(el, 'category', box.dataset.cat); });
+    });
+})();
+{% endif %}
 </script>
 {% endblock %}
