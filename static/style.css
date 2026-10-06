@@ -2680,3 +2680,53 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
 .dis-grp-btn:focus-visible { outline: 2px solid var(--accent-gold); outline-offset: 1px; }
 .dis-grp-btn[data-groupe="3/4"] .dis-grp-tag { color: #1d3557; }
 @media print { .dis-grp-tag { display: none; } }
+
+/* ---- Page TOUCHES du rapport vidéo ----------------------------------------- */
+.tch-board { display: grid; grid-template-columns: 0.9fr 1fr; gap: 26px; align-items: stretch; margin-top: 6px; }
+.tch-left { display: flex; flex-direction: column; min-width: 0; }
+.tch-heads {
+    display: grid; grid-template-columns: 13% 23% 16% 16% 16% 16%; text-align: center; white-space: nowrap;
+    font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-weight: 700; font-size: 1rem;
+    letter-spacing: .3px; text-transform: uppercase; color: #111; padding-bottom: 8px;
+}
+.tch-table { width: 100%; border-collapse: collapse; table-layout: fixed; background: #fff; }
+.tch-table td {
+    border: 2.5px solid #111; text-align: center; vertical-align: middle;
+    font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: 1.5rem; color: #111; padding: 4px 2px;
+}
+.tch-ok { color: #2e9b45; font-size: 2rem; font-weight: 800; line-height: 1; }
+.tch-ko { color: #d63b30; font-size: 2rem; font-weight: 800; line-height: 1; }
+.tch-in {
+    width: 100%; border: 0; background: transparent; text-align: center; text-transform: uppercase;
+    font: inherit; color: inherit; padding: 0;
+}
+.tch-in:hover, .tch-toggle:hover { background: rgba(125,54,83,.06); }
+.tch-in:focus-visible, .tch-toggle:focus-visible { outline: 2px solid var(--accent-gold); outline-offset: -3px; }
+.tch-toggle { width: 100%; height: 100%; min-height: 34px; border: 0; background: transparent; cursor: pointer; }
+.tch-chart-card {
+    position: relative; background: rgba(255,255,255,.88); border: 1px solid #eee; border-radius: 4px;
+    padding: 14px 18px 8px; display: flex; flex-direction: column; min-width: 0; align-self: center;
+}
+.tch-crest { position: absolute; top: 18px; left: 18px; width: 64px; height: 64px; object-fit: contain; }
+.tch-crest-txt {
+    display: flex; align-items: center; justify-content: center; border-radius: 50%;
+    background: #1d3557; color: #fff; font-weight: 800; font-size: 1.6rem;
+}
+.tch-chart-title {
+    text-align: center; font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-weight: 600;
+    font-size: 1.45rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--bg-header); margin: 4px 0 2px;
+}
+.tch-svg { width: 100%; height: auto; display: block; }
+.tch-grid { stroke: #e3e3e3; stroke-width: 1.5; }
+.tch-line { stroke: #5a1a33; stroke-width: 6; stroke-linejoin: round; stroke-linecap: round; }
+.tch-x-num { font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: 22px; fill: #111; }
+.tch-x-lan { font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: 14px; fill: #555; text-transform: uppercase; }
+.tch-dot-ok { fill: #2a7d52; stroke: #fff; stroke-width: 3; }
+.tch-dot-ko { fill: #c0392b; stroke: #fff; stroke-width: 3; }
+.tch-dot-txt { fill: #fff; font-size: 14px; font-weight: 800; }
+.tch-cause { fill: #c0392b; font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: 13px; }
+.tch-notes { margin-top: 12px; }
+.report-slide .tch-board { flex: 1; min-height: 0; }
+.report-slide .tch-table { flex: 1 1 auto; height: auto; }
+.tch-table col.c-num { width: 13%; } .tch-table col.c-lan { width: 23%; } .tch-table col.c-x { width: 16%; }
+.tch-table td.tch-lan { font-size: 1.25rem; white-space: nowrap; overflow: hidden; }
