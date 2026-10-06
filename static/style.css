@@ -2791,3 +2791,22 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
 .bjr-table tfoot .bjr-zero { color: #fff; }
 .report-slide .bjr-panel { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .report-slide .bjr-table { flex: 1; height: 100%; }
+/* Diapos de détail (attaque / défense / conquête) : une colonne par chiffre */
+.bjr-g-navy { background: #1b2540; }
+.bjr-g-wine { background: #6b1a2b; }
+.bjr-g-plum { background: #5b3a4b; }
+.bjr-detail .bjr-groups th:not(.bjr-g-joueur) { border-left: 2px solid #fff; font-size: 11px; letter-spacing: 1.2px; }
+.bjr-detail .bjr-c-sm { width: 44px; }
+.bjr-detail .bjr-c-wide { width: 70px; }
+.bjr-detail .bjr-c-bar { display: none; }
+.bjr-detail .bjr-cols th { font-size: 12.5px; }
+.bjr-detail .bjr-cols th.bjr-sign { font-size: 17px; font-weight: 800; }
+.bjr-detail .bjr-table td { font-size: 15px; padding: 0 3px; }
+.bjr-detail .bjr-table td.bjr-pos, .bjr-detail .bjr-table td.bjr-neg { font-size: 15.5px; }
+.bjr-table .bjr-gstart { border-left: 1.5px solid #c9ccd6 !important; }
+.bjr-table tfoot .bjr-gstart { border-left-color: rgba(255,255,255,.25) !important; }
+.bjr-table td.bjr-pct { font-weight: 800; color: #1b2540; }
+.bjr-table td.bjr-pct.bjr-low { color: #a3a7b0; font-weight: 600; }
+.bjr-table td .bjr-dot { color: #b5b8c0; font-weight: 400; }
+.bjr-table .kpi-arrow { font-size: 11px; margin-left: 2px; }
+.bjr-detail .bjr-table tfoot td { font-size: 15px; }
