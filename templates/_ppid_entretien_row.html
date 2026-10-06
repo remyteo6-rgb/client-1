@@ -6,9 +6,9 @@
     <summary class="ppid-entretien-row-summary">
         <span class="ppid-entretien-type ppid-type-entretien">{{ ppid_icons.entretien(11) }} {{ e.entretien_type }}</span>
         <span class="ppid-eval-date">{{ ppid_icons.calendar(11) }} {{ e.date_human }}</span>
-        {% if e.notes %}<span class="ppid-entretien-note-preview">{{ e.notes }}</span>{% endif %}
+        {% if e.notes %}<span class="ppid-entretien-note-preview {{ e.couleurs|txtc('notes') }}">{{ e.notes }}</span>{% endif %}
     </summary>
-    {% if e.notes %}<div class="ppid-callout ppid-entretien-notes">{{ e.notes }}</div>{% endif %}
+    {% if e.notes %}<div class="ppid-callout ppid-entretien-notes {{ e.couleurs|txtc('notes') }}">{{ e.notes }}</div>{% endif %}
     {% if ppid_entretien_editable %}
     <div class="ppid-entretien-row-actions">
         <details class="ppid-inline-edit">
@@ -28,9 +28,9 @@
                         </select>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label>Notes</label>
-                    <textarea name="notes" rows="4">{{ e.notes or '' }}</textarea>
+                <div class="form-group txtc-scope">
+                    {{ ppid_rate.color_label('Notes', 'notes', e.couleurs.get('notes', '')) }}
+                    <textarea class="txtc-target {{ e.couleurs|txtc('notes') }}" name="notes" rows="4">{{ e.notes or '' }}</textarea>
                 </div>
                 <button type="submit" class="btn">Mettre à jour</button>
             </form>

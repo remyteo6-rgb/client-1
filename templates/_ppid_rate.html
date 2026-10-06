@@ -13,7 +13,7 @@
     - modified_by : prénom (déjà résolu) de la dernière personne à avoir réglé cette note,
       ou none tant qu'elle n'a jamais été renseignée (voir 'by' dans les ratings, app.py)
 #}
-{% macro rate_field(name, notes, value='', comment_name=none, comment_value='', modified_by=none) %}
+{% macro rate_field(name, notes, value='', comment_name=none, comment_value='', modified_by=none, comment_color='') %}
 <div class="ppid-rate">
     <input type="hidden" name="{{ name }}" value="{{ value }}">
     {% for n in notes %}
@@ -21,10 +21,33 @@
     {% endfor %}
     {% if comment_name %}
     <button type="button" class="ppid-comment-toggle" style="{{ 'display:none;' if comment_value else '' }}">+ commentaire</button>
-    <input type="text" name="{{ comment_name }}" class="ppid-comment-input" placeholder="Commentaire (optionnel)" value="{{ comment_value }}" style="{{ '' if comment_value else 'display:none;' }}">
+    <span class="ppid-comment-wrap txtc-scope" style="{{ '' if comment_value else 'display:none;' }}">
+        <input type="text" name="{{ comment_name }}" class="ppid-comment-input txtc-target {{ ('txtc txtc-' ~ comment_color) if comment_color else '' }}" placeholder="Commentaire (optionnel)" value="{{ comment_value }}">
+        {{ color_pick(comment_name, comment_color) }}
+    </span>
     {% endif %}
     {% if modified_by %}
     <span class="ppid-rate-by" title="Dernière modification de cette note">{{ modified_by }}</span>
     {% endif %}
 </div>
+{% endmacro %}
+
+{#
+    Sélecteur de couleur d'écriture pour un texte saisi (objectifs, commentaires, notes…) :
+    une pastille par couleur de TEXT_COLORS (app.py). Le choix est stocké dans un champ caché
+    « couleur__<champ> » lu par _text_colors_from_form(). Le texte du champ voisin (élément
+    .txtc-target dans le même .txtc-scope) prend la couleur tout de suite — voir ppid-rate.js.
+#}
+{% macro color_pick(field, current='') %}
+<span class="txtc-pick" title="Couleur du texte">
+    <input type="hidden" name="couleur__{{ field }}" value="{{ current or '' }}">
+    {% for code, hex in TEXT_COLORS.items() %}
+    <button type="button" class="txtc-dot{{ ' is-active' if (current or 'noir') == code else '' }}" data-color="{{ code }}" style="--dot: {{ hex }};" title="{{ code|capitalize }}" aria-label="Écrire en {{ code }}"></button>
+    {% endfor %}
+</span>
+{% endmacro %}
+
+{# Libellé + sélecteur de couleur sur une même ligne, au-dessus du champ texte. #}
+{% macro color_label(label, field, current='') %}
+<div class="txtc-head"><label>{{ label }}</label>{{ color_pick(field, current) }}</div>
 {% endmacro %}

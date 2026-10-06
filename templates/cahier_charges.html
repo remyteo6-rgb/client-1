@@ -250,13 +250,13 @@
                         </div>
                         {% endfor %}
                     </div>
-                    <div class="form-group">
-                        <label>Objectifs pour la période</label>
-                        <input type="text" name="objectifs" placeholder="ex. Se mettre au niveau de la mêlée fermée...">
+                    <div class="form-group txtc-scope">
+                        {{ ppid_rate.color_label('Objectifs pour la période', 'objectifs', '') }}
+                        <input class="txtc-target" type="text" name="objectifs" placeholder="ex. Se mettre au niveau de la mêlée fermée...">
                     </div>
-                    <div class="form-group">
-                        <label>Entraînements spécifiques / intervenants</label>
-                        <input type="text" name="entrainements" placeholder="ex. Socle commun rugby, musculation JB Poux...">
+                    <div class="form-group txtc-scope">
+                        {{ ppid_rate.color_label('Entraînements spécifiques / intervenants', 'entrainements', '') }}
+                        <input class="txtc-target" type="text" name="entrainements" placeholder="ex. Socle commun rugby, musculation JB Poux...">
                     </div>
                     <button type="submit" class="btn">Enregistrer le point d'étape</button>
                 </form>
@@ -283,18 +283,18 @@
                         {% endfor %}
                     </div>
                     <p class="docs-hint">{{ ppid_icons.idea() }} L'auto-évaluation de {{ selected_player['first_name'] }} sera renseignée par lui-même depuis « Mes évaluations » — pas besoin de la saisir ici.</p>
-                    <div class="form-group">
-                        <label>Commentaires</label>
-                        <input type="text" name="commentaires" placeholder="Commentaires libres">
+                    <div class="form-group txtc-scope">
+                        {{ ppid_rate.color_label('Commentaires', 'commentaires', '') }}
+                        <input class="txtc-target" type="text" name="commentaires" placeholder="Commentaires libres">
                     </div>
                     <div class="cal-form-row">
-                        <div class="form-group">
-                            <label>Axe de travail — Musculation</label>
-                            <input type="text" name="axe_musculation">
+                        <div class="form-group txtc-scope">
+                            {{ ppid_rate.color_label('Axe de travail — Musculation', 'axe_musculation', '') }}
+                            <input class="txtc-target" type="text" name="axe_musculation">
                         </div>
-                        <div class="form-group">
-                            <label>Axe de travail — Terrain</label>
-                            <input type="text" name="axe_terrain">
+                        <div class="form-group txtc-scope">
+                            {{ ppid_rate.color_label('Axe de travail — Terrain', 'axe_terrain', '') }}
+                            <input class="txtc-target" type="text" name="axe_terrain">
                         </div>
                     </div>
                     <button type="submit" class="btn">Enregistrer le point d'étape</button>
@@ -317,9 +317,9 @@
                             </select>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label>Notes</label>
-                        <textarea name="notes" rows="4" placeholder="Ce qui a été dit, décidé, à retenir..."></textarea>
+                    <div class="form-group txtc-scope">
+                        {{ ppid_rate.color_label('Notes', 'notes', '') }}
+                        <textarea class="txtc-target" name="notes" rows="4" placeholder="Ce qui a été dit, décidé, à retenir..."></textarea>
                     </div>
                     <button type="submit" class="btn">Enregistrer l'entretien</button>
                     <p class="docs-hint">{{ ppid_icons.idea() }} Visible par {{ selected_player['first_name'] }} dans « Mes évaluations », comme le reste du P.P.I.D.</p>
@@ -387,18 +387,18 @@
                                                 <label>{{ label }}</label>
                                                 <div class="ppid-cat-inputs">
                                                     {% set note_by = ev.ratings[key].get('by') %}
-                                                    {{ ppid_rate.rate_field('note__' ~ key, ppid_rugby_notes, value=ev.ratings[key].get('note') or '', comment_name='commentaire__' ~ key, comment_value=ev.ratings[key].get('commentaire') or '', modified_by=staff_names.get(note_by, note_by|email_prefix) if note_by else none) }}
+                                                    {{ ppid_rate.rate_field('note__' ~ key, ppid_rugby_notes, value=ev.ratings[key].get('note') or '', comment_name='commentaire__' ~ key, comment_value=ev.ratings[key].get('commentaire') or '', comment_color=ev.couleurs.get('commentaire__' ~ key, ''), modified_by=staff_names.get(note_by, note_by|email_prefix) if note_by else none) }}
                                                 </div>
                                             </div>
                                             {% endfor %}
                                         </div>
-                                        <div class="form-group">
-                                            <label>Objectifs pour la période</label>
-                                            <input type="text" name="objectifs" value="{{ ev.objectifs or '' }}">
+                                        <div class="form-group txtc-scope">
+                                            {{ ppid_rate.color_label('Objectifs pour la période', 'objectifs', ev.couleurs.get('objectifs', '')) }}
+                                            <input class="txtc-target {{ ev.couleurs|txtc('objectifs') }}" type="text" name="objectifs" value="{{ ev.objectifs or '' }}">
                                         </div>
-                                        <div class="form-group">
-                                            <label>Entraînements spécifiques / intervenants</label>
-                                            <input type="text" name="entrainements" value="{{ ev.entrainements or '' }}">
+                                        <div class="form-group txtc-scope">
+                                            {{ ppid_rate.color_label('Entraînements spécifiques / intervenants', 'entrainements', ev.couleurs.get('entrainements', '')) }}
+                                            <input class="txtc-target {{ ev.couleurs|txtc('entrainements') }}" type="text" name="entrainements" value="{{ ev.entrainements or '' }}">
                                         </div>
                                         <button type="submit" class="btn">Mettre à jour</button>
                                     </form>
@@ -416,11 +416,11 @@
                 <tbody>
                     <tr class="ppid-grid-highlight ppid-grid-row-objectifs">
                         <th class="ppid-grid-rowlabel">{{ ppid_icons.target(13) }} Objectifs</th>
-                        {% for ev in rugby_evals_asc %}<td class="ppid-grid-highlight-cell">{{ ev.objectifs or '—' }}</td>{% endfor %}
+                        {% for ev in rugby_evals_asc %}<td class="ppid-grid-highlight-cell"><span class="{{ ev.couleurs|txtc('objectifs') }}">{{ ev.objectifs or '—' }}</span></td>{% endfor %}
                     </tr>
                     <tr class="ppid-grid-highlight ppid-grid-row-entrainements">
                         <th class="ppid-grid-rowlabel">{{ ppid_icons.training(13) }} Entraînements spécifiques</th>
-                        {% for ev in rugby_evals_asc %}<td class="ppid-grid-highlight-cell">{{ ev.entrainements or '—' }}</td>{% endfor %}
+                        {% for ev in rugby_evals_asc %}<td class="ppid-grid-highlight-cell"><span class="{{ ev.couleurs|txtc('entrainements') }}">{{ ev.entrainements or '—' }}</span></td>{% endfor %}
                     </tr>
                     {% for key, label in ppid_rugby_categories %}
                     <tr>
@@ -434,7 +434,7 @@
                             {% elif trend == 'down' %}<span class="ppid-trend ppid-trend-down" title="Recul vs la période précédente">↘</span>
                             {% elif trend == 'flat' %}<span class="ppid-trend ppid-trend-flat" title="Stable vs la période précédente">→</span>
                             {% endif %}
-                            {% if ev.ratings[key].get('commentaire') %}<div class="ppid-grid-comment">{{ ev.ratings[key].get('commentaire') }}</div>{% endif %}
+                            {% if ev.ratings[key].get('commentaire') %}<div class="ppid-grid-comment {{ ev.couleurs|txtc('commentaire__' ~ key) }}">{{ ev.ratings[key].get('commentaire') }}</div>{% endif %}
                             {% set note_by = ev.ratings[key].get('by') %}
                             {% if note_by %}<div class="ppid-grid-by">{{ staff_names.get(note_by, note_by|email_prefix) }}</div>{% endif %}
                         </td>
@@ -483,18 +483,18 @@
                                             </div>
                                             {% endfor %}
                                         </div>
-                                        <div class="form-group">
-                                            <label>Commentaires</label>
-                                            <input type="text" name="commentaires" value="{{ ev.commentaires or '' }}">
+                                        <div class="form-group txtc-scope">
+                                            {{ ppid_rate.color_label('Commentaires', 'commentaires', ev.couleurs.get('commentaires', '')) }}
+                                            <input class="txtc-target {{ ev.couleurs|txtc('commentaires') }}" type="text" name="commentaires" value="{{ ev.commentaires or '' }}">
                                         </div>
                                         <div class="cal-form-row">
-                                            <div class="form-group">
-                                                <label>Axe de travail — Musculation</label>
-                                                <input type="text" name="axe_musculation" value="{{ ev.axe_musculation or '' }}">
+                                            <div class="form-group txtc-scope">
+                                                {{ ppid_rate.color_label('Axe de travail — Musculation', 'axe_musculation', ev.couleurs.get('axe_musculation', '')) }}
+                                                <input class="txtc-target {{ ev.couleurs|txtc('axe_musculation') }}" type="text" name="axe_musculation" value="{{ ev.axe_musculation or '' }}">
                                             </div>
-                                            <div class="form-group">
-                                                <label>Axe de travail — Terrain</label>
-                                                <input type="text" name="axe_terrain" value="{{ ev.axe_terrain or '' }}">
+                                            <div class="form-group txtc-scope">
+                                                {{ ppid_rate.color_label('Axe de travail — Terrain', 'axe_terrain', ev.couleurs.get('axe_terrain', '')) }}
+                                                <input class="txtc-target {{ ev.couleurs|txtc('axe_terrain') }}" type="text" name="axe_terrain" value="{{ ev.axe_terrain or '' }}">
                                             </div>
                                         </div>
                                         <button type="submit" class="btn">Mettre à jour</button>
@@ -513,15 +513,15 @@
                 <tbody>
                     <tr class="ppid-grid-highlight">
                         <th class="ppid-grid-rowlabel">{{ ppid_icons.note(13) }} Commentaires</th>
-                        {% for ev in physical_evals_asc %}<td class="ppid-grid-highlight-cell">{{ ev.commentaires or '—' }}</td>{% endfor %}
+                        {% for ev in physical_evals_asc %}<td class="ppid-grid-highlight-cell"><span class="{{ ev.couleurs|txtc('commentaires') }}">{{ ev.commentaires or '—' }}</span></td>{% endfor %}
                     </tr>
                     <tr class="ppid-grid-highlight">
                         <th class="ppid-grid-rowlabel">{{ ppid_icons.training(13) }} Musculation</th>
-                        {% for ev in physical_evals_asc %}<td class="ppid-grid-highlight-cell">{{ ev.axe_musculation or '—' }}</td>{% endfor %}
+                        {% for ev in physical_evals_asc %}<td class="ppid-grid-highlight-cell"><span class="{{ ev.couleurs|txtc('axe_musculation') }}">{{ ev.axe_musculation or '—' }}</span></td>{% endfor %}
                     </tr>
                     <tr class="ppid-grid-highlight">
                         <th class="ppid-grid-rowlabel">{{ ppid_icons.training(13) }} Terrain</th>
-                        {% for ev in physical_evals_asc %}<td class="ppid-grid-highlight-cell">{{ ev.axe_terrain or '—' }}</td>{% endfor %}
+                        {% for ev in physical_evals_asc %}<td class="ppid-grid-highlight-cell"><span class="{{ ev.couleurs|txtc('axe_terrain') }}">{{ ev.axe_terrain or '—' }}</span></td>{% endfor %}
                     </tr>
                     {% for key, label in ppid_physical_categories %}
                     <tr>
@@ -650,13 +650,13 @@
         <summary class="btn">＋ Ajouter une tâche{{ ' pour ' ~ selected_player['first_name'] if selected_player else '' }}</summary>
         <form method="POST" action="{{ url_for('cahier_charges_add') }}" class="docs-form">
             <input type="hidden" name="player_id" value="{{ joueur_id or '' }}">
-            <div class="form-group">
-                <label>Titre</label>
-                <input type="text" name="title" placeholder="ex. Ajouter les stats de mêlée fermée" required>
+            <div class="form-group txtc-scope">
+                {{ ppid_rate.color_label('Titre', 'title', '') }}
+                <input class="txtc-target" type="text" name="title" placeholder="ex. Ajouter les stats de mêlée fermée" required>
             </div>
-            <div class="form-group">
-                <label>Description (optionnel)</label>
-                <input type="text" name="description" placeholder="Détails, contexte...">
+            <div class="form-group txtc-scope">
+                {{ ppid_rate.color_label('Description (optionnel)', 'description', '') }}
+                <input class="txtc-target" type="text" name="description" placeholder="Détails, contexte...">
             </div>
             <button type="submit" class="btn">Ajouter (dans « À faire »)</button>
         </form>
@@ -674,8 +674,8 @@
         <div class="cc-column-body">
             {% for item in columns[status] %}
             <div class="cc-card">
-                <div class="cc-card-title">{{ item.title }}</div>
-                {% if item.description %}<div class="cc-card-desc">{{ item.description }}</div>{% endif %}
+                <div class="cc-card-title {{ item.couleurs|txtc('title') }}">{{ item.title }}</div>
+                {% if item.description %}<div class="cc-card-desc {{ item.couleurs|txtc('description') }}">{{ item.description }}</div>{% endif %}
                 <div class="cc-card-meta">{{ item.created_by }} · {{ item.date_human }}</div>
                 {% if not demo_forced %}
                 <div class="cc-card-actions">

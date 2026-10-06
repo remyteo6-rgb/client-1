@@ -67,7 +67,7 @@
                 <tbody>
                     <tr class="ppid-grid-highlight ppid-grid-row-objectifs">
                         <th class="ppid-grid-rowlabel">{{ ppid_icons.target(13) }} Objectifs</th>
-                        {% for ev in rugby_evals_asc %}<td class="ppid-grid-highlight-cell">{{ ev.objectifs or '—' }}</td>{% endfor %}
+                        {% for ev in rugby_evals_asc %}<td class="ppid-grid-highlight-cell"><span class="{{ ev.couleurs|txtc('objectifs') }}">{{ ev.objectifs or '—' }}</span></td>{% endfor %}
                     </tr>
                     {% if entretiens %}
                     {% set ppid_entretien_editable = false %}
@@ -94,7 +94,7 @@
                     {% endif %}
                     <tr class="ppid-grid-highlight ppid-grid-row-entrainements">
                         <th class="ppid-grid-rowlabel">{{ ppid_icons.training(13) }} Entraînements spécifiques</th>
-                        {% for ev in rugby_evals_asc %}<td class="ppid-grid-highlight-cell">{{ ev.entrainements or '—' }}</td>{% endfor %}
+                        {% for ev in rugby_evals_asc %}<td class="ppid-grid-highlight-cell"><span class="{{ ev.couleurs|txtc('entrainements') }}">{{ ev.entrainements or '—' }}</span></td>{% endfor %}
                     </tr>
                     {% for key, label in ppid_rugby_categories %}
                     <tr>
@@ -108,7 +108,7 @@
                             {% elif trend == 'down' %}<span class="ppid-trend ppid-trend-down" title="Recul vs la période précédente">↘</span>
                             {% elif trend == 'flat' %}<span class="ppid-trend ppid-trend-flat" title="Stable vs la période précédente">→</span>
                             {% endif %}
-                            {% if ev.ratings[key].get('commentaire') %}<div class="ppid-grid-comment">{{ ev.ratings[key].get('commentaire') }}</div>{% endif %}
+                            {% if ev.ratings[key].get('commentaire') %}<div class="ppid-grid-comment {{ ev.couleurs|txtc('commentaire__' ~ key) }}">{{ ev.ratings[key].get('commentaire') }}</div>{% endif %}
                         </td>
                         {% endfor %}
                     </tr>
@@ -154,15 +154,15 @@
                 <tbody>
                     <tr class="ppid-grid-highlight">
                         <th class="ppid-grid-rowlabel">{{ ppid_icons.note(13) }} Commentaires</th>
-                        {% for ev in physical_evals_asc %}<td class="ppid-grid-highlight-cell">{{ ev.commentaires or '—' }}</td>{% endfor %}
+                        {% for ev in physical_evals_asc %}<td class="ppid-grid-highlight-cell"><span class="{{ ev.couleurs|txtc('commentaires') }}">{{ ev.commentaires or '—' }}</span></td>{% endfor %}
                     </tr>
                     <tr class="ppid-grid-highlight">
                         <th class="ppid-grid-rowlabel">{{ ppid_icons.training(13) }} Musculation</th>
-                        {% for ev in physical_evals_asc %}<td class="ppid-grid-highlight-cell">{{ ev.axe_musculation or '—' }}</td>{% endfor %}
+                        {% for ev in physical_evals_asc %}<td class="ppid-grid-highlight-cell"><span class="{{ ev.couleurs|txtc('axe_musculation') }}">{{ ev.axe_musculation or '—' }}</span></td>{% endfor %}
                     </tr>
                     <tr class="ppid-grid-highlight">
                         <th class="ppid-grid-rowlabel">{{ ppid_icons.training(13) }} Terrain</th>
-                        {% for ev in physical_evals_asc %}<td class="ppid-grid-highlight-cell">{{ ev.axe_terrain or '—' }}</td>{% endfor %}
+                        {% for ev in physical_evals_asc %}<td class="ppid-grid-highlight-cell"><span class="{{ ev.couleurs|txtc('axe_terrain') }}">{{ ev.axe_terrain or '—' }}</span></td>{% endfor %}
                     </tr>
                     {% for key, label in ppid_physical_categories %}
                     <tr>
