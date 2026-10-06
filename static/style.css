@@ -2644,3 +2644,25 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
 .report-slide .dis-cat-barzone { flex: 1; height: auto; min-height: 60px; }
 .report-slide .dis-suivi { flex: 1 1 0; display: flex; flex-direction: column; min-height: 0; }
 .report-slide .dis-suivi-svg { flex: 1; height: auto; min-height: 110px; }
+
+/* Discipline : saisie directe (admin), fondue dans la diapo */
+.dis-in {
+    border: 0; background: transparent; font: inherit; color: inherit; width: 100%;
+    text-align: center; padding: 0; border-radius: 3px;
+}
+.dis-in:hover { background: rgba(125,54,83,.06); }
+.dis-in:focus-visible { outline: 2px solid var(--accent-gold); outline-offset: 1px; background: #fff; }
+.dis-in-num { width: 34px; -moz-appearance: textfield; }
+.dis-in-num::-webkit-outer-spin-button, .dis-in-num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.dis-card-btn { border: 0; background: transparent; padding: 0 4px; cursor: pointer; line-height: 1; }
+.dis-card-none { background: transparent; outline: 1px dashed #ccc; }
+@media print { .dis-card-none { outline: 0; } }
+.dis-in-cat { width: 48px; font-weight: 800; font-size: 1rem; padding-top: 3px; -moz-appearance: textfield; }
+.dis-in-cat::-webkit-outer-spin-button, .dis-in-cat::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.dis-cat-bar.is-empty { background: #f2998d; border-width: 1px; }
+.dis-cat-text {
+    resize: none; font-size: .72rem; font-style: italic; line-height: 1.35; min-height: 62px; overflow: hidden;
+}
+.dis-bar b.is-out { position: absolute; top: -20px; color: #1b1b1b; }
+.dis-cat-zero .dis-in-cat { color: #999; }
+@media print { .dis-cat-text::placeholder, .dis-in::placeholder { color: transparent; } }
