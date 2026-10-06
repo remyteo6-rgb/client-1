@@ -1227,25 +1227,61 @@ def compute_bilan_attaque(instances, own_points=None):
 # Lignes du rapport, dans l'ordre exact de la page, et les libellés du tagging qui
 # les alimentent. Ce qui n'est pas tagué reste à zéro : rien n'est reconstitué.
 DEFENSE_ESSAI_ORIGINES = [
-    ("Lancements Melees", ["MELEE", "MELEES"]),
-    ("Lancements Touches", ["TOUCHE", "TOUCHES"]),
-    ("Ballon Porté", ["BALLON PORTE", "MAUL"]),
-    ("Pick & Go", ["PICK"]),
-    ("Dans le jeu", ["JEU", "JEU COURANT"]),
-    ("Contre Attaque", ["CONTRE ATTAQUE", "CE"]),
+    ("Lancements Melees", ["MELEE", "MELEES", "LANCEMENT MELEE", "LANCEMENTS MELEES"]),
+    ("Lancements Touches", ["TOUCHE", "TOUCHES", "LANCEMENT TOUCHE", "LANCEMENTS TOUCHES"]),
+    ("Ballon Porté", ["BALLON PORTE", "MAUL", "MAULS"]),
+    ("Pick & Go", ["PICK", "PICK & GO", "PICK AND GO", "PICK GO"]),
+    ("Dans le jeu", ["JEU", "JEU COURANT", "DANS LE JEU"]),
+    ("Contre Attaque", ["CONTRE ATTAQUE", "CE", "CA"]),
     ("Turnovers", ["TURNOVER", "TURNOVERS"]),
-    ("De Penalites", ["PENALITE", "PENALITES"]),
-    ("Penalites Jouees vite", ["PENALITE VITE", "PENALITE JOUEE VITE"]),
-    ("Penalites Jouees à la main", ["PENALITE MAIN", "PENALITE JOUEE A LA MAIN"]),
+    ("De Penalites", ["PENALITE", "PENALITES", "DE PENALITE", "DE PENALITES"]),
+    ("Penalites Jouees vite", ["PENALITE VITE", "PENALITE JOUEE VITE", "PENALITES JOUEES VITE"]),
+    ("Penalites Jouees à la main", ["PENALITE MAIN", "PENALITE A LA MAIN", "PENALITE JOUEE A LA MAIN",
+                                    "PENALITES JOUEES A LA MAIN"]),
 ]
 DEFENSE_PHASES = ["1er Temps", "2eme Temps", "3eme Temps", "4eme Temps", "5eme Temps",
                   "6eme Temps", "7eme Temps", "8eme Temps", "9eme Temps", "10eme Temps",
                   "11eme Temps", "12eme Temps", "+ 12 Temps"]
-DEFENSE_FRANCHI_RESULTATS = ["Franchissement - Essai", "Franchissement - Pénalité Pour",
-                             "Franchissement - Ballon Récup", "Franchissement - Arret"]
-DEFENSE_FRANCHI_ORIGINES = ["Franchi Contre Attaque", "Franchi Turnovers", "Franchi Touches",
-                            "Franchi Mêlées", "Franchi Pénalités à la main",
-                            "Franchi Pénalités Jouée Vite", "Jeu Courant"]
+DEFENSE_FRANCHI_RESULTATS = [
+    ("Franchissement - Essai", ["ESSAI", "ESSAIS"]),
+    ("Franchissement - Pénalité Pour", ["PENALITE POUR", "PENALITE", "PENALITES"]),
+    ("Franchissement - Ballon Récup", ["BALLON RECUP", "BALLON RECUPERE", "BALLONS RECUP", "RECUP"]),
+    ("Franchissement - Arret", ["ARRET", "ARRETE", "STOP"]),
+]
+DEFENSE_FRANCHI_ORIGINES = [
+    ("Franchi Contre Attaque", ["CONTRE ATTAQUE", "CE", "CA"]),
+    ("Franchi Turnovers", ["TURNOVER", "TURNOVERS"]),
+    ("Franchi Touches", ["TOUCHE", "TOUCHES"]),
+    ("Franchi Mêlées", ["MELEE", "MELEES"]),
+    ("Franchi Pénalités à la main", ["PENALITE MAIN", "PENALITE A LA MAIN", "PENALITES A LA MAIN",
+                                     "PENALITE JOUEE A LA MAIN"]),
+    ("Franchi Pénalités Jouée Vite", ["PENALITE VITE", "PENALITE JOUEE VITE", "PENALITES JOUEES VITE"]),
+    ("Jeu Courant", ["JEU", "JEU COURANT", "DANS LE JEU"]),
+]
+# Groupes de labels lus sur les codes Essai et Break adverses (comparés sans accents).
+DEFENSE_ORIGINE_GROUPS = {"ORIGINE POSSESSION", "ORIGINE", "ORIGINES"}
+DEFENSE_RESULTAT_GROUPS = {"RESULTAT", "RESULTATS", "RESULTAT FRANCHISSEMENT"}
+DEFENSE_TEMPS_GROUPS = {"TEMPS DE JEU", "TEMPS", "NB TEMPS", "PHASES"}
+
+
+def _label_key(text):
+    """Libellé comparable : sans accents ni majuscules, tirets remplacés par des espaces
+    (« Contre-attaque » = « CONTRE ATTAQUE »)."""
+    return " ".join(_normalize_tag(text).replace("-", " ").replace("’", "'").split())
+
+
+def _phase_index(text):
+    """« 3eme temps », « 3 », « +12 », « 12+ »... → index dans DEFENSE_PHASES (ou None)."""
+    txt = _label_key(text)
+    m = re.search(r"\d+", txt)
+    if not m:
+        return None
+    n = int(m.group())
+    if "+" in txt or n > 12:
+        return len(DEFENSE_PHASES) - 1
+    return n - 1 if n >= 1 else None
+
+
 # Ballons que l'adversaire a perdus (code "ADV PDB"), par nature — le "CLASH" du rapport.
 DEFENSE_CLASH = [
     ("En-Avants", ["SUR EN-AVANTS", "SUR EN AVANTS", "EN-AVANT", "EN AVANT"]),
@@ -1263,11 +1299,12 @@ DEFENSE_CLASH = [
 
 
 def _defense_ligne(libelles, compte):
-    """Une ligne de liste du rapport : son libellé et son total (0 si rien de tagué)."""
+    """Une ligne de liste du rapport : son libellé et son total (0 si rien de tagué).
+    `compte` est indexé par _label_key(texte du label)."""
     lignes = []
     for label, cles in libelles:
         total = 0
-        for cle in cles:
+        for cle in {_label_key(c) for c in cles}:
             total += compte.get(cle, 0)
         lignes.append({"label": label, "count": total})
     return lignes
@@ -1282,6 +1319,9 @@ def compute_bilan_defense(instances, adverse_points=None, zone_gold=None):
     et restent vides à l'affichage : elles ne sont pas reconstituées."""
     essais = franchissements = 0
     origines = Counter()
+    phases = Counter()
+    franchi_resultats = Counter()
+    franchi_origines = Counter()
     essais_par_quart = Counter()
     clash = Counter()
     snipers_reussis = Counter()
@@ -1301,16 +1341,27 @@ def compute_bilan_defense(instances, adverse_points=None, zone_gold=None):
             if quart:
                 essais_par_quart[quart] += 1
             for lab in inst.get("labels") or []:
-                if _normalize_tag(lab.get("group")) == "ORIGINE POSSESSION":
-                    origines[_normalize_tag(lab.get("text"))] += 1
+                groupe = _normalize_tag(lab.get("group"))
+                if groupe in DEFENSE_ORIGINE_GROUPS:
+                    origines[_label_key(lab.get("text"))] += 1
+                elif groupe in DEFENSE_TEMPS_GROUPS:
+                    idx = _phase_index(lab.get("text"))
+                    if idx is not None:
+                        phases[idx] += 1
         elif _new_convention_code_match(tokens, ["BREAK"], adv_token) and tokens[0] in adv_set:
             found = True
             franchissements += 1
+            for lab in inst.get("labels") or []:
+                groupe = _normalize_tag(lab.get("group"))
+                if groupe in DEFENSE_ORIGINE_GROUPS:
+                    franchi_origines[_label_key(lab.get("text"))] += 1
+                elif groupe in DEFENSE_RESULTAT_GROUPS:
+                    franchi_resultats[_label_key(lab.get("text"))] += 1
         elif _new_convention_code_match(tokens, ["PDB"], adv_token) and tokens[0] in adv_set:
             found = True
             # Un ballon perdu ne compte qu'une fois, même si le tagueur a posé deux
             # fois le même libellé sur l'instance.
-            natures = {_normalize_tag(lab.get("text"))
+            natures = {_label_key(lab.get("text"))
                        for lab in inst.get("labels") or []
                        if _normalize_tag(lab.get("group")) == "TYPE DE BP"}
             for nature in natures:
@@ -1350,11 +1401,11 @@ def compute_bilan_defense(instances, adverse_points=None, zone_gold=None):
             "points_par_entree": danger.get("points_par_entree"),
         },
         "essais_origines": _defense_ligne(DEFENSE_ESSAI_ORIGINES, origines),
-        # Le nombre de temps de jeu avant l'essai n'est pas tagué.
-        "essais_phases": [{"label": p, "count": 0} for p in DEFENSE_PHASES],
-        # Ni le détail des franchissements (résultat et origine).
-        "franchi_resultats": [{"label": p, "count": 0} for p in DEFENSE_FRANCHI_RESULTATS],
-        "franchi_origines": [{"label": p, "count": 0} for p in DEFENSE_FRANCHI_ORIGINES],
+        # Labels « Temps de jeu » (essais), « Résultat » et « Origine possession »
+        # (franchissements) posés sur les codes adverses ; 0 tant que ce n'est pas tagué.
+        "essais_phases": [{"label": p, "count": phases.get(i, 0)} for i, p in enumerate(DEFENSE_PHASES)],
+        "franchi_resultats": _defense_ligne(DEFENSE_FRANCHI_RESULTATS, franchi_resultats),
+        "franchi_origines": _defense_ligne(DEFENSE_FRANCHI_ORIGINES, franchi_origines),
         "clash": _defense_ligne(DEFENSE_CLASH, clash),
         "essais_par_quart": {q: essais_par_quart.get(q, 0) for q in POSSESSION_QUARTER_ORDER},
         "points_par_quart": compute_points_par_quart(instances, "adverse"),
