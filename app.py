@@ -27,6 +27,7 @@ from parser import (
     TRAINING_TAXONOMY, group_training_sessions_by_period,
     PHASE_ICONS, PHASE_HELP, compute_match_baseline,
     compute_player_season_baselines, build_player_cards, order_rows_by_reference_order,
+    composition_ordered_names,
     player_row_order,
     compute_momentum, render_momentum_svg,
     compute_zone_gold_log, compute_new_convention_tries, compute_new_convention_score,
@@ -1280,11 +1281,17 @@ def match_joueurs(match_id):
                                               defense_table=defense_table, ruck_table=ruck_table)
     matches_with_instances, _, _, _ = _season_context()
     player_baselines = compute_player_season_baselines(matches_with_instances, exclude_id=match_id)
-    # Ordre d'affichage : celui des boutons joueurs dans le fichier Sportscode envoyé
-    # (row_order — l'ordre où le staff a rangé l'effectif, typiquement n°1 à n°23), et
-    # seulement à défaut la composition saisie à la main sur le site (matchs importés
-    # avant l'ajout du row_order, ou fichier qui n'en fournissait pas).
-    ordered_names = match.get("row_order") or match.get("composition")
+    # Ordre d'affichage et numéros : ceux de la composition saisie sur le site (n°1 à n°23,
+    # demande de Téo — même logique que la page Discipline), noms rapprochés des codes du
+    # XML (« Tambo-Fantcho » = « FANTCHO TAMBO »). Sans composition : ordre des boutons
+    # joueurs du fichier Sportscode (row_order). Un joueur du XML absent de la compo est
+    # affiché à la suite, sans numéro.
+    composition = match.get("composition") or []
+    if any(composition):
+        xml_players = {r["name"] for t in (bilan_table, attack_table, defense_table, ruck_table) for r in t["rows"]}
+        ordered_names = composition_ordered_names(composition, xml_players, match.get("row_order"))
+    else:
+        ordered_names = match.get("row_order")
     player_cards = build_player_cards(
         bilan_table, attack_table, defense_table, ruck_table, ordered_names=ordered_names)
     # Mêmes tableaux de détail, mais classés dans cet ordre au lieu de l'ordre

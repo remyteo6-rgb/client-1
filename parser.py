@@ -3627,6 +3627,50 @@ def _name_order_index(ordered_names):
     return numbers
 
 
+def _composition_name_score(comp_name, xml_name):
+    """Ressemblance entre un nom de la page Composition (« Tambo-Fantcho », « Combrinck »)
+    et un code joueur du XML (« FANTCHO TAMBO », « COMBRICK », « L.FUKWAMOKO ») : on ignore
+    l'initiale du XML et l'ordre des mots, et on tolère une faute de frappe."""
+    import difflib
+    a = _name_key(comp_name)
+    b = _name_key(xml_name.split(".")[-1])
+    if not a or not b:
+        return 0.0
+    direct = difflib.SequenceMatcher(None, a, b).ratio()
+    sorted_tokens = difflib.SequenceMatcher(None, " ".join(sorted(a.split())), " ".join(sorted(b.split()))).ratio()
+    return max(direct, sorted_tokens)
+
+
+def composition_ordered_names(composition, player_names, row_order=None, threshold=0.8):
+    """Remplace chaque nom de la composition saisie sur le site (23 emplacements, n°1 à
+    n°23, cases vides comprises) par le code joueur correspondant du XML, pour que la page
+    Joueurs reprenne les numéros de la compo (demande de Téo). Renvoie une liste de même
+    longueur que la composition : code XML à l'emplacement du numéro, None si personne.
+
+    Rapprochement global « meilleur score d'abord », chaque code XML n'étant utilisé
+    qu'une fois. Deux joueurs au même nom (L. et M. Fukwamoko) : à score égal, le premier
+    numéro de la compo prend celui qui vient en premier dans les boutons Sportscode."""
+    comp = list(composition or [])
+    order_idx = {n: i for i, n in enumerate(row_order or [])}
+    xml = sorted(set(player_names or []), key=lambda n: (order_idx.get(n, 10_000), n.casefold()))
+    pairs = []
+    for slot, cname in enumerate(comp):
+        if not cname:
+            continue
+        for xi, xname in enumerate(xml):
+            score = _composition_name_score(cname, xname)
+            if score >= threshold:
+                pairs.append((-round(score, 4), slot, xi, xname))
+    pairs.sort()
+    slots = [None] * len(comp)
+    used = set()
+    for _neg, slot, _xi, xname in pairs:
+        if slots[slot] is None and xname not in used:
+            slots[slot] = xname
+            used.add(xname)
+    return slots
+
+
 def order_rows_by_reference_order(rows, ordered_names):
     """Trie une liste de lignes joueur (chacune avec une clé 'name') selon 'ordered_names'
     (row_order du XML, ou à défaut composition saisie sur le site) et renseigne 'number'
