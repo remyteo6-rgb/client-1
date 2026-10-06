@@ -2666,3 +2666,17 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
 .dis-bar b.is-out { position: absolute; top: -20px; color: #1b1b1b; }
 .dis-cat-zero .dis-in-cat { color: #999; }
 @media print { .dis-cat-text::placeholder, .dis-in::placeholder { color: transparent; } }
+
+/* Avant / 3/4 par joueur : clic sur le nom, étiquette visible seulement au survol (admin), jamais imprimée */
+.dis-grp-btn {
+    border: 0; background: transparent; font: inherit; color: inherit; padding: 0; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px; text-align: left;
+}
+.dis-grp-tag {
+    font-size: .58rem; font-weight: 800; letter-spacing: .3px; padding: 1px 5px; border-radius: 3px;
+    background: #ede6dc; color: #7d3653; opacity: 0; transition: opacity .12s;
+}
+.dis-table tbody tr:hover .dis-grp-tag, .dis-grp-btn:focus-visible .dis-grp-tag { opacity: 1; }
+.dis-grp-btn:focus-visible { outline: 2px solid var(--accent-gold); outline-offset: 1px; }
+.dis-grp-btn[data-groupe="3/4"] .dis-grp-tag { color: #1d3557; }
+@media print { .dis-grp-tag { display: none; } }
