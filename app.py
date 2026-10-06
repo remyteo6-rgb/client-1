@@ -1741,7 +1741,7 @@ def match_discipline_save(match_id):
     value = payload.get("value")
     manual = match.get("manual_stats") or {}
     disc = manual.setdefault("discipline", {})
-    if kind == "player" and key and field in ("fautes", "raison", "carton"):
+    if kind == "player" and key and field in ("fautes", "raison", "carton", "groupe"):
         entry = disc.setdefault("players", {}).setdefault(key, {})
     elif kind == "category" and key in ("Attack", "Defence", "Set Piece", "Other") and field in ("count", "reasons"):
         entry = disc.setdefault("categories", {}).setdefault(key, {})
@@ -1756,6 +1756,8 @@ def match_discipline_save(match_id):
             entry.pop(field)
     elif field == "carton":
         entry[field] = value if value in ("", "J", "R") else ""
+    elif field == "groupe":
+        entry[field] = value if value in ("avants", "3/4") else ""
     else:
         entry[field] = str(value or "")[:500]
     db = get_db()

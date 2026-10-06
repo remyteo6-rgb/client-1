@@ -1243,6 +1243,9 @@ def compute_discipline(instances, row_order=None, cards=None, composition=None, 
         if carton not in ("J", "R", ""):
             carton = "R" if ((auto or {}).get("red") or card.get("red")) else ("J" if ((auto or {}).get("yellow") or card.get("yellow")) else "")
         raison = man.get("raison") if man.get("raison") is not None else _reasons_text(auto["reasons"]) if auto else ""
+        # Avant / 3/4 corrigeable à la main (joueur qui a joué devant ou derrière ce jour-là).
+        if man.get("groupe") in ("avants", "3/4"):
+            groupe = man["groupe"]
         rows.append({"key": key, "name": display, "fautes": fautes, "fautes_auto": fautes_auto,
                      "raison": raison, "carton": carton, "groupe": groupe})
 
