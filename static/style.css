@@ -2224,14 +2224,19 @@ span.review-crest {
 
 /* Bilan attaque : les colonnes occupent toute la hauteur et chaque panneau
    grandit à proportion de son contenu. */
-.report-slide .bil-board { align-items: stretch; }
+.report-slide .bil-board { align-items: stretch; grid-template-columns: 1fr 1fr 1fr; }
+/* (La diapo garde toujours sa largeur de 1280 px puis est réduite : pas de passage sur
+   une seule colonne sur tablette, qui rendait le tout minuscule.) */
 .report-slide .bil-col > .bil-panel {
     flex: 1 1 auto;
     display: flex; flex-direction: column;
 }
 .report-slide .bil-panel > .bil-panel-body,
 .report-slide .bil-panel > .bil-duo { flex: 1; }
-.report-slide .bil-panel > .bil-table { height: 100%; }
+/* Le tableau prend la place restante du panneau SOUS le bandeau de titre. Pas de
+   « height: 100% » : Safari le calcule sur tout le panneau, bandeau compris, et la
+   dernière ligne (« Connecté », « Points / entrée ») sortait du cadre, masquée. */
+.report-slide .bil-panel > .bil-table { flex: 1 1 auto; height: auto; }
 .report-slide .bil-list { justify-content: space-between; }
 
 /* ---- Page DEFENSE du rapport vidéo ----------------------------------------
