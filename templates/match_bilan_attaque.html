@@ -116,7 +116,7 @@
                 <div class="bil-line"><span>Essais</span><strong>{{ data.essais }}</strong></div>
                 <div class="bil-line"><span>Franchissements</span><strong>{{ data.franchissements }}</strong></div>
                 <div class="bil-line"><span>Contacts</span><strong>{{ data.contacts }}</strong></div>
-                <div class="bil-line bil-line-sub"><span>Dominants</span><strong>{{ data.dominants_pct ~ ' %' if data.dominants_pct is not none else '—' }}</strong></div>
+                <div class="bil-line bil-line-sub" title="{{ data.dominants }} contacts + sur {{ data.contacts }} contacts"><span>Dominants</span><strong>{{ ((data.dominants_pct | round | int) ~ ' %') if data.dominants_pct is not none else '—' }}</strong></div>
                 <div class="bil-line bil-line-muted"><span>Libération « i »</span><strong>{{ data.liberation_i_pct ~ ' %' if data.liberation_i_pct is not none else '—' }}</strong></div>
                 <div class="bil-line"><span>Plaquages cassés</span><strong>{{ data.plaquages_casses }}</strong></div>
                 <div class="bil-line bil-line-sub"><span>Offloads</span><strong>{{ data.offloads }}</strong></div>
