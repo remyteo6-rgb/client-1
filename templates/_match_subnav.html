@@ -84,30 +84,30 @@
 
         {% if match is defined %}
         {% set page_labels = {'overview': "Vue d'ensemble", 'bilan_attaque': 'Bilan attaque', 'bilan_defense': 'Bilan défense', 'csc': 'CSC', 'discipline': 'Discipline', 'touches': 'Touches', 'possessions': 'Nos possessions', 'zone_gold': 'Zone Gold', 'joueurs': 'Joueurs', 'composition': 'Composition'} %}
+        {# Ordre des onglets = ordre du rapport (demande de Téo), Composition à la suite.
+           « Nos possessions » retiré du menu à sa demande. Une seule liste pour la barre
+           et le menu déroulant. #}
+        {% set match_tabs = [
+            ('overview', 'match_detail', "Vue d'ensemble"),
+            ('bilan_attaque', 'match_bilan_attaque', 'Bilan attaque'),
+            ('zone_gold', 'match_zone_gold', 'Zone Gold'),
+            ('bilan_defense', 'match_bilan_defense', 'Bilan défense'),
+            ('csc', 'match_csc', 'CSC'),
+            ('discipline', 'match_discipline', 'Discipline'),
+            ('touches', 'match_touches', 'Touches'),
+            ('joueurs', 'match_joueurs', 'Joueurs'),
+            ('composition', 'match_composition', 'Composition'),
+        ] %}
         <div class="subnav-links">
-            <a href="{{ url_for('match_detail', match_id=match['id']) }}" class="{{ 'active' if active=='overview' else '' }}">Vue d'ensemble</a>
-            <a href="{{ url_for('match_bilan_attaque', match_id=match['id']) }}" class="{{ 'active' if active=='bilan_attaque' else '' }}">Bilan attaque</a>
-            <a href="{{ url_for('match_bilan_defense', match_id=match['id']) }}" class="{{ 'active' if active=='bilan_defense' else '' }}">Bilan défense</a>
-            <a href="{{ url_for('match_csc', match_id=match['id']) }}" class="{{ 'active' if active=='csc' else '' }}">CSC</a>
-            <a href="{{ url_for('match_discipline', match_id=match['id']) }}" class="{{ 'active' if active=='discipline' else '' }}">Discipline</a>
-            <a href="{{ url_for('match_touches', match_id=match['id']) }}" class="{{ 'active' if active=='touches' else '' }}">Touches</a>
-            <a href="{{ url_for('match_possessions', match_id=match['id']) }}" class="{{ 'active' if active=='possessions' else '' }}">Nos possessions</a>
-            <a href="{{ url_for('match_zone_gold', match_id=match['id']) }}" class="{{ 'active' if active=='zone_gold' else '' }}">Zone Gold</a>
-            <a href="{{ url_for('match_joueurs', match_id=match['id']) }}" class="{{ 'active' if active=='joueurs' else '' }}">Joueurs</a>
-            <a href="{{ url_for('match_composition', match_id=match['id']) }}" class="{{ 'active' if active=='composition' else '' }}">Composition</a>
+            {% for key, endpoint, label in match_tabs %}
+            <a href="{{ url_for(endpoint, match_id=match['id']) }}" class="{{ 'active' if active==key else '' }}">{{ label }}</a>
+            {% endfor %}
             <details class="subnav-page-dropdown">
                 <summary>{{ page_labels.get(active, 'Pages') }} ▾</summary>
                 <div class="subnav-page-menu">
-                    <a href="{{ url_for('match_detail', match_id=match['id']) }}" class="{{ 'active' if active=='overview' else '' }}">Vue d'ensemble</a>
-                    <a href="{{ url_for('match_bilan_attaque', match_id=match['id']) }}" class="{{ 'active' if active=='bilan_attaque' else '' }}">Bilan attaque</a>
-                    <a href="{{ url_for('match_bilan_defense', match_id=match['id']) }}" class="{{ 'active' if active=='bilan_defense' else '' }}">Bilan défense</a>
-                    <a href="{{ url_for('match_csc', match_id=match['id']) }}" class="{{ 'active' if active=='csc' else '' }}">CSC</a>
-                    <a href="{{ url_for('match_discipline', match_id=match['id']) }}" class="{{ 'active' if active=='discipline' else '' }}">Discipline</a>
-                    <a href="{{ url_for('match_touches', match_id=match['id']) }}" class="{{ 'active' if active=='touches' else '' }}">Touches</a>
-                    <a href="{{ url_for('match_possessions', match_id=match['id']) }}" class="{{ 'active' if active=='possessions' else '' }}">Nos possessions</a>
-                    <a href="{{ url_for('match_zone_gold', match_id=match['id']) }}" class="{{ 'active' if active=='zone_gold' else '' }}">Zone Gold</a>
-                    <a href="{{ url_for('match_joueurs', match_id=match['id']) }}" class="{{ 'active' if active=='joueurs' else '' }}">Joueurs</a>
-                    <a href="{{ url_for('match_composition', match_id=match['id']) }}" class="{{ 'active' if active=='composition' else '' }}">Composition</a>
+                    {% for key, endpoint, label in match_tabs %}
+                    <a href="{{ url_for(endpoint, match_id=match['id']) }}" class="{{ 'active' if active==key else '' }}">{{ label }}</a>
+                    {% endfor %}
                 </div>
             </details>
         </div>
