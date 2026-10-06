@@ -78,19 +78,39 @@ if (window.Chart) { Chart.defaults.color = '#2a1712'; }
             var inner = board.querySelector('.report-inner');
             if (inner) {
                 inner.style.setProperty('--content-scale', 1);
+                inner.style.width = '';
                 var style = window.getComputedStyle(board);
                 var dispo = H - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
-                /* Hauteur naturelle du contenu, mesurée sans la contrainte de la diapo :
-                   au-delà, on réduit le tout pour qu'il tienne dans le cadre. */
+                var largeurDispo = board.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+                /* Hauteur naturelle du contenu, mesurée sans la contrainte de la diapo. */
                 inner.style.height = 'auto';
                 var haut = inner.scrollHeight;
                 if (haut > dispo) {
-                    /* Le contenu garde sa hauteur naturelle (sinon les colonnes sont
-                       tassées dans le cadre et leur bas déborde, ex. la ligne « Connecté »
-                       du bloc Punch), puis le tout est réduit depuis le haut pour tenir. */
-                    inner.style.height = haut + 'px';
-                    inner.style.transformOrigin = 'top center';
-                    inner.style.setProperty('--content-scale', dispo / haut);
+                    /* Trop haut pour le cadre : on réduit le tout, mais en élargissant
+                       d'autant la mise en page avant réduction, pour qu'une fois réduite
+                       elle occupe toujours TOUTE la largeur de la diapo (plus de marges
+                       vides sur les côtés). Élargir fait baisser la hauteur : quelques
+                       passes suffisent pour trouver l'échelle juste. */
+                    var echelleContenu = dispo / haut;
+                    for (var passe = 0; passe < 5; passe++) {
+                        inner.style.width = (largeurDispo / echelleContenu) + 'px';
+                        haut = inner.scrollHeight;
+                        var suivante = Math.min(1, dispo / haut);
+                        if (Math.abs(suivante - echelleContenu) < 0.002) { echelleContenu = Math.min(echelleContenu, suivante); break; }
+                        echelleContenu = suivante;
+                    }
+                    if (echelleContenu >= 1) {
+                        inner.style.width = '';
+                        inner.style.height = '';
+                        inner.style.transformOrigin = '';
+                        inner.style.setProperty('--content-scale', 1);
+                    } else {
+                        inner.style.width = (largeurDispo / echelleContenu) + 'px';
+                        /* Toute la hauteur réduite du cadre : les colonnes s'étirent jusqu'en bas. */
+                        inner.style.height = (dispo / echelleContenu) + 'px';
+                        inner.style.transformOrigin = 'top left';
+                        inner.style.setProperty('--content-scale', echelleContenu);
+                    }
                 } else {
                     inner.style.height = '';
                     inner.style.transformOrigin = '';
