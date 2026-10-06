@@ -142,7 +142,8 @@
 
 <div class="card no-print dis-notes">
     <p class="subtitle">Fautes d'équipe, par période et score des fautes : codes « UBB Disciplines » / « {{ match['opponent'] }} Disciplines ».
-        Fautes par joueur : labels « Disciplines » sur le joueur (corrigeables). Le chiffre du bandeau « Fautes par période » = nos fautes en 1re mi-temps.
+        Fautes par joueur : labels « Disciplines » sur le joueur (corrigeables). Raison : descripteurs du groupe « Raison » ou du groupe
+        « Disciplines » (hors « Disciplines Off / Def », ignorés ici). Le chiffre du bandeau « Fautes par période » = nos fautes en 1re mi-temps.
         L'ordre des joueurs et la répartition avants / 3/4 suivent la page Composition quand elle est remplie.</p>
     {% if is_admin %}
     <p class="subtitle">{{ icons.edit() }} Tout se saisit directement sur la diapo : nombre de fautes et raison de chaque joueur, carton (clic sur la case :
