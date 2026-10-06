@@ -8,7 +8,7 @@
 <div class="page-header no-print">
     <div>
         <h1>{{ icons.users() }} Joueurs — {{ match['own_team'] }}</h1>
-        <p class="subtitle">Bilan individuel du match, dans l'ordre de la composition. Le détail par secteur est dans les blocs en bas de page (clic sur l'en-tête d'une colonne pour trier).</p>
+        <p class="subtitle">Bilan individuel du match, dans l'ordre de la composition. Puis le détail par secteur : attaque, défense, conquête et jeu au pied.</p>
     </div>
     <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
@@ -84,119 +84,65 @@
     </div>
 </div>
 
-<details class="card section-block">
-    <summary>
-        <span class="section-title">{{ icons.shield() }} Défense, plaquages et combat</span>
-        <span class="section-help">Plaquages (Snipers : réussis/manqués/tentés/%, hauteur haut/bas, qualité +/=/-), Combattant (total/dominant/subis), Chasseur (montées sur jeu au pied, +/-), ballons récupérés dans le jeu (contre-rucks + ballons gagnés + interceptions). % grisé sous 3 tentatives.</span>
-    </summary>
-    <div class="section-body">
-        <table class="stat-table zebra-table sortable">
+{# Diapos de détail (attaque / défense / conquête) : même mise en page que la diapo BILAN,
+   colonnes décrites dans JOUEURS_SLIDES (app.py), une colonne par chiffre (+ / = / −). #}
+{% for sl in detail_slides %}
+<div class="report-board bjr-report bjr-detail">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">{{ sl.title }}</span>
+    </div>
+    <div class="bjr-panel">
+        <table class="bjr-table">
+            <colgroup>
+                <col class="bjr-c-num"><col class="bjr-c-poste"><col class="bjr-c-nom">
+                {% for c in sl.cols %}<col class="{{ 'bjr-c-wide' if (c.label|length > 4 or c.kind == 'pct') else 'bjr-c-sm' }}">{% endfor %}
+            </colgroup>
             <thead>
-                <tr class="cols-row">
-                    <th>Joueur</th><th>Réus.</th><th>Man.</th><th>Tent.</th><th>%</th>
-                    <th class="sep-l">Bas</th><th>Haut</th>
-                    <th class="sep-l">Qualité +/=/-</th>
-                    <th class="sep-l">Combattant Tot./Dom./Subis</th>
-                    <th class="sep-l">Chasseur Tot./+/-</th>
-                    <th class="sep-l">Ballons récup.</th>
+                <tr class="bjr-groups">
+                    <th colspan="3" class="bjr-g-joueur">Joueur</th>
+                    {% for g in sl.groups %}<th colspan="{{ g.cols|length }}" class="bjr-g-{{ g.color }}">{{ g.label }}</th>{% endfor %}
+                </tr>
+                <tr class="bjr-cols">
+                    <th colspan="2" class="bjr-left">Poste</th><th class="bjr-left">Nom</th>
+                    {% for g in sl.groups %}{% for c in g.cols %}<th class="{{ 'bjr-gstart' if loop.first }}{{ ' bjr-sign' if c.label in ['+', '=', '−'] }}">{{ c.label }}</th>{% endfor %}{% endfor %}
                 </tr>
             </thead>
             <tbody>
-            {% for r in defense_table.rows %}
-                {% set pb = ((player_baselines or {}).get(r.name) or {}).get('defense') %}
-                {% set reussis = r.plaquage_dominant + r.plaquage_neutre + r.plaquage_passif %}
+            {% for r in sl.rows %}
+                {% set pb = (player_baselines or {}).get(r.name) or {} %}
                 <tr>
-                    <td>{% if r.number %}{{ r.number }}. {% endif %}{{ r.name }}</td>
-                    <td class="stat-pos">{{ reussis }}</td>
-                    <td class="stat-neg">{{ r.plaquage_rate }}</td>
-                    <td>{{ r.plaquage_tentes }}</td>
-                    <td class="{{ 'stat-muted' if r.plaquage_low_sample }}">{{ r.plaquage_pct ~ '%' if r.plaquage_pct is not none else '—' }}{% if pb and r.plaquage_pct is not none %}{{ kpi_arrow(r.plaquage_pct, pb.plaquage_pct, true, '%') }}{% endif %}</td>
-                    <td class="sep-l">{{ r.plaquage_bas }}</td><td>{{ r.plaquage_haut }}</td>
-                    <td class="sep-l"><span class="{{ 'stat-pos' if r.plaquage_dominant else '' }}">{{ r.plaquage_dominant }}</span> / {{ r.plaquage_neutre }} / <span class="{{ 'stat-neg' if r.plaquage_passif else '' }}">{{ r.plaquage_passif }}</span></td>
-                    <td class="sep-l">{{ r.combattant_total }} / <span class="stat-pos">{{ r.combattant_plus }}</span> / <span class="stat-neg">{{ r.combattant_minus }}</span></td>
-                    <td class="sep-l">{{ r.chasseur_total }} / <span class="stat-pos">{{ r.chasseur_plus }}</span> / <span class="stat-neg">{{ r.chasseur_minus }}</span></td>
-                    <td class="sep-l stat-own">{{ r.ballons_recuperes }}</td>
+                    <td class="bjr-num">{% if r.number %}<span>{{ r.number }}</span>{% endif %}</td>
+                    <td class="bjr-poste">{{ r.poste }}</td>
+                    <td class="bjr-nom">{{ r.nom }}</td>
+                    {% for g in sl.groups %}{% for c in g.cols %}
+                    {% set v = r.v[c.key] %}
+                    {% set gs = ' bjr-gstart' if loop.first else '' %}
+                    {% if c.kind == 'pct' %}
+                    <td class="bjr-pct{{ gs }}{{ ' bjr-low' if r.low and c.key == 'plaquage_pct' }}">{% if v is not none %}{{ v }}%{% if c.cmp %}{% set base = (pb.get(c.cmp[0]) or {}).get(c.cmp[1]) %}{{ kpi_arrow(v, base, true, '%') }}{% endif %}{% else %}<span class="bjr-dot">·</span>{% endif %}</td>
+                    {% elif v %}
+                    <td class="{{ 'bjr-pos' if c.kind == 'pos' else ('bjr-neg' if c.kind == 'neg' else '') }}{{ gs }}">{{ v }}{% if c.cmp %}{% set base = (pb.get(c.cmp[0]) or {}).get(c.cmp[1]) %}{{ kpi_arrow(v, base, true) }}{% endif %}</td>
+                    {% else %}
+                    <td class="bjr-zero{{ gs }}">·</td>
+                    {% endif %}
+                    {% endfor %}{% endfor %}
                 </tr>
             {% endfor %}
             </tbody>
-        </table>
-    </div>
-</details>
-
-<details class="card section-block">
-    <summary>
-        <span class="section-title">{{ icons.swords() }} Jeu au contact, passes et soutien</span>
-        <span class="section-help">Contact +/=/-, franchissements (déf. battus, courses, breaks), passes +/=/- (% propres = + et = réunis), offloads +/=/-, soutien au ruck (1er/2e/3e+), déchet/discipline (ballons perdus, pénalités off. et déf.).</span>
-    </summary>
-    <div class="section-body">
-        <table class="stat-table zebra-table sortable">
-            <thead>
-                <tr class="cols-row">
-                    <th>Joueur</th><th>Contact +/=/-</th><th>Total / %</th>
-                    <th class="sep-l">Déf. battus</th><th>Courses</th><th>Break</th>
-                    <th class="sep-l">Passes +/=/-</th><th>Total / % propres</th>
-                    <th class="sep-l">Offload +/=/-</th><th>Total / %</th>
-                    <th class="sep-l">Soutien 1er/2e/3e+</th>
-                    <th class="sep-l">Ball. perdus</th><th>Pén. off.</th><th>Pén. déf.</th>
-                </tr>
-            </thead>
-            <tbody>
-            {% for r in attack_table.rows %}
-                {% set pb = ((player_baselines or {}).get(r.name) or {}).get('attack') %}
+            <tfoot>
                 <tr>
-                    <td>{% if r.number %}{{ r.number }}. {% endif %}{{ r.name }}</td>
-                    <td><span class="{{ 'stat-pos' if r.contact_plus else '' }}">{{ r.contact_plus }}</span> / {{ r.contact_neutre }} / <span class="{{ 'stat-neg' if r.contact_minus else '' }}">{{ r.contact_minus }}</span></td>
-                    <td>{{ r.contact_total }}{% if r.contact_pct is not none %} ({{ r.contact_pct }}%){% endif %}{% if pb and r.contact_pct is not none %}{{ kpi_arrow(r.contact_pct, pb.contact_pct, true, '%') }}{% endif %}</td>
-                    <td class="sep-l">{{ r.def_battu }}</td><td>{{ r.cartouche }}</td><td>{{ r.break }}</td>
-                    <td class="sep-l"><span class="{{ 'stat-pos' if r.passe_plus else '' }}">{{ r.passe_plus }}</span> / {{ r.passe_neutre }} / <span class="{{ 'stat-neg' if r.passe_minus else '' }}">{{ r.passe_minus }}</span></td>
-                    <td>{{ r.passe_total }}{% if r.passe_pct is not none %} ({{ r.passe_pct }}%){% endif %}{% if pb and r.passe_pct is not none %}{{ kpi_arrow(r.passe_pct, pb.passe_pct, true, '%') }}{% endif %}</td>
-                    <td class="sep-l"><span class="{{ 'stat-pos' if r.offload_plus else '' }}">{{ r.offload_plus }}</span> / {{ r.offload_neutre }} / <span class="{{ 'stat-neg' if r.offload_minus else '' }}">{{ r.offload_minus }}</span></td>
-                    <td>{{ r.offload_total }}{% if r.offload_pct is not none %} ({{ r.offload_pct }}%){% endif %}{% if pb and r.offload_pct is not none %}{{ kpi_arrow(r.offload_pct, pb.offload_pct, true, '%') }}{% endif %}</td>
-                    <td class="sep-l">{{ r.soutien_1er }} / {{ r.soutien_2eme }} / {{ r.soutien_3plus }}</td>
-                    <td class="sep-l"><span class="{{ 'stat-neg' if r.pdb else '' }}">{{ r.pdb }}</span></td>
-                    <td><span class="{{ 'stat-neg' if r.penalite_off else '' }}">{{ r.penalite_off }}</span></td>
-                    <td><span class="{{ 'stat-neg' if r.penalite_def else '' }}">{{ r.penalite_def }}</span></td>
+                    <td colspan="2"></td>
+                    <td class="bjr-nom">Total équipe</td>
+                    {% for g in sl.groups %}{% for c in g.cols %}
+                    {% set v = sl.total.get(c.key) %}
+                    <td class="{{ 'bjr-gstart' if loop.first }}">{% if c.kind == 'pct' %}{{ (v ~ '%') if v is not none else '·' }}{% else %}{{ v if v else '·' }}{% endif %}</td>
+                    {% endfor %}{% endfor %}
                 </tr>
-            {% endfor %}
-            </tbody>
+            </tfoot>
         </table>
     </div>
-</details>
-
-<details class="card section-block">
-    <summary>
-        <span class="section-title">{{ icons.handshake() }} Conquête, jeu au pied et marque</span>
-        <span class="section-help">Rôles de touche (sauteur/lifteur/lanceurs), jeu au pied (JAP, coups d'envoi, réceptions CE, qualifiés +/=/- par le groupe RCE), duels aériens (+/=), essais, transformations (réussies/tentées), points réels marqués.</span>
-    </summary>
-    <div class="section-body">
-        <table class="stat-table zebra-table sortable">
-            <thead>
-                <tr class="cols-row">
-                    <th>Joueur</th><th>Mêlées</th><th>Sauteur</th><th>Lifteur</th><th>Lanceurs</th>
-                    <th class="sep-l">JAP</th><th>Coups d'envoi</th><th>Récep. CE</th><th>RCE +/=/-</th>
-                    <th class="sep-l">Duels aér. +/=</th>
-                    <th class="sep-l">Essais</th><th>Transfo. (réus./tent.)</th><th>Points</th>
-                </tr>
-            </thead>
-            <tbody>
-            {% for r in ruck_table.rows %}
-                {% set pb = ((player_baselines or {}).get(r.name) or {}).get('ruck') %}
-                <tr>
-                    <td>{% if r.number %}{{ r.number }}. {% endif %}{{ r.name }}</td>
-                    <td>{{ r.melee_conquete }}</td>
-                    <td>{{ r.sauteur }}</td><td>{{ r.lifteur }}</td><td>{{ r.lanceur }}</td>
-                    <td class="sep-l">{{ r.jap }}</td><td>{{ r.coup_envoi }}</td><td>{{ r.recep_ce }}</td>
-                    <td><span class="stat-pos">{{ r.rce_plus }}</span> / {{ r.rce_neutre }} / <span class="stat-neg">{{ r.rce_minus }}</span></td>
-                    <td class="sep-l"><span class="stat-pos">{{ r.duels_aer_plus }}</span> / {{ r.duels_aer_neutre }}</td>
-                    <td class="sep-l stat-pos">{{ r.essai }}</td>
-                    <td>{{ r.transfo_reussies }} / {{ r.transfo_tentees }}</td>
-                    <td class="stat-own">{{ r.points }}{% if pb and pb.points_total is not none %}{{ kpi_arrow(r.points, pb.points_total, true) }}{% endif %}</td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</details>
+</div>
+{% endfor %}
 
 <script>
 function preparePrint() {
