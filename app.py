@@ -912,6 +912,11 @@ def init_db():
     # doublons — une ligne déjà importée est mise à jour au lieu d'être recréée.
     for table in ("ppid_rugby_evals", "ppid_physical_evals", "ppid_entretiens", "charges_items", "documents"):
         db.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS ext_id TEXT")
+    # Couleur d'écriture choisie par le rédacteur pour chaque texte saisi (objectifs,
+    # commentaires, notes d'entretien, tâches…) : JSON {champ: couleur}, ex.
+    # {"objectifs": "rouge", "commentaire__plaquage": "vert"}. Un champ absent = noir.
+    for table in ("ppid_rugby_evals", "ppid_physical_evals", "ppid_entretiens", "charges_items"):
+        db.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS couleurs TEXT")
     # Groupes de joueurs par défaut (l'admin peut en ajouter d'autres ensuite).
     for default_group in ("Avants", "Trois-quarts"):
         db.execute(
@@ -1364,6 +1369,54 @@ app.jinja_env.filters["fr2"] = lambda v: _fmt_fr(v, 2)
 # dans staff_names (ex. compte STAFF_EMAIL/STAFF_PASSWORD historique, sans prénom déclaré) :
 # à défaut, la partie avant l'arobase plutôt que l'email complet.
 app.jinja_env.filters["email_prefix"] = lambda e: (e or "").split("@")[0].capitalize()
+
+# Palette proposée pour mettre en couleur un texte du cahier d'entraînement (même palette
+# que la mini-application Claude). « noir » = couleur normale, jamais stockée.
+TEXT_COLORS = {
+    "noir": "#1b1b1b",
+    "rouge": "#c62828",
+    "vert": "#2e7d32",
+    "bleu": "#1565c0",
+    "orange": "#ef6c00",
+    "violet": "#7b1fa2",
+}
+app.jinja_env.globals["TEXT_COLORS"] = TEXT_COLORS
+
+
+def _text_colors_view(raw):
+    """Décode le JSON de couleurs ({champ: couleur}) en ignorant toute valeur inconnue."""
+    if isinstance(raw, dict):
+        data = raw
+    else:
+        try:
+            data = json.loads(raw) if raw else {}
+        except (TypeError, ValueError):
+            data = {}
+    if not isinstance(data, dict):
+        return {}
+    return {k: v for k, v in data.items() if v in TEXT_COLORS and v != "noir"}
+
+
+def _text_colors_from_form(form):
+    """Lit les champs cachés « couleur__<champ> » posés par le sélecteur de couleur des
+    formulaires (voir color_pick dans _ppid_rate.html) et renvoie le JSON à stocker, ou None
+    si tout est en noir."""
+    colors = {}
+    for name in form:
+        if name.startswith("couleur__"):
+            value = (form.get(name) or "").strip()
+            if value in TEXT_COLORS and value != "noir":
+                colors[name[len("couleur__"):]] = value
+    return json.dumps(colors, ensure_ascii=False) if colors else None
+
+
+def _text_color_class(colors, field):
+    """Classe CSS à poser sur un texte affiché : 'txtc txtc-rouge', ou '' si noir."""
+    value = colors.get(field) if isinstance(colors, dict) else None
+    return f"txtc txtc-{value}" if value in TEXT_COLORS and value != "noir" else ""
+
+
+app.jinja_env.filters["txtc"] = _text_color_class
 
 
 def _club_slug(name):
@@ -1891,14 +1944,14 @@ def export_ppid():
         "exported_at": datetime.utcnow().isoformat(),
         "players": [dict(p) for p in players],
         "rugby_evals": _rows("""SELECT id, player_id, period_label, eval_date, ratings, objectifs,
-                                       entrainements, created_at, updated_at
+                                       entrainements, couleurs, created_at, updated_at
                                 FROM ppid_rugby_evals ORDER BY id"""),
         "physical_evals": _rows("""SELECT id, player_id, period_label, eval_date, ratings, commentaires,
-                                          axe_musculation, axe_terrain, created_at, updated_at
+                                          axe_musculation, axe_terrain, couleurs, created_at, updated_at
                                    FROM ppid_physical_evals ORDER BY id"""),
-        "entretiens": _rows("""SELECT id, player_id, entretien_date, entretien_type, notes, created_at
+        "entretiens": _rows("""SELECT id, player_id, entretien_date, entretien_type, notes, couleurs, created_at
                                FROM ppid_entretiens ORDER BY id"""),
-        "taches": _rows("""SELECT id, player_id, title, description, status, created_at, updated_at
+        "taches": _rows("""SELECT id, player_id, title, description, status, couleurs, created_at, updated_at
                            FROM charges_items ORDER BY id"""),
     }
     ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
@@ -1997,21 +2050,28 @@ def import_ppid():
             return raw or "{}"
         return json.dumps(raw or {}, ensure_ascii=False)
 
+    def _couleurs(item):
+        # Clé absente (ancien export) -> None : la mise à jour garde les couleurs déjà en base
+        # (COALESCE) ; clé présente, même vide -> on applique ce que dit le fichier.
+        if "couleurs" not in item:
+            return None
+        return json.dumps(_text_colors_view(item.get("couleurs")), ensure_ascii=False)
+
     for ev in data.get("rugby_evals") or []:
         pid = _player_for(ev)
         if pid is False:
             summary["skipped_items"] += 1
             continue
         values = (ev.get("period_label") or "Point d'étape", ev.get("eval_date"), _ratings(ev.get("ratings")),
-                  ev.get("objectifs"), ev.get("entrainements"))
+                  ev.get("objectifs"), ev.get("entrainements"), _couleurs(ev))
         row_id = _existing("ppid_rugby_evals", ev, pid)
         if row_id:
             db.execute("""UPDATE ppid_rugby_evals SET period_label = %s, eval_date = %s, ratings = %s,
-                          objectifs = %s, entrainements = %s, updated_at = %s WHERE id = %s""", values + (now, row_id))
+                          objectifs = %s, entrainements = %s, couleurs = COALESCE(%s, couleurs), updated_at = %s WHERE id = %s""", values + (now, row_id))
             summary["rugby"]["updated"] += 1
         else:
             db.execute("""INSERT INTO ppid_rugby_evals (player_id, period_label, eval_date, ratings, objectifs,
-                          entrainements, created_by, created_at, ext_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                          entrainements, couleurs, created_by, created_at, ext_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                        (pid,) + values + (by, ev.get("created_at") or now, ev.get("ext_id")))
             summary["rugby"]["added"] += 1
 
@@ -2021,15 +2081,15 @@ def import_ppid():
             summary["skipped_items"] += 1
             continue
         values = (ev.get("period_label") or "Point d'étape", ev.get("eval_date"), _ratings(ev.get("ratings")),
-                  ev.get("commentaires"), ev.get("axe_musculation"), ev.get("axe_terrain"))
+                  ev.get("commentaires"), ev.get("axe_musculation"), ev.get("axe_terrain"), _couleurs(ev))
         row_id = _existing("ppid_physical_evals", ev, pid)
         if row_id:
             db.execute("""UPDATE ppid_physical_evals SET period_label = %s, eval_date = %s, ratings = %s, commentaires = %s,
-                          axe_musculation = %s, axe_terrain = %s, updated_at = %s WHERE id = %s""", values + (now, row_id))
+                          axe_musculation = %s, axe_terrain = %s, couleurs = COALESCE(%s, couleurs), updated_at = %s WHERE id = %s""", values + (now, row_id))
             summary["physique"]["updated"] += 1
         else:
             db.execute("""INSERT INTO ppid_physical_evals (player_id, period_label, eval_date, ratings, commentaires,
-                          axe_musculation, axe_terrain, created_by, created_at, ext_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                          axe_musculation, axe_terrain, couleurs, created_by, created_at, ext_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                        (pid,) + values + (by, ev.get("created_at") or now, ev.get("ext_id")))
             summary["physique"]["added"] += 1
 
@@ -2039,15 +2099,15 @@ def import_ppid():
             summary["skipped_items"] += 1
             continue
         etype = e.get("entretien_type") if e.get("entretien_type") in PPID_ENTRETIEN_TYPES else "Autre"
-        values = (e.get("entretien_date") or now[:10], etype, e.get("notes"))
+        values = (e.get("entretien_date") or now[:10], etype, e.get("notes"), _couleurs(e))
         row_id = _existing("ppid_entretiens", e, pid)
         if row_id:
             db.execute("""UPDATE ppid_entretiens SET entretien_date = %s, entretien_type = %s, notes = %s,
-                          updated_at = %s WHERE id = %s""", values + (now, row_id))
+                          couleurs = COALESCE(%s, couleurs), updated_at = %s WHERE id = %s""", values + (now, row_id))
             summary["entretiens"]["updated"] += 1
         else:
-            db.execute("""INSERT INTO ppid_entretiens (player_id, entretien_date, entretien_type, notes, created_by,
-                          created_at, ext_id) VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+            db.execute("""INSERT INTO ppid_entretiens (player_id, entretien_date, entretien_type, notes, couleurs, created_by,
+                          created_at, ext_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
                        (pid,) + values + (by, e.get("created_at") or now, e.get("ext_id")))
             summary["entretiens"]["added"] += 1
 
@@ -2057,15 +2117,15 @@ def import_ppid():
             summary["skipped_items"] += 1
             continue
         status = t.get("status") if t.get("status") in CHARGES_STATUSES else "a_faire"
-        values = (t.get("title") or "Tâche", t.get("description"), status)
+        values = (t.get("title") or "Tâche", t.get("description"), status, _couleurs(t))
         row_id = _existing("charges_items", t, pid)
         if row_id:
-            db.execute("UPDATE charges_items SET title = %s, description = %s, status = %s, updated_at = %s WHERE id = %s",
+            db.execute("UPDATE charges_items SET title = %s, description = %s, status = %s, couleurs = COALESCE(%s, couleurs), updated_at = %s WHERE id = %s",
                        values + (now, row_id))
             summary["taches"]["updated"] += 1
         else:
-            db.execute("""INSERT INTO charges_items (title, description, status, created_by, created_at, player_id, ext_id)
-                          VALUES (%s,%s,%s,%s,%s,%s,%s)""", values + (by, t.get("created_at") or now, pid, t.get("ext_id")))
+            db.execute("""INSERT INTO charges_items (title, description, status, couleurs, created_by, created_at, player_id, ext_id)
+                          VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""", values + (by, t.get("created_at") or now, pid, t.get("ext_id")))
             summary["taches"]["added"] += 1
 
     for d in data.get("links") or []:
@@ -3075,6 +3135,7 @@ def _ppid_date_human(date_str):
 def _ppid_rugby_row_view(row):
     r = dict(row)
     r["ratings"] = _ppid_ratings_view(r.get("ratings"), PPID_RUGBY_CATEGORY_KEYS)
+    r["couleurs"] = _text_colors_view(r.get("couleurs"))
     r["date_human"] = _ppid_date_human(r.get("eval_date") or (r.get("created_at") or "")[:10])
     return r
 
@@ -3082,12 +3143,14 @@ def _ppid_rugby_row_view(row):
 def _ppid_physical_row_view(row):
     r = dict(row)
     r["ratings"] = _ppid_ratings_view(r.get("ratings"), [key for key, _label in PPID_PHYSICAL_CATEGORIES])
+    r["couleurs"] = _text_colors_view(r.get("couleurs"))
     r["date_human"] = _ppid_date_human(r.get("eval_date") or (r.get("created_at") or "")[:10])
     return r
 
 
 def _ppid_entretien_row_view(row):
     r = dict(row)
+    r["couleurs"] = _text_colors_view(r.get("couleurs"))
     r["date_human"] = _ppid_date_human(r.get("entretien_date") or (r.get("created_at") or "")[:10])
     return r
 
@@ -3267,6 +3330,7 @@ def cahier_charges():
         r = dict(r)
         r["can_delete"] = _doc_can_delete(r)
         r["date_human"] = (r["created_at"] or "")[:10]
+        r["couleurs"] = _text_colors_view(r.get("couleurs"))
         columns.setdefault(r["status"], []).append(r)
     docs_view = []
     rugby_evals, physical_evals, entretiens = [], [], []
@@ -3373,9 +3437,10 @@ def cahier_charges_add():
     else:
         db = get_db()
         db.execute(
-            """INSERT INTO charges_items (title, description, status, created_by, created_at, player_id)
-               VALUES (%s, %s, 'a_faire', %s, %s, %s)""",
-            (title, description or None, session.get("user_email", ""), datetime.utcnow().isoformat(), player_id),
+            """INSERT INTO charges_items (title, description, status, created_by, created_at, player_id, couleurs)
+               VALUES (%s, %s, 'a_faire', %s, %s, %s, %s)""",
+            (title, description or None, session.get("user_email", ""), datetime.utcnow().isoformat(), player_id,
+             _text_colors_from_form(request.form)),
         )
         db.commit()
         flash("Tâche ajoutée.", "success")
@@ -3505,10 +3570,10 @@ def ppid_rugby_add(player_id):
     entrainements = request.form.get("entrainements", "").strip() or None
     db.execute(
         """INSERT INTO ppid_rugby_evals
-           (player_id, period_label, eval_date, ratings, objectifs, entrainements, created_by, created_at)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+           (player_id, period_label, eval_date, ratings, objectifs, entrainements, created_by, created_at, couleurs)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
         (player_id, period_label, eval_date, ratings, objectifs, entrainements,
-         session.get("user_email", ""), datetime.utcnow().isoformat()),
+         session.get("user_email", ""), datetime.utcnow().isoformat(), _text_colors_from_form(request.form)),
     )
     db.commit()
     flash(f"Point d'étape rugby ajouté pour {player['first_name']} {player['last_name']}.", "success")
@@ -3528,8 +3593,9 @@ def ppid_rugby_edit(eval_id):
     entrainements = request.form.get("entrainements", "").strip() or None
     db.execute(
         """UPDATE ppid_rugby_evals SET period_label = %s, eval_date = %s, ratings = %s,
-           objectifs = %s, entrainements = %s, updated_at = %s WHERE id = %s""",
-        (period_label, eval_date, ratings, objectifs, entrainements, datetime.utcnow().isoformat(), eval_id),
+           objectifs = %s, entrainements = %s, couleurs = %s, updated_at = %s WHERE id = %s""",
+        (period_label, eval_date, ratings, objectifs, entrainements, _text_colors_from_form(request.form),
+         datetime.utcnow().isoformat(), eval_id),
     )
     db.commit()
     flash("Point d'étape rugby mis à jour.", "success")
@@ -3566,10 +3632,10 @@ def ppid_physical_add(player_id):
     db.execute(
         """INSERT INTO ppid_physical_evals
            (player_id, period_label, eval_date, ratings, commentaires, axe_musculation, axe_terrain,
-            created_by, created_at)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+            created_by, created_at, couleurs)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
         (player_id, period_label, eval_date, ratings, commentaires, axe_musculation, axe_terrain,
-         session.get("user_email", ""), datetime.utcnow().isoformat()),
+         session.get("user_email", ""), datetime.utcnow().isoformat(), _text_colors_from_form(request.form)),
     )
     db.commit()
     flash(f"Point d'étape physique ajouté pour {player['first_name']} {player['last_name']}.", "success")
@@ -3590,9 +3656,9 @@ def ppid_physical_edit(eval_id):
     axe_terrain = request.form.get("axe_terrain", "").strip() or None
     db.execute(
         """UPDATE ppid_physical_evals SET period_label = %s, eval_date = %s, ratings = %s,
-           commentaires = %s, axe_musculation = %s, axe_terrain = %s, updated_at = %s WHERE id = %s""",
+           commentaires = %s, axe_musculation = %s, axe_terrain = %s, couleurs = %s, updated_at = %s WHERE id = %s""",
         (period_label, eval_date, ratings, commentaires, axe_musculation, axe_terrain,
-         datetime.utcnow().isoformat(), eval_id),
+         _text_colors_from_form(request.form), datetime.utcnow().isoformat(), eval_id),
     )
     db.commit()
     flash("Point d'étape physique mis à jour.", "success")
@@ -3624,9 +3690,10 @@ def ppid_entretien_add(player_id):
         flash("Merci d'indiquer une date et un type d'entretien valides.", "error")
         return redirect(url_for("cahier_charges", joueur=player_id))
     db.execute(
-        """INSERT INTO ppid_entretiens (player_id, entretien_date, entretien_type, notes, created_by, created_at)
-           VALUES (%s, %s, %s, %s, %s, %s)""",
-        (player_id, entretien_date, entretien_type, notes or None, session.get("user_email", ""), datetime.utcnow().isoformat()),
+        """INSERT INTO ppid_entretiens (player_id, entretien_date, entretien_type, notes, created_by, created_at, couleurs)
+           VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+        (player_id, entretien_date, entretien_type, notes or None, session.get("user_email", ""),
+         datetime.utcnow().isoformat(), _text_colors_from_form(request.form)),
     )
     db.commit()
     flash(f"Entretien ajouté au cahier de {player['first_name']} — visible par lui dans « Mes évaluations ».", "success")
@@ -3645,8 +3712,9 @@ def ppid_entretien_edit(entretien_id):
         entretien_type = row["entretien_type"]
     notes = request.form.get("notes", "").strip()
     db.execute(
-        "UPDATE ppid_entretiens SET entretien_date = %s, entretien_type = %s, notes = %s, updated_at = %s WHERE id = %s",
-        (entretien_date, entretien_type, notes or None, datetime.utcnow().isoformat(), entretien_id),
+        "UPDATE ppid_entretiens SET entretien_date = %s, entretien_type = %s, notes = %s, couleurs = %s, updated_at = %s WHERE id = %s",
+        (entretien_date, entretien_type, notes or None, _text_colors_from_form(request.form),
+         datetime.utcnow().isoformat(), entretien_id),
     )
     db.commit()
     flash("Entretien mis à jour.", "success")
