@@ -1034,9 +1034,10 @@ def compute_csc(instances):
         return None
 
     sniper_total = sniper["reussis"] + sniper["rates"]
-    # "Combat au ballon" du rapport : les combats où le joueur reste maître du duel,
-    # c'est-à-dire les positifs et les neutres (66,7 % ici contre 68 % au rapport).
-    combat_positifs = combattant["plus"] + combattant["neutre"]
+    # "Combat au ballon" (définition de Téo) : le combattant vient assister le plaquage
+    # en plaquant AU BALLON, pas à l'épaule ni en bas — label "Balle" du groupe
+    # Combattant. % = combats "Balle" / combats tagués. Si aucun label "Balle" n'existe
+    # dans le match, la donnée n'est pas taguée : None (« — »), pas un faux 0 %.
     return {
         "chasseur": {
             **chasseur,
@@ -1054,12 +1055,14 @@ def compute_csc(instances):
         },
         "combattant": {
             **combattant,
-            "dominance": _csc_share([("Balle", combattant["balle"], "gold"),
-                                     ("Positif", combattant["plus"], "pos"),
+            # « Balle » n'est pas un résultat mais une façon de plaquer (au ballon) : un
+            # combat « Balle » est aussi +, = ou −. Le mettre dans la barre le comptait deux
+            # fois ; il a sa propre case « Combat au ballon ».
+            "dominance": _csc_share([("Positif", combattant["plus"], "pos"),
                                      ("Neutre", combattant["neutre"], "neu"),
                                      ("Subis", combattant["minus"], "neg")]),
-            "combat_ballon_pct": (round(100 * combat_positifs / combattant["total"], 1)
-                                  if combattant["total"] else None),
+            "combat_ballon_pct": (round(100 * combattant["balle"] / combattant["total"], 1)
+                                  if combattant["total"] and combattant["balle"] else None),
         },
     }
 
