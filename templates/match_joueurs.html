@@ -4,20 +4,84 @@
 {% set active = 'joueurs' %}
 {% block content %}
 {% from "_kpi_compare.html" import kpi_arrow %}
-{% from "_players_overview.html" import players_overview %}
 
 <div class="page-header no-print">
     <div>
         <h1>{{ icons.users() }} Joueurs — {{ match['own_team'] }}</h1>
-        <p class="subtitle">Vue d'ensemble individuelle du match. Clique sur l'en-tête d'une colonne pour trier. Le détail complet par secteur est disponible dans les blocs repliés en bas de page.</p>
+        <p class="subtitle">Bilan individuel du match, dans l'ordre de la composition. Le détail par secteur est dans les blocs en bas de page (clic sur l'en-tête d'une colonne pour trier).</p>
     </div>
     <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
 
-<div class="card">
-    <h2>{{ icons.clipboard() }} Vue d'ensemble individuelle</h2>
-    <p class="section-help">Bilan positif / neutre / négatif par joueur (méthodologie staff). Bilan net = positives − négatives.</p>
-    {{ players_overview(player_cards, bilan_table) }}
+{% macro bjr_val(v, cls='') %}{% if v %}<td class="{{ cls }}">{{ v }}</td>{% else %}<td class="bjr-zero">·</td>{% endif %}{% endmacro %}
+{% macro bjr_bar(r) %}
+<div class="bjr-bar">
+    {% for k, c in (('positives', 'pos'), ('neutres', 'neu'), ('negatives', 'neg')) %}
+    {% if r[k] %}<span class="bjr-seg bjr-seg-{{ c }}" style="flex: {{ r[k] }} 1 0;">{% if r.pct[k] >= 9 %}{{ r[k] }}{% endif %}</span>{% endif %}
+    {% endfor %}
+</div>
+{% endmacro %}
+
+{# Diapo « BILAN » : même mise en page que le rapport du staff — n° de la compo, poste,
+   nom, minutes, volume, bilan +/=/- et barre de répartition. Calculs : _bilan_slide (app.py). #}
+<div class="report-board bjr-report">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">BILAN</span>
+    </div>
+    <div class="bjr-panel">
+        <table class="bjr-table">
+            <colgroup>
+                <col class="bjr-c-num"><col class="bjr-c-poste"><col class="bjr-c-nom"><col class="bjr-c-min">
+                <col class="bjr-c-val"><col class="bjr-c-val"><col class="bjr-c-val"><col class="bjr-c-val"><col class="bjr-c-val"><col class="bjr-c-val">
+                <col class="bjr-c-bar">
+            </colgroup>
+            <thead>
+                <tr class="bjr-groups">
+                    <th colspan="4" class="bjr-g-joueur">Joueur</th>
+                    <th class="bjr-g-volume">Volume</th>
+                    <th colspan="4" class="bjr-g-bilan">Bilan global des actions</th>
+                    <th colspan="2" class="bjr-g-lecture">Lecture</th>
+                </tr>
+                <tr class="bjr-cols">
+                    <th colspan="2" class="bjr-left">Poste</th><th class="bjr-left">Nom</th><th>Min.</th>
+                    <th>Actions codées</th>
+                    <th>Positives</th><th>Neutres</th><th>Négatives</th><th>Total signées</th>
+                    <th>Bilan net</th><th>Répartition positives / neutres / négatives</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in bilan_slide.rows %}
+                <tr>
+                    <td class="bjr-num">{% if r.number %}<span>{{ r.number }}</span>{% endif %}</td>
+                    <td class="bjr-poste">{{ r.poste }}</td>
+                    <td class="bjr-nom">{{ r.nom }}</td>
+                    {% if r.minutes %}<td class="bjr-min">{{ r.minutes }}</td>{% else %}<td class="bjr-zero">·</td>{% endif %}
+                    <td>{{ r.actions_codees }}</td>
+                    {{ bjr_val(r.positives, 'bjr-pos') }}
+                    {{ bjr_val(r.neutres) }}
+                    {{ bjr_val(r.negatives, 'bjr-neg') }}
+                    <td>{{ r.total_signees }}</td>
+                    <td class="bjr-net {{ 'bjr-net-pos' if r.bilan_net > 0 else ('bjr-net-neg' if r.bilan_net < 0 else '') }}">{{ '+' if r.bilan_net > 0 }}{{ r.bilan_net }}</td>
+                    <td class="bjr-barcell">{{ bjr_bar(r) }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+            {% set t = bilan_slide.total %}
+            <tfoot>
+                <tr>
+                    <td colspan="2"></td>
+                    <td class="bjr-nom">Total équipe</td>
+                    <td class="bjr-zero">·</td>
+                    <td>{{ t.actions_codees }}</td>
+                    <td>{{ t.positives }}</td><td>{{ t.neutres }}</td><td>{{ t.negatives }}</td>
+                    <td>{{ t.total_signees }}</td>
+                    <td>{{ '+' if t.bilan_net > 0 }}{{ t.bilan_net }}</td>
+                    <td class="bjr-barcell">{{ bjr_bar(t) }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
 </div>
 
 <details class="card section-block">
