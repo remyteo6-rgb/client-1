@@ -3,100 +3,142 @@
 {% block title %}Touches — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
 {% set active = 'touches' %}
 {% block content %}
-{% from "_kpi_compare.html" import kpi_compare %}
 
 <div class="page-header no-print">
     <div>
-        <h1>{{ icons.throw() }} Touches — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
-        <p class="subtitle">Fiabilité en touche, sur notre lancer et sur celui de l'adversaire.</p>
+        <h1>{{ icons.rugby() }} Touches — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
+        <p class="subtitle">{{ match['competition'] or 'Journée' }}{% if match['match_date'] %} · {{ match['match_date'] }}{% endif %}</p>
     </div>
     <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
 
-<div class="chart-row">
-    <div class="card">
-        <h2>{{ match['own_team'] }} — notre lancer</h2>
-        <div class="kpi-row" style="margin-bottom:10px;">
-            <div class="kpi-card">
-                <div class="kpi-label">Réussite touche</div>
-                <div class="kpi-value kpi-own">{{ data.own.success_rate if data.own.success_rate is not none else '—' }}{{ '%' if data.own.success_rate is not none }}</div>
-                {% if baseline %}{{ kpi_compare(data.own.success_rate, baseline.own_success_rate, true, '%') }}{% endif %}
-                <div class="kpi-help">{{ data.own.won }} gagnées / {{ data.own.total }} lancées.</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">Touche exploitable</div>
-                <div class="kpi-value kpi-own">{{ data.own.exploitable_rate if data.own.exploitable_rate is not none else '—' }}{{ '%' if data.own.exploitable_rate is not none }}</div>
-                {% if baseline %}{{ kpi_compare(data.own.exploitable_rate, baseline.own_exploitable_rate, true, '%') }}{% endif %}
-                <div class="kpi-help">{{ data.own.tqb_plus }} / {{ data.own.total }} avec un temps de qualité de ballon positif (TQB+).</div>
-            </div>
-        </div>
-        <h3 style="font-size:13px; margin-bottom:8px; color:var(--text-secondary);">Mise en place (appel de touche)</h3>
-        {% if data.own.call_names %}
-        <div class="breakdown-chips">{% for name, n in data.own.call_names.items() %}<span class="chip">{{ name }} · {{ n }}</span>{% endfor %}</div>
-        {% else %}<p class="subtitle">Aucun appel de touche nommé codé.</p>{% endif %}
-        <h3 style="font-size:13px; margin:14px 0 8px; color:var(--text-secondary);">Réussite par nombre de sauteurs</h3>
-        <table class="stat-table">
-            <thead><tr><th>Nb sauteurs</th><th>Gagné</th><th>Perdu</th><th>%</th></tr></thead>
-            <tbody>
-            {% for j, v in data.own.jump_rates.items() %}
-                <tr><td>{{ j }}</td><td class="stat-own">{{ v.gagne }}</td><td class="stat-adverse">{{ v.perdu }}</td><td>{{ v.pct if v.pct is not none else '—' }}{{ '%' if v.pct is not none }}</td></tr>
-            {% endfor %}
-            </tbody>
-        </table>
+{% if not data %}
+<div class="card empty-state">
+    <p>Aucune touche UBB taguée dans ce match (code « UBB Touches »).</p>
+</div>
+{% else %}
+
+{% macro mark(v) %}{% if v == 'ok' or v is sameas true %}<span class="tch-ok">✓</span>{% elif v == 'ko' or v is sameas false %}<span class="tch-ko">✗</span>{% endif %}{% endmacro %}
+
+<div class="report-board">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">TOUCHES</span>
     </div>
-    <div class="card">
-        <h2>{{ match['opponent'] }} — leur lancer</h2>
-        <div class="kpi-row" style="margin-bottom:10px;">
-            <div class="kpi-card">
-                <div class="kpi-label">Réussite touche adverse</div>
-                <div class="kpi-value kpi-adverse">{{ data.adverse.success_rate if data.adverse.success_rate is not none else '—' }}{{ '%' if data.adverse.success_rate is not none }}</div>
-                {% if baseline %}{{ kpi_compare(data.adverse.success_rate, baseline.adverse_success_rate, false, '%') }}{% endif %}
-                <div class="kpi-help">{{ data.adverse.won }} gagnées / {{ data.adverse.total }} lancées.</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">Touche exploitable adverse</div>
-                <div class="kpi-value kpi-adverse">{{ data.adverse.exploitable_rate if data.adverse.exploitable_rate is not none else '—' }}{{ '%' if data.adverse.exploitable_rate is not none }}</div>
-                {% if baseline %}{{ kpi_compare(data.adverse.exploitable_rate, baseline.adverse_exploitable_rate, false, '%') }}{% endif %}
-                <div class="kpi-help">{{ data.adverse.tqb_plus }} / {{ data.adverse.total }} avec un TQB+.</div>
-            </div>
+
+    <div class="tch-board">
+        <div class="tch-left">
+            <div class="tch-heads"><span>Numéro</span><span>Lancement</span><span>Lancé</span><span>Annonce</span><span>QB</span><span>Résultat</span></div>
+            <table class="tch-table">
+                <colgroup><col class="c-num"><col class="c-lan"><col class="c-x"><col class="c-x"><col class="c-x"><col class="c-x"></colgroup>
+                <tbody>
+                {% for r in data.rows %}
+                <tr data-key="{{ r.key }}">
+                    <td>{{ r.num }}</td>
+                    {% if is_admin %}
+                    <td class="tch-lan"><input class="tch-in" type="text" maxlength="30" value="{{ r.lancement }}" data-field="lancement"
+                        aria-label="Lancement de la touche {{ r.num }}"></td>
+                    <td><button type="button" class="tch-toggle" data-field="lance" data-v="{{ r.lance }}" aria-label="Lancer validé, touche {{ r.num }}">{{ mark(r.lance) }}</button></td>
+                    <td><button type="button" class="tch-toggle" data-field="annonce" data-v="{{ r.annonce }}" aria-label="Annonce validée, touche {{ r.num }}">{{ mark(r.annonce) }}</button></td>
+                    {% else %}
+                    <td class="tch-lan">{{ r.lancement }}</td>
+                    <td>{{ mark(r.lance) }}</td>
+                    <td>{{ mark(r.annonce) }}</td>
+                    {% endif %}
+                    <td>{{ mark(r.qb) }}</td>
+                    <td>{{ mark(r.resultat) }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
         </div>
-        <h3 style="font-size:13px; margin-bottom:8px; color:var(--text-secondary);">Mise en place adverse</h3>
-        {% if data.adverse.call_names %}
-        <div class="breakdown-chips">{% for name, n in data.adverse.call_names.items() %}<span class="chip">{{ name }} · {{ n }}</span>{% endfor %}</div>
-        {% else %}<p class="subtitle">Aucun appel de touche adverse détaillé codé.</p>{% endif %}
-        <h3 style="font-size:13px; margin:14px 0 8px; color:var(--text-secondary);">Réussite par nombre de sauteurs</h3>
-        <table class="stat-table">
-            <thead><tr><th>Nb sauteurs</th><th>Gagné</th><th>Perdu</th><th>%</th></tr></thead>
-            <tbody>
-            {% for j, v in data.adverse.jump_rates.items() %}
-                <tr><td>{{ j }}</td><td class="stat-own">{{ v.gagne }}</td><td class="stat-adverse">{{ v.perdu }}</td><td>{{ v.pct if v.pct is not none else '—' }}{{ '%' if v.pct is not none }}</td></tr>
-            {% endfor %}
-            </tbody>
-        </table>
+
+        <div class="tch-chart-card">
+            {% if assets.adverse_crest %}<img class="tch-crest" src="{{ assets.adverse_crest }}" alt="{{ match['opponent'] }}">
+            {% else %}<span class="tch-crest tch-crest-txt">{{ (match['opponent'] or '?')[0]|upper }}</span>{% endif %}
+            <div class="tch-chart-title">Touches offensives</div>
+            {% set n = data.rows|length %}
+            {% set cums = data.rows|map(attribute='cumul')|list %}
+            {% set lo = [cums|min, 0]|min %}{% set hi = [cums|max, 1]|max %}
+            {% set W = 1000 %}{% set X0 = 50 %}{% set X1 = 950 %}{% set YT = 30 %}{% set YB = 330 %}
+            {% macro px(i) %}{{ X0 + (i * (X1 - X0) / (n - 1) if n > 1 else (X1 - X0) / 2) }}{% endmacro %}
+            {% macro py(v) %}{{ YB - (v - lo) / ((hi - lo) or 1) * (YB - YT) }}{% endmacro %}
+            <svg class="tch-svg" viewBox="0 0 {{ W }} 470" preserveAspectRatio="xMidYMid meet" role="img"
+                 aria-label="Évolution de nos touches : +1 par touche gagnée, −1 par touche perdue">
+                {% for r in data.rows %}
+                <line class="tch-grid" x1="{{ px(loop.index0) }}" x2="{{ px(loop.index0) }}" y1="{{ YT - 10 }}" y2="{{ YB + 20 }}"/>
+                {% endfor %}
+                <polyline class="tch-line" fill="none" points="{% for r in data.rows %}{{ px(loop.index0) }},{{ py(r.cumul) }} {% endfor %}"/>
+                {% for r in data.rows %}
+                {% set x = px(loop.index0) %}
+                <text class="tch-x-num" x="{{ x }}" y="{{ YB + 52 }}" text-anchor="middle">{{ r.num }}</text>
+                <text class="tch-x-lan" x="{{ x }}" y="{{ YB + 76 }}" text-anchor="middle" data-lan="{{ r.key }}">{{ r.lancement }}</text>
+                {% if r.resultat is not none %}
+                <circle class="{{ 'tch-dot-ok' if r.resultat else 'tch-dot-ko' }}" cx="{{ x }}" cy="{{ YB + 104 }}" r="11"/>
+                <text class="tch-dot-txt" x="{{ x }}" y="{{ YB + 109 }}" text-anchor="middle">{{ '✓' if r.resultat else '✗' }}</text>
+                {% endif %}
+                <text class="tch-cause" x="{{ x }}" y="{{ YB + 134 }}" text-anchor="middle" data-cause="{{ r.key }}">{{ r.cause }}</text>
+                {% endfor %}
+            </svg>
+        </div>
     </div>
 </div>
 
-<div class="chart-row">
-    <div class="card">
-        <h2>Zone de saut — nous</h2>
-        <p class="subtitle">Répartition par couleur et lettre de zone codées par le staff.</p>
-        <div class="breakdown-chips">
-            {% for name, n in data.own.colors.items() %}<span class="chip">{{ name }} · {{ n }}</span>{% endfor %}
-            {% for name, n in data.own.letters.items() %}<span class="chip">{{ name }} · {{ n }}</span>{% endfor %}
-        </div>
-        {% if not data.own.colors and not data.own.letters %}<p class="subtitle">Non détaillé ce match.</p>{% endif %}
-    </div>
-    <div class="card">
-        <h2>Zone de saut — adversaire</h2>
-        <div class="breakdown-chips">
-            {% for name, n in data.adverse.colors.items() %}<span class="chip">{{ name }} · {{ n }}</span>{% endfor %}
-            {% for name, n in data.adverse.letters.items() %}<span class="chip">{{ name }} · {{ n }}</span>{% endfor %}
-        </div>
-        {% if not data.adverse.colors and not data.adverse.letters %}<p class="subtitle">Non détaillé ce match.</p>{% endif %}
-    </div>
+<div class="card no-print tch-notes">
+    <p class="subtitle">QB et Résultat viennent du XML (groupe Conquête : TQB + / Gagné). Courbe : +1 par touche gagnée, −1 par touche perdue.
+        Sous une touche perdue, la cause affichée est l'annonce (si elle est invalidée), sinon le lancer.
+        {{ data.gagnees }}/{{ data.total }} touches gagnées.</p>
+    {% if is_admin %}
+    <p class="subtitle">{{ icons.edit() }} Tape le lancement dans sa case (« 61 TANK », « 50 »…) puis Entrée. Pour Lancé et Annonce, clique sur la case :
+        vide → ✓ → ✗ → vide. C'est enregistré tout de suite. <span id="tchStatus" class="zg-status" role="status"></span></p>
+    {% endif %}
 </div>
+
+{% endif %}
 
 <script>
 function preparePrint() { setTimeout(() => window.print(), 100); }
+{% if is_admin and data %}
+(function () {
+    var url = "{{ url_for('match_touches_save', match_id=match['id']) }}";
+    var status = document.getElementById('tchStatus');
+    function say(t, err) { if (status) { status.textContent = t; status.classList.toggle('zg-status-err', !!err); } }
+    function save(key, field, value) {
+        say('Enregistrement…');
+        return fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ key: key, field: field, value: value }) })
+            .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+            .then(function (res) {
+                res.rows.forEach(function (r) {
+                    var el = document.querySelector('[data-cause="' + r.key + '"]');
+                    if (el) el.textContent = r.cause;
+                });
+                say('Enregistré.');
+            })
+            .catch(function () { say("L'enregistrement n'a pas abouti : recharge la page et réessaie.", true); });
+    }
+    var MARK = { '': '', ok: '<span class="tch-ok">✓</span>', ko: '<span class="tch-ko">✗</span>' };
+    document.querySelectorAll('.tch-table tr[data-key]').forEach(function (tr) {
+        var key = tr.dataset.key;
+        var input = tr.querySelector('.tch-in');
+        if (input) {
+            var last = input.value;
+            input.addEventListener('change', function () {
+                if (input.value === last) return; last = input.value; input.value = input.value.toUpperCase();
+                var lan = document.querySelector('[data-lan="' + key + '"]'); if (lan) lan.textContent = input.value;
+                save(key, 'lancement', input.value);
+            });
+            input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
+        }
+        tr.querySelectorAll('.tch-toggle').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var next = { '': 'ok', ok: 'ko', ko: '' }[btn.dataset.v || ''];
+                btn.dataset.v = next; btn.innerHTML = MARK[next];
+                save(key, btn.dataset.field, next);
+            });
+        });
+    });
+})();
+{% endif %}
 </script>
 {% endblock %}
