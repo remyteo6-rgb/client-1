@@ -2019,8 +2019,18 @@ span.review-crest {
 }
 .csc-bar-seg {
     display: flex; align-items: center; justify-content: center;
-    font-size: .8rem; font-weight: 700; color: #fff; min-width: 0;
+    font-size: .8rem; font-weight: 700; color: #fff;
+    /* Un petit segment (3 %, 5 %) garde assez de place pour que son chiffre se lise ;
+       les autres se resserrent d'autant. */
+    min-width: 44px; flex-shrink: 1; white-space: nowrap;
 }
+.csc-legend {
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px;
+    margin-top: 8px; font-size: .72rem; color: rgba(255,255,255,.85);
+}
+.csc-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.csc-legend i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+.csc-legend b { font-weight: 800; color: #fff; }
 /* la couleur suit le sens du segment, pas sa position dans la barre */
 .csc-seg-pos  { background: #2f6b39; }
 .csc-seg-neu  { background: #8a8a8a; }
