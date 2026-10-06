@@ -2538,3 +2538,14 @@ span.review-crest {
 .zg-status { margin-left: 6px; font-weight: 700; }
 .zg-status-err { color: #c0392b; }
 @media print { .zg-origin-input::placeholder { color: transparent; } }
+
+/* Zone Gold dans la diapositive : les trois blocs prennent toujours toute la hauteur,
+   comme sur le rapport PDF ; les lignes se partagent cette hauteur, quel que soit le
+   nombre d'entrées (plus d'entrées = lignes plus fines). Pas de « height: 100% » sur
+   les tableaux (Safari le compte bandeau compris, voir le bilan attaque). */
+.report-slide .zg-board { align-items: stretch; }
+.report-slide .zg-panel { display: flex; flex-direction: column; }
+.report-slide .zg-panel > .zg-table { flex: 1 1 auto; height: auto; }
+.report-slide .zg-table thead tr, .report-slide .zg-half { height: 1px; }
+.report-slide .zg-panel-comp .zg-comp-row { flex: 1 1 0; padding-top: 6px; padding-bottom: 6px; }
+.report-slide .zg-table td { padding-top: 3px; padding-bottom: 3px; }
