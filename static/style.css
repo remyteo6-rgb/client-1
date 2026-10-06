@@ -2549,3 +2549,17 @@ span.review-crest {
 .report-slide .zg-table thead tr, .report-slide .zg-half { height: 1px; }
 .report-slide .zg-panel-comp .zg-comp-row { flex: 1 1 0; padding-top: 6px; padding-bottom: 6px; }
 .report-slide .zg-table td { padding-top: 3px; padding-bottom: 3px; }
+
+/* ---- Bilan attaque : toute la diapo est occupée, colonne du milieu en bandes
+   régulières blanc / beige (même beige que la ligne « Efficacité »). ---- */
+.report-slide .bil-list { padding: 0; justify-content: stretch; }
+.report-slide .bil-list .bil-line {
+    flex: 1 1 0; background: #fff; border-radius: 0;
+    border-top: 1px solid rgba(0,0,0,.05);
+}
+.report-slide .bil-list .bil-line:first-child { border-top: 0; }
+.report-slide .bil-list .bil-line:nth-child(even) { background: #f7efe2; }
+.report-slide .bil-list .bil-line-muted { color: #8a8a8a; }
+.report-slide .bil-panel > .bil-panel-body {
+    display: flex; flex-direction: column; justify-content: center;
+}
