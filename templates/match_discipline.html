@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
+{% block title %}Discipline — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
+{% set active = 'discipline' %}
+{% block content %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>{{ icons.warning() }} Discipline — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
+        <p class="subtitle">{{ match['competition'] or 'Journée' }}{% if match['match_date'] %} · {{ match['match_date'] }}{% endif %}</p>
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
+</div>
+
+{% if not data %}
+<div class="card empty-state">
+    <p>{{ icons.warning() }} Aucune faute taguée dans ce match (codes « UBB Disciplines » ou labels Disciplines sur les joueurs).</p>
+</div>
+{% else %}
+
+{% macro crest(url, name, side) %}
+{% if url %}<img class="dis-crest" src="{{ url }}" alt="{{ name }}">{% else %}<span class="dis-crest dis-crest-{{ side }}">{{ (name or '?')[0]|upper }}</span>{% endif %}
+{% endmacro %}
+
+{% set pp = data.par_periode %}
+{% set maxp = [pp.own.values()|max, pp.adverse.values()|max, 1]|max %}
+{% set maxc = [data.categories|map(attribute='count')|max, 1]|max %}
+
+<div class="report-board">
+    <div class="report-head dis-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">DISCIPLINE</span>
+        <div class="dis-score">
+            {{ crest(assets.adverse_crest, match['opponent'], 'adverse') }}
+            <span class="dis-score-value">{{ data.team.adverse if data.team.adverse is not none else '—' }} – {{ data.team.own if data.team.own is not none else '—' }}</span>
+            {{ crest(assets.own_crest, match['own_team'], 'own') }}
+        </div>
+    </div>
+
+    <div class="dis-board">
+        <div class="dis-panel dis-players">
+            <table class="dis-table">
+                <thead><tr><th></th><th class="dis-num">Fautes</th><th class="dis-card-col"></th><th>Raison</th></tr></thead>
+                <tbody>
+                {% for r in data.rows %}
+                <tr>
+                    <th>{{ r.name }}</th>
+                    <td class="dis-num">{{ r.fautes or '' }}</td>
+                    <td class="dis-card-col">{% if r.red %}<span class="dis-card dis-card-red" title="Carton rouge"></span>{% elif r.yellow %}<span class="dis-card" title="Carton jaune"></span>{% endif %}</td>
+                    <td class="dis-reason">{{ r.raison }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr><th>Avants</th><td class="dis-num">{{ data.avants }}</td><td colspan="2"></td></tr>
+                    <tr><th>3/4</th><td class="dis-num">{{ data.trois_quarts }}</td><td colspan="2"></td></tr>
+                    <tr><th>Équipe</th><td class="dis-num">{{ data.team.own if data.team.own is not none else data.joueurs_total }}</td><td colspan="2"></td></tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="dis-right">
+            <div class="dis-block">
+                <div class="dis-block-head">Fautes par période <span>{{ data.premiere_mi_temps }}</span></div>
+                <div class="dis-periods">
+                    {% for q in ['0-20', '20-40', '40-60', '60-80'] %}
+                    <div class="dis-period">
+                        <div class="dis-bars">
+                            {% for side, cls in [('own', 'dis-bar-own'), ('adverse', 'dis-bar-adv')] %}
+                            {% if pp[side][q] %}
+                            <div class="dis-bar {{ cls }}" style="height:{{ (100 * pp[side][q] / maxp)|round|int }}%"><b>{{ pp[side][q] }}</b></div>
+                            {% else %}
+                            <div class="dis-bar-empty"></div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                        <div class="dis-period-label">{{ q }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="dis-cats">
+                {% for c in data.categories %}
+                <div class="dis-cat">
+                    <div class="dis-cat-barzone">
+                        {% if c.count %}
+                        <div class="dis-cat-bar" style="height:{{ [(100 * c.count / maxc)|round|int, 14]|max }}%"><b>{{ c.count }}</b></div>
+                        {% else %}
+                        <div class="dis-cat-zero">0</div>
+                        {% endif %}
+                    </div>
+                    <div class="dis-cat-label">{{ c.label }}</div>
+                    <div class="dis-cat-reasons">{% for r in c.reasons %}<span>{{ r }}</span>{% endfor %}</div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="dis-block dis-suivi">
+                <div class="dis-block-head">Fautes suivi</div>
+                {% set n = suivi|length %}
+                {% set maxs = [suivi|map(attribute='own')|max if n else 1, suivi|map(attribute='adverse')|max if n else 1, 1]|max %}
+                {% set step = 130 %}
+                {% set width = [n * step, 700]|max %}
+                <svg class="dis-suivi-svg" viewBox="0 0 {{ width }} 175" preserveAspectRatio="xMinYMid meet" role="img" aria-label="Fautes match après match">
+                    {% macro yv(v) %}{{ 106 - (v / maxs) * 76 }}{% endmacro %}
+                    {% for side, cls in [('own', 'dis-line-own'), ('adverse', 'dis-line-adv')] %}
+                    <polyline class="{{ cls }}" fill="none" points="{% for m in suivi %}{{ 40 + loop.index0 * step }},{{ yv(m[side]) }} {% endfor %}"/>
+                    {% for m in suivi %}
+                    <circle class="{{ cls }}" cx="{{ 40 + loop.index0 * step }}" cy="{{ yv(m[side]) }}" r="7"/>
+                    <text class="{{ cls }}-txt" x="{{ 40 + loop.index0 * step }}" y="{{ yv(m[side])|float + (-14 if side == 'own' else 24) }}" text-anchor="middle">{{ m[side] }}</text>
+                    {% endfor %}
+                    {% endfor %}
+                    {% for m in suivi %}
+                    {% if m.crest %}
+                    <image href="{{ m.crest }}" x="{{ 40 + loop.index0 * step - 17 }}" y="138" width="34" height="34" preserveAspectRatio="xMidYMid meet"/>
+                    {% else %}
+                    <text class="dis-suivi-name{{ ' is-current' if m.current else '' }}" x="{{ 40 + loop.index0 * step }}" y="162" text-anchor="middle">{{ m.short }}</text>
+                    {% endif %}
+                    {% endfor %}
+                </svg>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card no-print dis-notes">
+    <p class="subtitle">Fautes d'équipe et par période : codes « UBB Disciplines » / « {{ match['opponent'] }} Disciplines » et leur Chrono.
+        Fautes par joueur : labels « Disciplines » sur le joueur. Le chiffre dans le bandeau « Fautes par période » = nos fautes en 1re mi-temps.</p>
+    {% if not data.raisons_taguees %}
+    <p class="subtitle">{{ icons.warning() }} Colonne « Raison » vide : ajoute sur la faute du joueur un label du groupe « Raison »
+        (Mêlée, Plaqueur dans la zone, Ballon gardé au sol, Hors-jeu…). Pour Set Piece et Other, un label du groupe « Catégorie »
+        (Attack, Defence, Set Piece, Other) ; sans lui, « Disciplines Off » compte en Attack et « Disciplines Def » en Defence.
+        Les cartons viennent de la page Composition (ou d'un label « Carton » : Jaune / Rouge).</p>
+    {% endif %}
+</div>
+
+{% endif %}
+
+<script>
+function preparePrint() { setTimeout(() => window.print(), 100); }
+</script>
+{% endblock %}
