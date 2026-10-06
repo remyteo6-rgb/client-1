@@ -120,7 +120,7 @@
                 <div class="bil-line bil-line-muted"><span>Libération « i »</span><strong>{{ data.liberation_i_pct ~ ' %' if data.liberation_i_pct is not none else '—' }}</strong></div>
                 <div class="bil-line"><span>Plaquages cassés</span><strong>{{ data.plaquages_casses }}</strong></div>
                 <div class="bil-line bil-line-sub"><span>Offloads</span><strong>{{ data.offloads }}</strong></div>
-                <div class="bil-line bil-line-sub" title="{{ data.offloads }} offloads pour {{ data.contacts_joueurs }} contacts"><span>Offloads / Contacts</span><strong>{{ (data.offloads_contacts_pct ~ ' %')|replace('.', ',') if data.offloads_contacts_pct is not none else '—' }}</strong></div>
+                <div class="bil-line bil-line-sub" title="{{ data.offloads }} offloads pour {{ data.contacts_joueurs }} contacts"><span>Offloads / Contacts</span><strong>{{ ("%.2f"|format(((data.offloads_contacts_ratio * 100)|int) / 100))|replace('.', ',') if data.offloads_contacts_ratio is not none else '—' }}</strong></div>
                 <div class="bil-line bil-line-sub"><span>Passes</span><strong>{{ data.passes }}</strong></div>
                 <div class="bil-line"><span>Clics</span><strong>{{ data.clics }}</strong></div>
             </div>
