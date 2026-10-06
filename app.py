@@ -27,7 +27,7 @@ from parser import (
     TRAINING_TAXONOMY, group_training_sessions_by_period,
     PHASE_ICONS, PHASE_HELP, compute_match_baseline,
     compute_player_season_baselines, build_player_cards, order_rows_by_reference_order,
-    composition_ordered_names,
+    composition_ordered_names, _composition_name_score,
     player_row_order,
     compute_momentum, render_momentum_svg,
     compute_zone_gold_log, compute_new_convention_tries, compute_new_convention_score,
@@ -1268,6 +1268,72 @@ def match_detail(match_id):
     )
 
 
+# Poste affiché sur la page BILAN des joueurs, d'après le numéro de la compo (1 à 15) ;
+# les remplaçants (16 à 23) prennent leur poste dans l'effectif du club (SQUAD_ROSTER).
+POSTE_PAR_NUMERO = {
+    1: "Pilier", 2: "Talonneur", 3: "Pilier", 4: "2e ligne", 5: "2e ligne",
+    6: "3e ligne", 7: "3e ligne", 8: "3e ligne", 9: "Demi de mêlée", 10: "Ouvreur",
+    11: "Ailier", 12: "Centre", 13: "Centre", 14: "Ailier", 15: "Arrière",
+}
+POSTE_EFFECTIF_LIBELLE = {
+    "Pilier": "Pilier", "Talonneur": "Talonneur", "2ème ligne": "2e ligne", "3ème ligne": "3e ligne",
+    "Charnière": "Charnière", "Centre": "Centre", "Ailier/Arrière": "Ailier / arrière",
+}
+
+
+def _joueur_nom_affiche(xml_name, comp_name=None):
+    """« L.FUKWAMOKO » -> « L.Fukwamoko », sinon le nom tel qu'écrit dans la compo
+    (« Silvain Pouvreau », « Pouye-Tokotuu »), à défaut le code du XML en casse normale."""
+    def _casse(txt):
+        return " ".join("-".join(part[:1].upper() + part[1:].lower() for part in mot.split("-")) for mot in txt.split())
+    if "." in xml_name:
+        prefixe, _sep, reste = xml_name.rpartition(".")
+        return f"{prefixe.upper()}.{_casse(reste)}"
+    return comp_name.strip() if comp_name else _casse(xml_name)
+
+
+def _poste_effectif(xml_name):
+    """Poste dans l'effectif du club (SQUAD_ROSTER) pour un code joueur du XML, même si
+    l'ordre des mots diffère (« FANTCHO TAMBO » = « Tambo-Fantcho »)."""
+    best, score = None, 0.0
+    for poste, noms in SQUAD_ROSTER.items():
+        for nom in noms:
+            sc = _composition_name_score(nom, xml_name)
+            if sc > score:
+                best, score = poste, sc
+    return best if score >= 0.8 else None
+
+
+def _bilan_slide(player_cards, composition, player_stats):
+    """Lignes de la diapo BILAN (page Joueurs) : n°, poste, nom, minutes, volume et bilan
+    +/=/- de chaque joueur dans l'ordre de la compo, plus la ligne « Total équipe »."""
+    composition = composition or []
+    avec_compo = any(composition)
+    rows = []
+    total = {"actions_codees": 0, "positives": 0, "neutres": 0, "negatives": 0, "total_signees": 0, "bilan_net": 0}
+    for c in player_cards:
+        b = c.get("bilan") or {}
+        num = c.get("number")
+        comp_name = composition[num - 1] if avec_compo and num and num <= len(composition) else None
+        if avec_compo and num and num <= 15:
+            poste = POSTE_PAR_NUMERO.get(num, "")
+        else:
+            poste = POSTE_EFFECTIF_LIBELLE.get(_poste_effectif(c["name"]) or "", "")
+        minutes = ((player_stats or {}).get(comp_name) or {}).get("minutes") if comp_name else None
+        row = {
+            "number": num, "poste": poste, "nom": _joueur_nom_affiche(c["name"], comp_name),
+            "minutes": minutes or None,
+        }
+        for k in total:
+            row[k] = int(b.get(k) or 0)
+            total[k] += row[k]
+        rows.append(row)
+    for r in rows + [total]:
+        tot = r["total_signees"]
+        r["pct"] = {k: (r[k] / tot * 100 if tot else 0) for k in ("positives", "neutres", "negatives")}
+    return {"rows": rows, "total": total}
+
+
 @app.route("/match/<int:match_id>/joueurs")
 def match_joueurs(match_id):
     match = _get_match_or_404(match_id)
@@ -1300,7 +1366,8 @@ def match_joueurs(match_id):
     defense_table = {**defense_table, "rows": order_rows_by_reference_order(defense_table["rows"], ordered_names)}
     ruck_table = {**ruck_table, "rows": order_rows_by_reference_order(ruck_table["rows"], ordered_names)}
     bilan_table = {**bilan_table, "rows": order_rows_by_reference_order(bilan_table["rows"], ordered_names)}
-    return render_template("match_joueurs.html", match=match, attack_table=attack_table,
+    bilan_slide = _bilan_slide(player_cards, composition, match.get("player_match_stats"))
+    return render_template("match_joueurs.html", match=match, attack_table=attack_table, bilan_slide=bilan_slide,
                            defense_table=defense_table, ruck_table=ruck_table,
                            bilan_table=bilan_table,
                            player_baselines=player_baselines, player_cards=player_cards)
