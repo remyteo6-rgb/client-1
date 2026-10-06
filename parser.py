@@ -3892,9 +3892,73 @@ def _normalize_tag(text):
 ZONE_GOLD_RESULT_GROUPS = {"RESULTAT Z.MARQUE", "RESULTATS Z.MARQUE", "RESULTAT ZONE MARQUE", "RESULTAT Z MARQUE"}
 
 ZONE_GOLD_RESULT_CLASS = {
-    "ESSAI": "pos", "PENALITE POUR": "pos",
+    "ESSAI": "pos", "PENALITE POUR": "pos", "PENALITE": "pos", "DROP": "pos",
     "BALLON PERDU": "neg", "PENALITE CONTRE": "neg",
 }
+# Tout autre résultat (détail d'une perte : « En avant », « Ruck perdu », « Sortie du
+# terrain », « Interception »...) compte comme un ballon perdu, comme dans le rapport.
+ZONE_GOLD_RESULT_DISPLAY = {
+    "ESSAI": "ESSAI", "PENALITE POUR": "PÉNALITÉ POUR", "PENALITE": "PÉNALITÉ",
+    "PENALITE CONTRE": "PÉNALITÉ CONTRE", "BALLON PERDU": "PERDU", "DROP": "DROP",
+}
+# Les 5 résultats possibles d'une entrée, proposés dans le menu déroulant de la page
+# Zone Gold (choix de Téo) : 2 positifs, 3 négatifs. Valeur par défaut déduite du label
+# « Resultat Z.Marque » du XML, corrigeable à la main sur le site.
+ZONE_GOLD_CHOICES = [
+    ("ESSAI", "ESSAI", "pos"),
+    ("PENALITE_POUR", "PÉNALITÉ POUR", "pos"),
+    ("PENALITE_CONTRE", "PÉNALITÉ CONTRE", "neg"),
+    ("PERTE_BALLE", "PERTE DE BALLE", "neg"),
+    ("RETOUR_RUMBLE", "RETOUR RUMBLE", "neg"),
+]
+ZONE_GOLD_CHOICE_INFO = {code: (label, tone) for code, label, tone in ZONE_GOLD_CHOICES}
+
+
+def _gold_default_choice(result):
+    r = _normalize_tag(result).replace("-", " ")
+    if r == "ESSAI":
+        return "ESSAI"
+    if r in ("PENALITE POUR", "PENALITE", "DROP"):
+        return "PENALITE_POUR"
+    if r == "PENALITE CONTRE":
+        return "PENALITE_CONTRE"
+    if "RUMBLE" in r:
+        return "RETOUR_RUMBLE"
+    return "PERTE_BALLE"
+
+
+def detect_half_time(instances):
+    """Instant (secondes vidéo) de la mi-temps. La pause se repère comme le plus long
+    trou entre deux séquences « Ball in play » (une dizaine de minutes sur les 3 matchs
+    de référence, contre 3 au plus pendant le jeu) : on prend le milieu de ce trou.
+    À défaut de « Ball in play », on se rabat sur les labels Chrono (entre la dernière
+    action 0-40 et la première 40-80). None si rien ne permet de la situer."""
+    bip = sorted(((i.get("start") or 0, i.get("end") or i.get("start") or 0)
+                  for i in instances if _normalize_tag(i.get("code_raw")) in ("BALL IN PLAY", "BIP")))
+    best = None
+    for (s1, e1), (s2, _e2) in zip(bip, bip[1:]):
+        gap = s2 - e1
+        if gap > 300 and (best is None or gap > best[0]):
+            best = (gap, (e1 + s2) / 2)
+    if best:
+        return best[1]
+    first = [i.get("start") or 0 for i in instances if _new_convention_period(i) in ("0-20", "20-40")]
+    second = [i.get("start") or 0 for i in instances if _new_convention_period(i) in ("40-60", "60-80")]
+    if first and second:
+        return (max(first) + min(second)) / 2
+    return None
+
+
+def gold_entry_key(start):
+    """Identifiant stable d'une entrée (début de l'instance dans la vidéo), qui sert à
+    retrouver ses corrections manuelles."""
+    return f"{float(start or 0):.2f}"
+
+
+# Groupe de labels « possession à l'origine de l'entrée » (Touche, Jeu, Mêlée, JAP...)
+# et détail facultatif du résultat, posés sur l'entrée en zone Gold.
+ZONE_GOLD_ORIGIN_GROUPS = {"ORIGINE POSSESSION", "ORIGINE", "POSSESSION ENTREE 22M", "ENTREE 22M"}
+ZONE_GOLD_DETAIL_GROUPS = {"DETAIL RESULTAT", "DETAIL", "RESULTAT DETAIL"}
 
 
 # Fenêtres de rattachement d'une action de score à une entrée en zone Gold (secondes
@@ -3955,7 +4019,7 @@ def _attach_entry_points(rows, events, side):
             r["points_auto"] = False
 
 
-def compute_zone_gold_log(instances, own_points=None, adverse_points=None):
+def compute_zone_gold_log(instances, own_points=None, adverse_points=None, overrides=None):
     """Journal des entrées en zone Gold (22m adverse pour nous / notre 22m pour
     l'adversaire), façon page 'Zone Gold' du rapport vidéo : liste des entrées
     avec résultat, + comparatif nombre d'entrées / ballons perdus / % efficacité
@@ -3981,6 +4045,8 @@ def compute_zone_gold_log(instances, own_points=None, adverse_points=None):
     adv_token = _detect_adverse_token(instances)
     own_rows, adv_rows = [], []
     events = _scoring_events(instances, adv_token)
+    period_of = _period_lookup(instances)
+    half_time = detect_half_time(instances)
     for inst in instances:
         tokens = _normalize_tag(inst.get("code_raw")).split()
         if "GOLD" not in tokens:
@@ -3990,11 +4056,15 @@ def compute_zone_gold_log(instances, own_points=None, adverse_points=None):
         is_adverse = (tokens[-1] in ("A", "ADV", "ADVERSE")
                       or tokens[0] in ("ADV", "ADVERSE")
                       or (adv_token and tokens[0] == adv_token))
-        result = None
+        result = origine = detail = None
         for lab in inst.get("labels") or []:
-            if _normalize_tag(lab.get("group")) in ZONE_GOLD_RESULT_GROUPS:
+            groupe = _normalize_tag(lab.get("group"))
+            if groupe in ZONE_GOLD_RESULT_GROUPS and result is None:
                 result = (lab.get("text") or "").strip()
-                break
+            elif groupe in ZONE_GOLD_ORIGIN_GROUPS and origine is None:
+                origine = (lab.get("text") or "").strip()
+            elif groupe in ZONE_GOLD_DETAIL_GROUPS and detail is None:
+                detail = (lab.get("text") or "").strip()
         if result is None:
             continue  # tag d'occupation de zone, pas une entrée avec résultat
         entry_points = None
@@ -4004,12 +4074,26 @@ def compute_zone_gold_log(instances, own_points=None, adverse_points=None):
                     entry_points = (entry_points or 0) + int((lab.get("text") or "").strip())
                 except ValueError:
                     pass
+        side = "adverse" if is_adverse else "own"
+        key = gold_entry_key(inst.get("start"))
+        manual = ((overrides or {}).get(side) or {}).get(key) or {}
+        # Le résultat vient TOUJOURS du XML (label « Resultat Z.Marque »), rangé dans l'une
+        # des 5 catégories ; seule la façon d'entrer dans les 22m se saisit sur le site.
+        choice = _gold_default_choice(result)
+        label, tone = ZONE_GOLD_CHOICE_INFO[choice]
+        origine_txt = manual.get("origine") if manual.get("origine") is not None else origine
         row = {
+            "key": key,
             "start": inst.get("start"),
             "end": inst.get("end") or inst.get("start"),
-            "side": "adverse" if is_adverse else "own",
+            "side": side,
             "result": result,
-            "result_class": ZONE_GOLD_RESULT_CLASS.get(_normalize_tag(result), "neu"),
+            "choice": choice,
+            "result_class": tone,
+            "result_display": label,
+            "origine": origine_txt.upper() if origine_txt else None,
+            "half": (2 if (inst.get("start") or 0) >= half_time else 1) if half_time is not None
+                    else (2 if period_of(inst) in ("40-60", "60-80") else 1),
             "points": entry_points,
             "label_points": entry_points,
         }
@@ -4041,11 +4125,13 @@ def compute_zone_gold_log(instances, own_points=None, adverse_points=None):
             # le ratio (l'essai compterait pour 0) — signalé à l'écran.
             "essais_sans_points": sum(1 for r in rows if r["points"] is None
                                       and _normalize_tag(r["result"]) == "ESSAI"),
+            "origines_taguees": sum(1 for r in rows if r["origine"]),
         }
 
     return {
         "own": _summary(own_rows),
         "adverse": _summary(adv_rows),
+        "adv_token": adv_token,
     }
 
 

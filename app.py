@@ -11,6 +11,7 @@ from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, render_template, request, redirect, url_for, flash, g, abort, session, Response, jsonify
 from parser import (
+    ZONE_GOLD_CHOICES,
     parse_sportscode_xml, aggregate_match_stats, aggregate_zones, CATEGORY_SECTIONS,
     SECTION_ICONS, SECTION_HELP, CATEGORY_HELP, generate_highlights, compute_radar_metrics,
     compute_score, compute_phase_timing,
@@ -1219,7 +1220,8 @@ def match_detail(match_id):
         # (d'où le 0 entrée / "—" affiché jusqu'ici). On réutilise exactement le calcul
         # de la page Zone Gold pour que les deux pages affichent le même chiffre.
         zone_gold = compute_zone_gold_log(match["instances"], own_points=own_points,
-                                          adverse_points=adverse_points)
+                                          adverse_points=adverse_points,
+                                          overrides=(match.get("manual_stats") or {}).get("zone_gold"))
         if zone_gold:
             dashboard["points_per_entry"] = zone_gold["own"]["points_par_entree"]
             dashboard["points_per_entry_adverse"] = zone_gold["adverse"]["points_par_entree"]
@@ -1591,7 +1593,8 @@ def match_bilan_attaque(match_id):
         return redirect(url_for("match_detail", match_id=match_id))
     own_points, adverse_points, _, _, _ = _resolve_match_score(match)
     zone_gold = compute_zone_gold_log(match["instances"], own_points=own_points,
-                                      adverse_points=adverse_points)
+                                      adverse_points=adverse_points,
+                                      overrides=(match.get("manual_stats") or {}).get("zone_gold"))
     gold = (zone_gold or {}).get("own") or {}
     # Même formatage que la page Review (troncature comme le rapport), pour que les
     # deux pages n'affichent pas deux valeurs différentes du même chiffre.
@@ -1620,7 +1623,8 @@ def match_bilan_defense(match_id):
         return redirect(url_for("match_detail", match_id=match_id))
     own_points, adverse_points, _, _, _ = _resolve_match_score(match)
     zone_gold = compute_zone_gold_log(match["instances"], own_points=own_points,
-                                      adverse_points=adverse_points)
+                                      adverse_points=adverse_points,
+                                      overrides=(match.get("manual_stats") or {}).get("zone_gold"))
     return render_template(
         "match_bilan_defense.html", match=match,
         data=compute_bilan_defense(match["instances"], adverse_points=adverse_points,
@@ -1647,9 +1651,49 @@ def match_zone_gold(match_id):
         flash("Ce match a été importé avant la mise à jour détaillée par secteur : réimporte le fichier XML pour voir cette page.", "error")
         return redirect(url_for("match_detail", match_id=match_id))
     own_points, adverse_points, score_source, _, _ = _resolve_match_score(match)
-    zone_gold = compute_zone_gold_log(match["instances"], own_points=own_points, adverse_points=adverse_points)
+    zone_gold = compute_zone_gold_log(match["instances"], own_points=own_points, adverse_points=adverse_points,
+                                      overrides=(match.get("manual_stats") or {}).get("zone_gold"))
     return render_template("match_zone_gold.html", match=match, data=zone_gold,
-                           manual=match.get("manual_stats") or {}, score_source=score_source)
+                           manual=match.get("manual_stats") or {}, score_source=score_source,
+                           gold_choices=ZONE_GOLD_CHOICES)
+
+
+def _gold_summary_fmt(zone_gold):
+    """Chiffres du bloc « Comparatif », formatés comme sur la page (pour la mise à jour
+    sans rechargement après une correction)."""
+    out = {}
+    for side in ("own", "adverse"):
+        d = (zone_gold or {}).get(side) or {}
+        out[side] = {
+            "total": d.get("total"),
+            "ballons_perdus": d.get("ballons_perdus"),
+            "efficacite": f"{round(d['efficacite'])} %" if d.get("efficacite") is not None else "—",
+            "points_par_entree": _fmt_fr(d.get("points_par_entree"), 2) if d.get("points_par_entree") is not None else "—",
+        }
+    return out
+
+
+@app.route("/match/<int:match_id>/zone-gold/entree", methods=["POST"])
+@admin_required
+def match_zone_gold_entry(match_id):
+    """Saisie à la main de la façon d'entrer dans les 22m (texte libre) pour une entrée en
+    zone Gold. Le résultat, lui, vient du XML."""
+    match = _get_match_or_404(match_id)
+    payload = request.get_json(silent=True) or {}
+    side = payload.get("side")
+    key = str(payload.get("key") or "")
+    if side not in ("own", "adverse") or not key:
+        abort(400)
+    manual = match.get("manual_stats") or {}
+    gold = manual.setdefault("zone_gold", {})
+    entry = gold.setdefault(side, {}).setdefault(key, {})
+    if "origine" in payload:
+        entry["origine"] = (str(payload["origine"] or "").strip()[:60]) or ""
+    db = get_db()
+    db.execute("UPDATE matches SET manual_stats_json = %s WHERE id = %s", (json.dumps(manual), match_id))
+    db.commit()
+    zone_gold = compute_zone_gold_log(match["instances"], overrides=gold)
+    return jsonify({"ok": True, "summary": _gold_summary_fmt(zone_gold)})
 
 
 @app.route("/match/<int:match_id>/csc")
