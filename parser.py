@@ -1521,8 +1521,11 @@ def compute_bilan_attaque(instances, own_points=None):
         "essais": actions.get("ESSAIS", 0),
         "franchissements": codes.get("UBB BREAK", 0),
         "contacts": contacts_total,
-        # "Dominants" et "Libération i" du rapport : aucun tag ne les distingue.
-        "dominants_pct": None,
+        # Dominance (règle de Téo) : contacts + ÷ total des contacts, en %. Mêmes labels
+        # « Contacts » des joueurs que le total « Contacts » affiché juste au-dessus.
+        "dominants_pct": _pct(contacts.get("+", 0), contacts_total),
+        "dominants": contacts.get("+", 0),
+        # "Libération i" du rapport : aucun tag ne la distingue encore.
         "liberation_i_pct": None,
         "plaquages_casses": plaquages_casses,
         "offloads": offloads,
