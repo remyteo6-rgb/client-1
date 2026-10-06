@@ -44,7 +44,13 @@
                 <tbody>
                 {% for r in data.rows %}
                 <tr data-key="{{ r.key }}">
+                    {% if is_admin %}
+                    <th><button type="button" class="dis-grp-btn" data-groupe="{{ r.groupe or '' }}"
+                        title="Cliquer pour passer ce joueur en {{ '3/4' if r.groupe == 'avants' else 'avant' }} sur ce match"
+                        aria-label="{{ r.name }} : {{ 'avant' if r.groupe == 'avants' else ('3/4' if r.groupe == '3/4' else 'poste non défini') }}, cliquer pour changer">{{ r.name }}<span class="dis-grp-tag">{{ 'AV' if r.groupe == 'avants' else ('3/4' if r.groupe == '3/4' else '?') }}</span></button></th>
+                    {% else %}
                     <th>{{ r.name }}</th>
+                    {% endif %}
                     {% if is_admin %}
                     <td class="dis-num"><input class="dis-in dis-in-num" type="number" min="0" max="9" inputmode="numeric"
                         value="{{ r.fautes or '' }}" placeholder="" data-field="fautes" aria-label="Fautes de {{ r.name }}"></td>
@@ -146,7 +152,8 @@
         « Disciplines » (hors « Disciplines Off / Def », ignorés ici). Le chiffre du bandeau « Fautes par période » = nos fautes en 1re mi-temps.
         L'ordre des joueurs et la répartition avants / 3/4 suivent la page Composition quand elle est remplie.</p>
     {% if is_admin %}
-    <p class="subtitle">{{ icons.edit() }} Tout se saisit directement sur la diapo : nombre de fautes et raison de chaque joueur, carton (clic sur la case :
+    <p class="subtitle">{{ icons.edit() }} Tout se saisit directement sur la diapo : nombre de fautes et raison de chaque joueur, avant ou 3/4 (clic sur le nom du joueur : l'étiquette AV / 3/4 apparaît au survol et
+        n'est jamais imprimée), carton (clic sur la case :
         aucun → jaune → rouge), nombre de fautes et détail (une raison par ligne) de chaque catégorie. C'est enregistré dès que tu quittes la case.
         <span id="disStatus" class="zg-status" role="status"></span></p>
     {% endif %}
@@ -180,6 +187,14 @@ function preparePrint() { setTimeout(() => window.print(), 100); }
     }
     document.querySelectorAll('.dis-table tbody tr[data-key]').forEach(function (tr) {
         tr.querySelectorAll('.dis-in').forEach(function (el) { bind(el, 'player', tr.dataset.key); });
+        var grp = tr.querySelector('.dis-grp-btn');
+        if (grp) grp.addEventListener('click', function () {
+            var next = grp.dataset.groupe === 'avants' ? '3/4' : 'avants';
+            grp.dataset.groupe = next;
+            grp.querySelector('.dis-grp-tag').textContent = next === 'avants' ? 'AV' : '3/4';
+            grp.title = 'Cliquer pour passer ce joueur en ' + (next === 'avants' ? '3/4' : 'avant') + ' sur ce match';
+            save('player', tr.dataset.key, 'groupe', next);
+        });
         var btn = tr.querySelector('.dis-card-btn');
         if (btn) btn.addEventListener('click', function () {
             var next = { '': 'J', 'J': 'R', 'R': '' }[btn.dataset.carton || ''];
