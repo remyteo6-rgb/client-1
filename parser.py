@@ -1115,11 +1115,18 @@ def compute_bilan_attaque(instances, own_points=None):
     actions = Counter()
     gla_plus = gla_total = 0
     found = False
+    # Codes d'équipe ("UBB DEF BATTUS", "UBB ESSAI"...) : l'analyste y pose souvent les
+    # mêmes labels Joueurs Off / Contacts / Offload que sur le joueur qui a fait l'action.
+    # Les compter en plus des joueurs doublait les chiffres (USC-UBB : 36 défenseurs battus
+    # au lieu de 18, 18 offloads au lieu de 14 — rapport individuel du staff).
+    adv_token = _detect_adverse_token(instances)
+    team_tokens = {"UBB", "ADV", "ADVERSE"} | ({adv_token} if adv_token else set())
 
     for inst in instances:
         code = _normalize_tag(inst.get("code_raw"))
         tokens = code.split()
         codes[code] += 1
+        is_team_code = bool(tokens) and tokens[0] in team_tokens
         if code.startswith(("JAB", "PUNCH")) or code in ("UBB CLIC", "UBB GLA"):
             found = True
         quart = _new_convention_period(inst)
@@ -1138,16 +1145,18 @@ def compute_bilan_attaque(instances, own_points=None):
         for lab in inst.get("labels") or []:
             groupe = _normalize_tag(lab.get("group"))
             texte = _normalize_tag(lab.get("text"))
-            if groupe == "CONTACTS":
-                contacts[texte] += 1
-            elif groupe == "VITESSE RUCK":
+            if groupe == "VITESSE RUCK":
                 vitesse[texte] += 1
-            elif groupe in ("OFFLOAD", "OFFLOADS", "OFLLOAD", "OFLLOADS"):
-                offload_qualif[texte] += 1
             elif groupe == "DEF BATTUS":
                 # Qualificatif du plaquage cassé (RING / CORDE), porté par le code
                 # d'équipe.
                 def_battus[texte] += 1
+            elif is_team_code:
+                continue  # doublon des labels posés sur le joueur
+            elif groupe == "CONTACTS":
+                contacts[texte] += 1
+            elif groupe in ("OFFLOAD", "OFFLOADS", "OFLLOAD", "OFLLOADS"):
+                offload_qualif[texte] += 1
             elif groupe == PLAYER_ACTION_GROUP:
                 actions[texte] += 1
                 found = True
@@ -1193,6 +1202,8 @@ def compute_bilan_attaque(instances, own_points=None):
         "offloads": offloads,
         # Offloads / contacts : les deux lus sur les joueurs (labels Joueurs Off).
         "offloads_contacts_pct": _pct(offloads, contacts_joueurs),
+        # Ratio brut (offloads par contact), affiché tronqué à 2 décimales : 14/78 → 0,17.
+        "offloads_contacts_ratio": (offloads / contacts_joueurs) if contacts_joueurs else None,
         "contacts_joueurs": contacts_joueurs,
         "passes": actions.get("PASSES", 0),
         "clics": codes.get("UBB CLIC", 0),
