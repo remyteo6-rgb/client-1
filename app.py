@@ -1708,7 +1708,8 @@ def match_discipline(match_id):
               "réimporte le fichier XML pour voir cette page.", "error")
         return redirect(url_for("match_detail", match_id=match_id))
     data = compute_discipline(match["instances"], match.get("row_order"),
-                              match.get("player_match_stats"))
+                              match.get("player_match_stats"), match.get("composition"),
+                              (match.get("manual_stats") or {}).get("discipline"))
     # Suivi saison : chaque match importé, dans l'ordre chronologique, jusqu'à celui-ci.
     db = get_db()
     suivi = []
@@ -1726,6 +1727,44 @@ def match_discipline(match_id):
             break
     return render_template("match_discipline.html", match=match, data=data, suivi=suivi,
                            assets=_review_assets(match))
+
+
+@app.route("/match/<int:match_id>/discipline/saisie", methods=["POST"])
+@admin_required
+def match_discipline_save(match_id):
+    """Saisie à la main sur la page Discipline : pour un joueur, son nombre de fautes,
+    la raison et le carton ; pour une catégorie (Attack / Defence / Set Piece / Other),
+    son nombre de fautes et le détail des raisons. Renvoie les totaux recalculés."""
+    match = _get_match_or_404(match_id)
+    payload = request.get_json(silent=True) or {}
+    kind, key, field = payload.get("kind"), str(payload.get("key") or ""), payload.get("field")
+    value = payload.get("value")
+    manual = match.get("manual_stats") or {}
+    disc = manual.setdefault("discipline", {})
+    if kind == "player" and key and field in ("fautes", "raison", "carton"):
+        entry = disc.setdefault("players", {}).setdefault(key, {})
+    elif kind == "category" and key in ("Attack", "Defence", "Set Piece", "Other") and field in ("count", "reasons"):
+        entry = disc.setdefault("categories", {}).setdefault(key, {})
+    else:
+        abort(400)
+    if field in ("fautes", "count"):
+        try:
+            entry[field] = max(0, int(value)) if str(value).strip() != "" else None
+        except (TypeError, ValueError):
+            abort(400)
+        if entry[field] is None:
+            entry.pop(field)
+    elif field == "carton":
+        entry[field] = value if value in ("", "J", "R") else ""
+    else:
+        entry[field] = str(value or "")[:500]
+    db = get_db()
+    db.execute("UPDATE matches SET manual_stats_json = %s WHERE id = %s", (json.dumps(manual), match_id))
+    db.commit()
+    data = compute_discipline(match["instances"], match.get("row_order"), match.get("player_match_stats"),
+                              match.get("composition"), disc)
+    return jsonify({"ok": True, "avants": data["avants"], "trois_quarts": data["trois_quarts"],
+                    "categories": {c["label"]: c["count"] for c in data["categories"]}})
 
 
 @app.route("/match/<int:match_id>/csc")
