@@ -70,7 +70,7 @@
                 <tfoot>
                     <tr><th>Avants</th><td class="dis-num" id="disAvants">{{ data.avants }}</td><td colspan="2"></td></tr>
                     <tr><th>3/4</th><td class="dis-num" id="disTrois">{{ data.trois_quarts }}</td><td colspan="2"></td></tr>
-                    <tr><th>Équipe</th><td class="dis-num">{{ data.team.own if data.team.own is not none else data.joueurs_total }}</td><td colspan="2"></td></tr>
+                    <tr><th>Équipe</th><td class="dis-num" id="disEquipe">{{ data.joueurs_total }}</td><td colspan="2"></td></tr>
                 </tfoot>
             </table>
         </div>
@@ -151,9 +151,13 @@
         Fautes par joueur : nom du joueur posé en label sur chaque code « UBB Disciplines » (sinon, labels « Disciplines » sur le joueur) — corrigeables. Raison : descripteurs du groupe « Raison » ou du groupe
         « Disciplines » (hors « Disciplines Off / Def », ignorés ici). Le chiffre du bandeau « Fautes par période » = nos fautes en 1re mi-temps.
         L'ordre des joueurs et la répartition avants / 3/4 suivent la page Composition quand elle est remplie.</p>
-    {% if data.fautes_sans_joueur %}
+    {% if data.fautes_sans_joueur and data.fautes_sans_joueur > 0 %}
     <p class="subtitle">{{ icons.warning() }} {{ data.fautes_sans_joueur }} code{{ 's' if data.fautes_sans_joueur > 1 else '' }} « UBB Disciplines »
-        sans nom de joueur reconnu : ajoute le nom du fautif en label sur ce code dans le XML.</p>
+        sans joueur rattaché : ajoute le nom du fautif en label sur ce code dans le XML.</p>
+    {% endif %}
+    {% if data.labels_hors_penalite %}
+    <p class="subtitle">{{ icons.warning() }} {{ data.labels_hors_penalite }} label{{ 's' if data.labels_hors_penalite > 1 else '' }} « Disciplines » sur un joueur
+        sans code « UBB Disciplines » au même moment : non compté{{ 's' if data.labels_hors_penalite > 1 else '' }}.</p>
     {% endif %}
     {% if is_admin %}
     <p class="subtitle">{{ icons.edit() }} Tout se saisit directement sur la diapo : nombre de fautes et raison de chaque joueur, avant ou 3/4 (clic sur le nom du joueur : l'étiquette AV / 3/4 apparaît au survol et
@@ -180,6 +184,7 @@ function preparePrint() { setTimeout(() => window.print(), 100); }
             .then(function (res) {
                 document.getElementById('disAvants').textContent = res.avants;
                 document.getElementById('disTrois').textContent = res.trois_quarts;
+                document.getElementById('disEquipe').textContent = res.equipe;
                 say('Enregistré.');
             })
             .catch(function () { say("L'enregistrement n'a pas abouti : recharge la page et réessaie.", true); });
