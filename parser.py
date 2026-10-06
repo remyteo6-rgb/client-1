@@ -1069,11 +1069,10 @@ def compute_csc(instances):
 
 # ---- Discipline (page "DISCIPLINE" du rapport vidéo) --------------------------
 # Catégories du rapport et libellés acceptés dans le groupe de labels « Catégorie »
-# posé sur la faute du joueur. À défaut, « Disciplines Off » = Attack, « Disciplines
-# Def » = Defence (ce qui est déjà tagué).
+# posé sur la faute du joueur (sinon saisie à la main sur la page Discipline).
 DISCIPLINE_CATEGORIES = [
-    ("Attack", {"ATTACK", "ATTAQUE", "OFF", "OFFENSIVE", "DISCIPLINES OFF"}),
-    ("Defence", {"DEFENCE", "DEFENSE", "DEF", "DEFENSIVE", "DISCIPLINES DEF"}),
+    ("Attack", {"ATTACK", "ATTAQUE", "OFFENSIVE"}),
+    ("Defence", {"DEFENCE", "DEFENSE", "DEFENSIVE"}),
     ("Set Piece", {"SET PIECE", "CONQUETE", "PHASE STATIQUE", "PHASES STATIQUES", "MELEE", "TOUCHE"}),
     ("Other", {"OTHER", "AUTRE", "AUTRES"}),
 ]
@@ -1182,11 +1181,18 @@ def compute_discipline(instances, row_order=None, cards=None, composition=None, 
             continue
         row = players.setdefault(code, {"fautes": 0, "reasons": Counter(), "yellow": 0, "red": 0})
         row["fautes"] += 1
+        # Raison = descripteurs posés par l'analyste : groupe « Raison » (ou variantes) et
+        # tout libellé du groupe Disciplines AUTRE que « Disciplines Off / Def », qui ne
+        # sont pas des raisons (décision de Téo : ne pas s'en servir sur cette page).
         reasons = [t for g in DISCIPLINE_REASON_GROUPS for t in groups.get(g, []) if t]
+        reasons += [t for t in groups.get("DISCIPLINES", [])
+                    if t and _normalize_tag(t) not in ("DISCIPLINES OFF", "DISCIPLINES DEF", "DISCIPLINE OFF", "DISCIPLINE DEF")]
         for r in reasons:
             row["reasons"][r] += 1
+        # Catégorie : uniquement un label explicite du groupe « Catégorie » (sinon saisie
+        # à la main sur la page) — plus de déduction depuis Disciplines Off / Def.
         cat_texts = {_normalize_tag(t) for g in DISCIPLINE_CATEGORY_GROUPS for t in groups.get(g, [])}
-        cat = _discipline_category(cat_texts) or _discipline_category(disc)
+        cat = _discipline_category(cat_texts)
         if cat:
             categories[cat]["count"] += 1
             for r in reasons:
