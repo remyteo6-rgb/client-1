@@ -1204,6 +1204,8 @@ def compute_discipline(instances, row_order=None, cards=None, composition=None, 
                           | {n for n in (composition or []) if n})
     by_key = {_name_key(n): n for n in player_codes}
     team_faults_with_player = 0
+    team_faults_paired = 0
+    labels_hors_penalite = 0
     for inst in instances:
         tokens = _normalize_tag(inst.get("code_raw")).split()
         if not (len(tokens) == 2 and tokens[0] == "UBB" and tokens[1] == "DISCIPLINES"):
@@ -1221,22 +1223,47 @@ def compute_discipline(instances, row_order=None, cards=None, composition=None, 
             _count_fault(fautif, groups, reasons)
             _count_category(groups, reasons)
 
-    # 2) Sinon (anciens fichiers) : les labels Disciplines posés sur les codes joueurs.
-    for inst in ([] if team_faults_with_player else instances):
-        code = (inst.get("code_raw") or "").strip()
-        tokens = _normalize_tag(code).split()
-        if not tokens or tokens[0] in team_tokens:
-            continue
-        groups = {}
-        for lab in inst.get("labels") or []:
-            groups.setdefault(_normalize_tag(lab.get("group")), []).append((lab.get("text") or "").strip())
-        disc = {_normalize_tag(t) for t in groups.get("DISCIPLINES", [])}
-        joueurs_off = {_normalize_tag(t) for t in groups.get(PLAYER_ACTION_GROUP, [])}
-        if not disc and not (joueurs_off & PLAYER_ACTION_PENALTY):
-            continue
-        reasons = _reasons_of(groups)
-        _count_fault(code, groups, reasons)
-        _count_category(groups, reasons)
+    # 2) Sinon (fichiers actuels) : les labels Disciplines posés sur les codes joueurs,
+    #    rapprochés UN PAR UN des codes « UBB Disciplines » (le label joueur est posé
+    #    quelques secondes après le code). Un label sans pénalité d'équipe au même moment
+    #    est ignoré : le total joueurs ne peut plus dépasser le total équipe.
+    labels_hors_penalite = 0
+    if not team_faults_with_player:
+        candidates = []
+        for inst in instances:
+            code = (inst.get("code_raw") or "").strip()
+            tokens = _normalize_tag(code).split()
+            if not tokens or tokens[0] in team_tokens:
+                continue
+            groups = {}
+            for lab in inst.get("labels") or []:
+                groups.setdefault(_normalize_tag(lab.get("group")), []).append((lab.get("text") or "").strip())
+            disc = {_normalize_tag(t) for t in groups.get("DISCIPLINES", [])}
+            joueurs_off = {_normalize_tag(t) for t in groups.get(PLAYER_ACTION_GROUP, [])}
+            if disc or (joueurs_off & PLAYER_ACTION_PENALTY):
+                candidates.append((inst.get("start") or 0, code, groups))
+        team_starts = sorted((inst.get("start") or 0) for inst in instances
+                             if _normalize_tag(inst.get("code_raw")) == "UBB DISCIPLINES")
+        used = set()
+        if team_starts:
+            for t0 in team_starts:
+                best = None
+                for k, (t, _c, _g) in enumerate(candidates):
+                    if k in used or not (t0 - 15 <= t <= t0 + 25):
+                        continue
+                    if best is None or abs(t - t0) < abs(candidates[best][0] - t0):
+                        best = k
+                if best is not None:
+                    used.add(best)
+            labels_hors_penalite = len(candidates) - len(used)
+        else:
+            used = set(range(len(candidates)))  # pas de code équipe : on garde tout
+        for k in sorted(used):
+            _t, code, groups = candidates[k]
+            reasons = _reasons_of(groups)
+            _count_fault(code, groups, reasons)
+            _count_category(groups, reasons)
+        team_faults_paired = len(used)
 
     if team is None and not players:
         return None
@@ -1303,8 +1330,9 @@ def compute_discipline(instances, row_order=None, cards=None, composition=None, 
         "joueurs_total": sum(r["fautes"] for r in rows),
         "categories": cats,
         "raisons_taguees": any(r["raison"] for r in rows),
-        # Fautes « UBB Disciplines » sans nom de joueur reconnu (méthode 1 seulement).
-        "fautes_sans_joueur": ((team or {}).get("own") or 0) - team_faults_with_player if team_faults_with_player else None,
+        # Pénalités d'équipe sans joueur rattaché, et labels joueurs sans pénalité d'équipe.
+        "fautes_sans_joueur": ((team or {}).get("own") or 0) - (team_faults_with_player or team_faults_paired),
+        "labels_hors_penalite": labels_hors_penalite,
         "methode_code_equipe": bool(team_faults_with_player),
     }
 

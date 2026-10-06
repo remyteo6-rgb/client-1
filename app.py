@@ -1749,7 +1749,8 @@ def match_discipline_save(match_id):
         abort(400)
     if field in ("fautes", "count"):
         try:
-            entry[field] = max(0, int(value)) if str(value).strip() != "" else None
+            # Case vidée = 0 faute (c'est ainsi qu'elle s'affiche), pas « valeur du XML ».
+            entry[field] = max(0, int(value)) if str(value).strip() != "" else 0
         except (TypeError, ValueError):
             abort(400)
         if entry[field] is None:
@@ -1766,6 +1767,7 @@ def match_discipline_save(match_id):
     data = compute_discipline(match["instances"], match.get("row_order"), match.get("player_match_stats"),
                               match.get("composition"), disc)
     return jsonify({"ok": True, "avants": data["avants"], "trois_quarts": data["trois_quarts"],
+                    "equipe": data["joueurs_total"],
                     "categories": {c["label"]: c["count"] for c in data["categories"]}})
 
 
