@@ -1334,6 +1334,134 @@ def _bilan_slide(player_cards, composition, player_stats):
     return {"rows": rows, "total": total}
 
 
+# Diapos de détail de la page Joueurs (même mise en page que la diapo BILAN) : un groupe
+# = un bandeau de couleur au-dessus de ses colonnes. kind : 'pos' (vert si > 0), 'neg'
+# (rouge si > 0), 'num' (neutre), 'pct' (pourcentage, calculé aussi pour l'équipe).
+# 'cmp' = (secteur, clé) de la moyenne saison du joueur, pour la flèche ↑ ↓ →.
+JOUEURS_SLIDES = [
+    {"key": "attaque", "title": "ATTAQUE", "table": "attack", "groups": [
+        {"label": "Contact", "cols": [
+            {"key": "contact_plus", "label": "+", "kind": "pos"},
+            {"key": "contact_neutre", "label": "=", "kind": "num"},
+            {"key": "contact_minus", "label": "−", "kind": "neg"},
+            {"key": "contact_pct", "label": "% +", "kind": "pct", "cmp": ("attack", "contact_pct")}]},
+        {"label": "Franchissement", "cols": [
+            {"key": "def_battu", "label": "Déf. battus", "kind": "pos"},
+            {"key": "cartouche", "label": "Courses", "kind": "num"},
+            {"key": "break", "label": "Breaks", "kind": "pos"}]},
+        {"label": "Passes", "cols": [
+            {"key": "passe_plus", "label": "+", "kind": "pos"},
+            {"key": "passe_neutre", "label": "=", "kind": "num"},
+            {"key": "passe_minus", "label": "−", "kind": "neg"},
+            {"key": "passe_pct", "label": "% propres", "kind": "pct", "cmp": ("attack", "passe_pct")}]},
+        {"label": "Offload", "cols": [
+            {"key": "offload_plus", "label": "+", "kind": "pos"},
+            {"key": "offload_neutre", "label": "=", "kind": "num"},
+            {"key": "offload_minus", "label": "−", "kind": "neg"}]},
+        {"label": "Soutien", "cols": [
+            {"key": "soutien_1er", "label": "1er", "kind": "pos"},
+            {"key": "soutien_2eme", "label": "2e", "kind": "num"},
+            {"key": "soutien_3plus", "label": "3e +", "kind": "num"}]},
+        {"label": "Déchet", "cols": [
+            {"key": "pdb", "label": "Ball. perdus", "kind": "neg"},
+            {"key": "penalite_off", "label": "Pén. off.", "kind": "neg"},
+            {"key": "penalite_def", "label": "Pén. déf.", "kind": "neg"}]},
+    ]},
+    {"key": "defense", "title": "DÉFENSE", "table": "defense", "groups": [
+        {"label": "Plaquages", "cols": [
+            {"key": "plaquage_reussis", "label": "Réussis", "kind": "pos"},
+            {"key": "plaquage_rate", "label": "Manqués", "kind": "neg"},
+            {"key": "plaquage_tentes", "label": "Tentés", "kind": "num"},
+            {"key": "plaquage_pct", "label": "%", "kind": "pct", "cmp": ("defense", "plaquage_pct")}]},
+        {"label": "Hauteur", "cols": [
+            {"key": "plaquage_bas", "label": "Bas", "kind": "num"},
+            {"key": "plaquage_haut", "label": "Haut", "kind": "num"}]},
+        {"label": "Qualité", "cols": [
+            {"key": "plaquage_dominant", "label": "+", "kind": "pos"},
+            {"key": "plaquage_neutre", "label": "=", "kind": "num"},
+            {"key": "plaquage_passif", "label": "−", "kind": "neg"}]},
+        {"label": "Combattant", "cols": [
+            {"key": "combattant_plus", "label": "+", "kind": "pos"},
+            {"key": "combattant_neutre", "label": "=", "kind": "num"},
+            {"key": "combattant_minus", "label": "−", "kind": "neg"},
+            {"key": "combattant_balle", "label": "Balle", "kind": "num"}]},
+        {"label": "Chasseur", "cols": [
+            {"key": "chasseur_plus", "label": "+", "kind": "pos"},
+            {"key": "chasseur_neutre", "label": "=", "kind": "num"},
+            {"key": "chasseur_minus", "label": "−", "kind": "neg"}]},
+        {"label": "Récup.", "cols": [
+            {"key": "ballons_recuperes", "label": "Ballons", "kind": "pos"}]},
+    ]},
+    {"key": "conquete", "title": "CONQUÊTE & JEU AU PIED", "table": "ruck", "groups": [
+        {"label": "Mêlée", "cols": [
+            {"key": "melee_conquete", "label": "Mêlées", "kind": "num"}]},
+        {"label": "Touche", "cols": [
+            {"key": "sauteur", "label": "Sauteur", "kind": "num"},
+            {"key": "lifteur", "label": "Lifteur", "kind": "num"},
+            {"key": "lanceur", "label": "Lanceur", "kind": "num"}]},
+        {"label": "Jeu au pied", "cols": [
+            {"key": "jap", "label": "JAP", "kind": "num"},
+            {"key": "coup_envoi", "label": "Coups d'envoi", "kind": "num"},
+            {"key": "recep_ce", "label": "Récep. CE", "kind": "num"}]},
+        {"label": "Réception", "cols": [
+            {"key": "rce_plus", "label": "+", "kind": "pos"},
+            {"key": "rce_neutre", "label": "=", "kind": "num"},
+            {"key": "rce_minus", "label": "−", "kind": "neg"}]},
+        {"label": "Aérien", "cols": [
+            {"key": "duels_aer_plus", "label": "+", "kind": "pos"},
+            {"key": "duels_aer_neutre", "label": "=", "kind": "num"}]},
+        {"label": "Marque", "cols": [
+            {"key": "essai", "label": "Essais", "kind": "pos"},
+            {"key": "transfo_txt", "label": "Transfo.", "kind": "num"},
+            {"key": "points", "label": "Points", "kind": "pos", "cmp": ("ruck", "points_total")}]},
+    ]},
+]
+_SLIDE_GROUP_COLORS = ("navy", "wine", "plum")
+
+
+def _pct(num, den):
+    return round(num / den * 100) if den else None
+
+
+def _joueurs_detail_slides(bilan_slide, player_cards, tables):
+    """Une diapo par secteur (attaque / défense / conquête) avec les mêmes joueurs, dans
+    le même ordre et avec les mêmes n° / poste / nom que la diapo BILAN. Un joueur sans
+    action dans un secteur garde sa ligne (cases « · »)."""
+    slides = []
+    for spec in JOUEURS_SLIDES:
+        by_name = {r["name"]: r for r in tables[spec["table"]]["rows"]}
+        cols = [c for g in spec["groups"] for c in g["cols"]]
+        rows = []
+        for meta, card in zip(bilan_slide["rows"], player_cards):
+            src = dict(by_name.get(card["name"]) or {})
+            if spec["table"] == "defense":
+                src["plaquage_reussis"] = (src.get("plaquage_dominant", 0) + src.get("plaquage_neutre", 0)
+                                           + src.get("plaquage_passif", 0))
+            if spec["table"] == "ruck":
+                src["transfo_txt"] = (f"{src.get('transfo_reussies', 0)}/{src.get('transfo_tentees', 0)}"
+                                      if src.get("transfo_tentees") else 0)
+            rows.append({**meta, "name": card["name"], "v": {c["key"]: src.get(c["key"]) for c in cols},
+                         "low": bool(src.get("plaquage_low_sample")) if src else False})
+        tot = {}
+        for c in cols:
+            if c["kind"] != "pct" and c["key"] != "transfo_txt":
+                tot[c["key"]] = sum(int(r["v"].get(c["key"]) or 0) for r in rows)
+        t = lambda k: tot.get(k, 0)
+        if spec["table"] == "attack":
+            tot["contact_pct"] = _pct(t("contact_plus"), t("contact_plus") + t("contact_neutre") + t("contact_minus"))
+            passes = sum(int(r.get("passes") or 0) for r in by_name.values())
+            tot["passe_pct"] = _pct(t("passe_plus") + t("passe_neutre"), passes)
+        elif spec["table"] == "defense":
+            tot["plaquage_pct"] = _pct(t("plaquage_reussis"), t("plaquage_tentes"))
+        elif spec["table"] == "ruck":
+            reus = sum(int((by_name.get(c["name"]) or {}).get("transfo_reussies") or 0) for c in player_cards)
+            tent = sum(int((by_name.get(c["name"]) or {}).get("transfo_tentees") or 0) for c in player_cards)
+            tot["transfo_txt"] = f"{reus}/{tent}" if tent else 0
+        groups = [{**g, "color": _SLIDE_GROUP_COLORS[i % 3]} for i, g in enumerate(spec["groups"])]
+        slides.append({**spec, "groups": groups, "cols": cols, "rows": rows, "total": tot})
+    return slides
+
+
 @app.route("/match/<int:match_id>/joueurs")
 def match_joueurs(match_id):
     match = _get_match_or_404(match_id)
@@ -1367,7 +1495,10 @@ def match_joueurs(match_id):
     ruck_table = {**ruck_table, "rows": order_rows_by_reference_order(ruck_table["rows"], ordered_names)}
     bilan_table = {**bilan_table, "rows": order_rows_by_reference_order(bilan_table["rows"], ordered_names)}
     bilan_slide = _bilan_slide(player_cards, composition, match.get("player_match_stats"))
+    detail_slides = _joueurs_detail_slides(bilan_slide, player_cards,
+                                           {"attack": attack_table, "defense": defense_table, "ruck": ruck_table})
     return render_template("match_joueurs.html", match=match, attack_table=attack_table, bilan_slide=bilan_slide,
+                           detail_slides=detail_slides,
                            defense_table=defense_table, ruck_table=ruck_table,
                            bilan_table=bilan_table,
                            player_baselines=player_baselines, player_cards=player_cards)
