@@ -1614,9 +1614,12 @@ DEFENSE_FRANCHI_ORIGINES = [
     ("Jeu Courant", ["JEU", "JEU COURANT", "DANS LE JEU"]),
 ]
 # Groupes de labels lus sur les codes Essai et Break adverses (comparés sans accents).
-DEFENSE_ORIGINE_GROUPS = {"ORIGINE POSSESSION", "ORIGINE", "ORIGINES"}
-DEFENSE_RESULTAT_GROUPS = {"RESULTAT", "RESULTATS", "RESULTAT FRANCHISSEMENT"}
-DEFENSE_TEMPS_GROUPS = {"TEMPS DE JEU", "TEMPS", "NB TEMPS", "PHASES"}
+DEFENSE_ORIGINE_GROUPS = {"ORIGINE POSSESSION", "ORIGINE", "ORIGINES",
+                          # Groupes du XML de Téo (Agen, octobre 2026), sur « <ADV> Break »
+                          "ORIGINE FRANCHISSEMENT SUBIT", "ORIGINE FRANCHISSEMENT", "ORIGINE FRANCHISSEMENTS"}
+DEFENSE_RESULTAT_GROUPS = {"RESULTAT", "RESULTATS", "RESULTAT FRANCHISSEMENT",
+                           "FIN FRANCHISSEMENT SUBIT", "FIN FRANCHISSEMENT", "FIN FRANCHISSEMENTS"}
+DEFENSE_TEMPS_GROUPS = {"TEMPS DE JEU", "TEMPS", "NB TEMPS", "PHASES", "PHASES DE JEU", "PHASE DE JEU"}
 
 
 def _label_key(text):
@@ -1653,14 +1656,23 @@ DEFENSE_CLASH = [
 ]
 
 
+def _loose_key(text):
+    """Comme _label_key, mais sans les pluriels (« Pénalités Jouée Vite » = « Pénalité
+    jouée vite », « Mêlées » = « Mêlée ») : le libellé tagué n'a pas à coller au mot près."""
+    return " ".join(w[:-1] if len(w) > 3 and w.endswith("S") else w for w in _label_key(text).split())
+
+
 def _defense_ligne(libelles, compte):
     """Une ligne de liste du rapport : son libellé et son total (0 si rien de tagué).
-    `compte` est indexé par _label_key(texte du label)."""
+    `compte` est indexé par _label_key(texte du label) ; comparaison sans pluriels."""
+    loose = Counter()
+    for cle, n in compte.items():
+        loose[_loose_key(cle)] += n
     lignes = []
     for label, cles in libelles:
         total = 0
-        for cle in {_label_key(c) for c in cles}:
-            total += compte.get(cle, 0)
+        for cle in {_loose_key(c) for c in cles}:
+            total += loose.get(cle, 0)
         lignes.append({"label": label, "count": total})
     return lignes
 
