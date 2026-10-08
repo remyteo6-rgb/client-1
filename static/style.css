@@ -2810,3 +2810,14 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
 .bjr-table td .bjr-dot { color: #b5b8c0; font-weight: 400; }
 .bjr-table .kpi-arrow { font-size: 11px; margin-left: 2px; }
 .bjr-detail .bjr-table tfoot td { font-size: 15px; }
+
+/* Cahier : notes gardées d'une ancienne grille de critères (lecture seule) */
+.ppid-grid-legacy th, .ppid-grid-legacy td { opacity: .62; }
+.ppid-legacy-tag { display: inline-block; margin-left: 4px; padding: 1px 6px; border-radius: 8px; background: rgba(42,23,18,.08); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .3px; color: var(--text-secondary); }
+.ppid-profil-common td { text-align: center; font-weight: 700; }
+
+/* Fenêtre « Remplacer le XML » (page du match) */
+.replace-xml-dialog { max-width: 560px; width: calc(100% - 32px); }
+.replace-xml-form { display: flex; flex-direction: column; gap: 12px; color: #151a13; }
+.replace-xml-form p { margin: 0; }
+.replace-xml-form .btn { align-self: flex-start; }
