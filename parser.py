@@ -3265,7 +3265,8 @@ def compute_match_baseline(matches_with_instances, exclude_id=None):
     scrum = dash.get("scrum") or {}
 
     return {
-        "points_per_entry": dash.get("points_per_entry"),
+        # Même calcul que la page Zone Gold (règle « 22 »), match par match.
+        "points_per_entry": gold_points_par_entree_matchs([m["instances"] for m in others], "own"),
         "discipline_own": round(discipline.get("own", {}).get("count", 0) / nb, 1),
         "lost_balls_own": round(dash.get("lost_balls_own", 0) / nb, 1),
         "possession_pct": round(poss_own / poss_total * 100, 1) if poss_total else None,
@@ -3302,7 +3303,7 @@ def compute_sector_baselines(matches_with_instances, exclude_id=None):
 
     return {
         "attaque": {
-            "points_per_entry": attack["points_per_entry"],
+            "points_per_entry": gold_points_par_entree_matchs([m["instances"] for m in others], "own"),
             "phases_moyenne": attack["phases_moyenne"],
             "defenders_beaten": per_match(attack["defenders_beaten"]),
             "offloads": per_match(attack["offloads"]),
@@ -3311,7 +3312,7 @@ def compute_sector_baselines(matches_with_instances, exclude_id=None):
             "duels_aeriens_pct": attack["duels_aeriens"]["pct"],
         },
         "defense": {
-            "points_per_entry": attack_adv["points_per_entry"],
+            "points_per_entry": gold_points_par_entree_matchs([m["instances"] for m in others], "adverse"),
             "phases_moyenne": attack_adv["phases_moyenne"],
             "offloads": per_match(attack_adv["offloads"]),
             "breaks": per_match(attack_adv["breaks"]),
@@ -3412,6 +3413,8 @@ def compute_season_dashboard(selected_matches):
     dash["occupation_by_period"] = None
     dash["possession_by_match"] = possession_by_match
     dash["occupation_by_match"] = occupation_by_match
+    dash["points_per_entry"] = gold_points_par_entree_matchs([m["instances"] for m in selected_matches], "own")
+    dash["points_per_entry_adverse"] = gold_points_par_entree_matchs([m["instances"] for m in selected_matches], "adverse")
     dash["record"] = record
     dash["points_for"] = points_for
     dash["points_against"] = points_against
@@ -4626,6 +4629,23 @@ def compute_zone_gold_log(instances, own_points=None, adverse_points=None, overr
     }
 
 
+def gold_points_par_entree_matchs(instances_par_match, side="own"):
+    """Points par entrée sur plusieurs matchs, avec EXACTEMENT le calcul de la page Zone
+    Gold (compute_zone_gold_log, règle « 22 » comprise) : chaque match est calculé à part
+    (les temps vidéo de deux matchs ne se mélangent pas), puis total des points ÷ total
+    des entrées. Sert aux moyennes saison (flèches de comparaison) et aux indicateurs
+    par match. None si aucun match n'a d'entrée Gold avec des points connus."""
+    points = entrees = 0
+    for insts in instances_par_match:
+        g = compute_zone_gold_log(insts or [])
+        d = (g or {}).get(side) or {}
+        if d.get("points") is None or not d.get("total"):
+            continue
+        points += d["points"]
+        entrees += d["total"]
+    return round(points / entrees, 2) if entrees else None
+
+
     # ---- Entraînement (suivi du volume par thème, saisie manuelle) ---------------
 # Taxonomie fournie par Téo (grille de suivi du coach) : 5 grandes catégories, chacune
 # divisée en sous-catégories, chacune listant des éléments précis travaillés à l'entraînement.
@@ -4901,7 +4921,7 @@ def compute_match_kpis(instances):
         "tackle_pct": plaquage["rate_pct"],
         "lineout_pct": lineout["own"]["success_rate"],
         "scrum_pct": scrum["own"]["won_pct"],
-        "points_per_entry": attack["points_per_entry"],
+        "points_per_entry": gold_points_par_entree_matchs([instances], "own"),
         "offloads": attack["offloads"],
         "breaks": attack["breaks"],
         "lost_balls": attack["lost_balls"],
