@@ -34,12 +34,34 @@
         {% endif %}
         <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
         {% if is_admin %}
+        <button class="btn btn-secondary" type="button" onclick="document.getElementById('replace-xml-dialog').showModal()">{{ icons.import_data() }} Remplacer le XML</button>
         <form method="post" action="{{ url_for('delete_match', match_id=match['id']) }}" onsubmit="return confirm('Supprimer ce match ?');">
             <button class="btn btn-danger" type="submit">Supprimer</button>
         </form>
         {% endif %}
     </div>
 </div>
+
+{% if is_admin %}
+{# Remplacer le fichier XML du match (version complétée dans Sportscode) sans créer de
+   doublon : voir match_replace_xml() — compo et saisies manuelles conservées. #}
+<dialog id="replace-xml-dialog" class="momentum-dialog replace-xml-dialog">
+    <div class="momentum-dialog-header">
+        <h2>Remplacer le XML du match</h2>
+        <button class="btn btn-secondary" type="button" onclick="document.getElementById('replace-xml-dialog').close()">Fermer</button>
+    </div>
+    <form method="post" action="{{ url_for('match_replace_xml', match_id=match['id']) }}" enctype="multipart/form-data" class="replace-xml-form"
+          onsubmit="return confirm('Remplacer le XML de ce match par le nouveau fichier ?');">
+        <p>Fichier actuel : <strong>{{ match['filename'] or '—' }}</strong> ({{ match['total_instances'] }} actions codées).</p>
+        <div class="form-group">
+            <label>Nouveau fichier XML Sportscode</label>
+            <input type="file" name="xml_file" accept=".xml,.XML" required>
+        </div>
+        <p class="docs-hint">Toutes les stats sont recalculées avec le nouveau fichier. Restent en place : la composition et les minutes, le score corrigé, les origines Zone Gold, les corrections Discipline et les lancements des Touches (pour une action qui garde le même début dans Sportscode).</p>
+        <button class="btn" type="submit">Remplacer</button>
+    </form>
+</dialog>
+{% endif %}
 
 {% if momentum_svg %}
 <dialog id="momentum-dialog" class="momentum-dialog">
