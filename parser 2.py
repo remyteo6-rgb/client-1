@@ -1,0 +1,5056 @@
+"""
+Parser générique pour les exports XML Sportscode (Hudl Sportscode / Focus X2).
+
+Ce module ne suppose rien de figé sur les noms de codes utilisés par l'analyste :
+il détecte automatiquement les codes numérotés du type "<n> - <Catégorie> <Côté>"
+(ex: "21 - Plaquage Nice", "43 - Mêlées Adverse", "22 - Duels aériens") et classe
+tout le reste (surnoms de joueurs, marqueurs type STOP) comme des "tags" séparés.
+"""
+import math
+import re
+import statistics
+import unicodedata
+import xml.etree.ElementTree as ET
+from collections import defaultdict, Counter
+from datetime import datetime, timedelta
+
+ZONE_RE = re.compile(r"^\d+-\d+$")
+NUMBERED_RE = re.compile(r"^\d+\s*-\s*(.+)$")
+# Ex : "Birdie 9" -> type "Birdie", numéro de maillot "9" (le joueur qui a tapé).
+TRAILING_NUMBER_RE = re.compile(r"^(.+?)\s+(\d+)$")
+
+# Vocabulaire heuristique succès / échec trouvé dans les labels Sportscode
+SUCCESS_TOKENS = {"REUSSI", "reussi", "GAGNE", "O", "VERT"}
+FAIL_TOKENS = {"RATE", "raté", "PERDU", "ROUGE"}
+POS_NEG_GROUPS_POSITIVE = {"+"}
+POS_NEG_GROUPS_NEGATIVE = {"-"}
+
+CONTROL_CODES = {"Ball In Play", "COACH"}
+
+SIDE_ADVERSE_TOKENS = {"Adverse", "Adv"}
+
+
+# Premiers mots de codes qui ne sont PAS des équipes mais des familles de codes
+# ("Jab Shape +", "Jab Connecté -", "Punch Shape +", "Time off", "Ball in play"...) :
+# sans cette liste, "JAB" préfixe 4 codes distincts et serait pris pour l'adversaire
+# (cas réel : UBB-AB, où l'adversaire est tagué "ADV").
+NON_TEAM_PREFIXES = {"JAB", "PUNCH", "TIME", "BALL", "KICK", "RESTART", "GOLD", "RUMBLE",
+                     "COP", "ROUGE"}
+
+
+def _detect_adverse_token(instances):
+    """Auto-détecte le préfixe d'équipe adverse pour la convention 2026 ('<EQUIPE>
+    <Categorie>', ex: 'UBB POSSESSION' / 'USC POSSESSION') : chaque adversaire est tagué
+    avec son propre nom plutôt qu'un mot générique fixe ('ADV'/'ADVERSE'), donc il change
+    à chaque match et ne peut pas être codé en dur comme 'UBB' (toujours nous).
+
+    Principe : un vrai préfixe d'équipe revient en tête d'une dizaine de codes distincts
+    différents (ex: 'USC POSSESSION', 'USC RUMBLE', 'USC PDB', 'USC TOUCHES'...), alors
+    qu'un nom de famille de joueur ('SILVAIN POUVREAU') ne préfixe jamais que lui-même.
+    On prend donc le premier mot (hors 'UBB'/'ADV'/'ADVERSE') qui préfixe le plus de codes
+    distincts, à condition qu'il en préfixe au moins 3 pour écarter les faux positifs.
+    Renvoie None si rien de tel n'est détecté (fichier à l'ancienne convention, ou déjà
+    tagué 'ADV'/'ADVERSE' directement — auquel cas ces mots génériques suffisent déjà)."""
+    prefix_codes = defaultdict(set)
+    for i in instances:
+        tokens = _normalize_tag(i.get("code_raw")).split()
+        if len(tokens) >= 2 and tokens[0] not in ("UBB", "ADV", "ADVERSE") \
+                and tokens[0] not in NON_TEAM_PREFIXES:
+            prefix_codes[tokens[0]].add(tuple(tokens))
+    candidates = {tok: codes for tok, codes in prefix_codes.items() if len(codes) >= 3}
+    if not candidates:
+        return None
+    return max(candidates, key=lambda t: len(candidates[t]))
+
+
+def _split_side(rest):
+    """Given the text after 'N - ', split off trailing side/zone qualifiers.
+
+    Returns (category, side, zone_extra) where side is 'own' | 'adverse' | 'neutral',
+    and zone_extra holds a trailing purely-numeric qualifier like '50' if present.
+    """
+    tokens = rest.split()
+    zone_extra = None
+    # strip trailing purely numeric qualifier (e.g. "Ruck Nice 50")
+    if tokens and tokens[-1].isdigit():
+        zone_extra = tokens.pop()
+
+    if not tokens:
+        return rest, "neutral", zone_extra
+
+    last = tokens[-1]
+    if last in SIDE_ADVERSE_TOKENS:
+        category = " ".join(tokens[:-1]).strip()
+        return category, "adverse", zone_extra
+    if last == "Nice" or last.lower() == "nice":
+        category = " ".join(tokens[:-1]).strip()
+        return category, "own", zone_extra
+
+    # No recognizable side marker -> neutral / shared category (e.g. "Duels aériens")
+    return rest.strip(), "neutral", zone_extra
+
+
+def _label_success(labels):
+    """Heuristic success/fail detection by scanning label texts."""
+    for lab in labels:
+        txt = (lab.get("text") or "").strip()
+        if txt in SUCCESS_TOKENS or txt in POS_NEG_GROUPS_POSITIVE:
+            return True
+        if txt in FAIL_TOKENS or txt in POS_NEG_GROUPS_NEGATIVE:
+            return False
+    return None
+
+
+def parse_sportscode_xml(path, own_team_label=None):
+    """Parse a Sportscode XML export.
+
+    Returns a dict:
+      {
+        'own_team_tag': str,        # detected label used for "our" side (e.g. "Nice")
+        'instances': [ {...}, ... ],
+        'code_catalog': {code_raw: count},
+        'row_order': [code_raw, ...],  # ordre des boutons dans Sportscode (balise ROWS)
+      }
+    """
+    tree = ET.parse(path)
+    root = tree.getroot()
+    all_instances = root.find("ALL_INSTANCES")
+    if all_instances is None:
+        raise ValueError("Fichier XML invalide : balise ALL_INSTANCES introuvable (export Sportscode attendu).")
+
+    # Ordre des boutons/lignes tel que configuré dans Sportscode (balise <ROWS>), dans
+    # l'ordre du fichier : pour les codes joueurs, c'est l'ordre exact dans lequel
+    # l'analyste vidéo a rangé l'effectif (typiquement n°1 à n°23) — Téo veut que les
+    # tableaux joueurs du site respectent cet ordre plutôt qu'un tri alphabétique.
+    row_order = []
+    rows_el = root.find("ROWS")
+    if rows_el is not None:
+        for row in rows_el.findall("row"):
+            code = (row.findtext("code") or "").strip()
+            if code:
+                row_order.append(code)
+
+    own_tag_votes = defaultdict(int)
+    instances = []
+    code_catalog = defaultdict(int)
+
+    raw_instances = all_instances.findall("instance")
+    for inst in raw_instances:
+        code_raw = (inst.findtext("code") or "").strip()
+        if not code_raw:
+            continue
+        code_catalog[code_raw] += 1
+        start = float(inst.findtext("start") or 0)
+        end = float(inst.findtext("end") or 0)
+
+        labels = []
+        zone = None
+        for lab in inst.findall("label"):
+            grp = lab.findtext("group")
+            txt = (lab.findtext("text") or "").strip()
+            labels.append({"group": grp, "text": txt})
+            if grp is None and ZONE_RE.match(txt):
+                zone = txt
+
+        m = NUMBERED_RE.match(code_raw)
+        if m:
+            rest = m.group(1).strip()
+            if rest in CONTROL_CODES:
+                kind = "control"
+                category, side, zone_extra = rest, "neutral", None
+            else:
+                category, side, zone_extra = _split_side(rest)
+                kind = "stat"
+                if side == "own":
+                    own_tag_votes["Nice" if False else _last_own_token(rest)] += 1
+        else:
+            kind = "player"
+            category, side, zone_extra = code_raw, "neutral", None
+
+        success = _label_success(labels) if kind == "stat" else None
+
+        instances.append({
+            "id": inst.findtext("ID"),
+            "code_raw": code_raw,
+            "kind": kind,           # 'stat' | 'player' | 'control'
+            "category": category,
+            "side": side,           # 'own' | 'adverse' | 'neutral'
+            "zone": zone,
+            "zone_extra": zone_extra,
+            "start": start,
+            "end": end,
+            "duration": round(end - start, 2),
+            "success": success,
+            "labels": labels,
+        })
+
+    # Determine the literal own-team tag word used in the coding window (e.g. "Nice"
+    # sur les anciens exports — un reliquat du club d'origine pour lequel ce site a
+    # été construit avant d'être repris par UBB). Si aucun code numéroté n'est
+    # trouvé du tout (nouvelle convention de tagging 2026, ex: "UBB Essai"), on ne
+    # peut rien détecter honnêtement : on renvoie None plutôt qu'un "Nice" par
+    # défaut trompeur, à charge de l'appelant de choisir un nom d'équipe correct
+    # (voir app.py, route /upload : repli sur le vrai nom du club).
+    detected_tag = own_team_label
+    if not detected_tag:
+        tag_counts = defaultdict(int)
+        for code in code_catalog:
+            m = NUMBERED_RE.match(code)
+            if m:
+                tokens = m.group(1).strip().split()
+                if tokens and tokens[-1].isdigit():
+                    tokens = tokens[:-1]
+                if tokens and tokens[-1] not in SIDE_ADVERSE_TOKENS and tokens[-1] != "Adverse":
+                    if tokens[-1].lower() not in ("adverse", "adv"):
+                        tag_counts[tokens[-1]] += code_catalog[code]
+        detected_tag = max(tag_counts, key=tag_counts.get) if tag_counts else None
+
+    return {
+        "own_team_tag": detected_tag,
+        "instances": instances,
+        "code_catalog": dict(code_catalog),
+        "row_order": row_order,
+    }
+
+
+def _last_own_token(rest):
+    tokens = rest.split()
+    if tokens and tokens[-1].isdigit():
+        tokens = tokens[:-1]
+    return tokens[-1] if tokens else "Nice"
+
+
+GENERIC_BINARY_TEXTS = {"+", "-", "REUSSI", "reussi", "RATE", "raté", "GAGNE", "PERDU"}
+
+
+def aggregate_match_stats(instances):
+    """Build per-category, per-side aggregates for dashboard rendering."""
+    cats = defaultdict(lambda: {"own": {"count": 0, "success": 0, "fail": 0, "duration": 0.0},
+                                 "adverse": {"count": 0, "success": 0, "fail": 0, "duration": 0.0},
+                                 "neutral": {"count": 0, "success": 0, "fail": 0, "duration": 0.0}})
+    # Détail des sous-labels Sportscode (rôles, zones, types de faute...) par catégorie/côté
+    breakdown = defaultdict(lambda: {"own": defaultdict(int), "adverse": defaultdict(int), "neutral": defaultdict(int)})
+    players = defaultdict(lambda: {"count": 0, "tags": defaultdict(int)})
+
+    for inst in instances:
+        if inst["kind"] == "stat":
+            bucket = cats[inst["category"]][inst["side"]]
+            bucket["count"] += 1
+            bucket["duration"] += max(inst["duration"], 0)
+            if inst["success"] is True:
+                bucket["success"] += 1
+            elif inst["success"] is False:
+                bucket["fail"] += 1
+
+            bside = breakdown[inst["category"]][inst["side"]]
+            for lab in inst["labels"]:
+                txt = lab["text"]
+                if not txt or ZONE_RE.match(txt) or txt in GENERIC_BINARY_TEXTS:
+                    continue
+                bside[txt] += 1
+        elif inst["kind"] == "player":
+            p = players[inst["code_raw"]]
+            p["count"] += 1
+            for lab in inst["labels"]:
+                txt = lab["text"]
+                if txt and not ZONE_RE.match(txt):
+                    # Préfixe par le groupe Sportscode (ex: "RUCK: ANCREUR") quand il est renseigné,
+                    # pour distinguer les rôles (ruck, touche...) des tags libres ("Passe +").
+                    label = f"{lab['group']}: {txt}" if lab["group"] else txt
+                    p["tags"][label] += 1
+
+    # convert to plain dicts, sorted
+    result_cats = {}
+    for cat, sides in cats.items():
+        result_cats[cat] = {
+            side: {
+                "count": v["count"],
+                "success": v["success"],
+                "fail": v["fail"],
+                "duration": round(v["duration"], 1),
+                "success_rate": round(v["success"] / (v["success"] + v["fail"]) * 100, 1) if (v["success"] + v["fail"]) > 0 else None,
+                "breakdown": dict(sorted(breakdown[cat][side].items(), key=lambda x: -x[1])[:8]),
+            } for side, v in sides.items()
+        }
+
+    result_players = {}
+    for name, v in players.items():
+        result_players[name] = {
+            "count": v["count"],
+            "tags": dict(sorted(v["tags"].items(), key=lambda x: -x[1])),
+        }
+
+    return result_cats, result_players
+
+
+ZONE_ORDER = ["0-20", "20-40", "40-60", "60-80", "80-100"]
+
+
+def aggregate_zones(instances):
+    """Territory breakdown: count of stat events per side per pitch zone."""
+    zones = defaultdict(lambda: defaultdict(int))
+    for inst in instances:
+        if inst["kind"] == "stat" and inst["zone"] and inst["side"] in ("own", "adverse"):
+            zones[inst["side"]][inst["zone"]] += 1
+    result = {}
+    for side in ("own", "adverse"):
+        result[side] = {z: zones[side].get(z, 0) for z in ZONE_ORDER if z in zones[side] or True}
+    return result
+
+
+# Regroupement des catégories en sections lisibles pour le dashboard
+CATEGORY_SECTIONS = {
+    "Conquête": ["Ruck", "Touches", "Touches Lancements", "Mêlées", "Mêlées Lancements", "MEP"],
+    "Défense": ["Plaquage", "PRESSION", "Duels aériens"],
+    "Discipline & pertes": ["Disciplines", "Perte de balles", "Turnover", "Penalité", "ROUGE"],
+    "Jeu & territoire": ["Possession", "RAID", "ACTION", "EXIT", "Retour 22", "KICK", "Contre attaque",
+                          "Break", "Offload", "CE/CR", "RCE/RCR"],
+    "Plans de jeu": ["BULL", "TIGER", "KILL", "BLAST", "CRUNCH", "CHAUD", "ZOOM", "BINGO", "BLANC",
+                      "FLASH", "AUTRE"],
+    "Marque": ["Essai", "Transformation"],
+}
+
+# Une courte phrase par section, pour du staff non-data
+SECTION_ICONS = {
+    "Conquête": "🤝",
+    "Défense": "🛡️",
+    "Discipline & pertes": "⚠️",
+    "Jeu & territoire": "🧭",
+    "Plans de jeu": "🎯",
+    "Marque": "🏆",
+}
+
+SECTION_HELP = {
+    "Conquête": "Qui gagne la bataille du ballon : rucks, touches, mêlées.",
+    "Défense": "Solidité défensive : plaquages réussis/manqués, pression mise sur l'adversaire.",
+    "Discipline & pertes": "Fautes concédées, ballons perdus, pénalités — ce qui coûte du terrain ou des points.",
+    "Jeu & territoire": "Comment le ballon est utilisé et où le jeu se déroule sur le terrain.",
+    "Plans de jeu": "Lancements et mouvements codés spécifiquement par le staff (noms de code interne).",
+    "Marque": "Essais et transformations inscrits par chaque équipe.",
+}
+
+# Explications courtes par catégorie, affichées en info-bulle (tooltip) dans le tableau
+CATEGORY_HELP = {
+    "Ruck": "Nombre de rucks joués par chaque équipe.",
+    "Touches": "Touches (remises en jeu) avec leur taux de réussite.",
+    "Touches Lancements": "Lancements de touche spécifiques (jeu au pied ou variantes).",
+    "Mêlées": "Mêlées ordonnées et leur issue.",
+    "Mêlées Lancements": "Lancements de jeu depuis une mêlée.",
+    "MEP": "Mise en place / entrée en jeu après un temps fort.",
+    "Plaquage": "Plaquages tentés, avec taux de réussite (REUSSI vs RATE).",
+    "PRESSION": "Séquences où l'équipe met l'adversaire sous pression défensive.",
+    "Duels aériens": "Duels au pied contestés par les deux équipes (jeu aérien).",
+    "Disciplines": "Fautes/pénalités concédées par chaque équipe.",
+    "Perte de balles": "Ballons perdus en possession (turnovers subis).",
+    "Turnover": "Ballons récupérés sur l'adversaire.",
+    "Penalité": "Pénalités obtenues ou concédées.",
+    "ROUGE": "Zone rouge / séquences à risque proche de sa ligne.",
+    "Possession": "Temps de possession du ballon.",
+    "RAID": "Séquences de portées de balle offensives.",
+    "ACTION": "Actions de jeu significatives initiées.",
+    "EXIT": "Sorties de camp (dégagements depuis sa propre zone).",
+    "Retour 22": "Retours dans les 22 mètres adverses.",
+    "KICK": "Coups de pied au jeu.",
+    "Contre attaque": "Relances suite à une récupération de balle.",
+    "Break": "Franchissements de la ligne défensive.",
+    "Offload": "Passes après contact (offloads).",
+    "CE/CR": "Changements d'espace / de rythme dans le jeu.",
+    "RCE/RCR": "Réactions à un changement d'espace ou de rythme adverse.",
+    "Essai": "Essais marqués.",
+    "Transformation": "Transformations réussies après essai.",
+}
+
+
+def generate_highlights(stats, own_team, opponent):
+    """Génère 3-5 phrases de synthèse en langage clair pour un staff non-data."""
+    highlights = []
+
+    poss = stats.get("Possession", {})
+    poss_own_d = poss.get("own", {}).get("duration", 0)
+    poss_adv_d = poss.get("adverse", {}).get("duration", 0)
+    total_poss = poss_own_d + poss_adv_d
+    if total_poss > 0:
+        pct = round(poss_own_d / total_poss * 100)
+        if pct >= 55:
+            highlights.append(f"Possession dominée face à {opponent} ({pct}%).")
+        elif pct <= 45:
+            highlights.append(f"Possession plutôt subie face à {opponent} ({pct}%).")
+
+    tackle = stats.get("Plaquage", {}).get("own", {})
+    rate = tackle.get("success_rate")
+    if rate is not None:
+        if rate >= 85:
+            highlights.append(f"Très bonne réussite au plaquage ({rate}%).")
+        elif rate < 75:
+            highlights.append(f"Réussite au plaquage à travailler ({rate}%).")
+
+    ruck = stats.get("Ruck", {})
+    ro = ruck.get("own", {}).get("count", 0)
+    ra = ruck.get("adverse", {}).get("count", 0)
+    if ro + ra > 0:
+        share = ro / (ro + ra) * 100
+        if share >= 55:
+            highlights.append(f"Bataille du ruck gagnée ({ro} contre {ra}).")
+        elif share <= 45:
+            highlights.append(f"Bataille du ruck perdue ({ro} contre {ra}).")
+
+    disc = stats.get("Disciplines", {})
+    do = disc.get("own", {}).get("count", 0)
+    da = disc.get("adverse", {}).get("count", 0)
+    if do > da + 2:
+        highlights.append(f"Plus indiscipliné que {opponent} ({do} fautes concédées contre {da}).")
+    elif da > do + 2:
+        highlights.append(f"Meilleure discipline que {opponent} ({do} fautes concédées contre {da}).")
+
+    touches = stats.get("Touches", {}).get("own", {})
+    trate = touches.get("success_rate")
+    if trate is not None:
+        if trate >= 80:
+            highlights.append(f"Touche fiable ({trate}% de réussite).")
+        elif trate < 60:
+            highlights.append(f"Touche en difficulté ({trate}% de réussite).")
+
+    if not highlights:
+        highlights.append("Pas assez de signaux clairs sur ce match pour un résumé automatique — regarde le détail par catégorie ci-dessous.")
+
+    return highlights[:5]
+
+
+def compute_radar_metrics(stats):
+    """5 indicateurs 0-100 (plus haut = mieux) pour un radar nous-vs-adversaire."""
+    poss = stats.get("Possession", {})
+    poss_own_d = poss.get("own", {}).get("duration", 0)
+    poss_adv_d = poss.get("adverse", {}).get("duration", 0)
+    poss_total = poss_own_d + poss_adv_d
+    possession = round(poss_own_d / poss_total * 100, 1) if poss_total > 0 else 50.0
+
+    plaquage_rate = stats.get("Plaquage", {}).get("own", {}).get("success_rate")
+    plaquage = plaquage_rate if plaquage_rate is not None else 0.0
+
+    ruck = stats.get("Ruck", {})
+    ro = ruck.get("own", {}).get("count", 0)
+    ra = ruck.get("adverse", {}).get("count", 0)
+    ruck_share = round(ro / (ro + ra) * 100, 1) if (ro + ra) > 0 else 50.0
+
+    touche_rate = stats.get("Touches", {}).get("own", {}).get("success_rate")
+    touche = touche_rate if touche_rate is not None else 0.0
+
+    disc = stats.get("Disciplines", {})
+    do = disc.get("own", {}).get("count", 0)
+    da = disc.get("adverse", {}).get("count", 0)
+    discipline = round(da / (do + da) * 100, 1) if (do + da) > 0 else 50.0
+
+    return {
+        "Possession": possession,
+        "Plaquage": plaquage,
+        "Ruck": ruck_share,
+        "Touche": touche,
+        "Discipline": discipline,
+    }
+
+
+# ===========================================================================
+# PAGES PAR SECTEUR : score réel, timing des phases, touches, mêlée, jeu au
+# pied, joueurs. Toutes les formules ci-dessous ont été vérifiées contre un
+# rapport de référence produit par le club sur ce même match (score exact,
+# timing des phases au 1/10e de seconde, ratio touche exploitable exact,
+# vitesse de ruck quasi exacte).
+# ===========================================================================
+
+def _has_label(inst, text, group="ANY"):
+    for lab in inst["labels"]:
+        if lab["text"] == text and (group == "ANY" or lab["group"] == group):
+            return True
+    return False
+
+
+def _label_texts(inst, group="ANY"):
+    return [l["text"] for l in inst["labels"] if group == "ANY" or l["group"] == group]
+
+
+def compute_score(instances):
+    """Score réel du match, calculé à partir des codes Essai / Transformation / Penalité."""
+    own = adv = own_tries = adv_tries = 0
+    for inst in instances:
+        if inst["side"] not in ("own", "adverse"):
+            continue
+        cat = inst["category"]
+        pts = 0
+        if cat == "Essai":
+            pts = 5
+            if inst["side"] == "own":
+                own_tries += 1
+            else:
+                adv_tries += 1
+        elif cat == "Transformation" and _has_label(inst, "REUSSI"):
+            pts = 2
+        elif cat in ("Penalité", "Pénalité") and _has_label(inst, "REUSSI"):
+            pts = 3
+        elif cat in ("Drop", "Drop Goal") and _has_label(inst, "REUSSI"):
+            pts = 3
+        if pts:
+            if inst["side"] == "own":
+                own += pts
+            else:
+                adv += pts
+    return {"own": own, "adverse": adv, "own_tries": own_tries, "adverse_tries": adv_tries}
+
+
+def _new_convention_side(tokens, adv_token=None):
+    """Détecte le côté (own/adverse) pour la nouvelle convention de tagging à partir
+    des tokens normalisés d'un code : préfixe UBB/ADV (ou le vrai nom de l'adversaire,
+    détecté par _detect_adverse_token et passé ici en 'adv_token', ex: "USC Essai")
+    en tête, ou suffixe "A" en fin pour les codes de zone sans préfixe (ex: "GOLD A").
+    Renvoie 'own' par défaut si rien ne l'indique clairement (mieux vaut sur-compter
+    chez nous que rater un essai à cause d'un tag ambigu)."""
+    if not tokens:
+        return "own"
+    if tokens[0] == "UBB":
+        return "own"
+    if tokens[0] in ("ADV", "ADVERSE") or (adv_token and tokens[0] == adv_token):
+        return "adverse"
+    if tokens[-1] in ("A", "ADV", "ADVERSE"):
+        return "adverse"
+    return "own"
+
+
+def compute_new_convention_tries(instances):
+    """Nombre d'essais marqués, calculé de façon fiable pour la nouvelle convention
+    de tagging (un code "UBB Essai" / "<Adversaire> Essai" taggé = un essai marqué,
+    sans ambiguïté possible — contrairement aux transformations/pénalités/drops dont on
+    ne peut pas distinguer la réussite de l'échec avec cette convention, donc on ne
+    les compte pas ici). Renvoie None si aucun tel code n'existe dans ce match
+    (ancienne convention, ou pas encore taggé) plutôt qu'un faux 0-0."""
+    adv_token = _detect_adverse_token(instances)
+    own_tries = adv_tries = 0
+    found = False
+    for inst in instances:
+        tokens = _normalize_tag(inst.get("code_raw")).split()
+        if "ESSAI" not in tokens:
+            continue
+        found = True
+        if _new_convention_side(tokens, adv_token) == "own":
+            own_tries += 1
+        else:
+            adv_tries += 1
+    if not found:
+        return None
+    return {"own_tries": own_tries, "adverse_tries": adv_tries}
+
+
+SCORE_KIND_TOKENS = {
+    "tries": {"ESSAI", "ESSAIS"},
+    "conversions": {"TRANSFO", "TRANSFOS", "TRANSFORMATION", "TRANSFORMATIONS"},
+    "penalties": {"PENALITE", "PENALITES"},
+    "drops": {"DROP", "DROPS"},
+}
+SCORE_TRY_POINTS = 5
+# Délai max (s vidéo) entre un essai et son code Transfo pour les considérer liés.
+CONVERSION_WINDOW = 240
+SCORE_DEFAULT_POINTS = {"conversions": 2, "penalties": 3, "drops": 3}
+
+
+def _points_label(inst):
+    """Valeur numérique du label 'Points' d'une instance (ex: 2, 3, 0), ou None."""
+    for lab in inst.get("labels") or []:
+        if _normalize_tag(lab.get("group")) == "POINTS":
+            try:
+                return int((lab.get("text") or "").strip())
+            except ValueError:
+                return None
+    return None
+
+
+def _scoring_events(instances, adv_token=None):
+    """Liste des actions de score du match (convention 2026), dans l'ordre du temps :
+    {'side': 'own'|'adverse', 'kind': 'tries'|'conversions'|'penalties'|'drops',
+     'points': points marqués (0 = tir manqué), 'start', 'end', 'inst'}.
+    Mêmes règles que compute_new_convention_score : essai = 5 points (le code, pas le
+    label), coup de pied réussi par défaut sauf label "Points" à 0. Source unique pour
+    le score, les points par quart-temps et les points par entrée en zone Gold."""
+    events = []
+    for inst in instances:
+        tokens = _normalize_tag(inst.get("code_raw")).split()
+        if len(tokens) != 2:
+            continue
+        if tokens[0] == "UBB":
+            side = "own"
+        elif tokens[0] in ("ADV", "ADVERSE") or (adv_token and tokens[0] == adv_token):
+            side = "adverse"
+        else:
+            continue
+        kind = next((k for k, toks in SCORE_KIND_TOKENS.items() if tokens[1] in toks), None)
+        if kind is None:
+            continue
+        if kind == "tries":
+            value = SCORE_TRY_POINTS
+        else:
+            value = _points_label(inst)
+            if value is None:
+                value = SCORE_DEFAULT_POINTS[kind]
+        events.append({"side": side, "kind": kind, "points": max(value, 0),
+                       "start": inst.get("start") or 0, "end": inst.get("end") or inst.get("start") or 0,
+                       "inst": inst})
+    events.sort(key=lambda e: e["start"])
+    # Essai transformé sans code Transfo : quand l'essai porte le label « Points » = 7
+    # (5 + 2) et qu'aucun code Transfo de la même équipe ne le suit avant l'essai suivant,
+    # on ajoute la transformation (2 points). Agen-UBB : 2e essai d'Agen tagué « 7 » sans
+    # code « SUA Transfo » → 18 au lieu de 20.
+    implicit = []
+    for idx, e in enumerate(events):
+        if e["kind"] != "tries" or _points_label(e["inst"]) != SCORE_TRY_POINTS + SCORE_DEFAULT_POINTS["conversions"]:
+            continue
+        has_conversion = False
+        for nxt in events[idx + 1:]:
+            if nxt["side"] != e["side"]:
+                continue
+            if nxt["kind"] == "tries" or nxt["start"] > e["start"] + CONVERSION_WINDOW:
+                break
+            if nxt["kind"] == "conversions":
+                has_conversion = True
+                break
+        if not has_conversion:
+            implicit.append({"side": e["side"], "kind": "conversions",
+                             "points": SCORE_DEFAULT_POINTS["conversions"],
+                             "start": e["start"] + 0.01, "end": e["end"], "inst": e["inst"],
+                             "implicit": True})
+    if implicit:
+        events = sorted(events + implicit, key=lambda e: e["start"])
+    return events
+
+
+def _period_lookup(instances):
+    """Renvoie une fonction inst -> tranche de jeu ('0-20'...). Si l'instance n'a pas de
+    label Chrono (oubli de tagging), on prend celui de la dernière instance taguée qui
+    commence avant elle : une transformation oubliée tombe ainsi dans le quart-temps de
+    son essai."""
+    import bisect
+    marks = sorted((i.get("start") or 0, _new_convention_period(i))
+                   for i in instances if _new_convention_period(i))
+    starts = [m[0] for m in marks]
+
+    def lookup(inst):
+        own = _new_convention_period(inst)
+        if own or not marks:
+            return own
+        k = bisect.bisect_right(starts, inst.get("start") or 0) - 1
+        return marks[max(k, 0)][1]
+    return lookup
+
+
+def compute_points_par_quart(instances, side="own"):
+    """Points marqués par tranche de 20 minutes ({'0-20': 12, ...}) pour 'own' (UBB) ou
+    'adverse', ou None si aucune action de score n'est taguée."""
+    adv_token = _detect_adverse_token(instances)
+    events = _scoring_events(instances, adv_token)
+    if not events:
+        return None
+    period_of = _period_lookup(instances)
+    out = {q: 0 for q in POSSESSION_QUARTER_ORDER}
+    for e in events:
+        if e["side"] != side:
+            continue
+        q = period_of(e["inst"])
+        if q in out:
+            out[q] += e["points"]
+    return out
+
+
+def compute_new_convention_score(instances):
+    """Score complet du match reconstruit depuis le XML (convention 2026), pour ne plus
+    avoir à le saisir à la main :
+      - essai = un code '<EQUIPE> Essai' (5 points) — on compte le code lui-même, pas
+        le label 'Points', que l'analyste pose aussi sur d'autres instances actives au
+        même moment (possession, zone Gold, Ball in play) et qui ferait doublon ;
+      - transformation / pénalité / drop = code '<EQUIPE> Transfo' / 'Pénalité' /
+        'Drop' : un coup de pied tenté au but, RÉUSSI par défaut (2 / 3 / 3 points),
+        sauf si son label 'Points' dit autre chose (0 = manqué).
+    Le préfixe désigne l'équipe qui marque : 'UBB' = nous, le vrai nom de l'adversaire
+    (détecté par _detect_adverse_token, ex. 'USC') = eux.
+
+    Renvoie None si aucun de ces codes n'existe (ancienne convention, ou pas tagué),
+    sinon {'own': points, 'adverse': points, 'detail': {'own': {...}, 'adverse': {...}}}
+    où chaque détail porte tries, conversions(_att), penalties(_att), drops(_att) — le
+    même format que la saisie manuelle, pour alimenter la fiche match telle quelle."""
+    adv_token = _detect_adverse_token(instances)
+    detail = {side: {"tries": 0, "conversions": 0, "conversions_att": 0,
+                     "penalties": 0, "penalties_att": 0, "drops": 0, "drops_att": 0}
+              for side in ("own", "adverse")}
+    points = {"own": 0, "adverse": 0}
+    # Pas de label "Points" sur un tir = réussi (valeur par défaut). Vérifié sur USC-UBB
+    # (21-28) : 3 pénalités sans label étaient bien des pénalités réussies.
+    events = _scoring_events(instances, adv_token)
+    for e in events:
+        side, kind = e["side"], e["kind"]
+        if kind == "tries":
+            detail[side]["tries"] += 1
+            points[side] += e["points"]
+            continue
+        detail[side][f"{kind}_att"] += 1
+        if e["points"] > 0:
+            detail[side][kind] += 1
+            points[side] += e["points"]
+
+    if not events:
+        return None
+    return {"own": points["own"], "adverse": points["adverse"], "detail": detail}
+
+
+def _new_convention_code_match(tokens, suffix_tokens, adv_token=None):
+    """Vrai si un code normalisé (déjà splitté en tokens) est bien 'UBB <suffixe>' ou
+    '<Adverse> <suffixe>' (mot générique 'ADV'/'ADVERSE', ou le vrai nom de l'adversaire
+    détecté pour ce match et passé en 'adv_token') — ex: suffix_tokens=['TOUCHES']
+    matche 'UBB Touches' mais pas 'UBB Jeu touches' (3 tokens, contient 'JEU' en plus).
+    Évite les faux positifs entre codes proches (ex: Touches vs Jeu touches, Mêlées vs
+    Jeu mêlées)."""
+    if len(tokens) != 1 + len(suffix_tokens):
+        return False
+    if tokens[0] not in ("UBB", "ADV", "ADVERSE") and tokens[0] != adv_token:
+        return False
+    return tokens[1:] == suffix_tokens
+
+
+# Zones de terrain de la nouvelle convention, telles que définies par le staff :
+# depuis notre ligne vers celle de l'adversaire, ROUGE et COP sont dans notre camp,
+# RUMBLE et GOLD dans le camp adverse. Les mêmes zones vues du camp adverse portent
+# le suffixe "A" et sont donc inversées (GOLD A / RUMBLE A = dans notre camp).
+ZONE_OWN_HALF = {"ROUGE", "COP"}
+ZONE_ADVERSE_HALF = {"RUMBLE", "GOLD"}
+
+# Groupe de labels porté par les codes joueurs, qui recense leurs actions (passes,
+# contacts, offloads, pénalités concédées, essais...). C'est la source qui fait foi
+# pour les totaux du rapport vidéo, y compris quand un autre groupe semble parler de
+# la même chose. "Oflloads" est orthographié ainsi dans le tagging : on accepte les
+# variantes pour ne pas dépendre d'une coquille.
+PLAYER_ACTION_GROUP = "JOUEURS OFF"
+PLAYER_ACTION_OFFLOAD = {"OFLLOADS", "OFFLOADS", "OFLLOAD", "OFFLOAD", "OFLOAD", "OFLOADS"}
+PLAYER_ACTION_PENALTY = {"PENALITE", "PENALITES"}
+
+
+def _new_convention_zone_side(tokens, adv_token=None):
+    """Pour un code de zone ("GOLD", "COP A", "USC COP"...), renvoie quelle équipe
+    occupe le terrain adverse pendant cette séquence : 'own' si le ballon est dans le
+    camp adverse, 'adverse' s'il est dans le nôtre. Renvoie None si ce n'est pas un code
+    de zone.
+
+    Une zone vue du camp adverse s'écrit soit avec le suffixe "A" ("GOLD A"), soit
+    préfixée par le nom de l'adversaire ("USC GOLD", détecté par _detect_adverse_token) :
+    dans les deux cas elle est inversée (leur Gold = nos 22m). Validé sur USC-UBB :
+    55,3 % / 44,7 % contre 55,1 % / 44,9 % au rapport (60/40 sans les zones préfixées)."""
+    if (adv_token and len(tokens) == 2 and tokens[0] in ({adv_token, "ADV", "ADVERSE"})
+            and tokens[1] in (ZONE_OWN_HALF | ZONE_ADVERSE_HALF)):
+        tokens = [tokens[1], "A"]
+    if not tokens or tokens[0] not in (ZONE_OWN_HALF | ZONE_ADVERSE_HALF):
+        return None
+    if len(tokens) > 2 or (len(tokens) == 2 and tokens[1] != "A"):
+        return None
+    is_adverse_zone = len(tokens) == 2  # suffixe "A" : zone vue du camp adverse
+    in_adverse_half = tokens[0] in ZONE_ADVERSE_HALF
+    if is_adverse_zone:
+        in_adverse_half = not in_adverse_half
+    return "own" if in_adverse_half else "adverse"
+
+
+def _new_convention_period(inst):
+    """Tranche de jeu (0-20, 20-40...) d'une instance, lue sur son label "Chrono"."""
+    for lab in inst.get("labels") or []:
+        if _normalize_tag(lab.get("group")) == "CHRONO":
+            return (lab.get("text") or "").strip() or None
+    return None
+
+
+def compute_new_convention_overview(instances):
+    """Métriques de synthèse façon page 'REVIEW' du rapport vidéo, calculées de façon
+    fiable pour la nouvelle convention de tagging (Journée 1+) : touches, mêlées,
+    discipline, franchissements, offloads, gain de ligne d'avantage, réussite au
+    plaquage (snipers), possession, occupation, temps de jeu effectif, pertes de balle.
+    Renvoie None si aucun de ces codes n'existe dans ce match (ancienne convention, ou
+    pas encore taggé).
+
+    Volontairement absents (pas taguables avec cette convention, voir échanges avec le
+    staff) : détail offensif/défensif de la discipline, occupation du terrain (carte de
+    chaleur dans le rapport), répartition des points par quart-temps."""
+    touches = {"own": [], "adverse": []}
+    melees = {"own": [], "adverse": []}
+    disciplines = {"own": 0, "adverse": 0}
+    breaks = {"own": 0, "adverse": 0}
+    pdb = {"own": 0, "adverse": 0}
+    penalties_own = 0
+    gla_plus = gla_minus = 0
+    offload_own = 0
+    offload_adverse = 0
+    snipers_ok = snipers_rates = 0
+    possession = {"own": 0.0, "adverse": 0.0}
+    possession_periods = defaultdict(lambda: {"own": 0.0, "adverse": 0.0})
+    occupation = {"own": 0.0, "adverse": 0.0}
+    occupation_periods = defaultdict(lambda: {"own": 0.0, "adverse": 0.0})
+    bip_durations = []
+    found = False
+    adv_token = _detect_adverse_token(instances)
+
+    for inst in instances:
+        tokens = _normalize_tag(inst.get("code_raw")).split()
+        if not tokens:
+            continue
+        if tokens[0] == "UBB":
+            side = "own"
+        elif tokens[0] in ("ADV", "ADVERSE") or (adv_token and tokens[0] == adv_token):
+            side = "adverse"
+        else:
+            side = None
+
+        if tokens in (["BIP"], ["BALL", "IN", "PLAY"]):
+            # Temps de jeu effectif : chaque code "BIP" / "Ball in play" (nom utilisé
+            # dans les fichiers 2026) est une séquence ballon en jeu (l'autre face de la
+            # pièce étant les codes "TIME OFF", non comptés ici).
+            found = True
+            bip_durations.append(max(inst.get("duration") or 0, 0))
+            continue
+
+        zone_side = _new_convention_zone_side(tokens, adv_token)
+        if zone_side:
+            # Occupation du terrain = temps passé dans le camp adverse. Zones nues : COP
+            # et ROUGE dans notre camp, GOLD et RUMBLE dans le camp adverse — et
+            # inversement pour les zones vues du camp adverse ("GOLD A" ou "USC GOLD"),
+            # qui se situent donc dans notre camp.
+            found = True
+            seconds = max(inst.get("duration") or 0, 0)
+            occupation[zone_side] += seconds
+            period = _new_convention_period(inst)
+            if period:
+                occupation_periods[period][zone_side] += seconds
+        elif _new_convention_code_match(tokens, ["POSSESSION"], adv_token):
+            # % de possession = temps total "UBB POSSESSION" vs "<Adverse> POSSESSION"
+            # (méthode confirmée par le staff, conforme au rapport vidéo).
+            found = True
+            seconds = max(inst.get("duration") or 0, 0)
+            possession[side] += seconds
+            period = _new_convention_period(inst)
+            if period:
+                possession_periods[period][side] += seconds
+        elif _new_convention_code_match(tokens, ["TOUCHES"], adv_token):
+            found = True
+            touches[side].append(inst)
+        elif _new_convention_code_match(tokens, ["MELEES"], adv_token):
+            found = True
+            melees[side].append(inst)
+        elif _new_convention_code_match(tokens, ["DISCIPLINES"], adv_token):
+            found = True
+            disciplines[side] += 1
+        elif _new_convention_code_match(tokens, ["BREAK"], adv_token):
+            found = True
+            breaks[side] += 1
+        elif _new_convention_code_match(tokens, ["PDB"], adv_token):
+            # Pertes de balle. Comme partout dans cette convention, le préfixe désigne
+            # l'équipe qui subit l'action : "UBB PDB" = ballon perdu par nous, "<Adverse>
+            # PDB" = ballon perdu par l'adversaire (donc récupéré par nous).
+            found = True
+            pdb[side] += 1
+        elif _new_convention_code_match(tokens, ["GLA"], adv_token) and side == "own":
+            found = True
+            for lab in inst.get("labels") or []:
+                txt = _normalize_tag(lab.get("text"))
+                if txt.endswith("+"):
+                    gla_plus += 1
+                elif txt.endswith("-"):
+                    gla_minus += 1
+        elif (_new_convention_code_match(tokens, ["OFLOAD"], adv_token)
+              or _new_convention_code_match(tokens, ["OFFLOAD"], adv_token)):
+            found = True  # "<Adverse> Ofload" (offloads adverses, comptés directement)
+            offload_adverse += 1
+        elif side is None:
+            # Codes joueurs individuels (ex: "HUTTEAU") : chez nous, les actions sont
+            # tagués comme des labels sur l'instance du joueur concerné, pas comme des
+            # codes séparés (contrairement au camp adverse, qui n'est pas détaillé
+            # joueur par joueur).
+            for lab in inst.get("labels") or []:
+                group = _normalize_tag(lab.get("group"))
+                if group == PLAYER_ACTION_GROUP:
+                    # Groupe de référence du rapport vidéo : c'est lui qui fait foi pour
+                    # compter les actions, et pas les groupes qui ne font que les
+                    # qualifier (le groupe "Offload" porte un +/-/= sur certaines
+                    # actions, mais en compte une de plus que le rapport).
+                    action = _normalize_tag(lab.get("text"))
+                    if action in PLAYER_ACTION_OFFLOAD:
+                        offload_own += 1
+                    elif action in PLAYER_ACTION_PENALTY:
+                        penalties_own += 1
+                elif group == "SNIPERS":
+                    # "Sniper" = plaquage réussi, "Sniper raté" = plaquage manqué. Les
+                    # autres valeurs du même groupe (+/-/=, Haut/Bas) qualifient le
+                    # plaquage sans dire s'il a abouti : on les ignore ici.
+                    txt = _normalize_tag(lab.get("text"))
+                    if txt == "SNIPER":
+                        snipers_ok += 1
+                        found = True
+                    elif txt in ("SNIPER RATE", "SNIPER RATE."):
+                        snipers_rates += 1
+                        found = True
+
+    if not found:
+        return None
+
+    def _pct(rows):
+        if not rows:
+            return {"total": 0, "won": 0, "lost": 0, "pct": None,
+                    "tqb_plus": 0, "tqb_pct": None}
+        won = lost = tqb_plus = 0
+        for inst in rows:
+            vals = {_normalize_tag(lab.get("text")) for lab in (inst.get("labels") or [])
+                    if _normalize_tag(lab.get("group")) == "CONQUETE"}
+            if "GAGNE" in vals:
+                won += 1
+                # TQB = qualité du ballon sur les conquêtes GAGNÉES uniquement
+                # (une conquête perdue n'a pas de ballon à qualifier). Vérifié contre
+                # le rapport vidéo : 6/7 = 85,7 % et 15/17 = 88,2 %.
+                if "TQB +" in vals:
+                    tqb_plus += 1
+            elif "PERDU" in vals:
+                lost += 1
+        decided = won + lost
+        return {"total": len(rows), "won": won, "lost": lost,
+                "pct": round(100 * won / decided, 1) if decided else None,
+                "tqb_plus": tqb_plus,
+                "tqb_pct": round(100 * tqb_plus / won, 1) if won else None}
+
+    gla_decided = gla_plus + gla_minus
+    snipers_total = snipers_ok + snipers_rates
+
+    def _share(totals, periods):
+        """Met en forme un partage de temps nous/eux : secondes, % et détail par
+        tranche de jeu (même structure que les anciens calculs, pour alimenter les
+        graphiques existants sans les modifier)."""
+        grand_total = totals["own"] + totals["adverse"]
+        by_period = {}
+        for period in sorted(periods, key=lambda p: POSSESSION_QUARTER_ORDER.index(p)
+                             if p in POSSESSION_QUARTER_ORDER else 99):
+            own_s = periods[period]["own"]
+            adv_s = periods[period]["adverse"]
+            tot = own_s + adv_s
+            by_period[period] = {
+                "own": round(own_s, 1), "adverse": round(adv_s, 1),
+                "own_pct": round(own_s / tot * 100) if tot else None,
+                "adverse_pct": round(adv_s / tot * 100) if tot else None,
+            }
+        return {
+            "own_seconds": round(totals["own"], 1),
+            "adverse_seconds": round(totals["adverse"], 1),
+            "own_pct": round(100 * totals["own"] / grand_total, 1) if grand_total else None,
+            "adverse_pct": round(100 * totals["adverse"] / grand_total, 1) if grand_total else None,
+            "by_period": by_period,
+        }
+
+    bip_total = sum(bip_durations)
+    return {
+        "ball_in_play": {
+            "duration": round(bip_total, 1),
+            "duration_fmt": _fmt_mmss(bip_total),
+            "pct_match": round(bip_total / MATCH_DURATION_REF_SECONDS * 100) if bip_total else 0,
+            "sequences": _bucket_durations(bip_durations) if bip_durations else None,
+        },
+        "possession": _share(possession, possession_periods),
+        "occupation": _share(occupation, occupation_periods),
+        "plaquage": {
+            "reussis": snipers_ok, "rates": snipers_rates, "total": snipers_total,
+            "pct": round(100 * snipers_ok / snipers_total, 1) if snipers_total else None,
+        },
+        "touches": {"own": _pct(touches["own"]), "adverse": _pct(touches["adverse"])},
+        "melees": {"own": _pct(melees["own"]), "adverse": _pct(melees["adverse"])},
+        # Côté UBB, les fautes sont recensées joueur par joueur (source qui fait foi
+        # dans le rapport) ; le code "UBB DISCIPLINES" sert de repli s'il n'y en a pas.
+        # Côté adverse, seul le code existe : les joueurs d'en face ne sont pas tagués.
+        "discipline": {
+            "own": penalties_own or disciplines["own"],
+            "adverse": disciplines["adverse"],
+        },
+        "break": breaks,
+        "pdb": pdb,
+        "offload": {"own": offload_own, "adverse": offload_adverse},
+        "gain_line": {
+            "plus": gla_plus, "total": gla_decided,
+            "pct": round(100 * gla_plus / gla_decided, 1) if gla_decided else None,
+        },
+    }
+
+
+# ---- CSC : Chasseur / Sniper / Combattant -----------------------------------
+# Trois rôles défensifs suivis joueur par joueur dans le rapport vidéo. Chacun a son
+# groupe de labels, porté par le code du joueur concerné, avec un qualificatif
+# +/=/- sur l'action. Les snipers portent en plus la hauteur du plaquage.
+
+def _csc_texts(inst, group):
+    """Valeurs (normalisées) d'un groupe de labels sur une instance."""
+    return [_normalize_tag(lab.get("text")) for lab in (inst.get("labels") or [])
+            if _normalize_tag(lab.get("group")) == group]
+
+
+def _csc_share(parts):
+    """Ajoute à chaque compteur sa part en %, pour les barres de dominance. Chaque
+    segment porte aussi son sens ("pos", "neu", "neg", "gold") : c'est lui qui décide
+    de la couleur, plutôt que la position du segment dans la barre."""
+    total = sum(count for _, count, _ in parts)
+    return [{"label": label, "count": count, "tone": tone,
+             "pct": round(100 * count / total, 1) if total else None}
+            for label, count, tone in parts]
+
+
+def compute_csc(instances):
+    """Page "CSC" du rapport vidéo : Chasseur, Sniper et Combattant. Renvoie None si
+    ce match n'a aucun de ces trois groupes de labels.
+
+    Ce qui n'est pas tagué n'est pas inventé : les cases du rapport sans équivalent
+    dans le XML (motif des fautes du sniper, notamment) ne sont pas calculées."""
+    chasseur = {"total": 0, "plus": 0, "minus": 0, "ballons_gagnes": 0, "contre_ruck": 0}
+    sniper = {"reussis": 0, "rates": 0, "plus": 0, "neutre": 0, "minus": 0,
+              "bas": 0, "haut": 0, "fautes": 0}
+    combattant = {"total": 0, "plus": 0, "neutre": 0, "minus": 0, "balle": 0}
+    found = False
+
+    for inst in instances:
+        vals = _csc_texts(inst, "CHASSEUR")
+        if vals:
+            found = True
+            if "CHASSEUR" in vals:
+                chasseur["total"] += 1
+                if "+" in vals:
+                    chasseur["plus"] += 1
+                elif "-" in vals:
+                    chasseur["minus"] += 1
+            if "BALLONS GAGNES" in vals:
+                chasseur["ballons_gagnes"] += 1
+            if "CONTRE RUCK" in vals:
+                chasseur["contre_ruck"] += 1
+
+        vals = _csc_texts(inst, "SNIPERS")
+        if vals:
+            found = True
+            # "Fautes" du rapport : un plaquage qui s'accompagne d'une pénalité
+            # attribuée au joueur.
+            if "PENALITE" in _csc_texts(inst, PLAYER_ACTION_GROUP):
+                sniper["fautes"] += 1
+            if "SNIPER RATE" in vals:
+                sniper["rates"] += 1
+            elif "SNIPER" in vals:
+                sniper["reussis"] += 1
+                if "+" in vals:
+                    sniper["plus"] += 1
+                elif "-" in vals:
+                    sniper["minus"] += 1
+                elif "=" in vals:
+                    sniper["neutre"] += 1
+                if "BAS" in vals:
+                    sniper["bas"] += 1
+                elif "HAUT" in vals:
+                    sniper["haut"] += 1
+
+        vals = _csc_texts(inst, "COMBATTANT")
+        if vals and "COMBATTANT" in vals:
+            found = True
+            combattant["total"] += 1
+            if "+" in vals:
+                combattant["plus"] += 1
+            elif "-" in vals:
+                combattant["minus"] += 1
+            elif "=" in vals:
+                combattant["neutre"] += 1
+            if "BALLE" in vals:
+                combattant["balle"] += 1
+
+    if not found:
+        return None
+
+    sniper_total = sniper["reussis"] + sniper["rates"]
+    # "Combat au ballon" (définition de Téo) : le combattant vient assister le plaquage
+    # en plaquant AU BALLON, pas à l'épaule ni en bas — label "Balle" du groupe
+    # Combattant. % = combats "Balle" / combats tagués. Si aucun label "Balle" n'existe
+    # dans le match, la donnée n'est pas taguée : None (« — »), pas un faux 0 %.
+    return {
+        "chasseur": {
+            **chasseur,
+            "dominance": _csc_share([("Gagnés", chasseur["plus"], "pos"),
+                                     ("Perdus", chasseur["minus"], "neg")]),
+        },
+        "sniper": {
+            **sniper,
+            "total_tentes": sniper_total,
+            "pct_rates": round(100 * sniper["rates"] / sniper_total, 1) if sniper_total else None,
+            "dominance": _csc_share([("Positif", sniper["plus"], "pos"),
+                                     ("Neutre", sniper["neutre"], "neu"),
+                                     ("Négatif", sniper["minus"], "neg")]),
+            "hauteur": _csc_share([("Bas", sniper["bas"], "pos"), ("Haut", sniper["haut"], "neg")]),
+        },
+        "combattant": {
+            **combattant,
+            # « Balle » n'est pas un résultat mais une façon de plaquer (au ballon) : un
+            # combat « Balle » est aussi +, = ou −. Le mettre dans la barre le comptait deux
+            # fois ; il a sa propre case « Combat au ballon ».
+            "dominance": _csc_share([("Positif", combattant["plus"], "pos"),
+                                     ("Neutre", combattant["neutre"], "neu"),
+                                     ("Subis", combattant["minus"], "neg")]),
+            "combat_ballon_pct": (round(100 * combattant["balle"] / combattant["total"], 1)
+                                  if combattant["total"] and combattant["balle"] else None),
+        },
+    }
+
+
+# ---- Discipline (page "DISCIPLINE" du rapport vidéo) --------------------------
+# Catégories du rapport et libellés acceptés dans le groupe de labels « Catégorie »
+# posé sur la faute du joueur (sinon saisie à la main sur la page Discipline).
+DISCIPLINE_CATEGORIES = [
+    # « Off » / « Def » / « Conquête » / « Autres » : labels du groupe Disciplines posés sur
+    # le code « UBB Disciplines » (XML d'Agen, octobre 2026). Sur les codes joueurs, les
+    # labels sont « Disciplines Off / Def » : ils ne sont pas pris pour une catégorie.
+    ("Attack", {"ATTACK", "ATTAQUE", "OFFENSIVE", "OFF"}),
+    ("Defence", {"DEFENCE", "DEFENSE", "DEFENSIVE", "DEF"}),
+    ("Set Piece", {"SET PIECE", "CONQUETE", "CONQUETES", "PHASE STATIQUE", "PHASES STATIQUES", "MELEE", "TOUCHE"}),
+    ("Other", {"OTHER", "AUTRE", "AUTRES"}),
+]
+DISCIPLINE_REASON_GROUPS = {"RAISON", "RAISONS", "MOTIF", "RAISON FAUTE"}
+DISCIPLINE_CATEGORY_GROUPS = {"CATEGORIE", "CATEGORIE FAUTE", "TYPE FAUTE"}
+DISCIPLINE_CARD_GROUPS = {"CARTON", "CARTONS"}
+
+
+def _discipline_category(texts):
+    for label, keys in DISCIPLINE_CATEGORIES:
+        if texts & keys:
+            return label
+    return None
+
+
+def _reasons_text(counter):
+    """« Mêlée x3, Tirage maillot » : chaque raison avec son nombre d'occurrences."""
+    return ", ".join(f"{r} x{n}" if n > 1 else r for r, n in counter.most_common())
+
+
+def compute_team_discipline_counts(instances):
+    """Pénalités concédées (codes « <EQUIPE> Disciplines ») : {'own': n, 'adverse': n}, ou
+    None si le match n'en a aucune (ancienne convention)."""
+    adv_token = _detect_adverse_token(instances)
+    out = {"own": 0, "adverse": 0}
+    found = False
+    for inst in instances:
+        tokens = _normalize_tag(inst.get("code_raw")).split()
+        if len(tokens) == 2 and tokens[1] == "DISCIPLINES":
+            if tokens[0] == "UBB":
+                out["own"] += 1; found = True
+            elif tokens[0] in ("ADV", "ADVERSE") or tokens[0] == adv_token:
+                out["adverse"] += 1; found = True
+    return out if found else None
+
+
+_FORWARD_POSITIONS = {"Pilier", "Talonneur", "2ème ligne", "3ème ligne"}
+
+
+def _name_key(name):
+    return " ".join(_normalize_tag(name).replace("-", " ").replace(".", " ").split())
+
+
+def _best_match(name, candidates, threshold=0.8):
+    """Rapproche deux écritures d'un même joueur (« COMBRICK » / « Combrinck »,
+    « POUY-TOKOTUU » / « Pouye Tokotuu »). Renvoie le candidat le plus proche ou None."""
+    import difflib
+    key = _name_key(name)
+    best, score = None, 0
+    for cand in candidates:
+        ratio = difflib.SequenceMatcher(None, key, _name_key(cand)).ratio()
+        if ratio > score:
+            best, score = cand, ratio
+    return best if score >= threshold else None
+
+
+def _roster_position(name):
+    """Poste du joueur dans l'effectif du club (SQUAD_ROSTER), par rapprochement de nom."""
+    flat = [(p, n) for p, names in SQUAD_ROSTER.items() for n in names]
+    hit = _best_match(name.split(".")[-1], [n for _p, n in flat], threshold=0.75)
+    return next((p for p, n in flat if n == hit), None) if hit else None
+
+
+def compute_discipline(instances, row_order=None, cards=None, composition=None, manual=None):
+    """Page "DISCIPLINE" du rapport : fautes par joueur (raison, carton), par période
+    (nous / eux), par catégorie (Attack / Defence / Set Piece / Other), avec les
+    compléments saisis à la main sur la page (`manual`, voir app.match_discipline_save).
+
+    - Fautes d'équipe et par période : codes « UBB Disciplines » / « <ADV> Disciplines ».
+    - Fautes par joueur : instances du joueur portant un label Disciplines (ou Joueurs
+      Off « Pénalité ») ; corrigeables à la main.
+    - Liste des joueurs : TOUTE la feuille de match (page Composition, sinon ordre des
+      boutons Sportscode, sinon tous les joueurs du XML rangés avants puis 3/4).
+    - Raison, détail par catégorie et cartons : labels « Raison » / « Catégorie » /
+      « Carton » s'ils existent, sinon saisie à la main sur la page.
+    `cards` : {nom: {"yellow": n, "red": n}} (page Composition)."""
+    manual = manual or {}
+    man_players = manual.get("players") or {}
+    man_cats = manual.get("categories") or {}
+    adv_token = _detect_adverse_token(instances)
+    team_tokens = {"UBB", "ADV", "ADVERSE"} | ({adv_token} if adv_token else set())
+    period_of = _period_lookup(instances)
+    par_periode = {"own": Counter(), "adverse": Counter()}
+    team = compute_team_discipline_counts(instances)
+    for inst in instances:
+        tokens = _normalize_tag(inst.get("code_raw")).split()
+        if len(tokens) == 2 and tokens[1] == "DISCIPLINES":
+            side = "own" if tokens[0] == "UBB" else ("adverse" if tokens[0] in team_tokens else None)
+            q = period_of(inst)
+            if side and q:
+                par_periode[side][q] += 1
+
+    players = {}
+    categories = {label: {"count": 0, "reasons": Counter()} for label, _k in DISCIPLINE_CATEGORIES}
+
+    def _reasons_of(groups):
+        # Raison = descripteurs : groupe « Raison » (ou variantes) et tout libellé du groupe
+        # Disciplines AUTRE que « Disciplines Off / Def » (décision de Téo : pas ceux-là).
+        out = [t for g in DISCIPLINE_REASON_GROUPS for t in groups.get(g, []) if t]
+        out += [t for t in groups.get("DISCIPLINES", [])
+                if t and _normalize_tag(t) not in ("DISCIPLINES OFF", "DISCIPLINES DEF", "DISCIPLINE OFF", "DISCIPLINE DEF")
+                and _discipline_category({_normalize_tag(t)}) is None]  # Off / Def / Conquête / Autres = catégorie
+        return out
+
+    def _category_of(groups, team_code=False):
+        # Sur le code « UBB Disciplines », la catégorie peut aussi être dans le groupe Disciplines.
+        gs = DISCIPLINE_CATEGORY_GROUPS | ({"DISCIPLINES"} if team_code else set())
+        return _discipline_category({_normalize_tag(t) for g in gs for t in groups.get(g, [])})
+
+    def _count_fault(code, groups, reasons):
+        row = players.setdefault(code, {"fautes": 0, "reasons": Counter(), "yellow": 0, "red": 0})
+        row["fautes"] += 1
+        for r in reasons:
+            row["reasons"][r] += 1
+        for g in DISCIPLINE_CARD_GROUPS:
+            for t in groups.get(g, []):
+                nt = _normalize_tag(t)
+                if "JAUNE" in nt or "YELLOW" in nt:
+                    row["yellow"] += 1
+                elif "ROUGE" in nt or "RED" in nt:
+                    row["red"] += 1
+
+    def _count_category(groups, reasons, cat=None):
+        cat = cat or _category_of(groups)
+        if cat:
+            categories[cat]["count"] += 1
+            for r in reasons:
+                categories[cat]["reasons"][r] += 1
+
+    # 1) Méthode recommandée : le nom du joueur fautif est un label posé sur le code
+    #    « UBB Disciplines » lui-même (une faute = un code). Le total équipe et la somme
+    #    des joueurs sont alors forcément cohérents.
+    player_codes = sorted({(n or "").strip() for n in _new_convention_player_names(instances)}
+                          | {n for n in (composition or []) if n})
+    by_key = {_name_key(n): n for n in player_codes}
+    team_faults_with_player = 0
+    team_faults_paired = 0
+    labels_hors_penalite = 0
+    for inst in instances:
+        tokens = _normalize_tag(inst.get("code_raw")).split()
+        if not (len(tokens) == 2 and tokens[0] == "UBB" and tokens[1] == "DISCIPLINES"):
+            continue
+        groups, fautif = {}, None
+        for lab in inst.get("labels") or []:
+            text = (lab.get("text") or "").strip()
+            groups.setdefault(_normalize_tag(lab.get("group")), []).append(text)
+            if fautif is None and text:
+                fautif = by_key.get(_name_key(text)) or (
+                    _best_match(text, player_codes, threshold=0.85) if len(text) > 3 else None)
+        if fautif:
+            team_faults_with_player += 1
+            reasons = _reasons_of(groups)
+            _count_fault(fautif, groups, reasons)
+            _count_category(groups, reasons, _category_of(groups, team_code=True))
+
+    # 2) Sinon (fichiers actuels) : les labels Disciplines posés sur les codes joueurs,
+    #    rapprochés UN PAR UN des codes « UBB Disciplines » (le label joueur est posé
+    #    quelques secondes après le code). Un label sans pénalité d'équipe au même moment
+    #    est ignoré : le total joueurs ne peut plus dépasser le total équipe.
+    labels_hors_penalite = 0
+    if not team_faults_with_player:
+        candidates = []
+        for inst in instances:
+            code = (inst.get("code_raw") or "").strip()
+            tokens = _normalize_tag(code).split()
+            if not tokens or tokens[0] in team_tokens:
+                continue
+            groups = {}
+            for lab in inst.get("labels") or []:
+                groups.setdefault(_normalize_tag(lab.get("group")), []).append((lab.get("text") or "").strip())
+            disc = {_normalize_tag(t) for t in groups.get("DISCIPLINES", [])}
+            joueurs_off = {_normalize_tag(t) for t in groups.get(PLAYER_ACTION_GROUP, [])}
+            if disc or (joueurs_off & PLAYER_ACTION_PENALTY):
+                candidates.append((inst.get("start") or 0, code, groups))
+        team_insts = sorted(
+            ((inst.get("start") or 0), {g: [((l.get("text") or "").strip()) for l in inst.get("labels") or []
+                                            if _normalize_tag(l.get("group")) == g]
+                                        for g in {_normalize_tag(l.get("group")) for l in inst.get("labels") or []}})
+            for inst in instances if _normalize_tag(inst.get("code_raw")) == "UBB DISCIPLINES")
+        used = set()
+        if team_insts:
+            for t0, tgroups in team_insts:
+                best = None
+                for k, (t, _c, _g) in enumerate(candidates):
+                    if k in used or not (t0 - 15 <= t <= t0 + 25):
+                        continue
+                    if best is None or abs(t - t0) < abs(candidates[best][0] - t0):
+                        best = k
+                treasons = _reasons_of(tgroups)
+                tcat = _category_of(tgroups, team_code=True)
+                if best is not None:
+                    used.add(best)
+                    _t, code, groups = candidates[best]
+                    reasons = _reasons_of(groups) + treasons
+                    _count_fault(code, groups, reasons)
+                    _count_category(groups, reasons, tcat)
+                elif tcat:
+                    # Faute sans joueur rapproché : sa catégorie compte quand même pour l'équipe.
+                    _count_category(tgroups, treasons, tcat)
+            labels_hors_penalite = len(candidates) - len(used)
+        else:
+            used = set(range(len(candidates)))  # pas de code équipe : on garde tout
+            for k in sorted(used):
+                _t, code, groups = candidates[k]
+                reasons = _reasons_of(groups)
+                _count_fault(code, groups, reasons)
+                _count_category(groups, reasons)
+        team_faults_paired = len(used)
+
+    if team is None and not players:
+        return None
+
+    # --- Toute la feuille de match, dans l'ordre n°1 à 23 ---------------------------
+    xml_names = sorted({(n or "").strip() for n in _new_convention_player_names(instances)} | set(players))
+    entries = []  # (nom affiché, groupe)
+    used = set()
+    squad = [n for n in (composition or []) if n]
+    ordered = squad or [n.strip() for n in (row_order or []) if n]
+    if ordered:
+        for idx, name in enumerate(ordered):
+            code = name if name in xml_names else _best_match(name, [n for n in xml_names if n not in used])
+            if code:
+                used.add(code)
+            groupe = "avants" if (idx < 8 or 15 <= idx < 20) else "3/4"
+            entries.append(((code or name).upper(), code, groupe))
+    rest = [n for n in xml_names if n not in used]
+    if rest:
+        pos_order = list(SQUAD_ROSTER.keys())
+        def _sort_key(n):
+            pos = _roster_position(n)
+            return (0 if pos in _FORWARD_POSITIONS else 1, pos_order.index(pos) if pos in pos_order else 99, n)
+        for n in sorted(rest, key=_sort_key):
+            pos = _roster_position(n)
+            entries.append((n.upper(), n, ("avants" if pos in _FORWARD_POSITIONS else "3/4") if pos else None))
+
+    rows = []
+    for display, code, groupe in entries:
+        auto = players.get(code) if code else None
+        key = display
+        man = man_players.get(key) or {}
+        fautes_auto = auto["fautes"] if auto else 0
+        fautes = man.get("fautes") if isinstance(man.get("fautes"), int) else fautes_auto
+        card = _match_card(code or display, cards)
+        carton = man.get("carton")
+        if carton not in ("J", "R", ""):
+            carton = "R" if ((auto or {}).get("red") or card.get("red")) else ("J" if ((auto or {}).get("yellow") or card.get("yellow")) else "")
+        raison = man.get("raison") if man.get("raison") is not None else _reasons_text(auto["reasons"]) if auto else ""
+        # Avant / 3/4 corrigeable à la main (joueur qui a joué devant ou derrière ce jour-là).
+        if man.get("groupe") in ("avants", "3/4"):
+            groupe = man["groupe"]
+        rows.append({"key": key, "name": display, "fautes": fautes, "fautes_auto": fautes_auto,
+                     "raison": raison, "carton": carton, "groupe": groupe})
+
+    cats = []
+    for label, _k in DISCIPLINE_CATEGORIES:
+        man = man_cats.get(label) or {}
+        auto_reasons = [f"{r} x{n}" if n > 1 else r for r, n in categories[label]["reasons"].most_common()]
+        count = man.get("count") if isinstance(man.get("count"), int) else categories[label]["count"]
+        reasons_txt = man.get("reasons") if man.get("reasons") is not None else "\n".join(auto_reasons)
+        cats.append({"label": label, "count": count, "count_auto": categories[label]["count"],
+                     "reasons_text": reasons_txt,
+                     "reasons": [l.strip() for l in (reasons_txt or "").splitlines() if l.strip()]})
+
+    return {
+        "team": team or {"own": None, "adverse": None},
+        "par_periode": {side: {q: par_periode[side].get(q, 0) for q in POSSESSION_QUARTER_ORDER}
+                        for side in ("own", "adverse")},
+        "premiere_mi_temps": sum(par_periode["own"].get(q, 0) for q in ("0-20", "20-40")),
+        "rows": rows,
+        "avants": sum(r["fautes"] for r in rows if r["groupe"] == "avants"),
+        "trois_quarts": sum(r["fautes"] for r in rows if r["groupe"] == "3/4"),
+        "joueurs_total": sum(r["fautes"] for r in rows),
+        "categories": cats,
+        "raisons_taguees": any(r["raison"] for r in rows),
+        # Pénalités d'équipe sans joueur rattaché, et labels joueurs sans pénalité d'équipe.
+        "fautes_sans_joueur": ((team or {}).get("own") or 0) - (team_faults_with_player or team_faults_paired),
+        "labels_hors_penalite": labels_hors_penalite,
+        "methode_code_equipe": bool(team_faults_with_player),
+    }
+
+
+def _match_card(name, cards):
+    """Cartons d'un joueur saisis sur la page Composition (noms écrits à la main, ex.
+    « Combrinck » pour le code « COMBRICK ») : rapprochement tolérant aux fautes."""
+    if not cards:
+        return {}
+    import difflib
+    key = _normalize_tag(name).replace("-", " ").replace(".", " ")
+    best, score = None, 0
+    for other, val in cards.items():
+        k2 = _normalize_tag(other).replace("-", " ").replace(".", " ")
+        ratio = difflib.SequenceMatcher(None, key, k2).ratio()
+        if ratio > score:
+            best, score = val, ratio
+    return (best or {}) if score >= 0.8 else {}
+
+
+# ---- Touches (page "TOUCHES" du rapport vidéo) --------------------------------
+def compute_touches_page(instances, manual=None):
+    """Nos touches dans l'ordre du match, pour la page TOUCHES du rapport.
+
+    Lu dans le XML (codes « UBB Touches », groupe Conquête) : QB (TQB + = ✓, TQB − ou
+    rien = ✗) et Résultat (Gagné = ✓, Perdu = ✗). Saisi à la main sur la page
+    (`manual` = {clé: {"lancement", "lance", "annonce"}}) : le lancement annoncé
+    (« 61 TANK », « 50 »...) et la validation du lancer et de l'annonce."""
+    manual = manual or {}
+    touches = sorted((i for i in instances if _normalize_tag(i.get("code_raw")) == "UBB TOUCHES"),
+                     key=lambda i: i.get("start") or 0)
+    rows, cumul = [], 0
+    for n, inst in enumerate(touches, start=1):
+        vals = {_normalize_tag(l.get("text")) for l in inst.get("labels") or []
+                if _normalize_tag(l.get("group")) in ("CONQUETE", "CONQUÊTE")}
+        gagne = "GAGNE" in vals or "GAGNEE" in vals
+        perdu = "PERDU" in vals or "PERDUE" in vals
+        resultat = True if gagne else (False if perdu else None)
+        qb = True if "TQB +" in vals else (False if (vals or resultat is not None) else None)
+        key = gold_entry_key(inst.get("start"))
+        man = manual.get(key) or {}
+        lance = man.get("lance") if man.get("lance") in ("ok", "ko") else ""
+        annonce = man.get("annonce") if man.get("annonce") in ("ok", "ko") else ""
+        cumul += 1 if resultat else (-1 if resultat is False else 0)
+        cause = ""
+        if resultat is False:
+            cause = "ANNONCE" if annonce == "ko" else ("LANCÉ" if lance == "ko" else "")
+        rows.append({"num": n, "key": key, "lancement": man.get("lancement") or "",
+                     "lance": lance, "annonce": annonce, "qb": qb, "resultat": resultat,
+                     "cumul": cumul, "cause": cause})
+    if not rows:
+        return None
+    gagnees = sum(1 for r in rows if r["resultat"])
+    return {"rows": rows, "total": len(rows), "gagnees": gagnees,
+            "pct": round(100 * gagnees / len(rows), 1) if rows else None}
+
+
+# ---- Bilan attaque (page "ATTAQUE / BILAN" du rapport vidéo) -----------------
+# Cibles fixées par le staff, affichées en titre des blocs correspondants.
+BILAN_CIBLES = {"zone_gold": 7, "offloads": 13, "plaquages_casses": 18}
+
+
+def _bilan_pair(plus, minus):
+    """Une ligne des tableaux JAB / PUNCH : positifs, négatifs, total et % positif."""
+    total = plus + minus
+    return {"plus": plus, "minus": minus, "total": total,
+            "pct": round(100 * plus / total, 1) if total else None}
+
+
+# Les 4 familles d'offloads du rapport, et les libellés acceptés dans le groupe de
+# labels "Offload" de Sportscode (comparés sans accents ni majuscules).
+OFFLOAD_FAMILLES = [
+    ("Super", "bil-tile-gold", {"SUPER", "SUPER OFFLOAD", "SUPERS"}),
+    ("Positifs gardés", "bil-tile-green", {"POSITIF GARDE", "POSITIFS GARDES", "+ GARDE", "+ GARDES", "GARDE +"}),
+    ("Négatifs gardés", "bil-tile-orange", {"NEGATIF GARDE", "NEGATIFS GARDES", "- GARDE", "- GARDES", "GARDE -"}),
+    ("Négatifs perdus", "bil-tile-red", {"NEGATIF PERDU", "NEGATIFS PERDUS", "- PERDU", "- PERDUS", "PERDU", "PERDUS"}),
+]
+
+
+def _offloads_detail(qualif):
+    """Cases de la répartition des offloads. Si les 4 familles du rapport sont taguées,
+    on les affiche ; sinon, on montre le + / = / − du groupe "Offload" tel qu'il est tagué
+    (anciens fichiers). None si aucun label n'est posé."""
+    if not qualif:
+        return None
+    familles = [{"label": label, "tone": tone, "count": sum(qualif.get(k, 0) for k in cles)}
+                for label, tone, cles in OFFLOAD_FAMILLES]
+    if any(f["count"] for f in familles):
+        return familles
+    return [{"label": "Positifs", "tone": "bil-tile-green", "count": qualif.get("+", 0)},
+            {"label": "Neutres", "tone": "bil-tile-orange", "count": qualif.get("=", 0)},
+            {"label": "Négatifs", "tone": "bil-tile-red", "count": qualif.get("-", 0)}]
+
+
+def compute_bilan_attaque(instances, own_points=None):
+    """Page "Bilan attaque" du rapport. Renvoie None si le match n'est pas tagué avec
+    cette convention. Les cases du rapport qu'on ne sait pas déduire du XML valent
+    None et sont laissées vides à l'affichage, elles ne sont pas reconstituées."""
+    codes = Counter()
+    par_quart = {"essais": Counter(), "plaquages_casses": Counter()}
+    contacts = Counter()
+    vitesse = Counter()
+    def_battus = Counter()
+    offload_qualif = Counter()
+    joueurs_def_battus = set()
+    actions = Counter()
+    gla_plus = gla_total = 0
+    found = False
+    # Codes d'équipe ("UBB DEF BATTUS", "UBB ESSAI"...) : l'analyste y pose souvent les
+    # mêmes labels Joueurs Off / Contacts / Offload que sur le joueur qui a fait l'action.
+    # Les compter en plus des joueurs doublait les chiffres (USC-UBB : 36 défenseurs battus
+    # au lieu de 18, 18 offloads au lieu de 14 — rapport individuel du staff).
+    adv_token = _detect_adverse_token(instances)
+    team_tokens = {"UBB", "ADV", "ADVERSE"} | ({adv_token} if adv_token else set())
+
+    for inst in instances:
+        code = _normalize_tag(inst.get("code_raw"))
+        tokens = code.split()
+        codes[code] += 1
+        is_team_code = bool(tokens) and tokens[0] in team_tokens
+        if code.startswith(("JAB", "PUNCH")) or code in ("UBB CLIC", "UBB GLA"):
+            found = True
+        quart = _new_convention_period(inst)
+
+        if _new_convention_code_match(tokens, ["ESSAI"]) and tokens[0] == "UBB" and quart:
+            par_quart["essais"][quart] += 1
+        if code == "UBB GLA":
+            for lab in inst.get("labels") or []:
+                txt = _normalize_tag(lab.get("text"))
+                if txt.endswith("+"):
+                    gla_plus += 1
+                    gla_total += 1
+                elif txt.endswith("-"):
+                    gla_total += 1
+
+        for lab in inst.get("labels") or []:
+            groupe = _normalize_tag(lab.get("group"))
+            texte = _normalize_tag(lab.get("text"))
+            if groupe == "VITESSE RUCK":
+                vitesse[texte] += 1
+            elif groupe == "DEF BATTUS":
+                # Qualificatif du plaquage cassé (RING / CORDE), porté par le code
+                # d'équipe.
+                def_battus[texte] += 1
+            elif is_team_code:
+                continue  # doublon des labels posés sur le joueur
+            elif groupe == "CONTACTS":
+                contacts[texte] += 1
+            elif groupe in ("OFFLOAD", "OFFLOADS", "OFLLOAD", "OFLLOADS"):
+                offload_qualif[texte] += 1
+            elif groupe == PLAYER_ACTION_GROUP:
+                actions[texte] += 1
+                found = True
+                # Comme pour les offloads et les pénalités, le décompte qui fait foi
+                # est celui des joueurs, pas celui du code d'équipe.
+                if texte == "DEF BATTUS":
+                    joueurs_def_battus.add(code)
+                    if quart:
+                        par_quart["plaquages_casses"][quart] += 1
+
+    if not found:
+        return None
+
+    # Vitesse de libération : trois tranches, et le total qui sert de référence.
+    v_rapide, v_moyen, v_lent = vitesse.get("-2", 0), vitesse.get("-4", 0), vitesse.get("+4", 0)
+    v_total = v_rapide + v_moyen + v_lent
+
+    def _pct(n, d):
+        return round(100 * n / d, 1) if d else None
+
+    contacts_total = sum(contacts.values())
+    offloads = sum(actions.get(k, 0) for k in PLAYER_ACTION_OFFLOAD)
+    plaquages_casses = actions.get("DEF BATTUS", 0)
+    contacts_joueurs = actions.get("CONTACTS", 0) or contacts_total
+
+    return {
+        "cibles": BILAN_CIBLES,
+        "essais_par_quart": {q: par_quart["essais"].get(q, 0) for q in POSSESSION_QUARTER_ORDER},
+        # Lus sur les codes Essai / Transfo / Pénalité / Drop et leur label Chrono.
+        "points_par_quart": compute_points_par_quart(instances, "own"),
+        "jab": {"shape": _bilan_pair(codes.get("JAB SHAPE +", 0), codes.get("JAB SHAPE -", 0)),
+                "connecte": _bilan_pair(codes.get("JAB CONNECTE +", 0), codes.get("JAB CONNECTE -", 0))},
+        "punch": {"shape": _bilan_pair(codes.get("PUNCH SHAPE +", 0), codes.get("PUNCH SHAPE -", 0)),
+                  "connecte": _bilan_pair(codes.get("PUNCH CONNECTE +", 0), codes.get("PUNCH CONNECTE -", 0))},
+        "gain_line_pct": _pct(gla_plus, gla_total),
+        "essais": actions.get("ESSAIS", 0),
+        "franchissements": codes.get("UBB BREAK", 0),
+        "contacts": contacts_total,
+        # Dominance (règle de Téo) : contacts + ÷ total des contacts, en %. Mêmes labels
+        # « Contacts » des joueurs que le total « Contacts » affiché juste au-dessus.
+        "dominants_pct": _pct(contacts.get("+", 0), contacts_total),
+        "dominants": contacts.get("+", 0),
+        # "Libération i" du rapport : aucun tag ne la distingue encore.
+        "liberation_i_pct": None,
+        "plaquages_casses": plaquages_casses,
+        "offloads": offloads,
+        # Offloads / contacts : les deux lus sur les joueurs (labels Joueurs Off).
+        "offloads_contacts_pct": _pct(offloads, contacts_joueurs),
+        # Ratio brut (offloads par contact), affiché tronqué à 2 décimales : 14/78 → 0,17.
+        "offloads_contacts_ratio": (offloads / contacts_joueurs) if contacts_joueurs else None,
+        "contacts_joueurs": contacts_joueurs,
+        "passes": actions.get("PASSES", 0),
+        "clics": codes.get("UBB CLIC", 0),
+        "offloads_detail": _offloads_detail(offload_qualif),
+        "plaquages_detail": {
+            "joueurs": len(joueurs_def_battus),
+            "ring": def_battus.get("RING", 0) + def_battus.get("RINGS", 0),
+            "cordes": def_battus.get("CORDES", 0) + def_battus.get("CORDE", 0),
+            "ring_corde_tagues": bool(sum(def_battus.values())),
+            "par_quart": {q: par_quart["plaquages_casses"].get(q, 0) for q in POSSESSION_QUARTER_ORDER},
+        },
+        "vitesse_liberation": {
+            "total": v_total, "rapide": v_rapide, "moyen": v_moyen, "lent": v_lent,
+            "pct_rapide": _pct(v_rapide, v_total),
+            "pct_sous_4s": _pct(v_rapide + v_moyen, v_total),
+        },
+    }
+
+
+# ---- Bilan défense (page "DEFENSE" du rapport vidéo) ------------------------
+# Lignes du rapport, dans l'ordre exact de la page, et les libellés du tagging qui
+# les alimentent. Ce qui n'est pas tagué reste à zéro : rien n'est reconstitué.
+DEFENSE_ESSAI_ORIGINES = [
+    ("Lancements Melees", ["MELEE", "MELEES", "LANCEMENT MELEE", "LANCEMENTS MELEES"]),
+    ("Lancements Touches", ["TOUCHE", "TOUCHES", "LANCEMENT TOUCHE", "LANCEMENTS TOUCHES"]),
+    ("Ballon Porté", ["BALLON PORTE", "MAUL", "MAULS"]),
+    ("Pick & Go", ["PICK", "PICK & GO", "PICK AND GO", "PICK GO"]),
+    ("Dans le jeu", ["JEU", "JEU COURANT", "DANS LE JEU"]),
+    ("Contre Attaque", ["CONTRE ATTAQUE", "CE", "CA"]),
+    ("Turnovers", ["TURNOVER", "TURNOVERS"]),
+    ("De Penalites", ["PENALITE", "PENALITES", "DE PENALITE", "DE PENALITES"]),
+    ("Penalites Jouees vite", ["PENALITE VITE", "PENALITE JOUEE VITE", "PENALITES JOUEES VITE"]),
+    ("Penalites Jouees à la main", ["PENALITE MAIN", "PENALITE A LA MAIN", "PENALITE JOUEE A LA MAIN",
+                                    "PENALITES JOUEES A LA MAIN"]),
+]
+DEFENSE_PHASES = ["1er Temps", "2eme Temps", "3eme Temps", "4eme Temps", "5eme Temps",
+                  "6eme Temps", "7eme Temps", "8eme Temps", "9eme Temps", "10eme Temps",
+                  "11eme Temps", "12eme Temps", "+ 12 Temps"]
+DEFENSE_FRANCHI_RESULTATS = [
+    ("Franchissement - Essai", ["ESSAI", "ESSAIS"]),
+    ("Franchissement - Pénalité Pour", ["PENALITE POUR", "PENALITE", "PENALITES"]),
+    ("Franchissement - Ballon Récup", ["BALLON RECUP", "BALLON RECUPERE", "BALLONS RECUP", "RECUP"]),
+    ("Franchissement - Arret", ["ARRET", "ARRETE", "STOP"]),
+]
+DEFENSE_FRANCHI_ORIGINES = [
+    # Coup d'envoi compté en contre-attaque (demande de Téo).
+    ("Franchi Contre Attaque", ["CONTRE ATTAQUE", "CE", "CA", "COUP D'ENVOI", "COUPS D'ENVOI",
+                                "COUP D ENVOI", "COUPS D ENVOI", "COUP DENVOI", "COUP D'ENVOIE"]),
+    ("Franchi Turnovers", ["TURNOVER", "TURNOVERS"]),
+    ("Franchi Touches", ["TOUCHE", "TOUCHES"]),
+    ("Franchi Mêlées", ["MELEE", "MELEES"]),
+    ("Franchi Pénalités à la main", ["PENALITE MAIN", "PENALITE A LA MAIN", "PENALITES A LA MAIN",
+                                     "PENALITE JOUEE A LA MAIN"]),
+    ("Franchi Pénalités Jouée Vite", ["PENALITE VITE", "PENALITE JOUEE VITE", "PENALITES JOUEES VITE"]),
+    ("Jeu Courant", ["JEU", "JEU COURANT", "DANS LE JEU"]),
+]
+# Groupes de labels lus sur les codes Essai et Break adverses (comparés sans accents).
+DEFENSE_ORIGINE_GROUPS = {"ORIGINE POSSESSION", "ORIGINE", "ORIGINES",
+                          # Groupes du XML de Téo (Agen, octobre 2026), sur « <ADV> Break »
+                          "ORIGINE FRANCHISSEMENT SUBIT", "ORIGINE FRANCHISSEMENT", "ORIGINE FRANCHISSEMENTS"}
+DEFENSE_RESULTAT_GROUPS = {"RESULTAT", "RESULTATS", "RESULTAT FRANCHISSEMENT",
+                           "FIN FRANCHISSEMENT SUBIT", "FIN FRANCHISSEMENT", "FIN FRANCHISSEMENTS"}
+DEFENSE_TEMPS_GROUPS = {"TEMPS DE JEU", "TEMPS", "NB TEMPS", "PHASES", "PHASES DE JEU", "PHASE DE JEU"}
+
+
+def _label_key(text):
+    """Libellé comparable : sans accents ni majuscules, tirets remplacés par des espaces
+    (« Contre-attaque » = « CONTRE ATTAQUE »)."""
+    return " ".join(_normalize_tag(text).replace("-", " ").replace("’", "'").split())
+
+
+def _phase_index(text):
+    """« 3eme temps », « 3 », « +12 », « 12+ »... → index dans DEFENSE_PHASES (ou None)."""
+    txt = _label_key(text)
+    m = re.search(r"\d+", txt)
+    if not m:
+        return None
+    n = int(m.group())
+    if "+" in txt or n > 12:
+        return len(DEFENSE_PHASES) - 1
+    return n - 1 if n >= 1 else None
+
+
+# Ballons que l'adversaire a perdus (code "ADV PDB"), par nature — le "CLASH" du rapport.
+DEFENSE_CLASH = [
+    ("En-Avants", ["SUR EN-AVANTS", "SUR EN AVANTS", "EN-AVANT", "EN AVANT"]),
+    ("Sur Rucks", ["SUR RUCK", "SUR RUCKS"]),
+    ("Contacts", ["AU CONTACT", "CONTACT", "CONTACTS"]),
+    ("Passes", ["SUR PASSE", "SUR PASSES", "PASSE", "PASSES"]),
+    ("CE", ["SUR NOS CE", "CE", "CONTRE ATTAQUE"]),
+    ("JAP", ["SUR NOTRE JAP", "JAP", "JEU AU PIED"]),
+    ("Touches", ["SUR TOUCHE", "SUR TOUCHES", "TOUCHE", "TOUCHES"]),
+    ("Mauls", ["SUR MAUL", "SUR MAULS", "MAUL", "MAULS"]),
+    ("Mêlées", ["SUR MELEE", "SUR MELEES", "MELEE", "MELEES"]),
+    ("Duels Aériens", ["DUEL AERIEN", "DUELS AERIENS", "AERIEN", "AERIENS"]),
+    ("Fautes", ["SUR FAUTES", "SUR FAUTE", "FAUTE", "FAUTES"]),
+]
+
+
+def _loose_key(text):
+    """Comme _label_key, mais sans les pluriels (« Pénalités Jouée Vite » = « Pénalité
+    jouée vite », « Mêlées » = « Mêlée ») : le libellé tagué n'a pas à coller au mot près."""
+    return " ".join(w[:-1] if len(w) > 3 and w.endswith("S") else w for w in _label_key(text).split())
+
+
+def _defense_ligne(libelles, compte):
+    """Une ligne de liste du rapport : son libellé et son total (0 si rien de tagué).
+    `compte` est indexé par _label_key(texte du label) ; comparaison sans pluriels."""
+    loose = Counter()
+    for cle, n in compte.items():
+        loose[_loose_key(cle)] += n
+    lignes = []
+    for label, cles in libelles:
+        total = 0
+        for cle in {_loose_key(c) for c in cles}:
+            total += loose.get(cle, 0)
+        lignes.append({"label": label, "count": total})
+    return lignes
+
+
+def compute_bilan_defense(instances, adverse_points=None, zone_gold=None):
+    """Page "DEFENSE" du rapport vidéo : ce que l'adversaire a produit contre nous.
+
+    Renvoie None si le match n'est pas tagué avec la convention du rapport. Les cases
+    du rapport qui n'ont pas d'équivalent dans le XML (nombre de temps de jeu avant
+    l'essai, détail des franchissements, points par quart-temps) valent None ou zéro
+    et restent vides à l'affichage : elles ne sont pas reconstituées."""
+    essais = franchissements = 0
+    origines = Counter()
+    phases = Counter()
+    franchi_resultats = Counter()
+    franchi_origines = Counter()
+    essais_par_quart = Counter()
+    clash = Counter()
+    snipers_reussis = Counter()
+    snipers_rates = 0
+    found = False
+    adv_token = _detect_adverse_token(instances)
+    adv_set = {"ADV", "ADVERSE"} | ({adv_token} if adv_token else set())
+
+    for inst in instances:
+        code = _normalize_tag(inst.get("code_raw"))
+        tokens = code.split()
+        quart = _new_convention_period(inst)
+
+        if _new_convention_code_match(tokens, ["ESSAI"], adv_token) and tokens[0] in adv_set:
+            found = True
+            essais += 1
+            if quart:
+                essais_par_quart[quart] += 1
+            for lab in inst.get("labels") or []:
+                groupe = _normalize_tag(lab.get("group"))
+                if groupe in DEFENSE_ORIGINE_GROUPS:
+                    origines[_label_key(lab.get("text"))] += 1
+                elif groupe in DEFENSE_TEMPS_GROUPS:
+                    idx = _phase_index(lab.get("text"))
+                    if idx is not None:
+                        phases[idx] += 1
+        elif _new_convention_code_match(tokens, ["BREAK"], adv_token) and tokens[0] in adv_set:
+            found = True
+            franchissements += 1
+            for lab in inst.get("labels") or []:
+                groupe = _normalize_tag(lab.get("group"))
+                if groupe in DEFENSE_ORIGINE_GROUPS:
+                    franchi_origines[_label_key(lab.get("text"))] += 1
+                elif groupe in DEFENSE_RESULTAT_GROUPS:
+                    franchi_resultats[_label_key(lab.get("text"))] += 1
+        elif _new_convention_code_match(tokens, ["PDB"], adv_token) and tokens[0] in adv_set:
+            found = True
+            # Un ballon perdu ne compte qu'une fois, même si le tagueur a posé deux
+            # fois le même libellé sur l'instance.
+            natures = {_label_key(lab.get("text"))
+                       for lab in inst.get("labels") or []
+                       if _normalize_tag(lab.get("group")) == "TYPE DE BP"}
+            for nature in natures:
+                clash[nature] += 1
+
+        # Snipers : le code de l'instance est le nom du joueur.
+        textes = {_normalize_tag(lab.get("text"))
+                  for lab in inst.get("labels") or []
+                  if _normalize_tag(lab.get("group")) == "SNIPERS"}
+        if textes:
+            found = True
+            if "SNIPER RATE" in textes:
+                snipers_rates += 1
+            elif "SNIPER" in textes:
+                snipers_reussis[inst.get("code_raw", "").strip()] += 1
+
+    if not found:
+        return None
+
+    reussis = sum(snipers_reussis.values())
+    total_snipers = reussis + snipers_rates
+    danger = (zone_gold or {}).get("adverse") or {}
+
+    return {
+        "essais": essais,
+        "franchissements": franchissements,
+        "snipers": {
+            "reussis": reussis,
+            "rates": snipers_rates,
+            "total": total_snipers,
+            "pct_manques": round(100 * snipers_rates / total_snipers, 1) if total_snipers else None,
+        },
+        "zone_danger": {
+            "entrees": danger.get("total"),
+            "ballons_recup": danger.get("ballons_perdus"),
+            "efficacite": danger.get("efficacite"),
+            "points_par_entree": danger.get("points_par_entree"),
+        },
+        "essais_origines": _defense_ligne(DEFENSE_ESSAI_ORIGINES, origines),
+        # Labels « Temps de jeu » (essais), « Résultat » et « Origine possession »
+        # (franchissements) posés sur les codes adverses ; 0 tant que ce n'est pas tagué.
+        "essais_phases": [{"label": p, "count": phases.get(i, 0)} for i, p in enumerate(DEFENSE_PHASES)],
+        "franchi_resultats": _defense_ligne(DEFENSE_FRANCHI_RESULTATS, franchi_resultats),
+        "franchi_origines": _defense_ligne(DEFENSE_FRANCHI_ORIGINES, franchi_origines),
+        "clash": _defense_ligne(DEFENSE_CLASH, clash),
+        "essais_par_quart": {q: essais_par_quart.get(q, 0) for q in POSSESSION_QUARTER_ORDER},
+        "points_par_quart": compute_points_par_quart(instances, "adverse"),
+        "top_defensif": [{"name": nom, "snipers": n} for nom, n in snipers_reussis.most_common(3)],
+    }
+
+
+PHASE_TAGS = ["EXIT", "PRESSION", "ACTION", "RAID"]
+PHASE_ICONS = {"EXIT": "🚪", "PRESSION": "🧱", "ACTION": "⚡", "RAID": "🏃"}
+PHASE_HELP = {
+    "EXIT": "Sortie de camp : dégagement depuis sa propre zone.",
+    "PRESSION": "Séquence de jeu où l'on met l'adversaire sous pression, proche de sa ligne.",
+    "ACTION": "Phase de jeu courant, dans le camp adverse ou en zone neutre.",
+    "RAID": "Portée de balle offensive, souvent proche de la ligne adverse.",
+}
+
+
+def _fmt_mmss(seconds):
+    seconds = int(round(max(seconds, 0)))
+    return f"{seconds // 60}:{seconds % 60:02d}"
+
+
+def compute_phase_timing(instances):
+    """Temps (mm:ss) + % passé dans chaque phase de jeu, par côté."""
+    data = {side: {tag: {"duration": 0.0, "count": 0} for tag in PHASE_TAGS} for side in ("own", "adverse")}
+    for inst in instances:
+        if inst["kind"] == "stat" and inst["category"] in PHASE_TAGS and inst["side"] in ("own", "adverse"):
+            b = data[inst["side"]][inst["category"]]
+            b["duration"] += max(inst["duration"], 0)
+            b["count"] += 1
+    result = {}
+    for side in data:
+        total = sum(v["duration"] for v in data[side].values())
+        result[side] = {}
+        for tag in PHASE_TAGS:
+            v = data[side][tag]
+            result[side][tag] = {
+                "duration": round(v["duration"], 1),
+                "duration_fmt": _fmt_mmss(v["duration"]),
+                "count": v["count"],
+                "pct": round(v["duration"] / total * 100) if total > 0 else 0,
+            }
+    return result
+
+
+RELANCE_CATEGORIES = ["BULL", "TIGER", "KILL", "BLAST", "CRUNCH", "CHAUD", "ZOOM", "BINGO",
+                      "BLANC", "FLASH", "AUTRE", "SKY", "RHINO", "SHARKS", "ROUGE"]
+
+
+def compute_relance(instances, side):
+    """Lancements de jeu nommés (codes internes du staff) : total terrain + répartition par phase."""
+    total = defaultdict(int)
+    by_phase = defaultdict(lambda: defaultdict(int))
+    for inst in instances:
+        if inst["kind"] == "stat" and inst["side"] == side and inst["category"] in RELANCE_CATEGORIES:
+            total[inst["category"]] += 1
+            for p in _label_texts(inst, None):
+                if p in PHASE_TAGS:
+                    by_phase[p][inst["category"]] += 1
+    grand_total = sum(total.values())
+    return {
+        "total": {k: {"count": v, "pct": round(v / grand_total * 100) if grand_total else 0}
+                  for k, v in sorted(total.items(), key=lambda x: -x[1])},
+        "by_phase": {p: dict(sorted(v.items(), key=lambda x: -x[1])) for p, v in by_phase.items()},
+    }
+
+
+def compute_ruck_speed(instances, side):
+    """Vitesse de ruck : répartition -3s / 3-6s / +6s (hors variante zone '50m')."""
+    rucks = [i for i in instances if i["category"] == "Ruck" and i["side"] == side and i.get("zone_extra") is None]
+    buckets = {"-3s": 0, "3-6s": 0, "+6s": 0}
+    for i in rucks:
+        d = i["duration"]
+        if d < 3:
+            buckets["-3s"] += 1
+        elif d <= 6:
+            buckets["3-6s"] += 1
+        else:
+            buckets["+6s"] += 1
+    total = len(rucks)
+    avg = round(sum(i["duration"] for i in rucks) / total, 2) if total else None
+    return {
+        "total": total,
+        "avg": avg,
+        "buckets": {k: {"count": v, "pct": round(v / total * 100) if total else 0} for k, v in buckets.items()},
+    }
+
+
+def compute_try_origin(instances, side):
+    """D'où viennent les essais marqués (touche, mêlée, jeu courant...)."""
+    origins = defaultdict(int)
+    zones = defaultdict(int)
+    for inst in instances:
+        if inst["category"] == "Essai" and inst["side"] == side:
+            for lab in inst["labels"]:
+                if lab["group"] == "ORIGINE":
+                    origins[lab["text"]] += 1
+            if inst["zone"]:
+                zones[inst["zone"]] += 1
+    return {"origin": dict(origins), "zone": dict(zones)}
+
+
+def compute_back3(instances):
+    """Nombre de ballons touchés par le triangle arrière (ailiers n°11/n°14 et arrière n°15),
+    à partir de la catégorie dédiée "BACK 3" codée par numéro de maillot du joueur."""
+    back3_insts = [i for i in instances if i["category"] == "BACK 3"]
+    by_number = defaultdict(int)
+    for i in back3_insts:
+        for lab in i["labels"]:
+            if lab["group"] is None and lab["text"] and lab["text"].isdigit():
+                by_number[lab["text"]] += 1
+                break
+    return {
+        "total": len(back3_insts),
+        "by_number": dict(sorted(by_number.items(), key=lambda x: -x[1])),
+    }
+
+
+def compute_back3_trend(selected_matches):
+    """Ballons touchés par le Back 3, match par match : un graphique linéaire d'évolution sur
+    la saison, même principe que le suivi JIFF (un point par match, relié en ligne continue).
+    selected_matches : matchs du filtre saison (chacun avec sa propre liste 'instances', PAS
+    concaténée entre matchs, pour obtenir un point distinct par match)."""
+    rows = []
+    for m in selected_matches:
+        back3 = compute_back3(m.get("instances") or [])
+        opponent = m.get("opponent") or "?"
+        date = m.get("match_date") or ""
+        rows.append({
+            "match_id": m["id"],
+            "label": f"{opponent} ({date})" if date else opponent,
+            "total": back3["total"],
+        })
+    return rows
+
+
+def compute_break_origin(instances, side):
+    """D'où viennent les franchissements (touche, mêlée, jeu courant...) — même logique que compute_try_origin."""
+    origins = defaultdict(int)
+    for inst in instances:
+        if inst["category"] == "Break" and inst["side"] == side:
+            for lab in inst["labels"]:
+                if lab["group"] == "ORIGINE":
+                    origins[lab["text"]] += 1
+    return dict(origins)
+
+
+def compute_event_timing(instances, category, side):
+    """Répartition d'une catégorie d'événements (essais, franchissements...) par tranche de jeu
+    (~20 minutes), en réutilisant le découpage par mi-temps déjà détecté ailleurs. Renvoie None
+    si aucune coupure de mi-temps n'a pu être détectée sur ce match."""
+    bounds = _period_bounds(instances)
+    if not bounds:
+        return None
+    result = {label: 0 for _, _, label in bounds}
+    for i in instances:
+        if i["category"] == category and i["side"] == side:
+            for start, end, label in bounds:
+                if start <= i["start"] < end:
+                    result[label] += 1
+                    break
+    return result
+
+def compute_event_timing_multi(selected, category, side):
+    """Comme compute_event_timing, mais pour plusieurs matchs à la fois (saison).
+
+    Chaque match a sa propre vidéo, donc sa propre coupure de mi-temps : on ne peut pas
+    fusionner les instances brutes de tous les matchs avant de chercher la coupure (la plus
+    grande coupure temporelle n'aurait alors plus rien à voir avec une mi-temps). On calcule
+    donc la répartition par tranche match par match, puis on additionne les tranches.
+    Renvoie None si aucun des matchs sélectionnés n'a de coupure de mi-temps détectée."""
+    total = None
+    for m in selected:
+        per_match = compute_event_timing(m["instances"], category, side)
+        if per_match is None:
+            continue
+        if total is None:
+            total = dict(per_match)
+        else:
+            for k, v in per_match.items():
+                total[k] = total.get(k, 0) + v
+    return total
+    
+def compute_discipline_breakdown(instances, side, phase=None):
+    """Répartition des fautes concédées par type (groupe DISCIPLINES).
+
+    Si phase vaut 'OFF' ou 'DEF', ne garde que les fautes commises dans cette
+    phase de jeu (sous-label DISCIPLINES codé par l'analyste sur chaque faute) :
+    'OFF' = faute concédée quand l'équipe avait le ballon (discipline offensive),
+    'DEF' = faute concédée en défense."""
+    counts = defaultdict(int)
+    for inst in instances:
+        if inst["category"] == "Disciplines" and inst["side"] == side:
+            label_texts = [l["text"] for l in inst["labels"] if l["group"] == "DISCIPLINES"]
+            if phase and phase not in label_texts:
+                continue
+            for txt in label_texts:
+                if txt != "Disciplines":
+                    counts[txt] += 1
+    return dict(sorted(counts.items(), key=lambda x: -x[1]))
+
+
+def _cat_count(instances, cat, side, success=None):
+    n = 0
+    for i in instances:
+        if i["category"] == cat and i["side"] == side:
+            if success is None or i["success"] == success:
+                n += 1
+    return n
+
+
+def _duel_count(instances, group_names, side_hint=None):
+    """Compte les +/- d'un ou plusieurs groupes de labels ('Duel Espace', 'duelaérien'...)."""
+    pos = neg = 0
+    for i in instances:
+        for lab in i["labels"]:
+            if lab["group"] in group_names:
+                if lab["text"] == "+":
+                    pos += 1
+                elif lab["text"] == "-":
+                    neg += 1
+    return {"plus": pos, "minus": neg, "total": pos + neg,
+            "pct": round(pos / (pos + neg) * 100, 1) if (pos + neg) else None}
+
+
+def compute_attack_sector(instances, side):
+    """Métriques d'attaque pour 'side' (own = notre attaque ; adverse = attaque adverse)."""
+    score = compute_score(instances)
+    team_score = score["own"] if side == "own" else score["adverse"]
+    entries = _cat_count(instances, "RAID", side)
+    ruck_count = _cat_count(instances, "Ruck", side)
+    offloads = _cat_count(instances, "Offload", side)
+    breaks = _cat_count(instances, "Break", side)
+    lost_balls = _cat_count(instances, "Perte de balles", side)
+    duels_aeriens = _duel_count(instances, {"Duel Espace", "duelaérien"})
+
+    # Nombre de phases moyen par possession : somme du descripteur "PHASES DE JEU"
+    # codé sur chaque instance Possession, divisée par le nombre total de possessions.
+    possession_insts = [i for i in instances if i["category"] == "Possession" and i["side"] == side]
+    total_possessions = len(possession_insts)
+    total_phases = 0
+    for i in possession_insts:
+        for lab in i["labels"]:
+            if lab["group"] == "PHASES DE JEU":
+                try:
+                    total_phases += int(lab["text"])
+                except (TypeError, ValueError):
+                    pass
+    phases_moyenne = round(total_phases / total_possessions, 2) if total_possessions else None
+
+    defenders_beaten = 0
+    if side == "own":
+        for i in instances:
+            if i["kind"] == "player":
+                for lab in i["labels"]:
+                    if lab["group"] is None and lab["text"] == "DEF Battu":
+                        defenders_beaten += 1
+
+    return {
+        "score": team_score,
+        "entries": entries,
+        "points_per_entry": round(team_score / entries, 2) if entries else None,
+        "ruck_count": ruck_count,
+        "phases_moyenne": phases_moyenne,
+        "offloads": offloads,
+        "breaks": breaks,
+        "lost_balls": lost_balls,
+        "duels_aeriens": duels_aeriens,
+        "meters_gained": None,  # pas encore codé dans le XML : distance parcourue ballon en main non mesurée actuellement
+        "gain_line": None,  # pas encore codé dans le XML : "Duel Contact" est un concept différent pour Téo
+        "passe_ruck_ratio": None,  # pas encore codé dans le XML : les passes ne sont pas comptées au niveau équipe actuellement
+        "defenders_beaten": defenders_beaten if side == "own" else None,
+        "relance": compute_relance(instances, side),
+        "ruck_speed": compute_ruck_speed(instances, side),
+        "try_origin": compute_try_origin(instances, side),
+        "try_timing": compute_event_timing(instances, "Essai", side),
+        "break_origin": compute_break_origin(instances, side),
+        "break_timing": compute_event_timing(instances, "Break", side),
+        "back3": compute_back3(instances) if side == "own" else None,
+        "discipline": compute_discipline_breakdown(instances, side, phase="OFF"),
+        "possession_sequences": compute_possession_sequences(instances, side),
+    }
+
+
+def compute_plaquage_detail(instances):
+    """Détail des plaquages : catégorie 'Plaquage', toujours codée côté 'own' par l'analyste
+    (seuls les plaquages faits par notre équipe sont codés, quel que soit le porteur de balle).
+    Une instance peut porter plusieurs labels REUSSI/RATE (plusieurs plaquages dans une même
+    séquence) : on compte donc les labels, pas les instances. 'plaquage_a_2' = plaquages
+    effectués à deux défenseurs (label '2' codé sur l'instance)."""
+    plq = [i for i in instances if i["category"] == "Plaquage" and i["side"] == "own"]
+    total = reussi = rate = plaquage_a_2 = 0
+    for i in plq:
+        if any(l["group"] is None and l["text"] == "2" for l in i["labels"]):
+            plaquage_a_2 += 1
+        for l in i["labels"]:
+            if l["group"] == "plaquage":
+                total += 1
+                if l["text"] == "REUSSI":
+                    reussi += 1
+                elif l["text"] == "RATE":
+                    rate += 1
+    return {
+        "total": total,
+        "reussi": reussi,
+        "rate": rate,
+        "rate_pct": round(reussi / total * 100, 1) if total else None,
+        "plaquage_a_2": plaquage_a_2,
+    }
+
+
+def compute_defense_sector(instances, side):
+    """Vue défensive : side='adverse' => ce que l'adversaire nous a fait subir (notre défense).
+
+    Les plaquages sont calculés indépendamment de 'side' via compute_plaquage_detail, car ils
+    sont toujours codés côté 'own' par l'analyste (voir sa docstring)."""
+    plaquage = compute_plaquage_detail(instances)
+    turnovers_recuperes = _cat_count(instances, "Turnover", "own" if side == "adverse" else "adverse")
+    return {
+        "plaquage": plaquage,
+        "turnovers_recuperes": turnovers_recuperes,
+        "ruck_speed_subi": compute_ruck_speed(instances, side),
+    }
+
+
+RUCK_SPEED_BUCKET_LABELS = ["-3s", "3-6s", "+6s"]
+RUCK_ZONE_PHASES = ["RAID", "ACTIONS", "PRESSION", "EXIT"]
+
+
+def compute_ruck_speed_by_zone(instances):
+    """Vitesse de ruck détaillée par zone (RAID/ACTIONS/PRESSION/EXIT — remplace le 0-20/20-40/
+    40-60/60-80 en mètres par ces 4 zones nommées) et par tranche de vitesse (-3s/3-6s/+6s),
+    nous vs adverse, avec vitesse moyenne par zone.
+
+    Pas encore calculable de façon fiable : le codage actuel des rucks ne rattache pas encore
+    une de ces zones à chaque instance Ruck (voir compute_ruck_speed) — structure prête, à
+    activer dès qu'une zone (RAID/ACTIONS/PRESSION/EXIT) sera codée sur chaque ruck dans le XML."""
+    empty_buckets = {b: None for b in RUCK_SPEED_BUCKET_LABELS}
+    return {
+        "zones": RUCK_ZONE_PHASES,
+        "own": {z: {"buckets": dict(empty_buckets), "avg": None} for z in RUCK_ZONE_PHASES},
+        "adverse": {z: {"buckets": dict(empty_buckets), "avg": None} for z in RUCK_ZONE_PHASES},
+    }
+
+
+def compute_ruck_sector(instances):
+    """Vue dédiée au ruck : conquête du ballon au sol, nous vs adverse."""
+    entries_own = _cat_count(instances, "RAID", "own")
+    entries_adverse = _cat_count(instances, "RAID", "adverse")
+    ruck_own = _cat_count(instances, "Ruck", "own")
+    ruck_adverse = _cat_count(instances, "Ruck", "adverse")
+    speed_own = compute_ruck_speed(instances, "own")
+    speed_adverse = compute_ruck_speed(instances, "adverse")
+    totals = compute_player_defense_table(instances)["totals"]
+    contre_ruck = totals.get("ballons_recuperes", 0)
+    # Rucks codés avec le qualificatif "50" (ex: "33 - Ruck Nice 50") = ruck dans les 50m.
+    ruck_50_own = sum(1 for i in instances if i["category"] == "Ruck" and i["side"] == "own" and i.get("zone_extra") == "50")
+    ruck_50_adverse = sum(1 for i in instances if i["category"] == "Ruck" and i["side"] == "adverse" and i.get("zone_extra") == "50")
+    return {
+        "count_own": ruck_own,
+        "count_adverse": ruck_adverse,
+        "ruck_50_own": ruck_50_own,
+        "ruck_50_adverse": ruck_50_adverse,
+        "ruck_won_own": None,  # pas encore codé dans le XML : issue du ruck (gagné/perdu) non distinguée actuellement
+        "ruck_won_adverse": None,  # pas encore codé dans le XML
+        "phases_moyenne_own": round(ruck_own / entries_own, 2) if entries_own else None,
+        "phases_moyenne_adverse": round(ruck_adverse / entries_adverse, 2) if entries_adverse else None,
+        "speed_own": speed_own,
+        "speed_adverse": speed_adverse,
+        "contre_ruck": contre_ruck,
+        "speed_by_zone": compute_ruck_speed_by_zone(instances),
+    }
+
+
+# ---- Touches (lineouts) ----------------------------------------------------
+
+TOUCH_CALL_NAMES = {"Inverse", "Rocket", "Turbo", "Mortier", "Bombe", "Crochet", "JAB", "Tempo", "Buste", "Direct"}
+TOUCH_JUMP_COUNTS = ["T4/T4+1", "T5/T5+1", "T6/T6+1", "T7/T7+1"]
+TOUCH_COLORS = ["NOIR", "JAUNE", "ROUGE", "VERT", "BLANC"]
+TOUCH_LETTERS = ["P", "O", "I", "N", "G"]
+
+
+def compute_lineout_detail(instances):
+    result = {}
+    for side in ("own", "adverse"):
+        touches = [i for i in instances if i["category"] == "Touches" and i["side"] == side]
+        total = len(touches)
+        won = sum(1 for i in touches if i["success"] is True)
+        tqb_plus = sum(1 for i in touches if "TQB +" in _label_texts(i, None))
+
+        call_names = defaultdict(int)
+        jump_success = {j: {"gagne": 0, "perdu": 0} for j in TOUCH_JUMP_COUNTS}
+        colors = defaultdict(int)
+        letters = defaultdict(int)
+        for i in touches:
+            conquete = _label_texts(i, "CONQUETE")
+            for c in conquete:
+                if c in TOUCH_CALL_NAMES:
+                    call_names[c] += 1
+                elif c in TOUCH_COLORS:
+                    colors[c] += 1
+                elif c in TOUCH_LETTERS:
+                    letters[c] += 1
+            jnum = next((t for t in conquete if t in TOUCH_JUMP_COUNTS), None)
+            if jnum:
+                if "GAGNE" in conquete:
+                    jump_success[jnum]["gagne"] += 1
+                elif "PERDU" in conquete:
+                    jump_success[jnum]["perdu"] += 1
+
+        jump_rates = {}
+        for j in TOUCH_JUMP_COUNTS:
+            g, p = jump_success[j]["gagne"], jump_success[j]["perdu"]
+            jump_rates[j] = {"gagne": g, "perdu": p, "pct": round(g / (g + p) * 100) if (g + p) else None}
+
+        result[side] = {
+            "total": total,
+            "won": won,
+            "success_rate": round(won / total * 100, 1) if total else None,
+            "tqb_plus": tqb_plus,
+            "exploitable_rate": round(tqb_plus / total * 100, 2) if total else None,
+            "call_names": dict(sorted(call_names.items(), key=lambda x: -x[1])),
+            "jump_rates": jump_rates,
+            "colors": dict(sorted(colors.items(), key=lambda x: -x[1])),
+            "letters": dict(sorted(letters.items(), key=lambda x: -x[1])),
+        }
+    return result
+
+
+# ---- Mêlée (scrum) ----------------------------------------------------------
+
+def compute_scrum_detail(instances):
+    result = {}
+    for side in ("own", "adverse"):
+        melees = [i for i in instances if i["category"] == "Mêlées" and i["side"] == side]
+        total = len(melees)
+        avance = sum(1 for i in melees if "AVANCE" in _label_texts(i, "MÊLÉE"))
+        stable = sum(1 for i in melees if "STABLE" in _label_texts(i, "MÊLÉE"))
+        rejoue = sum(1 for i in melees if "REJOUE" in _label_texts(i, "MÊLÉE"))
+        won = sum(1 for i in melees if "GAGNE" in _label_texts(i, "MÊLÉE"))
+        lost = sum(1 for i in melees if "PERDU" in _label_texts(i, "MÊLÉE"))
+
+        zone_grid = {tag: {"count": 0, "gagne": 0} for tag in PHASE_TAGS}
+        for i in melees:
+            mtags = _label_texts(i, "MÊLÉE")
+            for tag in PHASE_TAGS:
+                if tag in mtags:
+                    zone_grid[tag]["count"] += 1
+                    if "GAGNE" in mtags:
+                        zone_grid[tag]["gagne"] += 1
+
+        result[side] = {
+            "total": total,
+            "avance": avance,
+            "stable": stable,
+            "avance_pct": round(avance / (avance + stable) * 100) if (avance + stable) else None,
+            "stable_pct": round(stable / (avance + stable) * 100) if (avance + stable) else None,
+            "won": won,
+            "lost": lost,
+            "won_pct": round(won / (won + lost) * 100) if (won + lost) else None,
+            "rejoue": rejoue,
+            "zone_grid": zone_grid,
+        }
+    return result
+
+
+# ---- Jeu au pied (kicking) --------------------------------------------------
+
+def _normalize_label(text):
+    """Minuscule + sans accents, pour comparer des labels codés à la main sans se soucier
+    de la casse ou des accents (ex : "Gagne" / "gagné" / "GAGNE" doivent tous matcher)."""
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(c for c in text if not unicodedata.combining(c))
+    return text.strip().lower()
+
+
+# Labels codés sur les coups de pied qui ne sont pas des "types" de coup de pied
+# (résultat de duel aérien, qualité de zone...) : à exclure du graphique par type,
+# sinon ils s'affichent comme des barres à côté des vrais types de coup de pied.
+# Comparaison insensible à la casse/aux accents (voir _normalize_label).
+KICK_SUBTYPE_EXCLUDED = {
+    _normalize_label(t) for t in
+    ["bon jump", "bonne zone", "mauvaise zone", "gagne", "perdu", "contestable", "conteste"]
+}
+
+
+def compute_kicking_detail(instances):
+    result = {}
+    # Duels aériens : comptés globalement sur le match (labels "Duel Espace"/"duelaérien"
+    # portés par des instances joueurs / "Duels aériens", pas rattachés à chaque coup de pied
+    # individuellement) — offensif/défensif pas encore distingués, donc même chiffre nous/eux.
+    duels = _duel_count(instances, {"Duel Espace", "duelaérien"})
+    for side in ("own", "adverse"):
+        kicks = [i for i in instances if i["category"] == "KICK" and i["side"] == side]
+        total = len(kicks)
+        won = sum(1 for i in kicks if i["success"] is True)
+        lost = sum(1 for i in kicks if i["success"] is False)
+
+        # Détail par type de coup de pied codé, une barre par combinaison exacte codée
+        # (ex : "Birdie 9", "Drive 15", "Put", "Autres" restent des entrées distinctes —
+        # le numéro de joueur n'est pas retiré). On exclut les labels de zone/période
+        # ("0-20"..., group "timing"), le flag plaquage réussi/raté (group "plaquage"),
+        # et les textes purement numériques (pas des noms de type).
+        sub_types_raw = defaultdict(int)
+        for i in kicks:
+            for lab in i["labels"]:
+                if lab["group"] in ("timing", "plaquage"):
+                    continue
+                text = lab["text"]
+                if text in ("REUSSI", "RATE", "raté", "reussi"):
+                    continue
+                if _normalize_label(text) in KICK_SUBTYPE_EXCLUDED:
+                    continue
+                if ZONE_RE.match(text) or text.isdigit():
+                    continue
+                sub_types_raw[text] += 1
+        sub_types_total = sum(sub_types_raw.values())
+        sub_types = {
+            name: {
+                "count": n,
+                "pct": round(n / sub_types_total * 100, 1) if sub_types_total else None,
+            }
+            for name, n in sub_types_raw.items()
+        }
+
+        result[side] = {
+            "total": total,
+            "won": won,
+            "lost": lost,
+            "success_rate": round(won / (won + lost) * 100, 1) if (won + lost) else None,
+            "sub_types": sub_types,
+            # Jeu au pied contestable / contesté : "contestable" = total des coups de pied
+            # (tous potentiellement contestables), "contesté" = nb de duels aériens qui ont
+            # suivi (voir note ci-dessus sur "duels").
+            "kick_contestable": total,
+            "kick_conteste": duels["total"],
+            "duels_aeriens_off_pct": duels["pct"],
+            # Pas encore codé dans le XML sur ce match :
+            "penaltouche_rate": None,       # taux de réussite aux pénaltouches (own uniquement)
+            "penaltouche_total": None,      # nombre de pénaltouches tentées (own uniquement)
+        }
+    return result
+
+
+# ---- Tableaux joueurs --------------------------------------------------------
+
+PLAYER_NAME_HELP = "Regroupe toutes les actions individuelles codées sous le nom du joueur dans Sportscode."
+
+
+def _player_names(instances):
+    names = set()
+    for i in instances:
+        if i["kind"] == "player":
+            names.add(i["code_raw"])
+    return names
+
+
+# ---- Tableaux joueurs (convention 2026) --------------------------------------
+# Alignés sur la méthodologie du rapport vidéo de référence "Statistiques
+# individuelles Bordeaux" (bilan positif/neutre/négatif + détail par secteur) :
+# "JOUEURS OFF" fait foi pour les totaux d'actions individuelles, les groupes
+# "Contacts"/"Passes"/"Offload"/"RCE"/"Aériens" qualifient certaines d'entre elles
+# en +/-/= (ou +/- pour Chasseur, +/= pour Duels aériens/Rebonds), et
+# "Snipers"/"Chasseur"/"Combattant"/"Disciplines" sont les rôles défensifs (comme
+# sur la page CSC), ici recensés joueur par joueur plutôt qu'agrégés pour l'équipe.
+
+_ATTACK_ACTION_KEYS = {
+    "DEF BATTUS": "def_battu", "PDB": "pdb",
+    "BREAK": "break", "CARTOUCHES": "cartouche", "MELEES": "melee_portee",
+}
+
+# Regroupe les "ballons gagnés" et "contre-rucks" (groupe Chasseur) avec les
+# interceptions (Joueurs Off) : le rapport de référence les affiche sous une seule
+# colonne "Ballons récupérés dans le jeu".
+CHASSEUR_RECUP_TEXTS = {"CONTRE RUCK", "BALLONS GAGNES"}
+
+
+def _new_convention_player_names(instances):
+    """Noms de joueurs réels : tout code qui porte au moins un label des groupes propres
+    aux actions individuelles (JOUEURS OFF/SNIPERS/CHASSEUR/COMBATTANT/DISCIPLINES).
+
+    Exclut les codes "bucket" par équipe (ex. 'UBB DEF BATTUS', 'UBB POSSESSION', ou côté
+    adverse 'USC POSSESSION' — le vrai nom de l'adversaire, détecté par
+    _detect_adverse_token, change à chaque match) : quand l'analyste n'a pas pu
+    identifier le porteur de balle en direct, il arrive qu'il tague l'action sur un code
+    d'équipe générique plutôt que sur un joueur — ce code porte alors lui aussi ces
+    groupes, mais commence toujours par le préfixe d'équipe, jamais par un nom de
+    famille."""
+    adv_token = _detect_adverse_token(instances)
+    bucket_prefixes = {"UBB", "ADV", "ADVERSE"} | ({adv_token} if adv_token else set())
+    names = set()
+    for i in instances:
+        tokens = _normalize_tag(i["code_raw"]).split()
+        if tokens[:1] and tokens[0] in bucket_prefixes:
+            continue
+        for lab in i["labels"]:
+            if _normalize_tag(lab["group"]) in ("JOUEURS OFF", "SNIPERS", "CHASSEUR", "COMBATTANT", "DISCIPLINES"):
+                names.add(i["code_raw"])
+                break
+    return names
+
+
+def player_row_order(instances, row_order):
+    """Filtre 'row_order' (ordre des boutons du fichier Sportscode, voir
+    parse_sportscode_xml) pour ne garder que les codes joueurs (mêmes critères que
+    _new_convention_player_names), dans leur ordre d'origine — celui-là même dans
+    lequel l'analyste vidéo a rangé l'effectif (typiquement n°1 à n°23). Les boutons
+    d'équipe/catégorie (ex. 'UBB POSSESSION') sont écartés pour que la numérotation
+    obtenue commence bien à 1 pour le premier joueur, plutôt que de reprendre l'index
+    brut dans la liste complète des boutons."""
+    player_names = _new_convention_player_names(instances)
+    return [c for c in (row_order or []) if c in player_names]
+
+
+def compute_player_attack_table(instances):
+    """Contact, passes, offloads, soutien au ruck, déchet/discipline offensive par joueur
+    (convention 2026 : groupes 'Contacts'/'Passes'/'Offload'/'Disciplines').
+
+    « % propres » (passes) et « % réussite » (offload) comptent les + ET les = comme
+    réussis, seuls les - (imprécis) comptent contre — c'est la même règle que pour le
+    contact, et celle du rapport vidéo de référence (« % propres regroupe les + et les
+    = »). Les essais/transformations sont sur le tableau Conquête (voir
+    compute_player_ruck_table), pas ici."""
+    rows = {}
+    for name in _new_convention_player_names(instances):
+        rows[name] = {"contact_plus": 0, "contact_minus": 0, "contact_neutre": 0,
+                      "passe_plus": 0, "passe_minus": 0, "passe_neutre": 0, "passes": 0,
+                      "offload_plus": 0, "offload_minus": 0, "offload_neutre": 0, "offloads": 0,
+                      "def_battu": 0, "pdb": 0, "soutien_1er": 0, "soutien_2eme": 0, "soutien_3plus": 0,
+                      "break": 0, "cartouche": 0, "melee_portee": 0, "penalite_off": 0, "penalite_def": 0}
+
+    for i in instances:
+        code = i["code_raw"]
+        if code not in rows:
+            continue
+        row = rows[code]
+        groups = {}
+        for lab in i["labels"]:
+            groups.setdefault(_normalize_tag(lab["group"]), set()).add(_normalize_tag(lab["text"]))
+        off = groups.get("JOUEURS OFF", set())
+
+        c = groups.get("CONTACTS", set())
+        if "CONTACTS" in off:
+            if "+" in c:
+                row["contact_plus"] += 1
+            elif "-" in c:
+                row["contact_minus"] += 1
+            else:
+                row["contact_neutre"] += 1
+        p = groups.get("PASSES", set())
+        if "PASSES" in off:
+            row["passes"] += 1
+            if "+" in p:
+                row["passe_plus"] += 1
+            elif "-" in p:
+                row["passe_minus"] += 1
+            else:
+                row["passe_neutre"] += 1
+        o = groups.get("OFFLOAD", set())
+        if off & PLAYER_ACTION_OFFLOAD:
+            row["offloads"] += 1
+            if "+" in o:
+                row["offload_plus"] += 1
+            elif "-" in o:
+                row["offload_minus"] += 1
+            else:
+                row["offload_neutre"] += 1
+        if "SOUTIENS OFF" in off:
+            if "1ER" in off:
+                row["soutien_1er"] += 1
+            elif "2EME" in off:
+                row["soutien_2eme"] += 1
+            elif "3+" in off:
+                row["soutien_3plus"] += 1
+        disc = groups.get("DISCIPLINES", set())
+        if "DISCIPLINES OFF" in disc:
+            row["penalite_off"] += 1
+        if "DISCIPLINES DEF" in disc:
+            row["penalite_def"] += 1
+        for txt in off:
+            if txt in _ATTACK_ACTION_KEYS:
+                row[_ATTACK_ACTION_KEYS[txt]] += 1
+
+    result = []
+    totals = defaultdict(int)
+    for name, r in rows.items():
+        contact_tot = r["contact_plus"] + r["contact_minus"] + r["contact_neutre"]
+        offload_tot = r["offload_plus"] + r["offload_minus"] + r["offload_neutre"]
+        soutien_total = r["soutien_1er"] + r["soutien_2eme"] + r["soutien_3plus"]
+        if (contact_tot + r["passes"] + offload_tot + soutien_total + r["def_battu"] + r["pdb"]
+                + r["break"] + r["cartouche"] + r["melee_portee"] + r["penalite_off"] + r["penalite_def"]) == 0:
+            continue
+        passe_pct_num = r["passe_plus"] + r["passe_neutre"]
+        offload_pct_num = r["offload_plus"] + r["offload_neutre"]
+        row_out = {
+            "name": name, **r,
+            "contact_total": contact_tot, "contact_pct": round(r["contact_plus"] / contact_tot * 100) if contact_tot else None,
+            "passe_total": r["passes"], "passe_pct": round(passe_pct_num / r["passes"] * 100) if r["passes"] else None,
+            "offload_total": r["offloads"], "offload_pct": round(offload_pct_num / r["offloads"] * 100) if r["offloads"] else None,
+            "soutien_total": soutien_total,
+        }
+        result.append(row_out)
+        for k, v in r.items():
+            totals[k] += v
+    result.sort(key=lambda x: x["name"].casefold())
+    return {"rows": result, "totals": dict(totals)}
+
+
+def compute_player_defense_table(instances):
+    """Plaquages (Snipers : réussis/manqués/tentés, hauteur, qualité +/=/-), Combattant,
+    Chasseur (montées sur jeu au pied, +/-) et ballons récupérés dans le jeu (contre-rucks
+    + ballons gagnés + interceptions) par joueur — mêmes groupes que la page CSC et le
+    rapport vidéo de référence, ici par joueur plutôt qu'agrégés pour l'équipe."""
+    rows = {}
+    for name in _new_convention_player_names(instances):
+        rows[name] = {"plaquage_dominant": 0, "plaquage_neutre": 0, "plaquage_passif": 0, "plaquage_rate": 0,
+                      "plaquage_bas": 0, "plaquage_haut": 0,
+                      "combattant_plus": 0, "combattant_neutre": 0, "combattant_minus": 0, "combattant_balle": 0,
+                      "chasseur_plus": 0, "chasseur_neutre": 0, "chasseur_minus": 0,
+                      "ballons_recuperes": 0}
+
+    for i in instances:
+        code = i["code_raw"]
+        if code not in rows:
+            continue
+        row = rows[code]
+        sniper_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "SNIPERS"}
+        if sniper_vals:
+            if "SNIPER RATE" in sniper_vals:
+                row["plaquage_rate"] += 1
+            elif "SNIPER" in sniper_vals:
+                if "+" in sniper_vals:
+                    row["plaquage_dominant"] += 1
+                elif "-" in sniper_vals:
+                    row["plaquage_passif"] += 1
+                else:
+                    row["plaquage_neutre"] += 1
+                if "BAS" in sniper_vals:
+                    row["plaquage_bas"] += 1
+                elif "HAUT" in sniper_vals:
+                    row["plaquage_haut"] += 1
+        combattant_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "COMBATTANT"}
+        if "COMBATTANT" in combattant_vals:
+            if "+" in combattant_vals:
+                row["combattant_plus"] += 1
+            elif "-" in combattant_vals:
+                row["combattant_minus"] += 1
+            else:
+                row["combattant_neutre"] += 1
+            if "BALLE" in combattant_vals:
+                row["combattant_balle"] += 1
+        chasseur_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "CHASSEUR"}
+        if "CHASSEUR" in chasseur_vals:
+            if "+" in chasseur_vals:
+                row["chasseur_plus"] += 1
+            elif "-" in chasseur_vals:
+                row["chasseur_minus"] += 1
+            else:
+                row["chasseur_neutre"] += 1
+        if chasseur_vals & CHASSEUR_RECUP_TEXTS:
+            row["ballons_recuperes"] += 1
+        off_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "JOUEURS OFF"}
+        if "INTERCEPTION" in off_vals:
+            row["ballons_recuperes"] += 1
+
+    result = []
+    totals = defaultdict(int)
+    for name, r in rows.items():
+        tackle_total = r["plaquage_dominant"] + r["plaquage_neutre"] + r["plaquage_passif"] + r["plaquage_rate"]
+        chasseur_total = r["chasseur_plus"] + r["chasseur_neutre"] + r["chasseur_minus"]
+        combattant_total = r["combattant_plus"] + r["combattant_neutre"] + r["combattant_minus"]
+        if tackle_total + combattant_total + chasseur_total + r["ballons_recuperes"] == 0:
+            continue
+        made = r["plaquage_dominant"] + r["plaquage_neutre"] + r["plaquage_passif"]
+        row_out = {
+            "name": name, **r,
+            "plaquage_tentes": tackle_total,
+            "plaquage_pct": round(made / tackle_total * 100) if tackle_total else None,
+            "plaquage_low_sample": tackle_total < 3,
+            "combattant_total": combattant_total,
+            "chasseur_total": chasseur_total,
+        }
+        result.append(row_out)
+        for k, v in r.items():
+            totals[k] += v
+    result.sort(key=lambda x: x["name"].casefold())
+    return {"rows": result, "totals": dict(totals)}
+
+
+# ===========================================================================
+# TABLEAU DE BORD PRINCIPAL (vue d'ensemble) : temps de jeu effectif (ball in
+# play), % de gain de la ligne d'avantage, points par entrée, occupation du
+# terrain nous vs adversaire. "Ball in play" est vérifié à la seconde près
+# contre le chronomètre affiché sur le rapport de référence du club (39:07).
+# ===========================================================================
+
+MATCH_DURATION_REF_SECONDS = 80 * 60  # référence standard 80 minutes
+
+
+def compute_ball_in_play(instances):
+    """Temps de jeu effectif = somme des séquences codées 'Ball In Play'."""
+    total = sum(max(i["duration"], 0) for i in instances
+                if i["kind"] == "control" and i["category"] == "Ball In Play")
+    return {
+        "duration": round(total, 1),
+        "duration_fmt": _fmt_mmss(total),
+        "pct_match": round(total / MATCH_DURATION_REF_SECONDS * 100) if total else 0,
+    }
+
+
+BIP_DURATION_BUCKETS = [
+    ("0-30s", 0, 30),
+    ("30-45s", 30, 45),
+    ("45s-1min", 45, 60),
+    ("1min-1min15", 60, 75),
+    ("1min15-1min30", 75, 90),
+    ("1min30-1min45", 90, 105),
+    ("1min45-2min", 105, 120),
+    ("2min-2min30", 120, 150),
+    ("2min30-3min", 150, 180),
+    ("3min et +", 180, None),
+]
+
+
+def _bucket_durations(durations, buckets=BIP_DURATION_BUCKETS):
+    """Répartit une liste de durées (secondes) dans des tranches, avec compte + %."""
+    counts = {label: 0 for label, _, _ in buckets}
+    for d in durations:
+        d = max(d, 0)
+        for label, lo, hi in buckets:
+            if d >= lo and (hi is None or d < hi):
+                counts[label] += 1
+                break
+    total = len(durations)
+    return {
+        "total": total,
+        "buckets": {
+            label: {"count": n, "pct": round(n / total * 100) if total else 0}
+            for label, n in counts.items()
+        },
+    }
+
+
+def compute_bip_sequences(instances):
+    """Répartition des séquences 'Ball In Play' (temps de jeu effectif) par tranche de durée,
+    à partir de la durée (end - start) de chaque séquence codée 'Ball In Play' dans le XML."""
+    durations = [i["duration"] for i in instances
+                 if i["kind"] == "control" and i["category"] == "Ball In Play"]
+    return _bucket_durations(durations)
+
+
+def compute_possession_sequences(instances, side):
+    """Répartition des séquences de possession par tranche de durée (même découpage que
+    Ball In Play), à partir de la durée de chaque instance codée 'Possession' pour 'side'."""
+    durations = [i["duration"] for i in instances
+                 if i["category"] == "Possession" and i["side"] == side]
+    return _bucket_durations(durations)
+
+
+def compute_gain_line(instances):
+    """% de gain de la ligne d'avantage : part des duels de contact où le
+    porteur de balle passe la ligne d'avantage (groupe de labels 'Duel Contact')."""
+    plus = minus = 0
+    for i in instances:
+        if i["kind"] == "player":
+            for lab in i["labels"]:
+                if lab["group"] == "Duel Contact":
+                    if lab["text"] == "+":
+                        plus += 1
+                    elif lab["text"] == "-":
+                        minus += 1
+    total = plus + minus
+    return {
+        "plus": plus, "minus": minus, "total": total,
+        "pct": round(plus / total * 100, 1) if total else None,
+    }
+
+
+def compute_occupation(instances):
+    """Occupation du terrain : répartition (nous vs adversaire) des événements
+    codés géolocalisés par zone du terrain — un indicateur territorial distinct
+    de la possession (basé sur l'espace, pas sur le temps de détention du ballon)."""
+    zones = aggregate_zones(instances)
+    own_total = sum(zones.get("own", {}).values())
+    adv_total = sum(zones.get("adverse", {}).values())
+    total = own_total + adv_total
+    return {
+        "own_events": own_total,
+        "adverse_events": adv_total,
+        "own_pct": round(own_total / total * 100, 1) if total else None,
+        "adverse_pct": round(adv_total / total * 100, 1) if total else None,
+    }
+
+
+def compute_overview_dashboard(instances, score):
+    """Regroupe les métriques du nouveau tableau de bord de la page principale :
+    temps de jeu effectif, % gain ligne d'avantage, points par entrée, occupation.
+
+    "Points par entrée" = points totaux de l'équipe / nombre d'entrées en zone RAID."""
+    entries_own = _cat_count(instances, "RAID", "own")
+    entries_adverse = _cat_count(instances, "RAID", "adverse")
+    own_score = score["own"] if score else 0
+    adverse_score = score["adverse"] if score else 0
+    return {
+        "ball_in_play": compute_ball_in_play(instances),
+        "gain_line": None,  # pas encore codé dans le XML : "Duel Contact" est un concept différent pour Téo
+        "occupation": compute_occupation(instances),
+        "entries": entries_own,
+    "entries_adverse": entries_adverse,
+        "points_per_entry": round(own_score / entries_own, 2) if entries_own else None,
+        "points_per_entry_adverse": round(adverse_score / entries_adverse, 2) if entries_adverse else None,
+        "lost_balls_own": _cat_count(instances, "Perte de balles", "own"),
+        "lost_balls_adverse": _cat_count(instances, "Perte de balles", "adverse"),
+        "score_detail": compute_score_detail(instances),
+        "entry_types_own": compute_entry_types(instances, "own"),
+        "entry_types_adverse": compute_entry_types(instances, "adverse"),
+        "lineout": compute_lineout_detail(instances),
+        "scrum": compute_scrum_detail(instances),
+        "possession_by_period": compute_possession_by_period(instances),
+        "occupation_by_period": compute_occupation_by_period(instances),
+        "bip_sequences": compute_bip_sequences(instances),
+    }
+
+
+def compute_score_detail(instances):
+    """Détail du score par type de points : essais, transformations, pénalités, drops."""
+    result = {}
+    for side in ("own", "adverse"):
+        tries = _cat_count(instances, "Essai", side)
+        conversions = sum(1 for i in instances if i["category"] == "Transformation" and i["side"] == side and _has_label(i, "REUSSI"))
+        conversions_att = _cat_count(instances, "Transformation", side)
+        penalties = sum(1 for i in instances if i["category"] in ("Penalité", "Pénalité") and i["side"] == side and _has_label(i, "REUSSI"))
+        penalties_att = sum(1 for i in instances if i["category"] in ("Penalité", "Pénalité") and i["side"] == side)
+        drops = sum(1 for i in instances if i["category"] in ("Drop", "Drop Goal") and i["side"] == side and _has_label(i, "REUSSI"))
+        drops_att = sum(1 for i in instances if i["category"] in ("Drop", "Drop Goal") and i["side"] == side)
+        result[side] = {
+            "tries": tries,
+            "conversions": conversions, "conversions_att": conversions_att,
+            "penalties": penalties, "penalties_att": penalties_att,
+            "drops": drops, "drops_att": drops_att,
+        }
+    return result
+
+
+def compute_entry_types(instances, side):
+    """Répartition des entrées en zone RAID par origine : course (RUN), sortie de camp (EXIT), pénalité (PENALITE)."""
+    counts = defaultdict(int)
+    for i in instances:
+        if i["category"] == "RAID" and i["side"] == side:
+            for lab in i["labels"]:
+                if lab["group"] is None and lab["text"] in ("RUN", "EXIT", "PENALITE"):
+                    counts[lab["text"]] += 1
+    return dict(counts)
+
+
+def _detect_halves(instances):
+    """Détecte les deux mi-temps via la plus grande coupure temporelle dans le flux vidéo codé."""
+    timed = sorted(instances, key=lambda x: x["start"])
+    if len(timed) < 2:
+        return None
+    best_gap, split_idx = 0, None
+    for idx in range(1, len(timed)):
+        gap = timed[idx]["start"] - timed[idx - 1]["end"]
+        if gap > best_gap:
+            best_gap, split_idx = gap, idx
+    if split_idx is None or best_gap < 300:
+        return None
+    return {
+        "h1_start": timed[0]["start"], "h1_end": timed[split_idx - 1]["end"],
+        "h2_start": timed[split_idx]["start"], "h2_end": timed[-1]["end"],
+    }
+
+
+def _period_bounds(instances):
+    """4 tranches de jeu façon 'quart-temps' (2 par mi-temps), à partir de la coupure détectée.
+    Approximation : chaque mi-temps codée est divisée en 2 moitiés égales (pas d'horloge de
+    match exacte disponible dans le XML), étiquetées 0-20/20-40/40-60/60-80 par convention."""
+    halves = _detect_halves(instances)
+    if not halves:
+        return None
+    h1_mid = (halves["h1_start"] + halves["h1_end"]) / 2
+    h2_mid = (halves["h2_start"] + halves["h2_end"]) / 2
+    return [
+        (halves["h1_start"], h1_mid, "0-20"),
+        (h1_mid, halves["h1_end"], "20-40"),
+        (halves["h2_start"], h2_mid, "40-60"),
+        (h2_mid, halves["h2_end"], "60-80"),
+    ]
+
+
+def compute_possession_by_period(instances):
+    """Répartition du temps de possession par tranche de jeu (approx. 20 minutes)."""
+    bounds = _period_bounds(instances)
+    if not bounds:
+        return None
+    result = {}
+    for start, end, label in bounds:
+        own = adv = 0.0
+        for i in instances:
+            if i["category"] == "Possession" and i["side"] in ("own", "adverse") and start <= i["start"] < end:
+                if i["side"] == "own":
+                    own += max(i["duration"], 0)
+                else:
+                    adv += max(i["duration"], 0)
+        total = own + adv
+        result[label] = {
+            "own": round(own, 1), "adverse": round(adv, 1),
+            "own_pct": round(own / total * 100) if total else None,
+            "adverse_pct": round(adv / total * 100) if total else None,
+        }
+    return result
+
+
+def compute_occupation_by_period(instances):
+    """Répartition de l'occupation du terrain (événements géolocalisés) par tranche de jeu."""
+    bounds = _period_bounds(instances)
+    if not bounds:
+        return None
+    result = {}
+    for start, end, label in bounds:
+        own = adv = 0
+        for i in instances:
+            if i["kind"] == "stat" and i["zone"] and i["side"] in ("own", "adverse") and start <= i["start"] < end:
+                if i["side"] == "own":
+                    own += 1
+                else:
+                    adv += 1
+        total = own + adv
+        result[label] = {
+            "own": own, "adverse": adv,
+            "own_pct": round(own / total * 100) if total else None,
+            "adverse_pct": round(adv / total * 100) if total else None,
+        }
+    return result
+
+
+# ===========================================================================
+# MOMENTUM — porté à l'identique du script "suivi_saison.py" développé à part
+# par Téo (même constantes, mêmes formules : ne pas modifier les poids/seuils
+# ci-dessous sans re-valider sur le match de référence qui a servi à les
+# régler). Le modèle : cinq familles de codes symétriques, toutes exprimées
+# en points espérés, lissées dans le temps puis comparées à une échelle FIXE
+# (±3.5) pour que les matchs restent comparables entre eux d'une journée à
+# l'autre. Un "temps fort" est une séquence d'au moins 2 minutes où le
+# momentum reste au-dessus du seuil ; il est "converti" si l'équipe marque
+# pendant la séquence ou dans les 90 secondes qui suivent.
+#
+# Contrainte importante : ce calcul lit les codes Sportscode BRUTS
+# (match["instances"][i]["code_raw"]) selon la convention de tagging utilisée
+# pour ce modèle ("01 - Possession", "UBB PDB" / "ADV PDB", "Possession
+# Gold/Rumble/Cop/Rouge", "Défense <zone>", "UBB Ruck <zone>", "Marque" avec
+# un label groupe "Type de marque"). Un match importé avec une autre
+# convention de tagging (ex. la voie rapide "Importer un match UBB", ou
+# l'ancien gabarit "N - Catégorie Côté") n'aura simplement aucun de ces codes
+# reconnus : compute_momentum() renvoie alors un résultat avec des indicateurs
+# à 0 et une alerte de conformité l'explique (voir "alerts" dans le retour),
+# plutôt qu'un chiffre silencieusement faux.
+# ===========================================================================
+
+MOMENTUM_EQUIPE = "UBB"
+MOMENTUM_ZONES = {"Gold": 11.0, "Rumble": 36.0, "Cop": 64.0, "Rouge": 89.0}
+
+
+def _momentum_ep(m):
+    """Points espérés d'une possession à m mètres de la ligne adverse."""
+    return max(4.2 * math.exp(-m / 28.0) - 0.2, -0.2)
+
+
+MOMENTUM_CODE_POSSESSION = {"01 - Possession": +1, "02 - Possesion": -1}
+MOMENTUM_POIDS_POSSESSION = 0.30
+MOMENTUM_POIDS_PDB = -2.0
+MOMENTUM_POIDS_PENALITE = -2.5          # pénalité concédée (spécification de Téo)
+MOMENTUM_POIDS_JAUNE = -3.0             # carton jaune : au moment de la sanction...
+MOMENTUM_POIDS_JAUNE_INFERIORITE = -3.0 # ...puis réparti sur les 10 min d'infériorité
+MOMENTUM_DUREE_JAUNE = 600.0
+MOMENTUM_POIDS_ROUGE = -6.0
+MOMENTUM_CODES_PDB_TPL = {"{E} PDB": +1, "ADV PDB": -1}
+MOMENTUM_CODES_PENALITE_TPL = {"{E} Penalités concedées": +1, "ADV Penalités concedées": -1}
+MOMENTUM_VALEUR_POINTS = {"Essai": 5, "Transformation": 2, "Pénalité": 3, "Drop": 3}
+MOMENTUM_CODE_MARQUE = "Marque"
+# Lettre du marqueur sur la courbe (E = essai, P = pénalité, D = drop).
+MOMENTUM_LETTRE_MARQUE = {"Essai": "E", "Pénalité": "P", "Drop": "D"}
+# Convention 2026 : mêmes zones, en codes normalisés ('GOLD', 'USC RUMBLE'...), et
+# marques lues sur les codes '<EQUIPE> Essai/Transfo/Pénalité/Drop'.
+MOMENTUM_NC_ZONES = {z.upper(): m for z, m in MOMENTUM_ZONES.items()}
+MOMENTUM_NC_MARQUES = {
+    "ESSAI": "Essai", "ESSAIS": "Essai",
+    "TRANSFO": "Transformation", "TRANSFOS": "Transformation",
+    "TRANSFORMATION": "Transformation", "TRANSFORMATIONS": "Transformation",
+    "PENALITE": "Pénalité", "PENALITES": "Pénalité",
+    "DROP": "Drop", "DROPS": "Drop",
+}
+
+MOMENTUM_BIN, MOMENTUM_DEMI_VIE = 30.0, 90.0
+MOMENTUM_POIDS_ETAT = 0.80
+MOMENTUM_POIDS_TRANSIT = 1.50
+MOMENTUM_AMORTI_ESSAI = 0.30
+MOMENTUM_SEUIL_TF, MOMENTUM_DUREE_TF = 0.80, 120.0
+MOMENTUM_FENETRE_CONV = 90.0
+MOMENTUM_ECHELLE = 3.50
+MOMENTUM_TROU_MI_TEMPS = 240.0  # mi-temps = silence du fichier d'au moins 4 min
+
+
+def _momentum_periodes(inst):
+    """Détecte les 2 mi-temps : la mi-temps est le plus long SILENCE du fichier (aucune
+    instance en cours) d'au moins 4 min. On suit la fin la plus tardive déjà vue, pour
+    qu'une longue instance (possession, Ball in play) qui chevauche ne cache pas le trou."""
+    d1, f2 = inst[0]["s"], max(x["e"] for x in inst)
+    # Les codes de chronométrage (« Time off », « Temps de récupération »...) ou toute
+    # instance de plus de 4 min ne sont pas des actions : ils peuvent couvrir la pause.
+    actions = [x for x in inst
+               if x["e"] - x["s"] < MOMENTUM_TROU_MI_TEMPS
+               and not ({"TIME", "TEMPS", "RECUPERATION"} & set(x.get("n", ())))]
+    actions = actions or inst
+    trous, fin_max = [], actions[0]["e"]
+    for b in actions[1:]:
+        if b["s"] - fin_max >= MOMENTUM_TROU_MI_TEMPS:
+            trous.append((b["s"] - fin_max, fin_max, b["s"]))
+        fin_max = max(fin_max, b["e"])
+    if not trous:
+        return d1, f2, f2, f2
+    _, f1, d2 = max(trous)
+    return d1, f1, d2, f2
+
+
+def compute_momentum(instances, equipe=MOMENTUM_EQUIPE, libelle=""):
+    """Calcule le momentum minute par minute d'un match : renvoie un dict avec le
+    signal lissé (r["sig"]), les temps forts détectés (r["tf"]), les essais marqués
+    (r["marques"]), le score recalculé depuis les codes "Marque", et les indicateurs
+    de synthèse (temps forts créés/subis, essais hors temps fort, possession...).
+
+    `instances` : la liste brute d'un match tel que stockée par l'appli (mêmes champs
+    que parse_sportscode_xml : start/end/code_raw/labels). Renvoie None si le match
+    n'a pas assez d'événements horodatés pour construire une chronologie (import sans
+    XML, ou moins de 2 instances)."""
+    inst = sorted(
+        (
+            {"s": i["start"], "e": i["end"], "c": i.get("code_raw") or "",
+             "n": tuple(_normalize_tag(i.get("code_raw")).split()),
+             "L": [(l.get("group"), l.get("text")) for l in i.get("labels") or []]}
+            for i in instances
+        ),
+        key=lambda x: x["s"],
+    )
+    if len(inst) < 2:
+        return None
+    _k = lambda s: s.replace("{E}", equipe)
+    codes_pdb = {_k(a): v for a, v in MOMENTUM_CODES_PDB_TPL.items()}
+    codes_penalite = {_k(a): v for a, v in MOMENTUM_CODES_PENALITE_TPL.items()}
+    # Le mot "ADV" du gabarit est un repli générique : si l'adversaire est tagué avec son
+    # propre nom (ex. "USC PDB" plutôt que "ADV PDB"), on ajoute aussi ces variantes sans
+    # retirer "ADV" (compatibilité avec d'anciens matchs qui l'utiliseraient tel quel).
+    adv_token = _detect_adverse_token(instances)
+    if adv_token:
+        codes_pdb.update({k.replace("ADV", adv_token): v for k, v in MOMENTUM_CODES_PDB_TPL.items() if "ADV" in k})
+        codes_penalite.update({k.replace("ADV", adv_token): v for k, v in MOMENTUM_CODES_PENALITE_TPL.items() if "ADV" in k})
+
+    # Convention 2026 ('<EQUIPE> <Catégorie>', zones GOLD/RUMBLE/COP/ROUGE) : côté de
+    # chaque code lu sur ses tokens normalisés. +1 = nous, -1 = l'adversaire (son vrai
+    # nom, ex. 'USC', ou 'ADV'/'ADVERSE'), 0 = ni l'un ni l'autre.
+    E = _normalize_tag(equipe)
+    A = {"ADV", "ADVERSE"} | ({adv_token} if adv_token else set())
+
+    def _nc_side(n, *suffixes):
+        if len(n) != 2 or n[1] not in suffixes:
+            return 0
+        return 1 if n[0] == E else (-1 if n[0] in A else 0)
+
+    d1, f1, d2, f2 = _momentum_periodes(inst)
+    duree1 = f1 - d1
+    if duree1 <= 0:
+        return None
+    # La mi-temps est retirée de l'axe et la 2e période redémarre sur une frontière de
+    # tranche de 30 s (le graphique passe directement de la 41e à la 42e minute).
+    bin_mt = int(math.ceil(duree1 / MOMENTUM_BIN)) if f1 < f2 else int(duree1 / MOMENTUM_BIN) + 1
+    debut2 = bin_mt * MOMENTUM_BIN
+    tj = lambda t: t - d1 if t <= f1 else debut2 + (t - d2)
+    pause = lambda t: f1 < t < d2
+    N = int(tj(f2) / MOMENTUM_BIN) + 1
+
+    # ---- 5. points : score et marqueurs (codes "Marque" + label "Type de marque")
+    marques, score, sans_type = [], {equipe: 0, "ADV": 0}, 0
+    for x in inst:
+        if MOMENTUM_CODE_MARQUE not in x["c"] or pause(x["s"]):
+            continue
+        eq = equipe if equipe in x["c"] else "ADV"
+        types = [t for g, t in x["L"] if g == "Type de marque" and t in MOMENTUM_VALEUR_POINTS]
+        if not types:
+            types = ["Essai"]; sans_type += 1
+        for t in types:
+            score[eq] += MOMENTUM_VALEUR_POINTS[t]
+            if t == "Transformation":
+                continue
+            tt = tj(x["s"])
+            if not any(m["equipe"] == eq and tt - m["t"] < 60 for m in marques):
+                marques.append({"t": tt, "equipe": eq, "type": t})
+    # Convention 2026 : 'UBB Essai' / 'USC Pénalité' / 'UBB Transfo' / '... Drop'. Les
+    # points viennent du label "Points" (0 = coup de pied manqué), sinon de la valeur
+    # par défaut — même règle que compute_new_convention_score.
+    for x in inst:
+        n = x["n"]
+        if len(n) != 2 or n[1] not in MOMENTUM_NC_MARQUES or pause(x["s"]):
+            continue
+        cote = 1 if n[0] == E else (-1 if n[0] in A else 0)
+        if not cote:
+            continue
+        eq = equipe if cote > 0 else "ADV"
+        t = MOMENTUM_NC_MARQUES[n[1]]
+        pts = MOMENTUM_VALEUR_POINTS[t]
+        if t != "Essai":
+            for g, txt in x["L"]:
+                if _normalize_tag(g) == "POINTS":
+                    try:
+                        pts = int((txt or "").strip())
+                    except ValueError:
+                        pass
+                    break
+        score[eq] += pts
+        if t == "Transformation":
+            continue
+        tt = tj(x["s"])
+        if not any(m["equipe"] == eq and tt - m["t"] < 60 for m in marques):
+            marques.append({"t": tt, "equipe": eq, "type": t, "manque": pts == 0})
+    bins_marque = {int(m["t"] / MOMENTUM_BIN) for m in marques if not m.get("manque")}
+
+    # ---- 1. occupation : état territorial maintenu (zones Gold/Rumble/Cop/Rouge)
+    obs = []
+    for x in inst:
+        if pause(x["s"]):
+            continue
+        for z, m in MOMENTUM_ZONES.items():
+            if x["c"] in (f"Possession {z}", f"{equipe} Ruck {z}"):
+                obs.append((tj(x["s"]), _momentum_ep(m))); break
+            if x["c"] == f"Défense {z}":
+                obs.append((tj(x["s"]), -_momentum_ep(100.0 - m))); break
+        else:
+            # Convention 2026 : zone nue ('GOLD') = ballon chez nous dans cette zone de
+            # notre sens d'attaque ; zone préfixée par l'adversaire ('USC GOLD') ou
+            # suffixée 'A' ('GOLD A') = ballon chez eux, dans la même zone de LEUR sens
+            # d'attaque (leur Gold = nos 22m) ; 'UBB Ruck Rumble' = ruck à nous.
+            n = x["n"]
+            zone = cote = None
+            if len(n) == 1 and n[0] in MOMENTUM_NC_ZONES:
+                zone, cote = n[0], 1
+            elif len(n) == 2 and n[0] in MOMENTUM_NC_ZONES and n[1] == "A":
+                zone, cote = n[0], -1
+            elif len(n) == 2 and n[0] in A and n[1] in MOMENTUM_NC_ZONES:
+                zone, cote = n[1], -1
+            elif len(n) == 3 and n[0] == E and n[1] == "RUCK" and n[2] in MOMENTUM_NC_ZONES:
+                zone, cote = n[2], 1
+            if zone:
+                obs.append((tj(x["s"]), cote * _momentum_ep(MOMENTUM_NC_ZONES[zone])))
+    # Remise à zéro du territoire après chaque marque (le renvoi remet le jeu au centre) :
+    # une observation « 0 » à l'instant de la marque, que le prochain marqueur de zone
+    # remplacera.
+    for m in marques:
+        if not m.get("manque"):
+            obs.append((m["t"] + 0.01, 0.0))
+    obs.sort()
+    terr, cur, k = [], 0.0, 0
+    for b in range(N):
+        while k < len(obs) and obs[k][0] < (b + 1) * MOMENTUM_BIN:
+            cur = obs[k][1]; k += 1
+        terr.append(cur)
+
+    # ---- 2. possession : secondes signées par tranche
+    poss, sec = [0.0] * N, {equipe: 0.0, "ADV": 0.0}
+    for x in inst:
+        s = (next((v for p, v in MOMENTUM_CODE_POSSESSION.items() if x["c"].startswith(p)), 0)
+             or _nc_side(x["n"], "POSSESSION"))
+        if not s or pause(x["s"]):
+            continue
+        sec[equipe if s > 0 else "ADV"] += x["e"] - x["s"]
+        t = x["s"]
+        while t < x["e"]:
+            b = min(max(int(tj(t) / MOMENTUM_BIN), 0), N - 1)
+            pas = MOMENTUM_BIN - (tj(t) % MOMENTUM_BIN)
+            if pas < 1e-6:
+                pas = MOMENTUM_BIN
+            nxt = min(x["e"], t + pas)
+            if nxt <= t:
+                break
+            poss[b] += s * (nxt - t); t = nxt
+
+    # ---- 3 et 4 : pertes de balle et pénalités concédées, en points
+    ev = [0.0] * N
+    cpt = {"pdb_pour": 0, "pdb_contre": 0, "pen_pour": 0, "pen_contre": 0, "cartons": 0}
+    for x in inst:
+        if pause(x["s"]):
+            continue
+        b = min(int(tj(x["s"]) / MOMENTUM_BIN), N - 1)
+        # Pertes de balle : "UBB PDB" = ballon perdu par nous (+1, pèse contre nous),
+        # "<Adversaire> PDB" = perdu par eux. Pénalités concédées : ancien gabarit
+        # "... Penalités concedées", ou "UBB DISCIPLINES" / "<Adversaire> Disciplines".
+        s = codes_pdb.get(x["c"]) or _nc_side(x["n"], "PDB")
+        if s:
+            ev[b] += MOMENTUM_POIDS_PDB * s
+            cpt["pdb_pour" if s > 0 else "pdb_contre"] += 1
+        s = codes_penalite.get(x["c"]) or _nc_side(x["n"], "DISCIPLINES", "DISCIPLINE")
+        if s:
+            ev[b] += MOMENTUM_POIDS_PENALITE * s
+            cpt["pen_pour" if s > 0 else "pen_contre"] += 1
+            # Carton (label « Carton : Jaune / Rouge », ou libellé « Carton jaune ») posé
+            # sur la pénalité : jaune = −3 tout de suite puis −3 étalés sur 10 min
+            # d'infériorité ; rouge = −6. Signé comme la pénalité.
+            textes = {_normalize_tag(t) for _g, t in x["L"]}
+            if any("ROUGE" in t for t in textes):
+                ev[b] += MOMENTUM_POIDS_ROUGE * s
+                cpt["cartons"] += 1
+            elif any("JAUNE" in t for t in textes):
+                ev[b] += MOMENTUM_POIDS_JAUNE * s
+                nb = int(MOMENTUM_DUREE_JAUNE / MOMENTUM_BIN)
+                for j in range(1, nb + 1):
+                    if b + j < N and (b < bin_mt) == (b + j < bin_mt):
+                        ev[b + j] += MOMENTUM_POIDS_JAUNE_INFERIORITE * s / nb
+                cpt["cartons"] += 1
+
+    # ---- signal, en points espérés absolus, puis lissage (demi-vie 90s)
+    dt = [0.0] + [terr[b] - terr[b - 1] for b in range(1, N)]
+    if bin_mt < N:
+        dt[bin_mt] = 0.0
+    # Pas de transition sur le renvoi après une marque : sinon encaisser un essai (le
+    # territoire repasse à 0 depuis nos 22m) ferait remonter la courbe de celui qui
+    # vient de l'encaisser.
+    for mb in bins_marque:
+        for b in (mb, mb + 1):
+            if b < N:
+                dt[b] = 0.0
+    brut = [ev[b] + MOMENTUM_POIDS_ETAT * terr[b] + MOMENTUM_POIDS_TRANSIT * dt[b]
+            + MOMENTUM_POIDS_POSSESSION * (poss[b] / MOMENTUM_BIN) for b in range(N)]
+    alpha = 1 - 0.5 ** (MOMENTUM_BIN / MOMENTUM_DEMI_VIE)
+    sig, acc = [], 0.0
+    for b, v in enumerate(brut):
+        if b == bin_mt:
+            acc = 0.0
+        if b - 1 in bins_marque:
+            acc *= MOMENTUM_AMORTI_ESSAI
+        acc = alpha * v + (1 - alpha) * acc
+        sig.append(acc)
+
+    # ---- temps forts, conversion, et essais tombés en dehors de tout temps fort
+    tf, i = [], 0
+    while i < N:
+        s = 1 if sig[i] > MOMENTUM_SEUIL_TF else (-1 if sig[i] < -MOMENTUM_SEUIL_TF else 0)
+        if s == 0:
+            i += 1; continue
+        j = i
+        while j < N and (sig[j] > MOMENTUM_SEUIL_TF if s > 0 else sig[j] < -MOMENTUM_SEUIL_TF):
+            j += 1
+        if (j - i) * MOMENTUM_BIN >= MOMENTUM_DUREE_TF:
+            eq = equipe if s > 0 else "ADV"
+            tf.append({"debut": i * MOMENTUM_BIN, "fin": j * MOMENTUM_BIN, "equipe": eq,
+                       "pic": max(sig[i:j], key=abs), "periode": 1 if i < bin_mt else 2,
+                       "converti": any(m["equipe"] == eq and i * MOMENTUM_BIN <= m["t"] <= j * MOMENTUM_BIN + MOMENTUM_FENETRE_CONV
+                                       for m in marques)})
+        i = j
+    couvert = {round(m["t"], 1) for t in tf for m in marques
+               if m["equipe"] == t["equipe"] and t["debut"] <= m["t"] <= t["fin"] + MOMENTUM_FENETRE_CONV}
+
+    def _compte(eq):
+        e = [t for t in tf if t["equipe"] == eq]
+        c = sum(t["converti"] for t in e)
+        return len(e), c, (100.0 * c / len(e) if e else 0.0)
+
+    n_c, k_c, p_c = _compte(equipe)
+    n_s, k_s, p_s = _compte("ADV")
+    moy = lambda v, a, b: (sum(v[a:b]) / (b - a)) if b > a else 0.0
+    tot_sec = sec[equipe] + sec["ADV"]
+
+    r = {
+        "libelle": libelle, "equipe": equipe, "N": N, "bin_mt": bin_mt, "bin": MOMENTUM_BIN,
+        "echelle": MOMENTUM_ECHELLE, "duree_mt1": duree1 / 60.0,
+        "sig": sig, "terr": terr, "marques": marques, "tf": tf,
+        "score_pour": score[equipe], "score_contre": score["ADV"],
+        "marques_sans_type": sans_type,
+        "essais_pour": sum(1 for m in marques if m["equipe"] == equipe),
+        "essais_contre": sum(1 for m in marques if m["equipe"] == "ADV"),
+        # Essais seulement (pas les pénalités ni les drops), hors de tout temps fort.
+        "essais_pour_hors_tf": sum(1 for m in marques if m["equipe"] == equipe and m.get("type") == "Essai"
+                                   and round(m["t"], 1) not in couvert),
+        "essais_contre_hors_tf": sum(1 for m in marques if m["equipe"] == "ADV" and m.get("type") == "Essai"
+                                     and round(m["t"], 1) not in couvert),
+        "tf_crees": n_c, "tf_convertis": k_c, "taux_cree": p_c,
+        "tf_subis": n_s, "tf_encaisses": k_s, "taux_subi": p_s,
+        "possession": 100.0 * sec[equipe] / tot_sec if tot_sec else 0.0,
+        "momentum_mt1": moy(sig, 0, bin_mt), "momentum_mt2": moy(sig, bin_mt, N),
+        "ecart_mt": moy(sig, bin_mt, N) - moy(sig, 0, bin_mt),
+        **cpt,
+    }
+    r["alerts"] = _momentum_controls(inst, r, equipe)
+    return r
+
+
+def _momentum_controls(inst, r, equipe):
+    """Conformité du tagging, famille par famille — une dérive de codage se lit
+    exactement comme une dérive de performance, donc on la signale plutôt que de
+    laisser un indicateur silencieusement faux ou vide."""
+    al = []
+    vues = {z for z in MOMENTUM_ZONES for x in inst
+            if x["c"] in (f"Possession {z}", f"Défense {z}", f"{equipe} Ruck {z}")
+            or z.upper() in x.get("n", ())}
+    if set(MOMENTUM_ZONES) - vues:
+        al.append("occupation : zones jamais taguées avec ce modèle — vérifie que ce match "
+                  "utilise bien le gabarit de tagging du suivi momentum")
+    if r["possession"] and (r["possession"] < 25 or r["possession"] > 75):
+        al.append(f"possession : {r['possession']:.0f} % — invraisemblable, codes de durée incomplets ?")
+    if r["pdb_pour"] + r["pdb_contre"] < 8:
+        al.append(f"pertes de balle : {r['pdb_pour']+r['pdb_contre']} au total, saisie partielle")
+    if r["pen_pour"] + r["pen_contre"] < 8:
+        al.append(f"pénalités : {r['pen_pour']+r['pen_contre']} au total, saisie partielle")
+    if r["score_pour"] + r["score_contre"] == 0:
+        al.append("points : aucune marque taguée (codes \"Marque\" ou \"UBB Essai\"/\"Transfo\"/\"Pénalité\") "
+                  "— le score momentum reste à 0-0")
+    if r["marques_sans_type"]:
+        al.append(f"points : {r['marques_sans_type']} marque(s) sans type — comptées comme essais, "
+                  f"vérifie le score {r['score_pour']}-{r['score_contre']}")
+    if r["duree_mt1"] < 30 or r["duree_mt1"] > 55:
+        al.append(f"périodes : 1re mi-temps de {r['duree_mt1']:.0f} min, mi-temps mal détectée ?")
+    return al
+
+
+def render_momentum_svg(r):
+    """SVG de la courbe momentum (barres vertes/rouges par tranche de 30s, temps forts
+    encadrés au-dessus/en-dessous, essais marqués "E"), pensé pour être intégré dans une
+    page HTML : contrairement au script d'origine, le titre et la ligne de stats ne sont
+    PAS dessinés dans le SVG (le gabarit les affiche en HTML autour), donc le cadrage
+    (viewBox) est simplement recentré sur la zone du graphique."""
+    n = r["N"]
+    BIN = r["bin"]
+    ECHELLE = r["echelle"]
+    EQUIPE = r["equipe"]
+    # Couleurs du rapport vidéo : bordeaux UBB au-dessus, gris adversaire en dessous
+    # (noms de variables conservés : VERT = nous, ROUGE = eux).
+    VERT, ROUGE, TRAIT = "#6b1a33", "#8a939b", "#d3dacf"
+    X0, P = 62.0, max(3.0, min(9.0, 1080.0 / n))
+    BW, W = P * 0.78, 62 + n * P + 50
+    AT, AB, MH = 250.0, 272.0, 140.0
+    bx = lambda i: X0 + i * P
+    o = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 40 {W:.0f} 520" '
+         f'style="width:100%;height:auto;display:block" preserveAspectRatio="xMidYMid meet" '
+         f'role="img" aria-label="Courbe de momentum">',
+         '<g transform="translate(0,40)">',
+         f'<rect x="{X0-4:.0f}" y="{AT}" width="{n*P+8:.0f}" height="{AB-AT}" fill="#e5eae3" stroke="{TRAIT}"/>']
+    for i, v in enumerate(r["sig"]):
+        h = min(abs(v) / ECHELLE, 1.0) * MH
+        if h < 0.6:
+            continue
+        o.append(f'<rect x="{bx(i):.1f}" y="{(AT-h) if v>=0 else AB:.1f}" width="{BW:.1f}" '
+                 f'height="{h:.1f}" fill="{VERT if v>=0 else ROUGE}"/>')
+    for t in r["tf"]:
+        y = AT - MH - 14 if t["equipe"] == EQUIPE else AB + MH + 6
+        o.append(f'<rect x="{bx(t["debut"]/BIN):.1f}" y="{y:.1f}" '
+                 f'width="{(t["fin"]-t["debut"])/BIN*P:.1f}" height="8" '
+                 f'fill="{VERT if t["equipe"]==EQUIPE else ROUGE}" '
+                 f'opacity="{0.95 if t["converti"] else 0.28}"/>')
+    o.append(f'<line x1="{bx(r["bin_mt"])-P/2:.1f}" y1="92" x2="{bx(r["bin_mt"])-P/2:.1f}" '
+             f'y2="430" stroke="#6b766a" stroke-dasharray="4 4"/>')
+    for m in r["marques"]:
+        x = bx(m["t"] / BIN) + BW / 2
+        haut = m["equipe"] == EQUIPE
+        c, cy = (VERT, 116) if haut else (ROUGE, 406)
+        o.append(f'<line x1="{x:.1f}" y1="{AT if haut else AB}" x2="{x:.1f}" '
+                 f'y2="{cy+10 if haut else cy-10}" stroke="{c}" stroke-width="1.5"/>'
+                 f'<circle cx="{x:.1f}" cy="{cy}" r="9" fill="{c}"/>'
+                 f'<text x="{x:.1f}" y="{cy+4}" text-anchor="middle" fill="#fff" '
+                 f'font-family="monospace" font-size="9" font-weight="700">'
+                 f'{MOMENTUM_LETTRE_MARQUE.get(m.get("type"), "E")}</text>')
+    for mn in range(0, int(n * BIN / 60) + 1, 10):
+        o.append(f'<text x="{bx(mn*60/BIN)+BW/2:.1f}" y="{AT+15:.0f}" text-anchor="middle" '
+                 f'fill="#3b453a" font-family="monospace" font-size="10" font-weight="700">{mn}</text>')
+    o.append(f'<text x="{X0}" y="{AT-MH-26:.0f}" fill="{VERT}" font-family="monospace" font-size="11" '
+             f'font-weight="700">{EQUIPE}</text>'
+             f'<text x="{X0}" y="{AB+MH+34:.0f}" fill="{ROUGE}" font-family="monospace" font-size="11" '
+             f'font-weight="700">ADVERSAIRE</text></g></svg>')
+    return "".join(o)
+
+
+def compute_match_baseline(matches_with_instances, exclude_id=None):
+    """Moyennes 'saison' (tous les autres matchs, hors celui affiché) pour comparer les
+    stats d'un match à ce que l'équipe fait habituellement — sert à voir d'un coup d'œil
+    si un match est bon ou mauvais par rapport à la norme. Renvoie None s'il n'y a pas
+    d'autre match avec des données pour calculer une moyenne."""
+    others = [m for m in matches_with_instances if m["id"] != exclude_id and m["instances"]]
+    if not others:
+        return None
+    nb = len(others)
+    instances = [i for m in others for i in m["instances"]]
+
+    score = compute_score(instances)
+    dash = compute_overview_dashboard(instances, score)
+    stats, _ = aggregate_match_stats(instances)
+
+    poss = stats.get("Possession", {})
+    poss_own = poss.get("own", {}).get("duration", 0)
+    poss_adv = poss.get("adverse", {}).get("duration", 0)
+    poss_total = poss_own + poss_adv
+
+    plaquage = stats.get("Plaquage", {}).get("own", {})
+    ruck = stats.get("Ruck", {})
+    discipline = stats.get("Disciplines", {})
+    lineout = dash.get("lineout") or {}
+    scrum = dash.get("scrum") or {}
+
+    return {
+        # Même calcul que la page Zone Gold (règle « 22 »), match par match.
+        "points_per_entry": gold_points_par_entree_matchs([m["instances"] for m in others], "own"),
+        "discipline_own": round(discipline.get("own", {}).get("count", 0) / nb, 1),
+        "lost_balls_own": round(dash.get("lost_balls_own", 0) / nb, 1),
+        "possession_pct": round(poss_own / poss_total * 100, 1) if poss_total else None,
+        "plaquage_success_rate": plaquage.get("success_rate"),
+        "ruck_own": round(ruck.get("own", {}).get("count", 0) / nb, 1),
+        "lineout_success_rate": (lineout.get("own") or {}).get("success_rate"),
+        "scrum_won_pct": (scrum.get("own") or {}).get("won_pct"),
+    }
+
+def compute_sector_baselines(matches_with_instances, exclude_id=None):
+    """Moyennes saison (hors le match affiché) pour les 6 pages secteur d'un match.
+
+    Même principe que compute_match_baseline : les taux/pourcentages sont calculés
+    directement sur l'ensemble des autres matchs (déjà normalisés), les volumes
+    (comptages) sont divisés par le nombre de matchs pour donner une moyenne par match,
+    comparable au comptage brut d'un seul match. Renvoie None s'il n'y a pas d'autre
+    match avec des données."""
+    others = [m for m in matches_with_instances if m["id"] != exclude_id and m["instances"]]
+    if not others:
+        return None
+    nb = len(others)
+    instances = [i for m in others for i in m["instances"]]
+
+    def per_match(v):
+        return round(v / nb, 1) if v is not None else None
+
+    attack = compute_attack_sector(instances, "own")
+    attack_adv = compute_attack_sector(instances, "adverse")
+    defense = compute_defense_sector(instances, "adverse")
+    ruck = compute_ruck_sector(instances)
+    lineout = compute_lineout_detail(instances)
+    scrum = compute_scrum_detail(instances)
+    kicking = compute_kicking_detail(instances)
+
+    return {
+        "attaque": {
+            "points_per_entry": gold_points_par_entree_matchs([m["instances"] for m in others], "own"),
+            "phases_moyenne": attack["phases_moyenne"],
+            "defenders_beaten": per_match(attack["defenders_beaten"]),
+            "offloads": per_match(attack["offloads"]),
+            "breaks": per_match(attack["breaks"]),
+            "lost_balls": per_match(attack["lost_balls"]),
+            "duels_aeriens_pct": attack["duels_aeriens"]["pct"],
+        },
+        "defense": {
+            "points_per_entry": gold_points_par_entree_matchs([m["instances"] for m in others], "adverse"),
+            "phases_moyenne": attack_adv["phases_moyenne"],
+            "offloads": per_match(attack_adv["offloads"]),
+            "breaks": per_match(attack_adv["breaks"]),
+            "lost_balls": per_match(attack_adv["lost_balls"]),
+            "duels_aeriens_pct": attack_adv["duels_aeriens"]["pct"],
+            "plaquage_rate": per_match(defense["plaquage"]["rate"]),
+            "plaquage_rate_pct": defense["plaquage"]["rate_pct"],
+            "plaquage_a_2": per_match(defense["plaquage"]["plaquage_a_2"]),
+        },
+        "ruck": {
+            "count_own": per_match(ruck["count_own"]),
+            "ruck_50_own": per_match(ruck["ruck_50_own"]),
+            "speed_own_avg": ruck["speed_own"]["avg"],
+            "speed_adverse_avg": ruck["speed_adverse"]["avg"],
+            "contre_ruck": per_match(ruck["contre_ruck"]),
+        },
+        "touches": {
+            "own_success_rate": lineout["own"]["success_rate"],
+            "own_exploitable_rate": lineout["own"]["exploitable_rate"],
+            "adverse_success_rate": lineout["adverse"]["success_rate"],
+            "adverse_exploitable_rate": lineout["adverse"]["exploitable_rate"],
+        },
+        "melee": {
+            "own_total": per_match(scrum["own"]["total"]),
+            "own_won_pct": scrum["own"]["won_pct"],
+            "own_avance_pct": scrum["own"]["avance_pct"],
+            "adverse_total": per_match(scrum["adverse"]["total"]),
+            "adverse_won_pct": scrum["adverse"]["won_pct"],
+        },
+        "jap": {
+            "own_total": per_match(kicking["own"]["total"]),
+            "adverse_total": per_match(kicking["adverse"]["total"]),
+            "duels_off_pct": kicking["own"]["duels_aeriens_off_pct"],
+        },
+    }
+    
+    
+def compute_season_dashboard(selected_matches):
+    """Bilan cumulé sur plusieurs matchs (saison complète ou sélection personnalisée par Téo).
+
+    Concatène les instances brutes des matchs choisis pour recalculer, avec les mêmes
+    fonctions que la page d'un match, le détail du score, les entrées, la touche/mêlée, etc.
+    Ajoute en plus un bilan Victoires/Nuls/Défaites et une répartition possession/occupation
+    match par match (les tranches de 20 minutes n'ont pas de sens une fois plusieurs matchs
+    mis bout à bout, donc on les remplace ici)."""
+    all_instances = []
+    record = {"wins": 0, "draws": 0, "losses": 0}
+    points_for = points_against = 0
+    possession_by_match = []
+    occupation_by_match = []
+
+    for m in selected_matches:
+        insts = m["instances"]
+        all_instances.extend(insts)
+
+        sc = compute_score(insts)
+        points_for += sc["own"]
+        points_against += sc["adverse"]
+        if sc["own"] > sc["adverse"]:
+            record["wins"] += 1
+        elif sc["own"] < sc["adverse"]:
+            record["losses"] += 1
+        else:
+            record["draws"] += 1
+
+        label = f"{m['match_date'] or '?'} {m['opponent']}"
+
+        poss = m["stats"].get("Possession", {})
+        poss_own = poss.get("own", {}).get("duration", 0)
+        poss_adv = poss.get("adverse", {}).get("duration", 0)
+        poss_total = poss_own + poss_adv
+        possession_by_match.append({
+            "label": label,
+            "own_pct": round(poss_own / poss_total * 100) if poss_total else None,
+            "adverse_pct": round(poss_adv / poss_total * 100) if poss_total else None,
+        })
+
+        occ = compute_occupation(insts)
+        occupation_by_match.append({
+            "label": label,
+            "own_pct": occ["own_pct"],
+            "adverse_pct": occ["adverse_pct"],
+        })
+
+    combined_score = {"own": points_for, "adverse": points_against}
+    dash = compute_overview_dashboard(all_instances, combined_score)
+
+    total_bip = sum(max(i["duration"], 0) for i in all_instances
+                    if i["kind"] == "control" and i["category"] == "Ball In Play")
+    nb = len(selected_matches) or 1
+    dash["ball_in_play"] = {
+        "duration": round(total_bip, 1),
+        "duration_fmt": _fmt_mmss(total_bip),
+        "avg_per_match": round(total_bip / nb, 1),
+        "avg_per_match_fmt": _fmt_mmss(total_bip / nb),
+    }
+    dash["possession_by_period"] = None
+    dash["occupation_by_period"] = None
+    dash["possession_by_match"] = possession_by_match
+    dash["occupation_by_match"] = occupation_by_match
+    dash["points_per_entry"] = gold_points_par_entree_matchs([m["instances"] for m in selected_matches], "own")
+    dash["points_per_entry_adverse"] = gold_points_par_entree_matchs([m["instances"] for m in selected_matches], "adverse")
+    dash["record"] = record
+    dash["points_for"] = points_for
+    dash["points_against"] = points_against
+    dash["nb_matches"] = len(selected_matches)
+    return dash
+
+
+def compute_player_ruck_table(instances):
+    """Conquête, jeu au pied et marque par joueur (convention 2026) : mêlées/touche
+    (LIFTEUR/SAUTEUR/LANCE), jeu au pied (JAP/COUP D'ENVOI/RECEPTION CE, qualifiés +/=/-
+    par le groupe 'RCE'), duels aériens (groupe 'AERIENS', +/=), essais et
+    transformations (réussies vs tentées : seules les instances 'TRANSFORMATIONS'
+    portant en plus le label 'SPECIFIQUES'='REUSSI' sont des transformations réussies),
+    et les points réels marqués par le joueur (5 × essais + 2 × transfos réussies)."""
+    rows = {}
+    for name in _new_convention_player_names(instances):
+        rows[name] = {"melee_conquete": 0, "lifteur": 0, "sauteur": 0, "lanceur": 0,
+                      "jap": 0, "coup_envoi": 0, "recep_ce": 0,
+                      "rce_plus": 0, "rce_neutre": 0, "rce_minus": 0,
+                      "duels_aer_plus": 0, "duels_aer_neutre": 0,
+                      "essai": 0, "transfo_reussies": 0, "transfo_tentees": 0}
+
+    for i in instances:
+        code = i["code_raw"]
+        if code not in rows:
+            continue
+        row = rows[code]
+        off_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "JOUEURS OFF"}
+        if "MELEES" in off_vals:
+            row["melee_conquete"] += 1
+        if "LIFTEUR" in off_vals:
+            row["lifteur"] += 1
+        if "SAUTEUR" in off_vals:
+            row["sauteur"] += 1
+        if "LANCE" in off_vals:
+            row["lanceur"] += 1
+        if "JAP" in off_vals:
+            row["jap"] += 1
+        if "ESSAIS" in off_vals:
+            row["essai"] += 1
+        specifiques = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "SPECIFIQUES"}
+        if "TRANSFORMATIONS" in off_vals:
+            row["transfo_tentees"] += 1
+            if "REUSSI" in specifiques:
+                row["transfo_reussies"] += 1
+        rce_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "RCE"}
+        if "COUP D'ENVOI" in off_vals:
+            row["coup_envoi"] += 1
+            if "+" in rce_vals:
+                row["rce_plus"] += 1
+            elif "-" in rce_vals:
+                row["rce_minus"] += 1
+            elif rce_vals:
+                row["rce_neutre"] += 1
+        if "RECEPTION CE" in off_vals:
+            row["recep_ce"] += 1
+            if "+" in rce_vals:
+                row["rce_plus"] += 1
+            elif "-" in rce_vals:
+                row["rce_minus"] += 1
+            elif rce_vals:
+                row["rce_neutre"] += 1
+        aeriens_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "AERIENS"}
+        if aeriens_vals:
+            if "+" in aeriens_vals:
+                row["duels_aer_plus"] += 1
+            elif "=" in aeriens_vals:
+                row["duels_aer_neutre"] += 1
+
+    result = []
+    totals = defaultdict(int)
+    for name, r in rows.items():
+        if sum(r.values()) == 0:
+            continue
+        touche_total = r["lifteur"] + r["sauteur"] + r["lanceur"]
+        rce_total = r["rce_plus"] + r["rce_neutre"] + r["rce_minus"]
+        duels_aer_total = r["duels_aer_plus"] + r["duels_aer_neutre"]
+        points = r["essai"] * 5 + r["transfo_reussies"] * 2
+        row_out = {
+            "name": name, **r,
+            "touche_total": touche_total,
+            "coup_envoi_recep_total": r["coup_envoi"] + r["recep_ce"],
+            "rce_total": rce_total,
+            "duels_aer_total": duels_aer_total,
+            "points": points,
+        }
+        result.append(row_out)
+        for k, v in r.items():
+            totals[k] += v
+        totals["points"] += points
+    result.sort(key=lambda x: x["name"].casefold())
+    return {"rows": result, "totals": dict(totals)}
+
+
+def compute_player_bilan_table(instances, attack_table=None, defense_table=None, ruck_table=None):
+    """Vue d'ensemble individuelle : bilan positif/neutre/négatif par joueur, méthodologie
+    du rapport vidéo de référence utilisé par le staff (celui qui gère déjà les stats
+    indiv en dehors du site).
+
+    Positives : les actions codées + (contact, passe, offload, plaquage, combattant,
+    chasseur, RCE, duels aériens), chaque défenseur battu, chaque arrivée en 1er soutien
+    au ruck, les franchissements (breaks), les ballons récupérés dans le jeu (contre-rucks,
+    ballons gagnés, interceptions), les essais et les transformations réussies.
+    Neutres : les actions codées = et les arrivées en 2e soutien au ruck.
+    Négatives : les actions codées - ainsi que les plaquages manqués (ratés), les ballons
+    perdus (PDB), les pénalités concédées (attaque et défense) et les transformations
+    manquées. Les arrivées en 3e soutien ou au-delà, les mêlées, les rôles de touche
+    (lifteur/sauteur/lanceur), le jeu au pied brut et les courses ne sont pas comptabilisés
+    dans le bilan (actions de volume pur), seulement affichés en brut ailleurs.
+    Bilan net = positives - négatives.
+
+    'instances' sert toujours au comptage brut 'actions_codees' (voir plus bas) ; les 3
+    tableaux de détail (attack_table/defense_table/ruck_table) peuvent en plus être passés
+    tout faits par l'appelant pour éviter de les recalculer une 2e fois quand il les a déjà
+    sous la main (pages joueurs, comparateur, moyennes saison, effectif saison) — sinon ils
+    sont recalculés ici à partir de 'instances'."""
+    attack = attack_table if attack_table is not None else compute_player_attack_table(instances)
+    defense = defense_table if defense_table is not None else compute_player_defense_table(instances)
+    ruck = ruck_table if ruck_table is not None else compute_player_ruck_table(instances)
+    names = set()
+    for t in (attack, defense, ruck):
+        names.update(r["name"] for r in t["rows"])
+
+    a_by_name = {r["name"]: r for r in attack["rows"]}
+    d_by_name = {r["name"]: r for r in defense["rows"]}
+    u_by_name = {r["name"]: r for r in ruck["rows"]}
+
+    # "Actions codées" = total brut de toutes les actions individuelles taguées pour le
+    # joueur (y compris les actions de volume pur non comptées dans le bilan, ex. soutien
+    # 3e+, rôles de touche) — distinct du "Total signées" (= positives + neutres +
+    # négatives uniquement), comme dans le rapport de référence.
+    raw_actions = defaultdict(int)
+    adv_token = _detect_adverse_token(instances)
+    bucket_prefixes = {"UBB", "ADV", "ADVERSE"} | ({adv_token} if adv_token else set())
+    for i in instances:
+        tokens = _normalize_tag(i["code_raw"]).split()
+        if tokens[:1] and tokens[0] in bucket_prefixes:
+            continue
+        for lab in i["labels"]:
+            if _normalize_tag(lab["group"]) in ("JOUEURS OFF", "SNIPERS", "CHASSEUR", "COMBATTANT", "DISCIPLINES"):
+                raw_actions[i["code_raw"]] += 1
+                break
+
+    result = []
+    totals = defaultdict(int)
+    for name in names:
+        a = a_by_name.get(name) or _zero_attack_row(name)
+        d = d_by_name.get(name) or _zero_defense_row(name)
+        u = u_by_name.get(name) or _zero_ruck_row(name)
+
+        positives = (a["contact_plus"] + a["passe_plus"] + a["offload_plus"]
+                     + a["def_battu"] + a["soutien_1er"] + a["break"]
+                     + d["plaquage_dominant"] + d["combattant_plus"] + d["chasseur_plus"]
+                     + d["ballons_recuperes"]
+                     + u["rce_plus"] + u["duels_aer_plus"]
+                     + u["essai"] + u["transfo_reussies"])
+        neutres = (a["contact_neutre"] + a["passe_neutre"] + a["offload_neutre"]
+                   + a["soutien_2eme"]
+                   + d["plaquage_neutre"] + d["combattant_neutre"] + d["chasseur_neutre"]
+                   + u["rce_neutre"] + u["duels_aer_neutre"])
+        negatives = (a["contact_minus"] + a["passe_minus"] + a["offload_minus"]
+                     + a["pdb"] + a["penalite_off"] + a["penalite_def"]
+                     + d["plaquage_rate"] + d["combattant_minus"] + d["chasseur_minus"]
+                     + u["transfo_tentees"] - u["transfo_reussies"])
+
+        actions_codees = raw_actions.get(name, 0)
+        if actions_codees == 0:
+            continue
+        row_out = {
+            "name": name,
+            "actions_codees": actions_codees,
+            "positives": positives,
+            "neutres": neutres,
+            "negatives": negatives,
+            "total_signees": positives + neutres + negatives,
+            "bilan_net": positives - negatives,
+        }
+        result.append(row_out)
+        for k, v in row_out.items():
+            if k != "name":
+                totals[k] += v
+    result.sort(key=lambda x: -x["bilan_net"])
+    return {"rows": result, "totals": dict(totals)}
+
+
+def compute_player_season_baselines(matches_with_instances, exclude_id=None):
+    """Moyennes saison PAR JOUEUR (hors le match affiché), pour comparer la perf d'un
+    joueur sur un match à ce qu'il fait d'habitude. Les % sont recalculés sur le cumul
+    des autres matchs ; le bilan net est ramené à une moyenne par match joué (nombre de
+    matchs où le joueur apparaît). Renvoie None s'il n'y a pas d'autre match."""
+    others = [m for m in matches_with_instances if m["id"] != exclude_id and m["instances"]]
+    if not others:
+        return None
+    combined = [i for m in others for i in m["instances"]]
+    appearances = defaultdict(int)
+    for m in others:
+        for name in _new_convention_player_names(m["instances"]):
+            appearances[name] += 1
+
+    attack = compute_player_attack_table(combined)
+    defense = compute_player_defense_table(combined)
+    ruck = compute_player_ruck_table(combined)
+    bilan = compute_player_bilan_table(combined, attack_table=attack, defense_table=defense, ruck_table=ruck)
+
+    result = {}
+
+    def _entry(name):
+        return result.setdefault(name, {"matches": appearances.get(name, 0)})
+
+    for r in attack["rows"]:
+        _entry(r["name"])["attack"] = {
+            "contact_pct": r["contact_pct"], "passe_pct": r["passe_pct"],
+            "offload_pct": r["offload_pct"],
+        }
+    for r in defense["rows"]:
+        _entry(r["name"])["defense"] = {
+            "plaquage_pct": r["plaquage_pct"],
+        }
+    for r in ruck["rows"]:
+        _entry(r["name"])["ruck"] = {
+            "points_total": r["points"],
+        }
+    for r in bilan["rows"]:
+        n = appearances.get(r["name"], 0) or 1
+        _entry(r["name"])["bilan_net_avg"] = round(r["bilan_net"] / n, 1)
+    return result
+
+
+def _name_order_index(ordered_names):
+    """Construit {nom en casefold: position (1, 2, 3...)} à partir d'une liste de noms
+    déjà dans l'ordre voulu. Sert aussi bien pour l'ordre des boutons joueurs du fichier
+    Sportscode (row_order, voir parse_sportscode_xml — l'ordre où l'analyste vidéo a
+    rangé l'effectif, typiquement n°1 à n°23) que pour la composition saisie à la main
+    sur le site (numéro de maillot). Le row_order du XML fait foi quand il est
+    disponible (demande de Téo : garder le même ordre que dans le fichier envoyé) ;
+    la composition ne sert qu'en repli pour les matchs importés avant l'ajout du
+    row_order, ou si le fichier n'en fournissait pas."""
+    numbers = {}
+    for i, n in enumerate(ordered_names or []):
+        if n:
+            numbers.setdefault(n.strip().casefold(), i + 1)
+    return numbers
+
+
+def _composition_name_score(comp_name, xml_name):
+    """Ressemblance entre un nom de la page Composition (« Tambo-Fantcho », « Combrinck »)
+    et un code joueur du XML (« FANTCHO TAMBO », « COMBRICK », « L.FUKWAMOKO ») : on ignore
+    l'initiale du XML et l'ordre des mots, et on tolère une faute de frappe."""
+    import difflib
+    a = _name_key(comp_name)
+    b = _name_key(xml_name.split(".")[-1])
+    if not a or not b:
+        return 0.0
+    direct = difflib.SequenceMatcher(None, a, b).ratio()
+    sorted_tokens = difflib.SequenceMatcher(None, " ".join(sorted(a.split())), " ".join(sorted(b.split()))).ratio()
+    return max(direct, sorted_tokens)
+
+
+def composition_ordered_names(composition, player_names, row_order=None, threshold=0.8):
+    """Remplace chaque nom de la composition saisie sur le site (23 emplacements, n°1 à
+    n°23, cases vides comprises) par le code joueur correspondant du XML, pour que la page
+    Joueurs reprenne les numéros de la compo (demande de Téo). Renvoie une liste de même
+    longueur que la composition : code XML à l'emplacement du numéro, None si personne.
+
+    Rapprochement global « meilleur score d'abord », chaque code XML n'étant utilisé
+    qu'une fois. Deux joueurs au même nom (L. et M. Fukwamoko) : à score égal, le premier
+    numéro de la compo prend celui qui vient en premier dans les boutons Sportscode."""
+    comp = list(composition or [])
+    order_idx = {n: i for i, n in enumerate(row_order or [])}
+    xml = sorted(set(player_names or []), key=lambda n: (order_idx.get(n, 10_000), n.casefold()))
+    pairs = []
+    for slot, cname in enumerate(comp):
+        if not cname:
+            continue
+        for xi, xname in enumerate(xml):
+            score = _composition_name_score(cname, xname)
+            if score >= threshold:
+                pairs.append((-round(score, 4), slot, xi, xname))
+    pairs.sort()
+    slots = [None] * len(comp)
+    used = set()
+    for _neg, slot, _xi, xname in pairs:
+        if slots[slot] is None and xname not in used:
+            slots[slot] = xname
+            used.add(xname)
+    return slots
+
+
+def order_rows_by_reference_order(rows, ordered_names):
+    """Trie une liste de lignes joueur (chacune avec une clé 'name') selon 'ordered_names'
+    (row_order du XML, ou à défaut composition saisie sur le site) et renseigne 'number'
+    (position 1, 2, 3...) sur chaque ligne. Les joueurs absents de 'ordered_names' sont
+    mis à la suite par ordre alphabétique plutôt que de disparaître. Ne mute pas les
+    lignes d'origine (utile quand la même ligne est partagée entre plusieurs tableaux,
+    ex. bilan/attack/defense/ruck)."""
+    numbers = _name_order_index(ordered_names)
+    out = []
+    for r in rows:
+        r2 = dict(r)
+        r2["number"] = numbers.get(r["name"].strip().casefold())
+        out.append(r2)
+    out.sort(key=lambda r: (r["number"] is None, r["number"] or 0, r["name"].casefold()))
+    return out
+
+
+def build_player_cards(bilan_table, attack_table, defense_table, ruck_table, ordered_names=None):
+    """Fusionne le tableau bilan (vue d'ensemble) avec les 3 tableaux de détail en une
+    liste de lignes (une par joueur).
+
+    Ordre (pas de classement à la performance, demande de Téo) :
+    - si 'ordered_names' est fourni (row_order du XML, ou composition saisie sur le site
+      en repli — voir _name_order_index), les joueurs sont ordonnés en conséquence
+      (avec 'number' renseigné), les joueurs hors liste à la suite par ordre
+      alphabétique ;
+    - sinon, ordre alphabétique. La comparaison des noms est insensible à la casse
+      (le XML tague 'ROUET', la feuille de composition 'Rouet')."""
+    cards = {}
+    for section, table in (("bilan", bilan_table), ("attack", attack_table), ("defense", defense_table), ("ruck", ruck_table)):
+        for r in table["rows"]:
+            cards.setdefault(r["name"], {"name": r["name"], "bilan": None, "attack": None, "defense": None, "ruck": None})[section] = r
+    out = list(cards.values())
+
+    numbers = _name_order_index(ordered_names)
+    for c in out:
+        c["number"] = numbers.get(c["name"].strip().casefold())
+    out.sort(key=lambda c: (c["number"] is None, c["number"] or 0, c["name"].casefold()))
+    return out
+
+
+# ---- Comparateur de joueurs (saison) ------------------------------------------
+
+def _zero_attack_row(name):
+    return {
+        "name": name, "contact_plus": 0, "contact_minus": 0, "contact_neutre": 0,
+        "contact_total": 0, "contact_pct": None,
+        "passe_plus": 0, "passe_minus": 0, "passe_neutre": 0, "passes": 0,
+        "passe_total": 0, "passe_pct": None,
+        "offload_plus": 0, "offload_minus": 0, "offload_neutre": 0, "offloads": 0,
+        "offload_total": 0, "offload_pct": None,
+        "def_battu": 0, "pdb": 0, "soutien_1er": 0, "soutien_2eme": 0, "soutien_3plus": 0,
+        "soutien_total": 0, "break": 0, "cartouche": 0,
+        "melee_portee": 0, "penalite_off": 0, "penalite_def": 0,
+    }
+
+
+def _zero_defense_row(name):
+    return {
+        "name": name, "plaquage_dominant": 0, "plaquage_neutre": 0, "plaquage_passif": 0,
+        "plaquage_rate": 0, "plaquage_bas": 0, "plaquage_haut": 0,
+        "plaquage_tentes": 0, "plaquage_pct": None, "plaquage_low_sample": True,
+        "combattant_plus": 0, "combattant_neutre": 0, "combattant_minus": 0, "combattant_balle": 0,
+        "combattant_total": 0,
+        "chasseur_plus": 0, "chasseur_neutre": 0, "chasseur_minus": 0, "chasseur_total": 0,
+        "ballons_recuperes": 0,
+    }
+
+
+def _zero_ruck_row(name):
+    return {
+        "name": name, "melee_conquete": 0, "lifteur": 0, "sauteur": 0, "lanceur": 0, "touche_total": 0,
+        "jap": 0, "coup_envoi": 0, "recep_ce": 0, "coup_envoi_recep_total": 0,
+        "rce_plus": 0, "rce_neutre": 0, "rce_minus": 0, "rce_total": 0,
+        "duels_aer_plus": 0, "duels_aer_neutre": 0, "duels_aer_total": 0,
+        "essai": 0, "transfo_reussies": 0, "transfo_tentees": 0,
+        "points": 0,
+    }
+
+
+def _zero_bilan_row(name):
+    return {
+        "name": name, "actions_codees": 0, "positives": 0, "neutres": 0, "negatives": 0,
+        "total_signees": 0, "bilan_net": 0,
+    }
+
+
+def _find_or_zero(rows, name, zero_fn):
+    """Comparaison insensible à la casse : le XML Sportscode tague les joueurs en
+    MAJUSCULES ('ROUET') alors que la feuille de poste utilise la casse normale
+    ('Rouet') — sans ça, un joueur avec des vraies stats afficherait des zéros."""
+    target = name.strip().casefold()
+    for r in rows:
+        if r["name"].strip().casefold() == target:
+            out = dict(r)
+            out["name"] = name
+            return out
+    return zero_fn(name)
+
+
+def compute_player_comparison(instances, player_a, player_b):
+    """Page Comparateur (saison) : reprend exactement les tableaux de la page Joueurs
+    (bilan/attaque/défense/ruck), calculés sur les matchs sélectionnés, et ne garde que
+    les 2 lignes des joueurs choisis dans les menus déroulants. Si un joueur n'a aucune
+    statistique sur la sélection (n'a pas joué, ou pas de data codée), on affiche une
+    ligne à zéro plutôt que de le faire disparaître."""
+    attack = compute_player_attack_table(instances)
+    defense = compute_player_defense_table(instances)
+    ruck = compute_player_ruck_table(instances)
+    bilan = compute_player_bilan_table(instances, attack_table=attack, defense_table=defense, ruck_table=ruck)
+    return {
+        "bilan_rows": [_find_or_zero(bilan["rows"], player_a, _zero_bilan_row),
+                       _find_or_zero(bilan["rows"], player_b, _zero_bilan_row)],
+        "attack_rows": [_find_or_zero(attack["rows"], player_a, _zero_attack_row),
+                        _find_or_zero(attack["rows"], player_b, _zero_attack_row)],
+        "defense_rows": [_find_or_zero(defense["rows"], player_a, _zero_defense_row),
+                          _find_or_zero(defense["rows"], player_b, _zero_defense_row)],
+        "ruck_rows": [_find_or_zero(ruck["rows"], player_a, _zero_ruck_row),
+                      _find_or_zero(ruck["rows"], player_b, _zero_ruck_row)],
+    }
+def _normalize_count(value_a, value_b):
+    """Ramène 2 valeurs brutes (volumes, pas des %) sur une échelle 0-100 pour un radar :
+    100 pour la plus grande des deux, proportionnel pour l'autre (0 partout si les deux
+    valent 0). Comparaison relative entre les 2 joueurs, pas un score absolu."""
+    top = max(value_a, value_b, 0)
+    if top == 0:
+        return 0, 0
+    return round(value_a / top * 100), round(value_b / top * 100)
+
+
+def _normalize_count_inverted(value_a, value_b):
+    """Comme _normalize_count mais 'moins = mieux' (ex: fautes de discipline) : la valeur la
+    plus basse obtient 100, l'autre proportionnellement moins. 100 partout si les deux valent 0
+    (aucune faute)."""
+    top = max(value_a, value_b, 0)
+    if top == 0:
+        return 100, 100
+    return round((top - value_a) / top * 100), round((top - value_b) / top * 100)
+
+def build_comparison_radar_svg(labels, values_a, values_b, color_a="#5fb0e0", color_b="#e0a458", size=460):
+    """Génère un radar en SVG pur (pas de Chart.js/JS) : toujours affiché, aucune dépendance
+    au chargement d'une librairie JS ou à la taille d'un canvas caché."""
+    n = len(labels)
+    cx = cy = size / 2
+    r = size / 2 - 90
+    label_r = r + 34
+
+    def point(angle_deg, radius):
+        a = math.radians(angle_deg - 90)
+        return cx + radius * math.cos(a), cy + radius * math.sin(a)
+
+    def polygon_points(values):
+        pts = []
+        for i, v in enumerate(values):
+            v = max(0, min(100, v or 0))
+            angle = i * 360 / n
+            x, y = point(angle, r * v / 100)
+            pts.append(f"{x:.1f},{y:.1f}")
+        return " ".join(pts)
+
+    rings = []
+    for frac in (0.25, 0.5, 0.75, 1.0):
+        ring_pts = " ".join(f"{point(i * 360/n, r*frac)[0]:.1f},{point(i*360/n, r*frac)[1]:.1f}" for i in range(n))
+        rings.append(f'<polygon points="{ring_pts}" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>')
+
+    axes, labels_svg = [], []
+    for i, lab in enumerate(labels):
+        angle = i * 360 / n
+        x2, y2 = point(angle, r)
+        axes.append(f'<line x1="{cx}" y1="{cy}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>')
+        lx, ly = point(angle, label_r)
+        anchor = "end" if lx < cx - 5 else ("start" if lx > cx + 5 else "middle")
+        labels_svg.append(f'<text x="{lx:.1f}" y="{ly:.1f}" text-anchor="{anchor}" dominant-baseline="middle" font-size="11" fill="#c7d0d6">{lab}</text>')
+
+    poly_a = polygon_points(values_a)
+    poly_b = polygon_points(values_b)
+
+    return f'''<svg viewBox="0 0 {size} {size}" class="radar-svg">
+  {''.join(rings)}
+  {''.join(axes)}
+  <polygon points="{poly_b}" fill="{color_b}33" stroke="{color_b}" stroke-width="2"/>
+  <polygon points="{poly_a}" fill="{color_a}33" stroke="{color_a}" stroke-width="2"/>
+  {''.join(labels_svg)}
+</svg>'''
+
+
+def compute_player_radar_svg(attack_rows, defense_rows, ruck_rows):
+    """Fusionne les 3 tableaux (attaque/défense/ruck) en un seul radar, façon rapport pro :
+    tous les indicateurs clés sur un même graphique pour comparer 2 joueurs d'un coup d'œil.
+    (convention 2026 — voir compute_player_attack_table/_defense_table/_ruck_table)."""
+    a_atk, b_atk = attack_rows
+    a_def, b_def = defense_rows
+    a_ruck, b_ruck = ruck_rows
+
+    def_battu_a, def_battu_b = _normalize_count(a_atk["def_battu"], b_atk["def_battu"])
+    break_a, break_b = _normalize_count(a_atk["break"], b_atk["break"])
+    essai_a, essai_b = _normalize_count(a_atk["essai"], b_atk["essai"])
+    plaq_dom_a, plaq_dom_b = _normalize_count(a_def["plaquage_dominant"], b_def["plaquage_dominant"])
+    combattant_a, combattant_b = _normalize_count(max(a_def["combattant_plus"] - a_def["combattant_minus"], 0),
+                                                   max(b_def["combattant_plus"] - b_def["combattant_minus"], 0))
+    discipline_a, discipline_b = _normalize_count_inverted(a_def["discipline"] + a_atk["penalite"],
+                                                            b_def["discipline"] + b_atk["penalite"])
+    soutien_a, soutien_b = _normalize_count(a_ruck["soutien_1er"], b_ruck["soutien_1er"])
+    contre_ruck_a, contre_ruck_b = _normalize_count(a_ruck["contre_ruck"], b_ruck["contre_ruck"])
+    arrivees_a, arrivees_b = _normalize_count(a_ruck["soutien_total"], b_ruck["soutien_total"])
+
+    labels = ["Contact %", "Passe %", "Offload %", "Déf. battus", "Breaks", "Essais",
+              "Plaq. dominants", "Taux plaquage %", "Combat au sol", "Discipline",
+              "Soutiens 1ers", "Contre-ruck", "Total soutiens"]
+    values_a = [a_atk["contact_pct"] or 0, a_atk["passe_pct"] or 0, a_atk["offload_pct"] or 0,
+                def_battu_a, break_a, essai_a, plaq_dom_a, a_def["tackle_pct"] or 0, combattant_a, discipline_a,
+                soutien_a, contre_ruck_a, arrivees_a]
+    values_b = [b_atk["contact_pct"] or 0, b_atk["passe_pct"] or 0, b_atk["offload_pct"] or 0,
+                def_battu_b, break_b, essai_b, plaq_dom_b, b_def["tackle_pct"] or 0, combattant_b, discipline_b,
+                soutien_b, contre_ruck_b, arrivees_b]
+
+    return build_comparison_radar_svg(labels, values_a, values_b)
+
+# ---- Effectif de la saison (feuille de poste, pas de hiérarchie/statut) ------
+
+# Effectif Espoirs UBB 2026-2027 (mis à jour depuis le fichier Excel du club — voir
+# /admin/joueurs pour gérer les comptes joueurs). NB : Fukwamoko et Poigneau sont
+# chacun le nom de famille de 2 joueurs différents de l'effectif ; Sportscode ne
+# codant que le nom de famille, leurs statistiques individuelles ne peuvent pas être
+# distinguées automatiquement entre les deux homonymes (comparateur / stats indiv.).
+SQUAD_ROSTER = {
+    "Pilier": ["Alifanety", "Griffault", "Hattouma", "Masson", "Pargade", "Peters",
+               "Pouye Tokotuu", "Pouypoudat", "Suicmez", "Tambo-Fantcho"],
+    "Talonneur": ["Everitt", "Freynet", "Malinowski", "Thibeau"],
+    "2ème ligne": ["Augustyn", "Fukwamoko", "Girou", "Niuhina", "Salikikoro", "Schuster", "Zapedowski"],
+    "3ème ligne": ["Argenton", "Camara", "Coetzee", "Combrinck", "Fukwamoko", "Gardrat", "Gazzotti",
+                   "Heraud", "Ibsaiene", "Jacobs", "Silvain Pouvreau", "Trebuchaire", "Valette"],
+    "Charnière": ["Hutteau", "Laussucq", "Memet", "Poigneau", "Trillo", "Vaillier"],
+    "Centre": ["Drault", "Duguay", "Favrau", "Lee", "Said"],
+    "Ailier/Arrière": ["Avogadro", "Baronnet", "Bohn", "Delpeuch", "Erasmus", "Holisi", "Janiec",
+                       "Kuilagi", "Laharrague", "Larrey", "Mousques", "Perdigon Le Naour", "Reihana"],
+}
+SQUAD_POSITION_ORDER = list(SQUAD_ROSTER.keys())
+
+
+def _placeholder_attack_row(name):
+    return {
+        "name": name, "contact_plus": "—", "contact_minus": "—", "contact_neutre": "—",
+        "contact_total": "—", "contact_pct": None,
+        "passe_plus": "—", "passe_minus": "—", "passe_neutre": "—", "passe_total": "—", "passe_pct": None,
+        "offload_plus": "—", "offload_minus": "—", "offload_neutre": "—", "offload_total": "—", "offload_pct": None,
+        "def_battu": "—", "pdb": "—", "break": "—", "essai": "—", "transformation": "—",
+        "penalite": "—", "points": "—",
+    }
+
+
+def _placeholder_defense_row(name):
+    return {
+        "name": name, "plaquage_dominant": "—", "plaquage_neutre": "—", "plaquage_passif": "—",
+        "plaquage_rate": "—", "tackle_total": "—", "tackle_pct": None,
+        "combattant_plus": "—", "combattant_neutre": "—", "combattant_minus": "—",
+        "combattant_total": "—", "combattant_pct": None,
+        "discipline": "—", "points": "—",
+    }
+
+
+def _placeholder_ruck_row(name):
+    return {
+        "name": name, "soutien_1er": "—", "soutien_2eme": "—", "soutien_3plus": "—", "soutien_total": "—",
+        "contre_ruck": "—", "lifteur": "—", "sauteur": "—", "lanceur": "—",
+        "reception_touche": "—", "interception": "—",
+        "points": "—",
+    }
+
+def compute_squad_preview():
+    """Effectif complet groupé par poste (feuille de poste fournie par Téo, sans ordre
+    de hiérarchie ni statut), avec les 3 tableaux (attaque/défense/ruck) identiques à
+    ceux de la page Joueurs d'un match. Toutes les valeurs sont des placeholders '—' :
+    le cumul des vraies stats sur plusieurs matchs de la saison n'est pas encore branché,
+    ceci sert à valider le rendu (regroupement par poste) avant de le faire."""
+    groups = []
+    for position in SQUAD_POSITION_ORDER:
+        names = SQUAD_ROSTER[position]
+        groups.append({
+            "position": position,
+            "attack_rows": [_placeholder_attack_row(n) for n in names],
+            "defense_rows": [_placeholder_defense_row(n) for n in names],
+            "ruck_rows": [_placeholder_ruck_row(n) for n in names],
+        })
+    return groups
+
+
+def compute_player_tracking(selected_matches):
+    """Suivi individuel (minutes jouées, cartons, matchs de suite) à partir des données
+    saisies à la main match par match sur la page Composition. selected_matches doit être
+    trié chronologiquement du plus ancien au plus récent (c'est déjà le cas de la liste
+    renvoyée par _season_context()). Pour chaque match où la saisie minutes/cartons a été
+    faite (match['player_match_stats'] non vide) : un joueur avec 0 minute ou absent de la
+    composition ce match-là est considéré comme n'ayant pas joué, ce qui coupe sa série de
+    matchs de suite. Les matchs pas encore renseignés (saisie vide) sont ignorés plutôt que
+    comptés comme "pas joué", pour ne pas casser artificiellement les séries en cours."""
+    tracking = {
+        name: {"minutes": 0, "matches_played": 0, "yellow": 0, "red": 0, "streak": 0}
+        for names in SQUAD_ROSTER.values() for name in names
+    }
+    for m in selected_matches:
+        pstats = m.get("player_match_stats") or {}
+        if not pstats:
+            continue
+        for name, row in tracking.items():
+            s = pstats.get(name) or {}
+            minutes = s.get("minutes") or 0
+            yellow = s.get("yellow") or 0
+            red = s.get("red") or 0
+            row["minutes"] += minutes
+            row["yellow"] += yellow
+            row["red"] += red
+            if minutes > 0:
+                row["matches_played"] += 1
+                row["streak"] += 1
+            else:
+                row["streak"] = 0
+    return tracking
+
+
+def compute_squad_season_stats(instances, selected_matches=None):
+    """Effectif complet groupé par poste, avec les VRAIES statistiques cumulées sur les
+    matchs sélectionnés (mêmes 3 tableaux attaque/défense/ruck que sur les autres pages),
+    plus un tableau de suivi (minutes/cartons/matchs de suite) basé sur les données saisies
+    à la main sur la page Composition de chaque match. Remplace compute_squad_preview (qui
+    n'affichait que des '—' placeholder) maintenant que le calcul season-cumulé par joueur
+    existe (voir compute_player_comparison). Un joueur de l'effectif qui n'a aucune stat sur
+    la sélection (blessé, n'a pas joué...) affiche une ligne à zéro plutôt que de disparaître,
+    pour garder tout l'effectif visible."""
+    attack = compute_player_attack_table(instances)
+    defense = compute_player_defense_table(instances)
+    ruck = compute_player_ruck_table(instances)
+    bilan = compute_player_bilan_table(instances, attack_table=attack, defense_table=defense, ruck_table=ruck)
+    tracking = compute_player_tracking(selected_matches or [])
+    groups = []
+    for position in SQUAD_POSITION_ORDER:
+        names = SQUAD_ROSTER[position]
+        groups.append({
+            "position": position,
+            "bilan_rows": [_find_or_zero(bilan["rows"], n, _zero_bilan_row) for n in names],
+            "attack_rows": [_find_or_zero(attack["rows"], n, _zero_attack_row) for n in names],
+            "defense_rows": [_find_or_zero(defense["rows"], n, _zero_defense_row) for n in names],
+            "ruck_rows": [_find_or_zero(ruck["rows"], n, _zero_ruck_row) for n in names],
+            "tracking_rows": [{"name": n, **tracking[n]} for n in names],
+        })
+    return groups
+
+# ---- Suivi JIFF (quota LNR) --------------------------------------------------
+# Liste des joueurs NON-JIFF de l'effectif (donnée par Téo) ; tous les autres
+# joueurs de SQUAD_ROSTER sont considérés JIFF par défaut.
+NON_JIFF_PLAYERS = {
+    "Thompson Stringer", "Kapanadze", "Leafa", "Pupuma", "Mudariki", "Kpoku", "Olmstead",
+    "Sirgel", "Dakuwaqa", "Williams", "Ezcurra", "Morgan", "Saili",
+    "Navarrete", "Fender", "Wolsink", "Bergamaschi", "Khaindrava",
+}
+
+JIFF_QUOTA = 14  # quota LNR (moyenne de joueurs JIFF par feuille de match sur la saison)
+
+
+def is_jiff(player_name):
+    return player_name not in NON_JIFF_PLAYERS
+
+
+def compute_jiff_chart(selected_matches):
+    """selected_matches : liste de matchs (dicts, avec une clé 'composition' = liste de
+    noms de joueurs) déjà filtrés sur la sélection saison. Ne garde que les matchs dont
+    la composition a été validée (liste non vide), et calcule pour chacun le nombre de
+    JIFF sur les joueurs alignés, l'écart par rapport au quota LNR, et la moyenne saison."""
+    rows = []
+    for m in selected_matches:
+        comp = [p for p in (m.get("composition") or []) if p]
+        if not comp:
+            continue
+        jiff_count = sum(1 for p in comp if is_jiff(p))
+        non_jiff_count = len(comp) - jiff_count
+        diff = jiff_count - JIFF_QUOTA
+        opponent = m.get("opponent") or "?"
+        date = m.get("match_date") or ""
+        rows.append({
+            "match_id": m["id"],
+            "label": f"{opponent} ({date})" if date else opponent,
+            "jiff_count": jiff_count,
+            "non_jiff_count": non_jiff_count,
+            "total": len(comp),
+            "diff": diff,
+            "respecte": diff >= 0,
+        })
+
+    if rows:
+        avg_jiff = round(sum(r["jiff_count"] for r in rows) / len(rows), 1)
+        avg_diff = round(avg_jiff - JIFF_QUOTA, 1)
+        respecte_saison = avg_diff >= 0
+        total_jiff = sum(r["jiff_count"] for r in rows)
+        total_required = JIFF_QUOTA * len(rows)
+        total_diff = total_jiff - total_required
+    else:
+        avg_jiff = None
+        avg_diff = None
+        respecte_saison = False
+        total_jiff = None
+        total_required = None
+        total_diff = None
+
+    return {
+        "rows": rows,
+        "quota": JIFF_QUOTA,
+        "avg_jiff": avg_jiff,
+        "avg_diff": avg_diff,
+        "respecte_saison": respecte_saison,
+        "total_jiff": total_jiff,
+        "total_required": total_required,
+        "total_diff": total_diff,
+    }
+
+
+# ---- Transition (contre-attaques et turnovers) -------------------------------
+
+def compute_transition_sector(instances):
+    """Nouvelle stat 'Transition' (contre-attaques et turnovers) que Téo va coder avec
+    son propre système cette saison : rien n'est encore branché sur le XML (même le
+    volume), donc tout reste en placeholder '—' pour l'instant. Le paramètre `instances`
+    est gardé pour la même signature que les autres compute_* une fois le codage prêt."""
+    result = {}
+    for key in ("contre_attaque", "turnover"):
+        result[key] = {}
+        for side in ("own", "adverse"):
+            result[key][side] = {
+                "count": None,  # pas encore codé dans le XML
+                "phases_avant_perte": None,  # pas encore codé dans le XML
+                "resultat": {},  # pas encore codé dans le XML (répartition par type de résultat)
+                "zone": {"Proche": None, "Milieu": None, "Large": None},  # pas encore codé dans le XML
+            }
+    return result
+
+
+# ---- Nos possessions (nouvelle convention de tagging 2026, façon rapport vidéo) ----
+# À partir de la saison 2026-2027, le club tague ses possessions avec un code dédié
+# "01 - Possession UBB" qui porte, en labels, l'origine (touche, mêlée, contre-attaque...),
+# le nombre de phases et le résultat de la possession. Ceci est indépendant de l'ancienne
+# convention numérotée "<n> - Catégorie Côté" : on relit ici le code brut et les labels
+# directement, donc ça ne touche à rien pour les matchs importés avec l'ancien système.
+
+POSSESSION_LOG_CODE = "01 - Possession UBB"
+
+# L'analyste a tagué l'origine sous plusieurs noms de groupe légèrement différents
+# (coquilles / renommages en cours de saison) : on les traite comme équivalents.
+POSSESSION_ORIGIN_GROUPS = {
+    "Origine Franchissements", "Origine Break et Marques",
+    "Origine possession", "Origine possesions",
+}
+POSSESSION_RESULT_GROUP = "Résultats Lancements"
+POSSESSION_PHASE_GROUP = "Phases de Jeu"
+POSSESSION_QUARTER_GROUPS = {"Quart temps", "TEMPS"}
+
+# Ordre d'affichage façon rapport vidéo (les origines non listées ici, ou absentes du
+# match, sont ajoutées à la suite dans l'ordre où elles apparaissent).
+POSSESSION_ORIGIN_ORDER = [
+    "Coup d'envoi", "Touches", "Mêlées", "Contre Attaque",
+    "Turnovers", "Pénalités Jouée Vite", "Pénalités à la main",
+]
+POSSESSION_ORIGIN_NON_TAGUEE = "Origine non taguée"
+
+POSSESSION_RESULT_CLASS = {
+    "Essai": "pos", "Pénalité Pour": "pos",
+    "Pénalité Contre": "neg", "Perdu conquête": "neg", "Ballon Perdu Contact": "neg",
+    "Ballon Perdu En-Avants": "neg", "Tranfert Pression": "neg",
+    "Jeu au Pied": "neu", "JAP Manqué": "neu", "Sortie de Camp": "neu",
+}
+
+PHASE_NUMBER_RE = re.compile(r"\d+")
+
+
+def compute_possession_log(instances, code=POSSESSION_LOG_CODE):
+    """Journal des possessions propres (façon tableau 'Nos possessions' du rapport
+    vidéo), regroupées par origine, avec numéro de phase et résultat, séparées par
+    mi-temps. Renvoie None si ce match n'a pas été tagué avec ce nouveau code
+    (ex : matchs importés avant la saison 2026-2027)."""
+    rows = [inst for inst in instances if inst.get("code_raw") == code]
+    if not rows:
+        return None
+
+    sections = defaultdict(lambda: {"half1": [], "half2": []})
+    with_origin = 0
+    with_result = 0
+    with_phase = 0
+
+    for inst in rows:
+        origin = result = phase = half = None
+        for lab in inst.get("labels") or []:
+            grp = lab.get("group")
+            txt = (lab.get("text") or "").strip()
+            if not txt:
+                continue
+            if grp in POSSESSION_ORIGIN_GROUPS and origin is None:
+                origin = txt
+            elif grp == POSSESSION_RESULT_GROUP and result is None:
+                result = txt
+            elif grp == POSSESSION_PHASE_GROUP and phase is None:
+                m = PHASE_NUMBER_RE.search(txt)
+                if m:
+                    phase = int(m.group())
+            elif grp in POSSESSION_QUARTER_GROUPS and half is None:
+                m = re.match(r"(\d+)\s*-\s*\d+", txt)
+                if m:
+                    half = 1 if int(m.group(1)) < 40 else 2
+
+        if origin is not None:
+            with_origin += 1
+        if result is not None:
+            with_result += 1
+        if phase is not None:
+            with_phase += 1
+
+        bucket = sections[origin or POSSESSION_ORIGIN_NON_TAGUEE]
+        target = bucket["half1"] if (half or 1) == 1 else bucket["half2"]
+        target.append({
+            "start": inst.get("start"),
+            "phase": phase,
+            "result": result,
+            "result_class": POSSESSION_RESULT_CLASS.get(result, "neu") if result else None,
+        })
+
+    for bucket in sections.values():
+        bucket["half1"].sort(key=lambda r: r["start"])
+        bucket["half2"].sort(key=lambda r: r["start"])
+
+    ordered_names = [n for n in POSSESSION_ORIGIN_ORDER if n in sections]
+    ordered_names += [n for n in sections if n not in ordered_names and n != POSSESSION_ORIGIN_NON_TAGUEE]
+    if POSSESSION_ORIGIN_NON_TAGUEE in sections:
+        ordered_names.append(POSSESSION_ORIGIN_NON_TAGUEE)
+
+    total = len(rows)
+    return {
+        "sections": [(name, sections[name]) for name in ordered_names],
+        "total": total,
+        "coverage": {
+            "origin": with_origin,
+            "result": with_result,
+            "phase": with_phase,
+        },
+    }
+
+
+# À partir de Journée 1 (2026-2027), la convention a encore changé : les possessions ne
+# portent plus l'origine/le résultat/les phases en labels directs (compute_possession_log
+# ci-dessus ne trouve donc plus rien sur ces matchs). Elles sont taguées "UBB POSSESSION" /
+# "ADV POSSESSION" avec juste une plage horaire ("Chrono"), et l'origine/le résultat sont
+# désormais des codes séparés qui se déclenchent pendant la possession (Rumble, Cop, Rouge,
+# Touches, Mêlées, Essai, perte de balle...). Reconstruire un détail par possession
+# demanderait de croiser les horaires de tous ces codes — hors périmètre pour l'instant.
+# En attendant, on fait un résumé honnête : nombre de possessions et répartition par
+# tranche de jeu de ~20 minutes, pour chaque équipe.
+POSSESSION_QUARTER_ORDER = ["0-20", "20-40", "40-60", "60-80"]
+
+
+def compute_possession_summary(instances):
+    """Résumé simplifié des possessions 'UBB POSSESSION' / '<Adversaire> POSSESSION'
+    (nouvelle convention Journée 1+) : nombre de possessions et répartition par tranche
+    de jeu pour chaque équipe, sans détail d'origine/résultat (pas taguable avec cette
+    convention, voir commentaire ci-dessus). L'adversaire est tagué avec son propre nom
+    (ex. 'USC'), détecté automatiquement par match plutôt qu'un mot générique 'ADV' fixe.
+    Renvoie None si ce match n'a pas ce tagging."""
+    adv_token = _detect_adverse_token(instances)
+    adv_tokens = {"ADV", "ADVERSE"} | ({adv_token} if adv_token else set())
+    sides = {"own": [], "adverse": []}
+    for inst in instances:
+        tokens = _normalize_tag(inst.get("code_raw")).split()
+        if "POSSESSION" not in tokens:
+            continue
+        if tokens[:1] == ["UBB"]:
+            sides["own"].append(inst)
+        elif tokens[:1] and tokens[0] in adv_tokens:
+            sides["adverse"].append(inst)
+
+    if not sides["own"] and not sides["adverse"]:
+        return None
+
+    def _summarize(rows):
+        by_quarter = {q: 0 for q in POSSESSION_QUARTER_ORDER}
+        durations = []
+        uncategorized = 0
+        for inst in rows:
+            start = inst.get("start")
+            end = inst.get("end")
+            if start is not None and end is not None:
+                durations.append(max(0.0, end - start))
+            quarter = None
+            for lab in inst.get("labels") or []:
+                if (lab.get("group") or "").strip() == "Chrono":
+                    txt = (lab.get("text") or "").strip()
+                    if txt in by_quarter:
+                        quarter = txt
+                    break
+            if quarter:
+                by_quarter[quarter] += 1
+            else:
+                uncategorized += 1
+        return {
+            "total": len(rows),
+            "avg_duration": round(sum(durations) / len(durations), 1) if durations else None,
+            "by_quarter": by_quarter,
+            "uncategorized": uncategorized,
+        }
+
+    return {
+        "own": _summarize(sides["own"]),
+        "adverse": _summarize(sides["adverse"]),
+        "quarters": POSSESSION_QUARTER_ORDER,
+    }
+
+
+# ---- Zone Gold (entrées en zone des 22m, nouvelle convention de tagging) -----
+# Même logique que "Nos possessions" : on relit le code brut et les labels
+# directement (rien ne dépend du classificateur catégorie/côté de l'ancienne
+# convention numérotée), donc c'est indépendant des matchs déjà importés.
+#
+# La convention de tags a déjà changé une fois cette saison (ex: "01 - Possession
+# UBB" -> "UBB POSSESSION") et peut encore bouger : on reconnaît les codes de
+# façon tolérante (casse/accents ignorés) plutôt que par correspondance exacte,
+# pour limiter la casse si l'analyste renomme légèrement ses codes.
+
+def _normalize_tag(text):
+    """Casse et accents neutralisés, espaces normalisés — pour comparer les noms
+    de codes/groupes de labels sans être sensible aux petites variations de
+    frappe (ex: 'Gold' / 'GOLD' / ' Gold ')."""
+    if not text:
+        return ""
+    nfkd = unicodedata.normalize("NFKD", text)
+    ascii_text = "".join(c for c in nfkd if not unicodedata.combining(c))
+    return " ".join(ascii_text.upper().split())
+
+
+ZONE_GOLD_RESULT_GROUPS = {"RESULTAT Z.MARQUE", "RESULTATS Z.MARQUE", "RESULTAT ZONE MARQUE", "RESULTAT Z MARQUE"}
+
+ZONE_GOLD_RESULT_CLASS = {
+    "ESSAI": "pos", "PENALITE POUR": "pos", "PENALITE": "pos", "DROP": "pos",
+    "BALLON PERDU": "neg", "PENALITE CONTRE": "neg",
+}
+# Tout autre résultat (détail d'une perte : « En avant », « Ruck perdu », « Sortie du
+# terrain », « Interception »...) compte comme un ballon perdu, comme dans le rapport.
+ZONE_GOLD_RESULT_DISPLAY = {
+    "ESSAI": "ESSAI", "PENALITE POUR": "PÉNALITÉ POUR", "PENALITE": "PÉNALITÉ",
+    "PENALITE CONTRE": "PÉNALITÉ CONTRE", "BALLON PERDU": "PERDU", "DROP": "DROP",
+}
+# Les 5 résultats possibles d'une entrée, proposés dans le menu déroulant de la page
+# Zone Gold (choix de Téo) : 2 positifs, 3 négatifs. Valeur par défaut déduite du label
+# « Resultat Z.Marque » du XML, corrigeable à la main sur le site.
+ZONE_GOLD_CHOICES = [
+    ("ESSAI", "ESSAI", "pos"),
+    ("PENALITE_POUR", "PÉNALITÉ POUR", "pos"),
+    ("PENALITE_CONTRE", "PÉNALITÉ CONTRE", "neg"),
+    ("PERTE_BALLE", "PERTE DE BALLE", "neg"),
+    ("RETOUR_RUMBLE", "RETOUR RUMBLE", "neg"),
+]
+ZONE_GOLD_CHOICE_INFO = {code: (label, tone) for code, label, tone in ZONE_GOLD_CHOICES}
+
+
+def _gold_default_choice(result):
+    r = _normalize_tag(result).replace("-", " ")
+    if r == "ESSAI":
+        return "ESSAI"
+    if r in ("PENALITE POUR", "PENALITE", "DROP"):
+        return "PENALITE_POUR"
+    if r == "PENALITE CONTRE":
+        return "PENALITE_CONTRE"
+    if "RUMBLE" in r:
+        return "RETOUR_RUMBLE"
+    return "PERTE_BALLE"
+
+
+def detect_half_time(instances):
+    """Instant (secondes vidéo) de la mi-temps. La pause se repère comme le plus long
+    trou entre deux séquences « Ball in play » (une dizaine de minutes sur les 3 matchs
+    de référence, contre 3 au plus pendant le jeu) : on prend le milieu de ce trou.
+    À défaut de « Ball in play », on se rabat sur les labels Chrono (entre la dernière
+    action 0-40 et la première 40-80). None si rien ne permet de la situer."""
+    bip = sorted(((i.get("start") or 0, i.get("end") or i.get("start") or 0)
+                  for i in instances if _normalize_tag(i.get("code_raw")) in ("BALL IN PLAY", "BIP")))
+    best = None
+    for (s1, e1), (s2, _e2) in zip(bip, bip[1:]):
+        gap = s2 - e1
+        if gap > 300 and (best is None or gap > best[0]):
+            best = (gap, (e1 + s2) / 2)
+    if best:
+        return best[1]
+    first = [i.get("start") or 0 for i in instances if _new_convention_period(i) in ("0-20", "20-40")]
+    second = [i.get("start") or 0 for i in instances if _new_convention_period(i) in ("40-60", "60-80")]
+    if first and second:
+        return (max(first) + min(second)) / 2
+    return None
+
+
+def gold_entry_key(start):
+    """Identifiant stable d'une entrée (début de l'instance dans la vidéo), qui sert à
+    retrouver ses corrections manuelles."""
+    return f"{float(start or 0):.2f}"
+
+
+# Groupe de labels « possession à l'origine de l'entrée » (Touche, Jeu, Mêlée, JAP...)
+# et détail facultatif du résultat, posés sur l'entrée en zone Gold.
+ZONE_GOLD_ORIGIN_GROUPS = {"ORIGINE POSSESSION", "ORIGINE", "POSSESSION ENTREE 22M", "ENTREE 22M"}
+ZONE_GOLD_DETAIL_GROUPS = {"DETAIL RESULTAT", "DETAIL", "RESULTAT DETAIL"}
+
+
+# Fenêtres de rattachement d'une action de score à une entrée en zone Gold (secondes
+# vidéo) : l'essai peut être codé un peu avant le début de l'entrée, la pénalité est
+# tirée après la fin de l'entrée, la transformation suit l'essai d'une à deux minutes.
+GOLD_SCORE_BEFORE = 20
+GOLD_SCORE_AFTER = 150
+GOLD_CONVERSION_AFTER = 240
+
+
+def _zone_22(inst):
+    """Descripteur « 22 » / « Hors 22 » posé sur une pénalité ou un drop (critère de Téo
+    pour les points par entrée) : True = tiré dans les 22m, False = hors 22, None = pas de
+    descripteur."""
+    verdict = None
+    for lab in inst.get("labels") or []:
+        txt = " ".join(_normalize_tag(lab.get("text")).replace("-", " ").split())
+        if txt in ("HORS 22", "HORS 22M", "HORS DES 22", "HORS DES 22M"):
+            return False
+        if txt in ("22", "22M", "DANS LES 22", "DANS LES 22M"):
+            verdict = True
+    return verdict
+
+
+def _points_par_entree_22(events, side):
+    """Points comptés pour les points par entrée (règle de Téo, octobre 2026) : tous les
+    essais et toutes les transformations de l'équipe, plus les pénalités et drops RÉUSSIS
+    qui portent le descripteur « 22 » ; ceux marqués « Hors 22 » (ou sans descripteur)
+    ne comptent pas. Renvoie None si aucune pénalité ni aucun drop du match ne porte de
+    descripteur 22 / Hors 22 pour cette équipe (XML d'avant ce critère) : on garde alors
+    l'ancienne méthode (points rattachés à chaque entrée)."""
+    kicks = [e for e in events if e["side"] == side and e["kind"] in ("penalties", "drops")]
+    if kicks and not any(_zone_22(e["inst"]) is not None for e in kicks):
+        return None
+    if not kicks and not any(_zone_22(e["inst"]) is not None for e in events
+                             if e["kind"] in ("penalties", "drops")):
+        return None
+    total = 0
+    for e in events:
+        if e["side"] != side:
+            continue
+        if e["kind"] in ("tries", "conversions"):
+            total += e["points"]
+        elif _zone_22(e["inst"]) is True:
+            total += e["points"]
+    return total
+
+
+def _attach_entry_points(rows, events, side):
+    """Points marqués à la suite de chaque entrée en zone Gold, lus sur les codes de
+    score du match (Essai, Transfo, Pénalité, Drop) plutôt que sur des labels saisis à la
+    main : chaque action de score de l'équipe est rattachée à la dernière entrée qui a
+    commencé avant elle (et pas plus de GOLD_SCORE_AFTER s après sa fin), et une
+    transformation suit son essai. Une entrée sans action de score vaut 0. Seule
+    exception : une entrée finie en essai sans code Essai rattachable garde son label
+    "Points" s'il existe, sinon reste None (signalée à l'écran)."""
+    team = [e for e in events if e["side"] == side]
+    for r in rows:
+        r["points"] = 0
+        r["points_auto"] = True
+    used = set()
+    for idx, e in enumerate(team):
+        if e["kind"] == "conversions":
+            continue
+        if e["kind"] in ("penalties", "drops") and _zone_22(e["inst"]) is False:
+            continue  # tir « Hors 22 » : ne compte pour aucune entrée
+        best = None
+        for r in rows:
+            result = _normalize_tag(r["result"])
+            # Une pénalité ne compte que pour une entrée finie sur pénalité obtenue, un
+            # drop pour une entrée qui n'a pas fini sur ballon perdu : évite d'attribuer
+            # à l'entrée précédente une pénalité tentée de loin quelques instants après.
+            if e["kind"] == "penalties" and "PENALITE" not in result:
+                continue
+            if e["kind"] == "drops" and r["result_class"] == "neg":
+                continue
+            if r["start"] - GOLD_SCORE_BEFORE <= e["start"] <= r["end"] + GOLD_SCORE_AFTER:
+                if best is None or r["start"] > best["start"]:
+                    if r["start"] <= e["start"] + GOLD_SCORE_BEFORE:
+                        best = r
+        if best is None:
+            continue
+        best["points"] += e["points"]
+        used.add(idx)
+        if e["kind"] == "tries":
+            # Transformation : le premier tir de l'équipe après l'essai, avant l'essai suivant.
+            for j in range(idx + 1, len(team)):
+                nxt = team[j]
+                if nxt["kind"] == "tries" or nxt["start"] > e["start"] + GOLD_CONVERSION_AFTER:
+                    break
+                if nxt["kind"] == "conversions" and j not in used:
+                    best["points"] += nxt["points"]
+                    used.add(j)
+                    break
+    for r in rows:
+        if _normalize_tag(r["result"]) == "ESSAI" and r["points"] == 0:
+            r["points"] = r.get("label_points")
+            r["points_auto"] = False
+
+
+def compute_zone_gold_log(instances, own_points=None, adverse_points=None, overrides=None):
+    """Journal des entrées en zone Gold (22m adverse pour nous / notre 22m pour
+    l'adversaire), façon page 'Zone Gold' du rapport vidéo : liste des entrées
+    avec résultat, + comparatif nombre d'entrées / ballons perdus / % efficacité
+    / points par entrée pour les deux équipes.
+
+    Ne reconnaît que les codes dont un des "mots" est GOLD et qui portent un
+    label de résultat (groupe contenant "Resultat Z.Marque" ou une variante
+    proche) — les tags de zone sans résultat (simple occupation de terrain) sont
+    ignorés. Renvoie None si rien de tel n'est tagué dans ce match (ancienne
+    convention, ou pas encore taggé).
+
+    Points par entrée (règle d'octobre 2026, dès que les tirs portent le descripteur
+    « 22 » / « Hors 22 ») = tous les essais + transformations + pénalités et drops réussis
+    marqués « 22 », divisés par le nombre d'entrées (voir _points_par_entree_22).
+    Sans ce descripteur (anciens XML) : points marqués À LA SUITE d'une entrée en zone Gold (essais,
+    transformations, pénalités réussies dans les 22m), divisés par le nombre d'entrées —
+    pas le score total du match (une pénalité de loin n'a rien à voir avec l'efficacité
+    dans les 22m). Ces points sont calculés à partir des codes de score du match (voir
+    _attach_entry_points) : plus besoin de label "Points" sur l'entrée. Pour un match
+    sans aucun code de score, on retombe sur les labels "Points" posés sur les entrées
+    (ancienne méthode), et None si rien n'est tagué plutôt qu'un faux 0.
+
+    own_points / adverse_points : conservés pour compatibilité d'appel, plus utilisés
+    (c'était le score total du match, ce qui faussait le ratio).
+    """
+    adv_token = _detect_adverse_token(instances)
+    own_rows, adv_rows = [], []
+    events = _scoring_events(instances, adv_token)
+    period_of = _period_lookup(instances)
+    half_time = detect_half_time(instances)
+    for inst in instances:
+        tokens = _normalize_tag(inst.get("code_raw")).split()
+        if "GOLD" not in tokens:
+            continue
+        # Suffixe "A" (ancien/alternatif gabarit de zone) OU préfixe d'équipe en tête
+        # ("USC GOLD" — le vrai nom de l'adversaire, détecté par match).
+        is_adverse = (tokens[-1] in ("A", "ADV", "ADVERSE")
+                      or tokens[0] in ("ADV", "ADVERSE")
+                      or (adv_token and tokens[0] == adv_token))
+        result = origine = detail = None
+        for lab in inst.get("labels") or []:
+            groupe = _normalize_tag(lab.get("group"))
+            if groupe in ZONE_GOLD_RESULT_GROUPS and result is None:
+                result = (lab.get("text") or "").strip()
+            elif groupe in ZONE_GOLD_ORIGIN_GROUPS and origine is None:
+                origine = (lab.get("text") or "").strip()
+            elif groupe in ZONE_GOLD_DETAIL_GROUPS and detail is None:
+                detail = (lab.get("text") or "").strip()
+        if result is None:
+            continue  # tag d'occupation de zone, pas une entrée avec résultat
+        entry_points = None
+        for lab in inst.get("labels") or []:
+            if _normalize_tag(lab.get("group")) == "POINTS":
+                try:
+                    entry_points = (entry_points or 0) + int((lab.get("text") or "").strip())
+                except ValueError:
+                    pass
+        side = "adverse" if is_adverse else "own"
+        key = gold_entry_key(inst.get("start"))
+        manual = ((overrides or {}).get(side) or {}).get(key) or {}
+        # Le résultat vient TOUJOURS du XML (label « Resultat Z.Marque »), rangé dans l'une
+        # des 5 catégories ; seule la façon d'entrer dans les 22m se saisit sur le site.
+        choice = _gold_default_choice(result)
+        label, tone = ZONE_GOLD_CHOICE_INFO[choice]
+        origine_txt = manual.get("origine") if manual.get("origine") is not None else origine
+        row = {
+            "key": key,
+            "start": inst.get("start"),
+            "end": inst.get("end") or inst.get("start"),
+            "side": side,
+            "result": result,
+            "choice": choice,
+            "result_class": tone,
+            "result_display": label,
+            "origine": origine_txt.upper() if origine_txt else None,
+            "half": (2 if (inst.get("start") or 0) >= half_time else 1) if half_time is not None
+                    else (2 if period_of(inst) in ("40-60", "60-80") else 1),
+            "points": entry_points,
+            "label_points": entry_points,
+        }
+        (adv_rows if is_adverse else own_rows).append(row)
+
+    if not own_rows and not adv_rows:
+        return None
+
+    own_rows.sort(key=lambda r: r["start"])
+    adv_rows.sort(key=lambda r: r["start"])
+    if events:
+        _attach_entry_points(own_rows, events, "own")
+        _attach_entry_points(adv_rows, events, "adverse")
+
+    def _summary(rows, side):
+        total = len(rows)
+        lost = sum(1 for r in rows if r["result_class"] == "neg")
+        positive = sum(1 for r in rows if r["result_class"] == "pos")
+        tagged = [r for r in rows if r["points"] is not None]
+        points = sum(r["points"] for r in tagged)
+        # Critère « 22 » (dès qu'il est tagué dans le match) : essais + transformations +
+        # pénalités / drops « 22 », quelle que soit l'entrée à laquelle on les rattache.
+        points_22 = _points_par_entree_22(events, side) if events else None
+        if points_22 is not None and total:
+            points, tagged = points_22, rows
+        return {
+            "rows": rows,
+            "total": total,
+            "ballons_perdus": lost,
+            "efficacite": round(100 * positive / total, 1) if total else None,
+            "points": points if tagged else None,
+            "points_par_entree": round(points / total, 2) if (tagged and total) else None,
+            # Contrôle de tagging : une entrée finie en essai sans label "Points" fausse
+            # le ratio (l'essai compterait pour 0) — signalé à l'écran.
+            "essais_sans_points": sum(1 for r in rows if r["points"] is None
+                                      and _normalize_tag(r["result"]) == "ESSAI"),
+            "origines_taguees": sum(1 for r in rows if r["origine"]),
+        }
+
+    return {
+        "own": _summary(own_rows, "own"),
+        "adverse": _summary(adv_rows, "adverse"),
+        "adv_token": adv_token,
+    }
+
+
+def gold_points_par_entree_matchs(instances_par_match, side="own"):
+    """Points par entrée sur plusieurs matchs, avec EXACTEMENT le calcul de la page Zone
+    Gold (compute_zone_gold_log, règle « 22 » comprise) : chaque match est calculé à part
+    (les temps vidéo de deux matchs ne se mélangent pas), puis total des points ÷ total
+    des entrées. Sert aux moyennes saison (flèches de comparaison) et aux indicateurs
+    par match. None si aucun match n'a d'entrée Gold avec des points connus."""
+    points = entrees = 0
+    for insts in instances_par_match:
+        g = compute_zone_gold_log(insts or [])
+        d = (g or {}).get(side) or {}
+        if d.get("points") is None or not d.get("total"):
+            continue
+        points += d["points"]
+        entrees += d["total"]
+    return round(points / entrees, 2) if entrees else None
+
+
+    # ---- Entraînement (suivi du volume par thème, saisie manuelle) ---------------
+# Taxonomie fournie par Téo (grille de suivi du coach) : 5 grandes catégories, chacune
+# divisée en sous-catégories, chacune listant des éléments précis travaillés à l'entraînement.
+# Rien ici ne vient du XML Sportscode : c'est une liste de référence saisie manuellement,
+# séance par séance, pour suivre combien de fois (et combien de temps) chaque thème est abordé.
+TRAINING_TAXONOMY = {
+    "Attaque": {
+        "Individual Attack": [
+            "Catch and pass", "Passing under pressure", "Ball carry techniques",
+            "Footwork and evasion", "Acceleration into contact", "Offloads",
+            "Finishing", "Kicking in attack", "Decision making",
+        ],
+        "Unit Attack": [
+            "Pod play", "Forward handling", "Backline attack", "Strike plays",
+            "Multi-phase attack", "Support lines", "Width and depth", "Continuity",
+        ],
+        "Team Attack": [
+            "Shape", "Tempo", "Territory vs possession", "Transition attack",
+            "Counter attack", "Red zone attack", "Exit attack", "Advantage play",
+        ],
+    },
+    "Défense": {
+        "Individual Defence": [
+            "Tackle technique", "Tracking", "Dominant collisions", "Chop tackles",
+            "Ball steals", "Defensive footwork",
+        ],
+        "Unit Defence": [
+            "Fold defence", "Drift defence", "Blitz defence", "Line speed",
+            "Connection", "Edge defence", "Goal-line defence",
+        ],
+        "Team Defence": [
+            "Defensive systems", "Transition defence", "Kick chase",
+            "Defensive communication", "Turnover response", "Pressure strategies",
+        ],
+        "Defensive Ruck": [
+            "Jackal", "Counter-ruck", "Defensive decision making", "Ruck organisation",
+        ],
+    },
+    "Contact": {
+        "Ball Carry": [
+            "Winning collisions", "Leg drive", "Body position",
+            "Ball presentation", "Fighting through contact",
+        ],
+        "Cleanout": [
+            "Accuracy", "Power", "Decision making", "Speed",
+        ],
+    },
+    "Set Piece": {
+        "Scrum": [
+            "Individual technique", "Unit cohesion", "Stability",
+            "Attack from scrum", "Defensive scrum", "Scrum exits",
+        ],
+        "Lineout": [
+            "Throwing", "Jumping", "Lifting", "Calling", "Movement",
+            "Maul launch", "Defensive lineout",
+        ],
+        "Restart": [
+            "Kick receipt", "Contestable restarts", "Receiving organisation", "Exit structures",
+        ],
+    },
+    "Jeu au pied": {
+        "Technique": [
+            "Punt", "Spiral", "Box kick", "Chip", "Grubber", "Drop-out", "Goal kicking",
+        ],
+        "Tactique": [
+            "Exit kicking", "Contestable kicking", "Territory",
+            "Kick return", "Kick pressure", "Kick chase",
+        ],
+    },
+}
+
+
+def compute_training_volume(sessions):
+    """sessions : liste de séances (dicts avec 'id' et 'items' = liste de
+    {category, subcategory, element, minutes}). Calcule, pour chaque catégorie >
+    sous-catégorie > élément de TRAINING_TAXONOMY, le nombre de séances distinctes où cet
+    élément a été coché et le total de minutes renseignées. 'minutes' reste None pour un
+    élément si aucune séance n'a jamais précisé de durée dessus (distingue '0 minute
+    saisie' de 'pas de data'), pour ne pas afficher un faux 0 dans le template."""
+    stats = defaultdict(lambda: {"session_ids": set(), "minutes": 0, "has_minutes": False})
+    for s in sessions:
+        for item in (s.get("items") or []):
+            key = (item.get("category"), item.get("subcategory"), item.get("element"))
+            stats[key]["session_ids"].add(s["id"])
+            if item.get("minutes") is not None:
+                stats[key]["minutes"] += item["minutes"]
+                stats[key]["has_minutes"] = True
+
+    categories = []
+    for cat_name, subcats in TRAINING_TAXONOMY.items():
+        cat_session_ids = set()
+        cat_minutes = 0
+        cat_has_minutes = False
+        subcat_list = []
+        for subcat_name, elements in subcats.items():
+            subcat_session_ids = set()
+            subcat_minutes = 0
+            subcat_has_minutes = False
+            element_list = []
+            for element in elements:
+                d = stats.get((cat_name, subcat_name, element))
+                if d:
+                    element_list.append({
+                        "name": element,
+                        "session_count": len(d["session_ids"]),
+                        "minutes": d["minutes"] if d["has_minutes"] else None,
+                    })
+                    subcat_session_ids |= d["session_ids"]
+                    subcat_minutes += d["minutes"]
+                    subcat_has_minutes = subcat_has_minutes or d["has_minutes"]
+                else:
+                    element_list.append({"name": element, "session_count": 0, "minutes": None})
+            subcat_list.append({
+                "name": subcat_name,
+                "session_count": len(subcat_session_ids),
+                "minutes": subcat_minutes if subcat_has_minutes else None,
+                "elements": element_list,
+            })
+            cat_session_ids |= subcat_session_ids
+            cat_minutes += subcat_minutes
+            cat_has_minutes = cat_has_minutes or subcat_has_minutes
+        categories.append({
+            "name": cat_name,
+            "session_count": len(cat_session_ids),
+            "minutes": cat_minutes if cat_has_minutes else None,
+            "subcategories": subcat_list,
+        })
+
+    return {"categories": categories, "total_sessions": len(sessions)}
+
+
+def compute_subcategory_breakdown(volume):
+    """Aplatit les sous-catégories d'un volume (compute_training_volume) en une liste prête
+    pour un graphique camembert : une part par sous-catégorie effectivement travaillée sur
+    la période. Utilise les minutes comme poids si TOUTES les sous-catégories actives ont
+    une durée renseignée cette période, sinon retombe sur le nombre de séances — pour ne
+    jamais mélanger deux unités différentes (minutes et séances) dans le même camembert."""
+    active = [sub for cat in volume["categories"] for sub in cat["subcategories"] if sub["session_count"] > 0]
+    if not active:
+        return {"labels": [], "values": [], "metric": None}
+    use_minutes = all(s["minutes"] is not None for s in active)
+    if use_minutes:
+        return {"labels": [s["name"] for s in active], "values": [s["minutes"] for s in active], "metric": "minutes"}
+    return {"labels": [s["name"] for s in active], "values": [s["session_count"] for s in active], "metric": "séances"}
+
+
+_MONTHS_FR = [
+    "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+    "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+]
+
+
+# Lundi de la "Semaine 1" de la saison (reprise de la présaison, donné par Téo :
+# la semaine du 13 au 19 juillet 2026 est la Semaine 3, donc la Semaine 1 démarre
+# le lundi 29 juin 2026). Toute la numérotation "Semaine N" du rapport se cale sur
+# cette date plutôt que sur le numéro de semaine calendaire (ISO), qui ne correspond
+# pas au découpage du club.
+SEASON_WEEK1_MONDAY = datetime(2026, 6, 29).date()
+
+
+def _week_label(d):
+    monday = d - timedelta(days=d.weekday())
+    sunday = monday + timedelta(days=6)
+    week_number = (monday - SEASON_WEEK1_MONDAY).days // 7 + 1
+    if week_number < 1:
+        return f"Avant-saison ({monday.strftime('%d/%m')} au {sunday.strftime('%d/%m/%Y')})"
+    return f"Semaine {week_number} ({monday.strftime('%d/%m')} au {sunday.strftime('%d/%m/%Y')})"
+
+
+def _month_label(d):
+    return f"{_MONTHS_FR[d.month - 1]} {d.year}"
+
+
+def group_training_sessions_by_period(sessions, period="week"):
+    """Regroupe les séances par semaine calendaire (ISO) ou par mois, et calcule pour
+    chaque période le volume par catégorie/sous-catégorie/élément (compute_training_volume)
+    sur les seules séances de cette période. Pour le rapport coach hebdo/mensuel : pas
+    besoin du détail jour par jour, juste le temps passé par thème sur la période. Périodes
+    triées de la plus récente à la plus ancienne. Les séances sans date valide sont ignorées."""
+    groups = {}
+    for s in sessions:
+        raw_date = s.get("session_date")
+        if not raw_date:
+            continue
+        try:
+            d = datetime.strptime(raw_date, "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        if period == "month":
+            key = (d.year, d.month)
+            label = _month_label(d)
+        else:
+            iso_year, iso_week, _ = d.isocalendar()
+            key = (iso_year, iso_week)
+            label = _week_label(d)
+        groups.setdefault(key, {"label": label, "sessions": []})
+        groups[key]["sessions"].append(s)
+
+    periods = []
+    for key in sorted(groups.keys(), reverse=True):
+        g = groups[key]
+        volume = compute_training_volume(g["sessions"])
+        periods.append({
+            "label": g["label"],
+            "session_count": len(g["sessions"]),
+            "volume": volume,
+            "breakdown": compute_subcategory_breakdown(volume),
+        })
+    return periods
+# ---- Data Analyse (corrélation indicateurs / victoire-défaite) --------------
+# Jeu d'indicateurs par match, réutilisant les fonctions déjà utilisées sur les pages
+# sectorielles (Attaque/Défense/Ruck/Touches/Mêlée). 'higher_is_better' indique le sens
+# souhaité (ex: plus de réussite au plaquage = mieux, mais moins de pertes de balle = mieux)
+# pour que le calcul d'écart victoire/défaite pointe dans le bon sens.
+KPI_DEFINITIONS = [
+    {"key": "bip_minutes", "label": "Temps de jeu effectif (Ball in Play)", "unit": " min", "higher_is_better": True},
+    {"key": "possession_pct", "label": "Possession", "unit": "%", "higher_is_better": True},
+    {"key": "occupation_pct", "label": "Occupation du terrain", "unit": "%", "higher_is_better": True},
+    {"key": "tackle_pct", "label": "Réussite au plaquage", "unit": "%", "higher_is_better": True},
+    {"key": "lineout_pct", "label": "Réussite en touche", "unit": "%", "higher_is_better": True},
+    {"key": "scrum_pct", "label": "Réussite en mêlée", "unit": "%", "higher_is_better": True},
+    {"key": "points_per_entry", "label": "Points par entrée en zone d'attaque", "unit": "", "higher_is_better": True},
+    {"key": "offloads", "label": "Offloads", "unit": "", "higher_is_better": True},
+    {"key": "breaks", "label": "Franchissements (breaks)", "unit": "", "higher_is_better": True},
+    {"key": "lost_balls", "label": "Pertes de balle", "unit": "", "higher_is_better": False},
+    {"key": "turnovers_won", "label": "Turnovers gagnés", "unit": "", "higher_is_better": True},
+    {"key": "discipline", "label": "Fautes concédées (discipline)", "unit": "", "higher_is_better": False},
+    {"key": "ruck_speed_fast_pct", "label": "Rucks joués en moins de 3s", "unit": "%", "higher_is_better": True},
+    {"key": "duels_aeriens_pct", "label": "Réussite duels aériens", "unit": "%", "higher_is_better": True},
+    {"key": "contre_ruck", "label": "Contre-rucks gagnés", "unit": "", "higher_is_better": True},
+]
+
+
+def compute_match_kpis(instances):
+    """Extrait un jeu d'indicateurs numériques pour UN match (instances de ce seul match,
+    pas concaténées), à partir des mêmes fonctions déjà utilisées sur les pages secteur.
+    Une valeur peut être None si rien n'est codé sur ce match pour cet indicateur précis
+    (le match est alors simplement ignoré pour cet indicateur dans la comparaison)."""
+    plaquage = compute_plaquage_detail(instances)
+    lineout = compute_lineout_detail(instances)
+    scrum = compute_scrum_detail(instances)
+    attack = compute_attack_sector(instances, "own")
+    defense_adv = compute_defense_sector(instances, "adverse")  # turnovers_recuperes = gagnés par nous
+    ruck_speed_own = compute_ruck_speed(instances, "own")
+    ruck_totals = compute_player_ruck_table(instances)["totals"]
+
+    ruck_fast_pct = ruck_speed_own["buckets"]["-3s"]["pct"] if ruck_speed_own["total"] else None
+
+    # Temps de jeu effectif, possession et occupation moyens : mêmes calculs que sur la
+    # Vue d'ensemble d'un match, pour pouvoir comparer leur moyenne en victoire vs défaite.
+    score = compute_score(instances)
+    dash = compute_overview_dashboard(instances, score)
+    bip_duration = (dash.get("ball_in_play") or {}).get("duration")
+    bip_minutes = round(bip_duration / 60, 1) if bip_duration is not None else None
+
+    stats, _ = aggregate_match_stats(instances)
+    poss = stats.get("Possession", {})
+    poss_own = poss.get("own", {}).get("duration", 0)
+    poss_adv = poss.get("adverse", {}).get("duration", 0)
+    poss_total = poss_own + poss_adv
+    possession_pct = round(poss_own / poss_total * 100, 1) if poss_total else None
+
+    occ = dash.get("occupation") or {}
+    occ_own = occ.get("own_events", 0)
+    occ_adv = occ.get("adverse_events", 0)
+    occ_total = occ_own + occ_adv
+    occupation_pct = round(occ_own / occ_total * 100, 1) if occ_total else None
+
+    return {
+        "bip_minutes": bip_minutes,
+        "possession_pct": possession_pct,
+        "occupation_pct": occupation_pct,
+        "tackle_pct": plaquage["rate_pct"],
+        "lineout_pct": lineout["own"]["success_rate"],
+        "scrum_pct": scrum["own"]["won_pct"],
+        "points_per_entry": gold_points_par_entree_matchs([instances], "own"),
+        "offloads": attack["offloads"],
+        "breaks": attack["breaks"],
+        "lost_balls": attack["lost_balls"],
+        "turnovers_won": defense_adv["turnovers_recuperes"],
+        "discipline": _cat_count(instances, "Disciplines", "own"),
+        "ruck_speed_fast_pct": ruck_fast_pct,
+        "duels_aeriens_pct": attack["duels_aeriens"]["pct"],
+        "contre_ruck": ruck_totals.get("contre_ruck", 0),
+    }
+
+
+def _pooled_std(a, b):
+    """Écart-type combiné de 2 échantillons (pour un effet de type Cohen's d), None si
+    l'un des 2 groupes a moins de 2 valeurs (variance non calculable)."""
+    n1, n2 = len(a), len(b)
+    if n1 < 2 or n2 < 2:
+        return None
+    var1 = statistics.variance(a)
+    var2 = statistics.variance(b)
+    pooled_var = ((n1 - 1) * var1 + (n2 - 1) * var2) / (n1 + n2 - 2)
+    return pooled_var ** 0.5
+
+
+def compute_win_loss_analysis(matches):
+    """matches : liste de matchs du filtre saison (dicts avec 'instances' = liste NON
+    concaténée, propre à chaque match). Classe chaque match victoire/défaite via
+    compute_score (les matchs nuls sont ignorés, trop rares/ambigus en rugby pour ce
+    calcul), calcule les indicateurs de KPI_DEFINITIONS pour chaque match, puis compare
+    la moyenne en victoire vs en défaite pour chaque indicateur. Le classement utilise un
+    effet standardisé façon Cohen's d (écart / écart-type combiné) plutôt que l'écart brut,
+    pour pouvoir comparer équitablement des indicateurs à échelles différentes (% vs
+    comptages). Renvoie 'insufficient_data': True s'il n'y a pas au moins 2 victoires ET
+    2 défaites sur la sélection (comparaison non fiable en dessous)."""
+    wins_kpis, losses_kpis = [], []
+    for m in matches:
+        instances = m.get("instances") or []
+        if not instances:
+            continue
+        score = compute_score(instances)
+        if score["own"] > score["adverse"]:
+            wins_kpis.append(compute_match_kpis(instances))
+        elif score["own"] < score["adverse"]:
+            losses_kpis.append(compute_match_kpis(instances))
+
+    n_wins, n_losses = len(wins_kpis), len(losses_kpis)
+    if n_wins < 2 or n_losses < 2:
+        return {"insufficient_data": True, "n_wins": n_wins, "n_losses": n_losses}
+
+    rows = []
+    for kpi_def in KPI_DEFINITIONS:
+        key = kpi_def["key"]
+        win_values = [k[key] for k in wins_kpis if k[key] is not None]
+        loss_values = [k[key] for k in losses_kpis if k[key] is not None]
+        if len(win_values) < 2 or len(loss_values) < 2:
+            continue  # pas assez de matchs avec cette donnée codée pour comparer
+
+        win_avg = sum(win_values) / len(win_values)
+        loss_avg = sum(loss_values) / len(loss_values)
+        raw_gap = win_avg - loss_avg
+        pooled_std = _pooled_std(win_values, loss_values)
+        if pooled_std:
+            effect = raw_gap / pooled_std
+        else:
+            # Valeurs constantes dans les 2 groupes mais différentes entre eux :
+            # séparation totale, donc un signal fort malgré une variance nulle.
+            effect = 0.0 if raw_gap == 0 else (3.0 if raw_gap > 0 else -3.0)
+        signed_effect = effect if kpi_def["higher_is_better"] else -effect
+
+        rows.append({
+            "key": key,
+            "label": kpi_def["label"],
+            "unit": kpi_def["unit"],
+            "win_avg": round(win_avg, 1),
+            "loss_avg": round(loss_avg, 1),
+            "higher_is_better": kpi_def["higher_is_better"],
+            "signed_effect": round(signed_effect, 2),
+            "effect_abs": round(abs(signed_effect), 2),
+            "bar_pct": round(min(abs(signed_effect) / 3, 1) * 100, 1),
+            "n_win": len(win_values),
+            "n_loss": len(loss_values),
+        })
+
+    strengths = sorted([r for r in rows if r["signed_effect"] > 0], key=lambda r: -r["signed_effect"])
+    weaknesses = sorted([r for r in rows if r["signed_effect"] < 0], key=lambda r: r["signed_effect"])
+    # Temps de jeu effectif puis possession toujours en tête du tableau (demande de Téo),
+    # le reste trié par importance de l'écart victoire/défaite.
+    pinned_keys = ["bip_minutes", "possession_pct"]
+    pinned = [r for k in pinned_keys for r in rows if r["key"] == k]
+    all_rows = pinned + sorted([r for r in rows if r["key"] not in pinned_keys],
+                               key=lambda r: -abs(r["signed_effect"]))
+    return {
+        "insufficient_data": False,
+        "n_wins": n_wins,
+        "n_losses": n_losses,
+        "strengths": strengths,
+        "weaknesses": weaknesses,
+        "all_rows": all_rows,
+    }
