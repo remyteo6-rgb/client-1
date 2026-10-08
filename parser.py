@@ -545,6 +545,8 @@ SCORE_KIND_TOKENS = {
     "drops": {"DROP", "DROPS"},
 }
 SCORE_TRY_POINTS = 5
+# Délai max (s vidéo) entre un essai et son code Transfo pour les considérer liés.
+CONVERSION_WINDOW = 240
 SCORE_DEFAULT_POINTS = {"conversions": 2, "penalties": 3, "drops": 3}
 
 
@@ -590,6 +592,30 @@ def _scoring_events(instances, adv_token=None):
                        "start": inst.get("start") or 0, "end": inst.get("end") or inst.get("start") or 0,
                        "inst": inst})
     events.sort(key=lambda e: e["start"])
+    # Essai transformé sans code Transfo : quand l'essai porte le label « Points » = 7
+    # (5 + 2) et qu'aucun code Transfo de la même équipe ne le suit avant l'essai suivant,
+    # on ajoute la transformation (2 points). Agen-UBB : 2e essai d'Agen tagué « 7 » sans
+    # code « SUA Transfo » → 18 au lieu de 20.
+    implicit = []
+    for idx, e in enumerate(events):
+        if e["kind"] != "tries" or _points_label(e["inst"]) != SCORE_TRY_POINTS + SCORE_DEFAULT_POINTS["conversions"]:
+            continue
+        has_conversion = False
+        for nxt in events[idx + 1:]:
+            if nxt["side"] != e["side"]:
+                continue
+            if nxt["kind"] == "tries" or nxt["start"] > e["start"] + CONVERSION_WINDOW:
+                break
+            if nxt["kind"] == "conversions":
+                has_conversion = True
+                break
+        if not has_conversion:
+            implicit.append({"side": e["side"], "kind": "conversions",
+                             "points": SCORE_DEFAULT_POINTS["conversions"],
+                             "start": e["start"] + 0.01, "end": e["end"], "inst": e["inst"],
+                             "implicit": True})
+    if implicit:
+        events = sorted(events + implicit, key=lambda e: e["start"])
     return events
 
 
@@ -4386,6 +4412,44 @@ GOLD_SCORE_AFTER = 150
 GOLD_CONVERSION_AFTER = 240
 
 
+def _zone_22(inst):
+    """Descripteur « 22 » / « Hors 22 » posé sur une pénalité ou un drop (critère de Téo
+    pour les points par entrée) : True = tiré dans les 22m, False = hors 22, None = pas de
+    descripteur."""
+    verdict = None
+    for lab in inst.get("labels") or []:
+        txt = " ".join(_normalize_tag(lab.get("text")).replace("-", " ").split())
+        if txt in ("HORS 22", "HORS 22M", "HORS DES 22", "HORS DES 22M"):
+            return False
+        if txt in ("22", "22M", "DANS LES 22", "DANS LES 22M"):
+            verdict = True
+    return verdict
+
+
+def _points_par_entree_22(events, side):
+    """Points comptés pour les points par entrée (règle de Téo, octobre 2026) : tous les
+    essais et toutes les transformations de l'équipe, plus les pénalités et drops RÉUSSIS
+    qui portent le descripteur « 22 » ; ceux marqués « Hors 22 » (ou sans descripteur)
+    ne comptent pas. Renvoie None si aucune pénalité ni aucun drop du match ne porte de
+    descripteur 22 / Hors 22 pour cette équipe (XML d'avant ce critère) : on garde alors
+    l'ancienne méthode (points rattachés à chaque entrée)."""
+    kicks = [e for e in events if e["side"] == side and e["kind"] in ("penalties", "drops")]
+    if kicks and not any(_zone_22(e["inst"]) is not None for e in kicks):
+        return None
+    if not kicks and not any(_zone_22(e["inst"]) is not None for e in events
+                             if e["kind"] in ("penalties", "drops")):
+        return None
+    total = 0
+    for e in events:
+        if e["side"] != side:
+            continue
+        if e["kind"] in ("tries", "conversions"):
+            total += e["points"]
+        elif _zone_22(e["inst"]) is True:
+            total += e["points"]
+    return total
+
+
 def _attach_entry_points(rows, events, side):
     """Points marqués à la suite de chaque entrée en zone Gold, lus sur les codes de
     score du match (Essai, Transfo, Pénalité, Drop) plutôt que sur des labels saisis à la
@@ -4402,6 +4466,8 @@ def _attach_entry_points(rows, events, side):
     for idx, e in enumerate(team):
         if e["kind"] == "conversions":
             continue
+        if e["kind"] in ("penalties", "drops") and _zone_22(e["inst"]) is False:
+            continue  # tir « Hors 22 » : ne compte pour aucune entrée
         best = None
         for r in rows:
             result = _normalize_tag(r["result"])
@@ -4448,7 +4514,10 @@ def compute_zone_gold_log(instances, own_points=None, adverse_points=None, overr
     ignorés. Renvoie None si rien de tel n'est tagué dans ce match (ancienne
     convention, ou pas encore taggé).
 
-    Points par entrée = points marqués À LA SUITE d'une entrée en zone Gold (essais,
+    Points par entrée (règle d'octobre 2026, dès que les tirs portent le descripteur
+    « 22 » / « Hors 22 ») = tous les essais + transformations + pénalités et drops réussis
+    marqués « 22 », divisés par le nombre d'entrées (voir _points_par_entree_22).
+    Sans ce descripteur (anciens XML) : points marqués À LA SUITE d'une entrée en zone Gold (essais,
     transformations, pénalités réussies dans les 22m), divisés par le nombre d'entrées —
     pas le score total du match (une pénalité de loin n'a rien à voir avec l'efficacité
     dans les 22m). Ces points sont calculés à partir des codes de score du match (voir
@@ -4525,12 +4594,17 @@ def compute_zone_gold_log(instances, own_points=None, adverse_points=None, overr
         _attach_entry_points(own_rows, events, "own")
         _attach_entry_points(adv_rows, events, "adverse")
 
-    def _summary(rows):
+    def _summary(rows, side):
         total = len(rows)
         lost = sum(1 for r in rows if r["result_class"] == "neg")
         positive = sum(1 for r in rows if r["result_class"] == "pos")
         tagged = [r for r in rows if r["points"] is not None]
         points = sum(r["points"] for r in tagged)
+        # Critère « 22 » (dès qu'il est tagué dans le match) : essais + transformations +
+        # pénalités / drops « 22 », quelle que soit l'entrée à laquelle on les rattache.
+        points_22 = _points_par_entree_22(events, side) if events else None
+        if points_22 is not None and total:
+            points, tagged = points_22, rows
         return {
             "rows": rows,
             "total": total,
@@ -4546,8 +4620,8 @@ def compute_zone_gold_log(instances, own_points=None, adverse_points=None, overr
         }
 
     return {
-        "own": _summary(own_rows),
-        "adverse": _summary(adv_rows),
+        "own": _summary(own_rows, "own"),
+        "adverse": _summary(adv_rows, "adverse"),
         "adv_token": adv_token,
     }
 
