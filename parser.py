@@ -1624,7 +1624,9 @@ DEFENSE_FRANCHI_RESULTATS = [
     ("Franchissement - Arret", ["ARRET", "ARRETE", "STOP"]),
 ]
 DEFENSE_FRANCHI_ORIGINES = [
-    ("Franchi Contre Attaque", ["CONTRE ATTAQUE", "CE", "CA"]),
+    # Coup d'envoi compté en contre-attaque (demande de Téo).
+    ("Franchi Contre Attaque", ["CONTRE ATTAQUE", "CE", "CA", "COUP D'ENVOI", "COUPS D'ENVOI",
+                                "COUP D ENVOI", "COUPS D ENVOI", "COUP DENVOI", "COUP D'ENVOIE"]),
     ("Franchi Turnovers", ["TURNOVER", "TURNOVERS"]),
     ("Franchi Touches", ["TOUCHE", "TOUCHES"]),
     ("Franchi Mêlées", ["MELEE", "MELEES"]),
