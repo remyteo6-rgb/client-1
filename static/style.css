@@ -2821,3 +2821,8 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
 .replace-xml-form { display: flex; flex-direction: column; gap: 12px; color: #151a13; }
 .replace-xml-form p { margin: 0; }
 .replace-xml-form .btn { align-self: flex-start; }
+
+/* Bilan défense : même présentation qu'avant (une colonne « 1er Temps » … « + 12 Temps »),
+   avec plus de hauteur pour le bloc du milieu, pour que « + 12 Temps » ne passe plus
+   sous le cadre. */
+.report-slide .def-cols { flex: 1.5; }
