@@ -294,14 +294,14 @@
     <div class="kpi-card">
         <div class="kpi-label">Points par entrée</div>
         <div class="kpi-value">
-            <span class="kpi-own">{{ dashboard.points_per_entry if dashboard.points_per_entry is not none else '—' }}</span>
+            <span class="kpi-own">{{ dashboard.points_per_entry|fr2 if dashboard.points_per_entry is not none else '—' }}</span>
             /
-            <span class="kpi-adverse">{{ dashboard.points_per_entry_adverse if dashboard.points_per_entry_adverse is not none else '—' }}</span>
+            <span class="kpi-adverse">{{ dashboard.points_per_entry_adverse|fr2 if dashboard.points_per_entry_adverse is not none else '—' }}</span>
         </div>
         {% if baseline %}{{ kpi_compare(dashboard.points_per_entry, baseline.points_per_entry, true) }}{% endif %}
         {% set entries_label = dashboard.entries_label or 'zone RAID' %}
         {% if 'entry_points' in dashboard %}
-        <div class="kpi-help">Points marqués à la suite d'une entrée en zone Gold (codes Essai / Transfo / Pénalité rattachés à l'entrée), divisés par le nombre d'entrées.
+        <div class="kpi-help">Essais + transformations + pénalités et drops réussis marqués « 22 » (hors « Hors 22 »), divisés par le nombre d'entrées en zone Gold — même chiffre que les pages Zone Gold, Bilan attaque et Bilan défense.
             Nous : {{ dashboard.entries }} entrée{{ 's' if dashboard.entries != 1 else '' }} pour {{ dashboard.entry_points if dashboard.entry_points is not none else '?' }} points.
             {{ match['opponent'] }} : {{ dashboard.entries_adverse }} entrée{{ 's' if dashboard.entries_adverse != 1 else '' }} pour {{ dashboard.entry_points_adverse if dashboard.entry_points_adverse is not none else '?' }} points.
             {% if dashboard.entry_points_missing %}{{ icons.warning() }} {{ dashboard.entry_points_missing }} entrée{{ 's' if dashboard.entry_points_missing != 1 else '' }} finie{{ 's' if dashboard.entry_points_missing != 1 else '' }} en essai sans code « Essai » rattaché : ratio sous-estimé.{% endif %}

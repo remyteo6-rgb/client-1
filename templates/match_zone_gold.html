@@ -100,8 +100,8 @@
 </div>
 
 <div class="card no-print zg-notes">
-    <p class="subtitle">Points / entrée = points marqués à la suite d'une entrée dans les 22m (essais, transformations, pénalités réussies),
-        calculés à partir des codes Essai / Transfo / Pénalité / Drop rattachés à chaque entrée, divisés par le nombre d'entrées.
+    <p class="subtitle">Points / entrée = tous les essais et transformations + les pénalités et drops réussis marqués « 22 » (les tirs « Hors 22 » ne comptent pas),
+        divisés par le nombre d'entrées. Même chiffre sur la Vue d'ensemble, le Bilan attaque et le Bilan défense.
         Ballons perdus = toutes les entrées qui ne finissent ni en essai ni en pénalité obtenue.</p>
     {% set manquants = data.own.essais_sans_points + data.adverse.essais_sans_points %}
     {% if manquants %}
