@@ -1483,6 +1483,7 @@ def compute_bilan_attaque(instances, own_points=None):
     vitesse = Counter()
     def_battus = Counter()
     offload_qualif = Counter()
+    offload_team = Counter()
     joueurs_def_battus = set()
     actions = Counter()
     gla_plus = gla_total = 0
@@ -1523,6 +1524,10 @@ def compute_bilan_attaque(instances, own_points=None):
                 # Qualificatif du plaquage cassé (RING / CORDE), porté par le code
                 # d'équipe.
                 def_battus[texte] += 1
+            elif is_team_code and groupe in ("OFFLOAD", "OFFLOADS", "OFLLOAD", "OFLLOADS"):
+                # Ligne « UBB Offloads » qualifiée Super / + Gardé / - Gardé / Perdu
+                # (XML d'Agen, octobre 2026) : c'est elle qui fait foi pour la répartition.
+                offload_team[texte] += 1
             elif is_team_code:
                 continue  # doublon des labels posés sur le joueur
             elif groupe == "CONTACTS":
@@ -1582,7 +1587,11 @@ def compute_bilan_attaque(instances, own_points=None):
         "contacts_joueurs": contacts_joueurs,
         "passes": actions.get("PASSES", 0),
         "clics": codes.get("UBB CLIC", 0),
-        "offloads_detail": _offloads_detail(offload_qualif),
+        # Répartition : la ligne « UBB Offloads » si ses 4 familles y sont taguées,
+        # sinon les labels « Offload » posés sur les joueurs (anciens fichiers).
+        "offloads_detail": (_offloads_detail(offload_team)
+                            if any(offload_team.get(k, 0) for _l, _t, cles in OFFLOAD_FAMILLES for k in cles)
+                            else _offloads_detail(offload_qualif)),
         "plaquages_detail": {
             "joueurs": len(joueurs_def_battus),
             "ring": def_battus.get("RING", 0) + def_battus.get("RINGS", 0),
