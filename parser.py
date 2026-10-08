@@ -1097,9 +1097,12 @@ def compute_csc(instances):
 # Catégories du rapport et libellés acceptés dans le groupe de labels « Catégorie »
 # posé sur la faute du joueur (sinon saisie à la main sur la page Discipline).
 DISCIPLINE_CATEGORIES = [
-    ("Attack", {"ATTACK", "ATTAQUE", "OFFENSIVE"}),
-    ("Defence", {"DEFENCE", "DEFENSE", "DEFENSIVE"}),
-    ("Set Piece", {"SET PIECE", "CONQUETE", "PHASE STATIQUE", "PHASES STATIQUES", "MELEE", "TOUCHE"}),
+    # « Off » / « Def » / « Conquête » / « Autres » : labels du groupe Disciplines posés sur
+    # le code « UBB Disciplines » (XML d'Agen, octobre 2026). Sur les codes joueurs, les
+    # labels sont « Disciplines Off / Def » : ils ne sont pas pris pour une catégorie.
+    ("Attack", {"ATTACK", "ATTAQUE", "OFFENSIVE", "OFF"}),
+    ("Defence", {"DEFENCE", "DEFENSE", "DEFENSIVE", "DEF"}),
+    ("Set Piece", {"SET PIECE", "CONQUETE", "CONQUETES", "PHASE STATIQUE", "PHASES STATIQUES", "MELEE", "TOUCHE"}),
     ("Other", {"OTHER", "AUTRE", "AUTRES"}),
 ]
 DISCIPLINE_REASON_GROUPS = {"RAISON", "RAISONS", "MOTIF", "RAISON FAUTE"}
@@ -1199,8 +1202,14 @@ def compute_discipline(instances, row_order=None, cards=None, composition=None, 
         # Disciplines AUTRE que « Disciplines Off / Def » (décision de Téo : pas ceux-là).
         out = [t for g in DISCIPLINE_REASON_GROUPS for t in groups.get(g, []) if t]
         out += [t for t in groups.get("DISCIPLINES", [])
-                if t and _normalize_tag(t) not in ("DISCIPLINES OFF", "DISCIPLINES DEF", "DISCIPLINE OFF", "DISCIPLINE DEF")]
+                if t and _normalize_tag(t) not in ("DISCIPLINES OFF", "DISCIPLINES DEF", "DISCIPLINE OFF", "DISCIPLINE DEF")
+                and _discipline_category({_normalize_tag(t)}) is None]  # Off / Def / Conquête / Autres = catégorie
         return out
+
+    def _category_of(groups, team_code=False):
+        # Sur le code « UBB Disciplines », la catégorie peut aussi être dans le groupe Disciplines.
+        gs = DISCIPLINE_CATEGORY_GROUPS | ({"DISCIPLINES"} if team_code else set())
+        return _discipline_category({_normalize_tag(t) for g in gs for t in groups.get(g, [])})
 
     def _count_fault(code, groups, reasons):
         row = players.setdefault(code, {"fautes": 0, "reasons": Counter(), "yellow": 0, "red": 0})
@@ -1215,9 +1224,8 @@ def compute_discipline(instances, row_order=None, cards=None, composition=None, 
                 elif "ROUGE" in nt or "RED" in nt:
                     row["red"] += 1
 
-    def _count_category(groups, reasons):
-        cat_texts = {_normalize_tag(t) for g in DISCIPLINE_CATEGORY_GROUPS for t in groups.get(g, [])}
-        cat = _discipline_category(cat_texts)
+    def _count_category(groups, reasons, cat=None):
+        cat = cat or _category_of(groups)
         if cat:
             categories[cat]["count"] += 1
             for r in reasons:
@@ -1247,7 +1255,7 @@ def compute_discipline(instances, row_order=None, cards=None, composition=None, 
             team_faults_with_player += 1
             reasons = _reasons_of(groups)
             _count_fault(fautif, groups, reasons)
-            _count_category(groups, reasons)
+            _count_category(groups, reasons, _category_of(groups, team_code=True))
 
     # 2) Sinon (fichiers actuels) : les labels Disciplines posés sur les codes joueurs,
     #    rapprochés UN PAR UN des codes « UBB Disciplines » (le label joueur est posé
@@ -1268,27 +1276,39 @@ def compute_discipline(instances, row_order=None, cards=None, composition=None, 
             joueurs_off = {_normalize_tag(t) for t in groups.get(PLAYER_ACTION_GROUP, [])}
             if disc or (joueurs_off & PLAYER_ACTION_PENALTY):
                 candidates.append((inst.get("start") or 0, code, groups))
-        team_starts = sorted((inst.get("start") or 0) for inst in instances
-                             if _normalize_tag(inst.get("code_raw")) == "UBB DISCIPLINES")
+        team_insts = sorted(
+            ((inst.get("start") or 0), {g: [((l.get("text") or "").strip()) for l in inst.get("labels") or []
+                                            if _normalize_tag(l.get("group")) == g]
+                                        for g in {_normalize_tag(l.get("group")) for l in inst.get("labels") or []}})
+            for inst in instances if _normalize_tag(inst.get("code_raw")) == "UBB DISCIPLINES")
         used = set()
-        if team_starts:
-            for t0 in team_starts:
+        if team_insts:
+            for t0, tgroups in team_insts:
                 best = None
                 for k, (t, _c, _g) in enumerate(candidates):
                     if k in used or not (t0 - 15 <= t <= t0 + 25):
                         continue
                     if best is None or abs(t - t0) < abs(candidates[best][0] - t0):
                         best = k
+                treasons = _reasons_of(tgroups)
+                tcat = _category_of(tgroups, team_code=True)
                 if best is not None:
                     used.add(best)
+                    _t, code, groups = candidates[best]
+                    reasons = _reasons_of(groups) + treasons
+                    _count_fault(code, groups, reasons)
+                    _count_category(groups, reasons, tcat)
+                elif tcat:
+                    # Faute sans joueur rapproché : sa catégorie compte quand même pour l'équipe.
+                    _count_category(tgroups, treasons, tcat)
             labels_hors_penalite = len(candidates) - len(used)
         else:
             used = set(range(len(candidates)))  # pas de code équipe : on garde tout
-        for k in sorted(used):
-            _t, code, groups = candidates[k]
-            reasons = _reasons_of(groups)
-            _count_fault(code, groups, reasons)
-            _count_category(groups, reasons)
+            for k in sorted(used):
+                _t, code, groups = candidates[k]
+                reasons = _reasons_of(groups)
+                _count_fault(code, groups, reasons)
+                _count_category(groups, reasons)
         team_faults_paired = len(used)
 
     if team is None and not players:
