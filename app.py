@@ -918,6 +918,9 @@ def init_db():
     # {"objectifs": "rouge", "commentaire__plaquage": "vert"}. Un champ absent = noir.
     for table in ("ppid_rugby_evals", "ppid_physical_evals", "ppid_entretiens", "charges_items"):
         db.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS couleurs TEXT")
+    # Points d'étape rugby saisis avec l'ancienne grille de critères : remis en face des
+    # bons critères de la grille d'octobre 2026 (une seule fois).
+    _ppid_migrer_grille_2026(db)
     # Groupes de joueurs par défaut (l'admin peut en ajouter d'autres ensuite).
     for default_group in ("Avants", "Trois-quarts"):
         db.execute(
@@ -2394,6 +2397,54 @@ def import_data():
     return redirect(url_for("index"))
 
 
+@app.route("/match/<int:match_id>/remplacer-xml", methods=["POST"])
+@admin_required
+def match_replace_xml(match_id):
+    """Remplace le fichier XML d'un match déjà importé (version recodée ou complétée dans
+    Sportscode) SANS créer de nouveau match : seules les données lues dans le fichier sont
+    mises à jour. Tout ce qui a été saisi sur le site est conservé — composition et minutes,
+    score corrigé, origines Zone Gold, corrections Discipline, lancements des Touches
+    (manual_stats_json / composition_json / player_match_stats_json ne sont pas touchés).
+    Les saisies rattachées à une action précise (Zone Gold, Touches) se retrouvent tant que
+    l'action garde le même début dans le nouveau fichier."""
+    match = _get_match_or_404(match_id)
+    file = request.files.get("xml_file")
+    if not file or file.filename == "":
+        flash("Merci de sélectionner le nouveau fichier XML Sportscode.", "error")
+        return redirect(url_for("match_detail", match_id=match_id))
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    ts = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    save_path = os.path.join(UPLOAD_DIR, f"{ts}_{file.filename}")
+    file.save(save_path)
+    try:
+        parsed = parse_sportscode_xml(save_path)
+    except Exception as exc:
+        flash(f"Erreur lors de la lecture du fichier XML : {exc}", "error")
+        return redirect(url_for("match_detail", match_id=match_id))
+    if not parsed.get("instances"):
+        flash("Ce fichier ne contient aucune action codée : l'ancien XML est conservé.", "error")
+        return redirect(url_for("match_detail", match_id=match_id))
+    stats, players = aggregate_match_stats(parsed["instances"])
+    zones = aggregate_zones(parsed["instances"])
+    row_order = player_row_order(parsed["instances"], parsed.get("row_order"))
+    avant = match.get("total_instances") or 0
+    db = get_db()
+    db.execute(
+        """UPDATE matches SET filename = %s, own_team_tag = %s, total_instances = %s,
+           stats_json = %s, players_json = %s, zones_json = %s, instances_json = %s,
+           row_order_json = %s WHERE id = %s""",
+        (
+            file.filename, parsed["own_team_tag"] or match.get("own_team_tag"), len(parsed["instances"]),
+            json.dumps(stats), json.dumps(players), json.dumps(zones),
+            json.dumps(parsed["instances"]), json.dumps(row_order), match_id,
+        ),
+    )
+    db.commit()
+    flash(f"XML remplacé : {len(parsed['instances'])} actions codées (avant : {avant}). "
+          "Composition et saisies manuelles conservées.", "success")
+    return redirect(url_for("match_detail", match_id=match_id))
+
+
 @app.route("/match/<int:match_id>/delete", methods=["POST"])
 @admin_required
 def delete_match(match_id):
@@ -3033,6 +3084,8 @@ def player_evaluations():
         rugby_evals_asc=rugby_evals_asc, physical_evals_asc=physical_evals_asc,
         entretiens=entretiens, ppid_timeline=_ppid_timeline(rugby_evals, physical_evals, entretiens),
         ppid_rugby_categories=_ppid_rugby_categories_for_position(player.get("ppid_position")),
+        ppid_rugby_legacy=_ppid_rugby_legacy_rows(rugby_evals),
+        ppid_rugby_common=PPID_RUGBY_COMMON_CATEGORIES,
         ppid_physical_categories=PPID_PHYSICAL_CATEGORIES,
         ppid_physical_notes=PPID_PHYSICAL_NOTES,
         ppid_profil_rows=PPID_PROFIL_ROWS,
@@ -3199,14 +3252,23 @@ CHARGES_STATUS_LABELS = {"a_faire": "À faire", "en_cours": "En cours", "fait": 
 # ---------------------------------------------------------------------------
 PPID_POSITIONS = ["Pilier", "Talon", "2L", "3LC", "3LA", "9", "10", "12-13", "11-14", "15"]
 
-# Clés techniques des 9 critères d'évaluation rugby (stockage en base, stables dans le
-# temps) : les 8 premières correspondent 1-pour-1 aux 8 lignes de PPID_PROFIL_PAR_POSTE
-# (même ordre), la 9ème ("dureté / état d'esprit") est générique et hors grille de poste.
-# Les LIBELLÉS affichés, eux, ne sont plus fixes : voir _ppid_rugby_categories_for_position().
-PPID_RUGBY_CATEGORY_KEYS = [
+# Clés techniques des critères d'évaluation rugby (stockage en base, stables dans le temps) :
+# les 8 premières sont les 8 lignes numérotées de la grille « Critères auto-évaluation par
+# poste » (PPID_PROFIL_PAR_POSTE, même ordre), puis Dureté et État d'esprit, communs à tous
+# les postes. Les LIBELLÉS affichés dépendent du poste : voir _ppid_rugby_categories_for_position().
+PPID_RUGBY_SLOT_KEYS = [
     "melee_fermee", "technique_touche", "plaquer_contest", "soutenir_rucker", "duel_off",
-    "habilite_technique", "se_deplacer", "comprehension_systeme", "durete_etat_esprit",
+    "habilite_technique", "se_deplacer", "comprehension_systeme",
 ]
+PPID_RUGBY_COMMON_CATEGORIES = [("durete", "Dureté"), ("etat_esprit", "État d'esprit")]
+PPID_RUGBY_CATEGORY_KEYS = PPID_RUGBY_SLOT_KEYS + [k for k, _l in PPID_RUGBY_COMMON_CATEGORIES]
+# Notes conservées des anciennes grilles, affichées en fin de tableau (« ancienne grille »)
+# sans être modifiables : l'ancien critère commun, et les cases de la grille d'avant
+# octobre 2026 qui n'existent plus pour le poste (voir _ppid_migrer_grille_2026).
+PPID_RUGBY_LEGACY_LABELS = {"durete_etat_esprit": "Dureté / État d'esprit"}
+# Marqueur posé dans les notes (clé « _grille ») de toute évaluation faite ou remise à la
+# grille d'octobre 2026 : la reprise des anciennes évaluations ne la retouche jamais.
+PPID_GRILLE_VERSION = "2026"
 PPID_RUGBY_NOTES = ["PAS BON", "MOY", "BIEN", "EXL"]
 
 PPID_PHYSICAL_CATEGORIES = [
@@ -3227,62 +3289,232 @@ PPID_NOTE_RANK = {
 
 PPID_ENTRETIEN_TYPES = ["Briefing", "Retour de match", "Préparation de match", "Entretien individuel", "Autre"]
 
-# Tableau de référence "Profil par poste" du cahier papier : les critères
-# d'auto-évaluation attendus, déclinés par poste. Contenu générique du club, identique
-# pour tout le monde — seule la colonne du poste PPID du joueur sélectionné est mise en
-# évidence (voir cahier_charges.html). Transcrit depuis le cahier papier du club ; si une
-# case ne correspond pas exactement à l'original, elle se corrige en un message.
+# Grille « Critères auto-évaluation par poste » du club (version d'octobre 2026, envoyée
+# par Téo) : 8 critères numérotés par poste. Seule la colonne du poste PPID du joueur
+# sélectionné est mise en évidence (voir cahier_charges.html). Dureté et État d'esprit
+# s'ajoutent pour tous les postes (PPID_RUGBY_COMMON_CATEGORIES).
 PPID_PROFIL_PAR_POSTE = {
-    "Mêlée fermée": {
+    "1": {
         "Pilier": "Mêlée fermée", "Talon": "Lancer", "2L": "Sauter / lifter / touche / CE et CR",
-        "3LC": "Mêlée : gestion du ballon", "3LA": "Soutenir / rucker", "9": "Transmission",
+        "3LC": "Duel off / franchissement", "3LA": "Soutenir / rucker", "9": "Transmission",
         "10": "Lecture", "12-13": "Lecture off", "11-14": "Duel / franchissement",
         "15": "Gestion du 3ème rideau / CA",
     },
-    "Technique de lift sur touche, coup d'envoi et coup de renvoi": {
-        "Pilier": "Technique de lift sur touche, coup d'envoi et coup de renvoi", "Talon": "Mêlée fermée",
-        "2L": "Mêlée fermée", "3LC": "Assure la continuité", "3LA": "Plaquer / contest / défendre",
-        "9": "Colle au ballon", "10": "Stratégie", "12-13": "Duel off / franchissement",
-        "11-14": "Gestion des contre-attaques", "15": "Compréhension système",
+    "2": {
+        "Pilier": "Technique de lift sur touche, coup d'envoi et coup de renvoi",
+        "Talon": "Mêlée fermée", "2L": "Mêlée fermée", "3LC": "Assure la continuité",
+        "3LA": "Plaquer / contest / défendre", "9": "Colle au ballon", "10": "Stratégie",
+        "12-13": "Duel off / franchissement", "11-14": "Gestion des contre-attaques",
+        "15": "Compréhension système",
     },
-    "Plaquer / Contest": {
-        "Pilier": "Plaquer / contest", "Talon": "Plaquer / contest / défendre", "2L": "Contest / plaquer",
-        "3LC": "Gagner les contacts / jouer les duels / franchir", "3LA": "Plaquage / circulation défensive",
-        "9": "Circulation déf. / plaquer / contest / défendre", "10": "Lecture défense",
-        "12-13": "1 contre 1 déf.", "11-14": "Plaquer / contest", "15": "Duel / franchissement",
+    "3": {
+        "Pilier": "Plaquer / contest", "Talon": "Plaquer / contest",
+        "2L": "Plaquer / contest / défendre", "3LC": "Contest / plaquer",
+        "3LA": "Gagner les contacts / jouer les duels / franchir",
+        "9": "Plaquage / circulation défensive", "10": "Plaquage / circulation défensive",
+        "12-13": "Circulation déf. / plaquer / contest / défendre", "11-14": "Lecture défense",
+        "15": "1 contre 1 déf.",
     },
-    "Soutenir / Rucker": {
-        "Pilier": "Soutenir / rucker", "Talon": "Soutenir / rucker", "2L": "Défense de maul",
-        "3LC": "Sauter / lifter / lecture touche", "3LA": "Assure la continuité", "9": "Stratégie",
-        "10": "Transmission", "12-13": "Habileté technique (main / pied)", "11-14": "Soutenir / ruck aérien",
-        "15": "Duel / franchissement",
+    "4": {
+        "Pilier": "Soutenir / rucker", "Talon": "Soutenir / rucker", "2L": "Soutenir / rucker",
+        "3LC": "Soutenir / rucker", "3LA": "Sauter / lifter / lecture touche", "9": "Stratégie",
+        "10": "Transmission", "12-13": "Habileté technique (main / pied)",
+        "11-14": "Réception / duel aérien", "15": "Jeu au pied",
     },
-    "Duel off": {
-        "Pilier": "Duel off", "Talon": "Défense de maul", "2L": "Sauter / lifter / lecture touche",
-        "3LC": "Assure la continuité", "3LA": "Duel off",
-        "9": "Jeu au pied / sortie de camp et pression", "10": "Jeu au pied (pression / occupation / CE / CR / drop)",
-        "12-13": "Communication", "11-14": "Soutenir / ruck offensif", "15": "Habileté technique (mains / pied)",
+    "5": {
+        "Pilier": "Duel off", "Talon": "Duel off", "2L": "Défense de maul",
+        "3LC": "Sauter / lifter / lecture touche", "3LA": "Assure la continuité", "9": "Duel off",
+        "10": "Duel / franchissement", "12-13": "Soutenir / ruck offensif",
+        "11-14": "Soutenir / ruck offensif", "15": "Duel / franchissement",
     },
-    "Habileté technique": {
-        "Pilier": "Habileté technique", "Talon": "Duel off / porteur de balle", "2L": "Duel off / franchissement",
-        "3LC": "Habileté technique", "3LA": "Se déplacer / enchaîner les tâches", "9": "Habileté technique",
-        "10": "Gestion contre-attaque", "12-13": "Se déplacer / enchaîner les tâches",
-        "11-14": "Habileté technique (mains / pied)", "15": "Réception / duel aérien",
+    "6": {
+        "Pilier": "Habileté technique", "Talon": "Habileté technique",
+        "2L": "Duel off / porteur de balle", "3LC": "Plaquer / contest / défendre",
+        "3LA": "Habileté technique", "9": "Jeu au pied / sortie de camp et pression",
+        "10": "Jeu au pied (pression / occupation / CE / CR / drop)", "12-13": "Communication",
+        "11-14": "Habileté technique (mains / pied)", "15": "Habileté technique",
     },
-    "Se déplacer / Enchaîner les actions": {
-        "Pilier": "Se déplacer / enchaîner les tâches", "Talon": "Se déplacer / enchaîner les tâches",
-        "2L": "Habileté technique", "3LC": "Se déplacer / enchaîner les tâches", "3LA": "Leadership",
-        "9": "Gestion contre-attaque", "10": "Se déplacer / enchaîner les tâches",
-        "12-13": "Compréhension système", "11-14": "Compréhension système", "15": "Se déplacer / enchaîner les actions",
+    "7": {
+        "Pilier": "Se déplacer / enchaîner les actions",
+        "Talon": "Se déplacer / enchaîner les tâches", "2L": "Se déplacer / enchaîner les tâches",
+        "3LC": "Habileté technique", "3LA": "Se déplacer / enchaîner les tâches",
+        "9": "Leadership", "10": "Gestion contre-attaque",
+        "12-13": "Se déplacer / enchaîner les tâches",
+        "11-14": "Se déplacer / enchaîner les tâches", "15": "Réception / duel aérien",
     },
-    "Compréhension système": {
-        "Pilier": "Compréhension système", "Talon": "Compréhension système", "2L": "Compréhension système",
-        "3LC": "Se déplacer / enchaîner les tâches", "3LA": "Compréhension système", "9": "Soutenir / rucker",
+    "8": {
+        "Pilier": "Compréhension système", "Talon": "Compréhension système",
+        "2L": "Compréhension système", "3LC": "Se déplacer / enchaîner les tâches",
+        "3LA": "Compréhension système", "9": "Soutenir / rucker",
         "10": "Se déplacer / enchaîner les tâches", "12-13": "Compréhension système",
         "11-14": "Compréhension système", "15": "Se déplacer / enchaîner les actions",
     },
 }
 PPID_PROFIL_ROWS = list(PPID_PROFIL_PAR_POSTE.keys())
+
+
+# Passage à la grille d'octobre 2026 (_ppid_migrer_grille_2026) : pour chaque poste, la
+# case de l'ancienne grille -> la case de la nouvelle qui porte le même critère (None = le
+# critère n'existe plus pour ce poste : la note est gardée en « ancienne grille », avec son
+# libellé d'origine). Une case absente de la liste reste à sa place.
+PPID_GRILLE_2026_DEPLACEMENTS = {
+    "Pilier": {},
+    "Talon": {
+        "duel_off": None,
+        "habilite_technique": "duel_off"
+    },
+    "2L": {
+        "soutenir_rucker": "duel_off",
+        "duel_off": None,
+        "se_deplacer": None
+    },
+    "3LC": {
+        "melee_fermee": None,
+        "plaquer_contest": None,
+        "soutenir_rucker": "duel_off",
+        "duel_off": None,
+        "habilite_technique": "se_deplacer",
+        "se_deplacer": "comprehension_systeme",
+        "comprehension_systeme": None
+    },
+    "3LA": {
+        "plaquer_contest": None,
+        "soutenir_rucker": "duel_off",
+        "duel_off": None,
+        "habilite_technique": "se_deplacer",
+        "se_deplacer": None
+    },
+    "9": {
+        "duel_off": "habilite_technique",
+        "habilite_technique": None,
+        "se_deplacer": None
+    },
+    "10": {
+        "plaquer_contest": None,
+        "duel_off": "habilite_technique",
+        "habilite_technique": "se_deplacer",
+        "se_deplacer": "comprehension_systeme",
+        "comprehension_systeme": None
+    },
+    "12-13": {
+        "plaquer_contest": None,
+        "duel_off": "habilite_technique",
+        "habilite_technique": "se_deplacer",
+        "se_deplacer": "comprehension_systeme",
+        "comprehension_systeme": None
+    },
+    "11-14": {
+        "plaquer_contest": None,
+        "soutenir_rucker": None,
+        "se_deplacer": "comprehension_systeme",
+        "comprehension_systeme": None
+    },
+    "15": {
+        "plaquer_contest": "duel_off",
+        "soutenir_rucker": None,
+        "duel_off": "habilite_technique",
+        "habilite_technique": "se_deplacer",
+        "se_deplacer": "comprehension_systeme",
+        "comprehension_systeme": None
+    }
+}
+PPID_GRILLE_2025_LIBELLES_ARCHIVES = {
+    "Pilier": {},
+    "Talon": {
+        "duel_off": "Défense de maul"
+    },
+    "2L": {
+        "duel_off": "Sauter / lifter / lecture touche",
+        "se_deplacer": "Habileté technique"
+    },
+    "3LC": {
+        "melee_fermee": "Mêlée : gestion du ballon",
+        "plaquer_contest": "Gagner les contacts / jouer les duels / franchir",
+        "duel_off": "Assure la continuité",
+        "comprehension_systeme": "Se déplacer / enchaîner les tâches"
+    },
+    "3LA": {
+        "plaquer_contest": "Plaquage / circulation défensive",
+        "duel_off": "Duel off",
+        "se_deplacer": "Leadership"
+    },
+    "9": {
+        "habilite_technique": "Habileté technique",
+        "se_deplacer": "Gestion contre-attaque"
+    },
+    "10": {
+        "plaquer_contest": "Lecture défense",
+        "comprehension_systeme": "Se déplacer / enchaîner les tâches"
+    },
+    "12-13": {
+        "plaquer_contest": "1 contre 1 déf.",
+        "comprehension_systeme": "Compréhension système"
+    },
+    "11-14": {
+        "plaquer_contest": "Plaquer / contest",
+        "soutenir_rucker": "Soutenir / ruck aérien",
+        "comprehension_systeme": "Compréhension système"
+    },
+    "15": {
+        "soutenir_rucker": "Duel / franchissement",
+        "comprehension_systeme": "Se déplacer / enchaîner les actions"
+    }
+}
+
+
+def _ppid_ratings_grille_2026(ratings, position):
+    """Réécrit les notes d'une évaluation faite avec l'ancienne grille selon la nouvelle :
+    notes déplacées vers la case du même critère, critères disparus archivés sous
+    « ancien__<clé> » avec leur libellé. Sans poste connu : rien ne bouge.
+    Renvoie (notes, renommages {ancienne clé: nouvelle clé}) — les renommages servent à
+    déplacer aussi la couleur choisie pour le commentaire (colonne couleurs)."""
+    if not isinstance(ratings, dict) or ratings.get("_grille"):
+        return ratings, {}  # déjà à la nouvelle grille (marqueur posé ici et à chaque saisie)
+    moves = PPID_GRILLE_2026_DEPLACEMENTS.get(position) or {}
+    out = {k: v for k, v in ratings.items() if k not in PPID_RUGBY_SLOT_KEYS}
+    out["_grille"] = PPID_GRILLE_VERSION
+    renames = {}
+    for key in PPID_RUGBY_SLOT_KEYS:
+        entry = ratings.get(key)
+        if not entry:
+            continue
+        target = moves.get(key, key)
+        if target is None or target in out:
+            target = "ancien__" + key
+            entry = {**entry, "label": PPID_GRILLE_2025_LIBELLES_ARCHIVES.get(position, {}).get(key, key)}
+        out[target] = entry
+        if target != key:
+            renames[key] = target
+    return out, renames
+
+
+def _ppid_migrer_grille_2026(db):
+    """Une seule fois (table app_migrations) : remet les points d'étape rugby déjà saisis
+    en face des bons critères de la nouvelle grille, d'après le poste PPID du joueur."""
+    db.execute("CREATE TABLE IF NOT EXISTS app_migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL)")
+    if db.execute("SELECT 1 FROM app_migrations WHERE name = %s", ("grille_criteres_2026",)).fetchone():
+        return
+    rows = db.execute(
+        """SELECT e.id, e.ratings, e.couleurs, p.ppid_position FROM ppid_rugby_evals e
+           JOIN players p ON p.id = e.player_id"""
+    ).fetchall()
+    for r in rows:
+        try:
+            ratings = json.loads(r["ratings"] or "{}")
+        except (TypeError, ValueError):
+            continue
+        new, renames = _ppid_ratings_grille_2026(ratings, r["ppid_position"])
+        if new == ratings:
+            continue
+        couleurs = _text_colors_view(r["couleurs"])
+        if renames and couleurs:
+            couleurs = {("commentaire__" + renames[k[13:]] if k.startswith("commentaire__") and k[13:] in renames else k): v
+                        for k, v in couleurs.items()}
+        db.execute("UPDATE ppid_rugby_evals SET ratings = %s, couleurs = %s WHERE id = %s",
+                   (json.dumps(new, ensure_ascii=False),
+                    json.dumps(couleurs, ensure_ascii=False) if couleurs else None, r["id"]))
+    db.execute("INSERT INTO app_migrations (name, applied_at) VALUES (%s, %s)",
+               ("grille_criteres_2026", datetime.utcnow().isoformat()))
 
 
 def _ppid_rugby_categories_for_position(position):
@@ -3294,14 +3526,29 @@ def _ppid_rugby_categories_for_position(position):
     poste). Sans poste PPID réglé pour ce joueur, on retombe sur les intitulés génériques
     (les lignes du tableau de référence) plutôt que de deviner."""
     categories = []
-    for key, row_label in zip(PPID_RUGBY_CATEGORY_KEYS, PPID_PROFIL_ROWS):
+    for key, row_label in zip(PPID_RUGBY_SLOT_KEYS, PPID_PROFIL_ROWS):
         if position and position in PPID_POSITIONS:
-            label = PPID_PROFIL_PAR_POSTE[row_label].get(position) or row_label
+            label = PPID_PROFIL_PAR_POSTE[row_label].get(position) or f"Critère {row_label}"
         else:
-            label = row_label
+            label = f"Critère {row_label}"
         categories.append((key, label))
-    categories.append(("durete_etat_esprit", "Dureté / État d'esprit"))
+    categories.extend(PPID_RUGBY_COMMON_CATEGORIES)
     return categories
+
+
+def _ppid_rugby_legacy_rows(evals):
+    """Lignes « ancienne grille » à afficher sous les critères actuels : toute note gardée
+    sous une clé qui n'est plus un critère en cours (ancien critère commun « Dureté / État
+    d'esprit », cases archivées lors du passage à la nouvelle grille). Libellé : celui
+    enregistré avec la note, sinon PPID_RUGBY_LEGACY_LABELS."""
+    rows, seen = [], set()
+    for ev in evals:
+        for key, entry in (ev.get("ratings") or {}).items():
+            if key in PPID_RUGBY_CATEGORY_KEYS or key in seen or not isinstance(entry, dict) or not entry:
+                continue
+            seen.add(key)
+            rows.append((key, entry.get("label") or PPID_RUGBY_LEGACY_LABELS.get(key) or key))
+    return rows
 
 
 def _ppid_ratings_view(raw, category_keys):
@@ -3311,7 +3558,15 @@ def _ppid_ratings_view(raw, category_keys):
         data = json.loads(raw) if raw else {}
     except (TypeError, ValueError):
         data = {}
-    return {key: data.get(key) or {} for key in category_keys}
+    if not isinstance(data, dict):
+        data = {}
+    view = {key: data.get(key) or {} for key in category_keys}
+    # Notes d'anciennes grilles (clés qui ne sont plus des critères) : conservées telles
+    # quelles pour l'affichage « ancienne grille » et pour ne jamais les perdre à l'édition.
+    for key, entry in data.items():
+        if key not in view and isinstance(entry, dict) and entry:
+            view[key] = entry
+    return view
 
 PPID_MONTHS_FR_FULL = [
     "janvier", "février", "mars", "avril", "mai", "juin",
@@ -3458,6 +3713,10 @@ def _ppid_rugby_ratings_from_form(form, existing_raw, by_email):
             elif prev.get("by"):
                 entry["by"] = prev.get("by")
             ratings[key] = entry
+    for key, entry in existing.items():
+        if key not in PPID_RUGBY_CATEGORY_KEYS and entry:
+            ratings[key] = entry  # ancienne grille : jamais effacée par une modification
+    ratings["_grille"] = PPID_GRILLE_VERSION
     return json.dumps(ratings, ensure_ascii=False)
 
 
@@ -3590,6 +3849,8 @@ def cahier_charges():
         staff_names=_staff_display_names_map(db),
         ppid_positions=PPID_POSITIONS,
         ppid_rugby_categories=_ppid_rugby_categories_for_position(selected_player.get("ppid_position") if selected_player else None),
+        ppid_rugby_legacy=_ppid_rugby_legacy_rows(rugby_evals),
+        ppid_rugby_common=PPID_RUGBY_COMMON_CATEGORIES,
         ppid_rugby_notes=PPID_RUGBY_NOTES, ppid_physical_categories=PPID_PHYSICAL_CATEGORIES,
         ppid_physical_notes=PPID_PHYSICAL_NOTES, ppid_profil_rows=PPID_PROFIL_ROWS,
         ppid_profil_par_poste=PPID_PROFIL_PAR_POSTE, ppid_entretien_types=PPID_ENTRETIEN_TYPES,
