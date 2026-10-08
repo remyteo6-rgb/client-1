@@ -18,9 +18,9 @@
 </div>
 {% else %}
 
-{% macro liste(lignes, couleur) %}
+{% macro liste(lignes, couleur, extra='') %}
 {% set maxi = lignes | map(attribute='count') | max %}
-<div class="def-list">
+<div class="def-list {{ extra }}">
     {% for ligne in lignes %}
     <div class="def-list-row">
         <span class="def-list-label">{{ ligne.label }}</span>
@@ -104,7 +104,7 @@
                 <div class="def-panel-body def-duo">
                     {{ liste(data.essais_origines, 'def-bar-dark') }}
                     <div class="def-sep"></div>
-                    {{ liste(data.essais_phases, 'def-bar-dark') }}
+                    {{ liste(data.essais_phases, 'def-bar-dark', 'def-list-phases') }}
                 </div>
             </div>
 
