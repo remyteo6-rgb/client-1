@@ -1787,9 +1787,9 @@ def _build_review(overview_new, score, zone_gold):
               score["adverse_tries"] if score else None, 0),
         _pair("BREAK", overview_new["break"]["own"], overview_new["break"]["adverse"], 0),
         _pair("OFFLOAD", overview_new["offload"]["own"], overview_new["offload"]["adverse"], 0),
-        _pair("POINTS/22",
-              _ratio(score["own"] if score else None, gold_own.get("total"), scale=1),
-              _ratio(score["adverse"] if score else None, gold_adv.get("total"), scale=1),
+        # Points par entrée : même calcul que la page Zone Gold (essais + transfos +
+        # pénalités / drops « 22 »), et plus le score total du match ÷ entrées.
+        _pair("POINTS/22", gold_own.get("points_par_entree"), gold_adv.get("points_par_entree"),
               2, always_decimals=True),
     ]
     return {
