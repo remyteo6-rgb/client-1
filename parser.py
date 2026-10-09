@@ -1628,7 +1628,9 @@ DEFENSE_PHASES = ["1er Temps", "2eme Temps", "3eme Temps", "4eme Temps", "5eme T
                   "11eme Temps", "12eme Temps", "+ 12 Temps"]
 DEFENSE_FRANCHI_RESULTATS = [
     ("Franchissement - Essai", ["ESSAI", "ESSAIS"]),
-    ("Franchissement - Pénalité Pour", ["PENALITE POUR", "PENALITE", "PENALITES"]),
+    # Pénalité concédée PAR NOUS au bout du franchissement adverse (libellé de Téo).
+    ("Franchissement - Pénalité Contre", ["PENALITE CONTRE", "PENALITES CONTRE", "PENALITE POUR",
+                                          "PENALITE", "PENALITES"]),
     ("Franchissement - Ballon Récup", ["BALLON RECUP", "BALLON RECUPERE", "BALLONS RECUP", "RECUP"]),
     ("Franchissement - Arret", ["ARRET", "ARRETE", "STOP"]),
 ]
