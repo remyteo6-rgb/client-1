@@ -2929,6 +2929,106 @@ def _momentum_periodes(inst):
     return d1, f1, d2, f2
 
 
+MOMENTUM_POSITION_DEFAUT = 50.0  # ballon au centre : avant toute zone et après chaque marque
+
+
+def compute_expected_points(instances, equipe=MOMENTUM_EQUIPE):
+    """Points espérés (expected points) du match, méthode de Téo :
+    1. une séquence = un code « BIP » / « Ball in play » (une occasion) ;
+    2. elle appartient à l'équipe qui tient le ballon à son début (code POSSESSION qui
+       couvre cet instant), sinon à celle qui a eu le ballon le plus longtemps pendant
+       la séquence ;
+    3. elle vaut EP(m) = 4,2 × e^(−m/28) − 0,2, m = distance à la ligne adverse de
+       l'équipe qui attaque, lue sur la DERNIÈRE zone taguée avant le début de la
+       séquence (Gold 11 m, Rumble 36, Cop 64, Rouge 89 ; zone adverse vue depuis leur
+       sens d'attaque). Position remise au centre (50 m) après chaque marque, et 50 m
+       tant qu'aucune zone n'est taguée.
+    On additionne sur tout le match. None si aucune séquence Ball in play."""
+    adv_token = _detect_adverse_token(instances)
+    E = _normalize_tag(equipe)
+    A = {"ADV", "ADVERSE"} | ({adv_token} if adv_token else set())
+    seqs, poss, obs = [], [], []
+    for i in instances:
+        n = tuple(_normalize_tag(i.get("code_raw")).split())
+        s, e = i.get("start") or 0, i.get("end") or i.get("start") or 0
+        raw = i.get("code_raw") or ""
+        if n in (("BIP",), ("BALL", "IN", "PLAY")):
+            seqs.append((s, e))
+            continue
+        # Possession : convention 2026 ('UBB POSSESSION' / '<ADV> POSSESSION') ou ancien
+        # gabarit ('01 - Possession' / '02 - Possesion').
+        cote = 0
+        if len(n) == 2 and n[1] == "POSSESSION":
+            cote = 1 if n[0] == E else (-1 if n[0] in A else 0)
+        else:
+            cote = next((v for p_, v in MOMENTUM_CODE_POSSESSION.items() if raw.startswith(p_)), 0)
+        if cote:
+            poss.append((s, e, cote))
+            continue
+        # Zones : position exprimée en mètres de la ligne adverse, vue de NOTRE sens
+        # d'attaque (11 = dans leurs 22, 89 = dans nos 22).
+        pos = None
+        for z, m in MOMENTUM_ZONES.items():
+            if raw in (f"Possession {z}", f"{equipe} Ruck {z}", f"Défense {z}"):
+                pos = m
+                break
+        if pos is None:
+            if len(n) == 1 and n[0] in MOMENTUM_NC_ZONES:
+                pos = MOMENTUM_NC_ZONES[n[0]]
+            elif len(n) == 3 and n[0] == E and n[1] == "RUCK" and n[2] in MOMENTUM_NC_ZONES:
+                pos = MOMENTUM_NC_ZONES[n[2]]
+            elif len(n) == 2 and n[0] in MOMENTUM_NC_ZONES and n[1] == "A":
+                pos = 100.0 - MOMENTUM_NC_ZONES[n[0]]
+            elif len(n) == 2 and n[0] in A and n[1] in MOMENTUM_NC_ZONES:
+                pos = 100.0 - MOMENTUM_NC_ZONES[n[1]]
+        if pos is not None:
+            obs.append((s, pos))
+    if not seqs:
+        return None
+    # Remise au centre après chaque marque réussie.
+    for ev in _scoring_events(instances, adv_token):
+        if ev["points"] > 0 and ev["kind"] != "conversions":
+            obs.append((ev["start"] + 0.01, MOMENTUM_POSITION_DEFAUT))
+    obs.sort()
+    seqs.sort()
+
+    def _position(t):
+        cur = MOMENTUM_POSITION_DEFAUT
+        for ts, p in obs:
+            if ts > t:
+                break
+            cur = p
+        return cur
+
+    def _cote(s, e):
+        for ps, pe, c in poss:
+            if ps <= s < pe:
+                return c
+        tenu = {1: 0.0, -1: 0.0}
+        for ps, pe, c in poss:
+            tenu[c] += max(0.0, min(pe, e) - max(ps, s))
+        if tenu[1] == tenu[-1]:
+            return 0
+        return 1 if tenu[1] > tenu[-1] else -1
+
+    detail, total, nb, sans = [], {"own": 0.0, "adverse": 0.0}, {"own": 0, "adverse": 0}, 0
+    for s, e in seqs:
+        c = _cote(s, e)
+        if not c:
+            sans += 1
+            continue
+        side = "own" if c > 0 else "adverse"
+        m = _position(s)
+        m_att = m if c > 0 else 100.0 - m
+        xp = _momentum_ep(m_att)
+        total[side] += xp
+        nb[side] += 1
+        detail.append({"start": s, "side": side, "metres": m_att, "xp": xp})
+    return {"own": round(total["own"], 1), "adverse": round(total["adverse"], 1),
+            "sequences_own": nb["own"], "sequences_adverse": nb["adverse"],
+            "sequences_sans_equipe": sans, "detail": detail}
+
+
 def compute_momentum(instances, equipe=MOMENTUM_EQUIPE, libelle=""):
     """Calcule le momentum minute par minute d'un match : renvoie un dict avec le
     signal lissé (r["sig"]), les temps forts détectés (r["tf"]), les essais marqués
@@ -3193,6 +3293,8 @@ def compute_momentum(instances, equipe=MOMENTUM_EQUIPE, libelle=""):
         "ecart_mt": moy(sig, bin_mt, N) - moy(sig, 0, bin_mt),
         **cpt,
     }
+    # Points espérés (une séquence Ball in play = une occasion, voir compute_expected_points).
+    r["xp"] = compute_expected_points(instances, equipe)
     r["alerts"] = _momentum_controls(inst, r, equipe)
     return r
 
@@ -3274,10 +3376,16 @@ def render_momentum_svg(r):
     for mn in range(0, int(n * BIN / 60) + 1, 10):
         o.append(f'<text x="{bx(mn*60/BIN)+BW/2:.1f}" y="{AT+15:.0f}" text-anchor="middle" '
                  f'fill="#3b453a" font-family="monospace" font-size="10" font-weight="700">{mn}</text>')
+    xp = r.get("xp") or {}
+    fr = lambda v: f"{v:.1f}".replace(".", ",")
+    xp_pour = (f' · {fr(xp["own"])} PTS ESPÉRÉS ({xp["sequences_own"]} séquences)'
+               if xp.get("sequences_own") is not None else "")
+    xp_contre = (f' · {fr(xp["adverse"])} PTS ESPÉRÉS ({xp["sequences_adverse"]} séquences)'
+                 if xp.get("sequences_adverse") is not None else "")
     o.append(f'<text x="{X0}" y="{AT-MH-26:.0f}" fill="{VERT}" font-family="monospace" font-size="11" '
-             f'font-weight="700">{EQUIPE}</text>'
+             f'font-weight="700">{EQUIPE} · {r["score_pour"]} PTS{xp_pour}</text>'
              f'<text x="{X0}" y="{AB+MH+34:.0f}" fill="{ROUGE}" font-family="monospace" font-size="11" '
-             f'font-weight="700">ADVERSAIRE</text></g></svg>')
+             f'font-weight="700">ADVERSAIRE · {r["score_contre"]} PTS{xp_contre}</text></g></svg>')
     return "".join(o)
 
 
