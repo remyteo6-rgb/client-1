@@ -77,6 +77,10 @@
         · {{ momentum.tf_subis }} SUBIS ({{ momentum.tf_encaisses }} ENCAISSÉS)
         · {{ momentum.essais_contre_hors_tf }} ESSAIS ENCAISSÉS HORS TEMPS FORT
         · POSSESSION {{ momentum.possession | round | int }} %
+        {% if momentum.xp %}
+        <br>POINTS ESPÉRÉS : {{ momentum.xp.own|fr }} ({{ momentum.xp.sequences_own }} séquences) pour {{ momentum.score_pour }} marqués
+        · {{ momentum.xp.adverse|fr }} ({{ momentum.xp.sequences_adverse }} séquences) pour {{ momentum.score_contre }} encaissés
+        {% endif %}
     </p>
     {% if momentum.alerts %}
     <div class="momentum-dialog-alerts">
