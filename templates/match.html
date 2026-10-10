@@ -155,6 +155,11 @@
             {% endif %}
             <div class="review-score review-score-adverse">{{ score.adverse if score else '—' }}</div>
         </div>
+        {# Blason de l'adversaire à droite du cadre (cliquable pour l'admin, comme avant). Posé en
+           absolu : il n'influence pas la position du cadre, calée sur la maquette. #}
+        <div class="review-adverse-slot">
+            {{ crest(match['opponent'], review.assets.adverse_crest, review.assets.adverse_slug, 'adverse') }}
+        </div>
     </div>
         <div class="review-head-right"></div>
     </div>

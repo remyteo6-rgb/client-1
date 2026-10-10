@@ -1903,7 +1903,8 @@ body.demo-mode .demo-blur {
 /* Ligne du haut en trois colonnes : REVIEW | bandeau de score centré | (vide). */
 .review-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-bottom: 14px; }
 .review-head-left { display: flex; align-items: center; gap: 14px; }
-.review-scorehead { display: flex; align-items: center; justify-content: center; gap: 30px; margin-right: 44px; }
+.review-scorehead { display: flex; align-items: center; justify-content: center; gap: 30px; margin-right: 44px; position: relative; }
+.review-adverse-slot { position: absolute; left: 100%; top: 50%; transform: translateY(-50%); margin-left: 30px; }
 .review-crest { width: 96px; height: 96px; object-fit: contain; }
 span.review-crest {
     display: flex; align-items: center; justify-content: center;
