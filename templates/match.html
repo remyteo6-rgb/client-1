@@ -104,10 +104,6 @@
 {# Reproduction de la page "REVIEW" du rapport vidéo. Le fond de stade est intégré à la
    feuille de style ; les blasons, eux, se déposent depuis cette page (voir plus bas). #}
 <div class="review-board">
-    <div class="review-head">
-        <img class="review-head-crest" src="{{ review.assets.own_crest }}" alt="{{ match['own_team'] }}">
-        <span class="review-title">REVIEW</span>
-    </div>
 
     {# Le blason se dépose en cliquant dessus (admin) : le formulaire s'envoie tout seul
        dès qu'un fichier est choisi, sans bouton supplémentaire. #}
@@ -135,41 +131,70 @@
         {% endif %}
     {% endmacro %}
 
+    {# Abréviations affichées au-dessus des colonnes du tableau comparatif. #}
+    {% set own_abbr = 'UBB' if 'bordeaux' in match['own_team']|lower else match['own_team'][:3]|upper %}
+    {% set poss_own = review.possession.own_pct or 0 %}
+    {% set poss_adv = review.possession.adverse_pct or 0 %}
+    {% set occ_own = review.occupation.own_pct or 0 %}
+    {% set occ_adv = review.occupation.adverse_pct or 0 %}
+
+    {# Ligne du haut, comme sur le rapport : REVIEW à gauche, bandeau de score au centre. #}
+    <div class="review-head">
+        <div class="review-head-left">
+            <img class="review-head-crest" src="{{ review.assets.own_crest }}" alt="{{ match['own_team'] }}">
+            <span class="review-title">REVIEW</span>
+        </div>
     <div class="review-scorehead">
-        <div class="review-team">
-            {{ crest(match['own_team'], review.assets.own_crest, review.assets.own_slug, 'own') }}
-            <div class="review-score">{{ score.own if score else '—' }}</div>
+        {{ crest(match['own_team'], review.assets.own_crest, review.assets.own_slug, 'own') }}
+        <div class="review-scoreboard">
+            <div class="review-score review-score-own">{{ score.own if score else '—' }}</div>
+            <div class="review-score review-score-adverse">{{ score.adverse if score else '—' }}</div>
         </div>
-        <div class="review-team">
-            {{ crest(match['opponent'], review.assets.adverse_crest, review.assets.adverse_slug, 'adverse') }}
-            <div class="review-score">{{ score.adverse if score else '—' }}</div>
-        </div>
+        {{ crest(match['opponent'], review.assets.adverse_crest, review.assets.adverse_slug, 'adverse') }}
+    </div>
+        <div class="review-head-right"></div>
     </div>
 
     <div class="review-body">
-        <div class="review-side">
+        <div class="review-side review-panel">
             <h2>POSSESSION</h2>
-            <div class="review-split">
-                <span class="review-split-own" style="width:{{ review.possession.own_pct }}%">{{ review.possession.own_pct|round|int }}%</span>
-                <span class="review-split-adverse" style="width:{{ review.possession.adverse_pct }}%">{{ review.possession.adverse_pct|round|int }}%</span>
+            <div class="review-vsplit">
+                <span class="review-vsplit-own" style="flex-grow:{{ poss_own }}">{{ poss_own|round|int }}%</span>
+                <span class="review-vsplit-adverse" style="flex-grow:{{ poss_adv }}">{{ poss_adv|round|int }}%</span>
+            </div>
+            <div class="review-legend">
+                <div><b>{{ own_abbr }}</b><i class="review-legend-own"></i></div>
+                <div><b>ADV</b><i class="review-legend-adverse"></i></div>
             </div>
         </div>
 
-        <div class="review-rows">
-            {% for row in review.rows %}
-            <div class="review-row {{ 'review-row-dark' if loop.index is even else 'review-row-light' }}">
-                <div class="review-cell">{{ row.own }}</div>
-                <div class="review-label">{{ row.label }}</div>
-                <div class="review-cell">{{ row.adverse }}</div>
+        <div class="review-compare">
+            <div class="review-compare-title">COMPARATIF</div>
+            <div class="review-compare-teams">
+                <span class="review-teamtag-own">{{ own_abbr }}</span>
+                <span></span>
+                <span class="review-teamtag-adverse">ADV</span>
             </div>
-            {% endfor %}
+            <div class="review-rows">
+                {% for row in review.rows %}
+                <div class="review-row {{ 'review-row-dark' if loop.index is even else 'review-row-light' }}">
+                    <div class="review-cell review-cell-own">{{ row.own }}</div>
+                    <div class="review-label">{{ row.label }}</div>
+                    <div class="review-cell review-cell-adverse">{{ row.adverse }}</div>
+                </div>
+                {% endfor %}
+            </div>
         </div>
 
-        <div class="review-side">
+        <div class="review-side review-panel">
             <h2>OCCUPATION</h2>
-            <div class="review-split">
-                <span class="review-split-own" style="width:{{ review.occupation.own_pct }}%">{{ review.occupation.own_pct|round|int }}%</span>
-                <span class="review-split-adverse" style="width:{{ review.occupation.adverse_pct }}%">{{ review.occupation.adverse_pct|round|int }}%</span>
+            <div class="review-vsplit">
+                <span class="review-vsplit-own" style="flex-grow:{{ occ_own }}">{{ occ_own|round|int }}%</span>
+                <span class="review-vsplit-adverse" style="flex-grow:{{ occ_adv }}">{{ occ_adv|round|int }}%</span>
+            </div>
+            <div class="review-legend">
+                <div><b>{{ own_abbr }}</b><i class="review-legend-own"></i></div>
+                <div><b>ADV</b><i class="review-legend-adverse"></i></div>
             </div>
         </div>
     </div>
