@@ -1903,8 +1903,8 @@ body.demo-mode .demo-blur {
 /* Ligne du haut en trois colonnes : REVIEW | bandeau de score centré | (vide). */
 .review-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-bottom: 14px; }
 .review-head-left { display: flex; align-items: center; gap: 14px; }
-.review-scorehead { display: flex; align-items: center; justify-content: center; gap: 26px; }
-.review-crest { width: 84px; height: 84px; object-fit: contain; }
+.review-scorehead { display: flex; align-items: center; justify-content: center; gap: 30px; margin-right: 44px; }
+.review-crest { width: 96px; height: 96px; object-fit: contain; }
 span.review-crest {
     display: flex; align-items: center; justify-content: center;
     border-radius: 50%; color: #fff; font-size: 1.6rem; font-weight: 800;
@@ -1915,19 +1915,19 @@ span.review-crest {
 
 .review-scoreboard {
     display: grid; grid-template-columns: 1fr 1fr; align-items: center;
-    min-width: 330px;
-    background: rgba(255,255,255,.78);
-    border: 3px solid rgba(120,120,120,.6); border-radius: 12px;
-    box-shadow: inset 0 0 0 2px rgba(255,255,255,.7), 0 2px 6px rgba(0,0,0,.12);
+    width: 330px;
+    background: rgba(255,255,255,.7);
+    /* Cadre gris fin à double filet, comme sur la maquette */
+    border: 2px solid #8a8a8a; border-radius: 10px;
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,.6);
 }
-.review-scoreboard-3 { grid-template-columns: 1fr 1.25fr 1fr; min-width: 470px; }
+.review-scoreboard-3 { grid-template-columns: 132px 176px 1fr; width: 464px; }
+.review-scoreboard-3 .review-score-adverse { padding-right: 40px; }
 .review-score {
-    font-family: var(--rv-cond); font-size: 4.2rem; font-weight: 500; line-height: 1;
-    letter-spacing: 0; text-align: center; padding: 8px 14px 6px; color: #1b1b1b;
-    font-variant-numeric: tabular-nums;
+    font-family: var(--rv-cond); font-size: 2.5rem; font-weight: 600; line-height: 1;
+    letter-spacing: 0; text-align: center; padding: 15px 8px 13px; color: #1b1b1b;
+    font-variant-numeric: normal;
 }
-.review-score-adverse, .review-score-bip { border-left: 2px solid rgba(120,120,120,.3); }
-.review-score-bip { padding-left: 8px; padding-right: 8px; }
 
 .review-body {
     display: grid; grid-template-columns: 290px 520px 290px;
