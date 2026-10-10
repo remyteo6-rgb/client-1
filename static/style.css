@@ -1897,7 +1897,7 @@ body.demo-mode .demo-blur {
     --rv-adv: #3f5ca6;          /* bleu (barres, valeurs adverses) */
     --rv-adv-text: #2f4a94;
     --rv-line: #1d1d1d;
-    --rv-cond: 'Barlow Condensed', 'Oswald', -apple-system, 'Segoe UI', sans-serif;
+    --rv-cond: 'Oswald', 'Barlow Condensed', 'Arial Narrow', sans-serif;
 }
 
 /* Ligne du haut en trois colonnes : REVIEW | bandeau de score centré | (vide). */
@@ -1916,15 +1916,18 @@ span.review-crest {
 .review-scoreboard {
     display: grid; grid-template-columns: 1fr 1fr; align-items: center;
     min-width: 330px;
-    background: rgba(255,255,255,.72);
-    border: 3px solid rgba(110,110,110,.55); border-radius: 12px;
-    box-shadow: 0 2px 6px rgba(0,0,0,.12);
+    background: rgba(255,255,255,.78);
+    border: 3px solid rgba(120,120,120,.6); border-radius: 12px;
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,.7), 0 2px 6px rgba(0,0,0,.12);
 }
+.review-scoreboard-3 { grid-template-columns: 1fr 1.25fr 1fr; min-width: 470px; }
 .review-score {
-    font-family: var(--rv-cond); font-size: 4rem; font-weight: 600; line-height: 1;
-    text-align: center; padding: 8px 18px 6px; color: #1b1b1b;
+    font-family: var(--rv-cond); font-size: 4.2rem; font-weight: 500; line-height: 1;
+    letter-spacing: 0; text-align: center; padding: 8px 14px 6px; color: #1b1b1b;
+    font-variant-numeric: tabular-nums;
 }
-.review-score-adverse { border-left: 2px solid rgba(110,110,110,.35); }
+.review-score-adverse, .review-score-bip { border-left: 2px solid rgba(120,120,120,.3); }
+.review-score-bip { padding-left: 8px; padding-right: 8px; }
 
 .review-body {
     display: grid; grid-template-columns: 290px 520px 290px;
@@ -1938,6 +1941,7 @@ span.review-crest {
     padding: 16px 26px 20px; text-align: center;
 }
 .review-side h2 {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 2rem; font-weight: 800; letter-spacing: 1px;
     color: var(--bg-header); margin: 0 0 12px; border: 0; padding: 0;
 }

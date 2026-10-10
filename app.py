@@ -1796,6 +1796,10 @@ def _build_review(overview_new, score, zone_gold):
         "rows": rows,
         "possession": overview_new["possession"],
         "occupation": overview_new["occupation"],
+        # Temps de jeu effectif (mm:ss), affiché au centre du bandeau de score. Absent si le
+        # match n'a pas de codes « Ball in play ».
+        "ball_in_play": (overview_new.get("ball_in_play") or {}).get("duration_fmt")
+                        if (overview_new.get("ball_in_play") or {}).get("duration") else None,
     }
 
 

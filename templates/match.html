@@ -101,6 +101,8 @@
 </div>
 
 {% if review %}
+{# Police Oswald, celle du rapport : chargée uniquement ici pour ne pas changer l'apparence des autres pages. #}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&display=swap">
 {# Reproduction de la page "REVIEW" du rapport vidéo. Le fond de stade est intégré à la
    feuille de style ; les blasons, eux, se déposent depuis cette page (voir plus bas). #}
 <div class="review-board">
@@ -146,8 +148,11 @@
         </div>
     <div class="review-scorehead">
         {{ crest(match['own_team'], review.assets.own_crest, review.assets.own_slug, 'own') }}
-        <div class="review-scoreboard">
+        <div class="review-scoreboard{{ ' review-scoreboard-3' if review.ball_in_play else '' }}">
             <div class="review-score review-score-own">{{ score.own if score else '—' }}</div>
+            {% if review.ball_in_play %}
+            <div class="review-score review-score-bip" title="Temps de jeu effectif">{{ review.ball_in_play }}</div>
+            {% endif %}
             <div class="review-score review-score-adverse">{{ score.adverse if score else '—' }}</div>
         </div>
         {{ crest(match['opponent'], review.assets.adverse_crest, review.assets.adverse_slug, 'adverse') }}
