@@ -1417,6 +1417,8 @@ JOUEURS_SLIDES = [
         {"label": "Marque", "cols": [
             {"key": "essai", "label": "Essais", "kind": "pos"},
             {"key": "transfo_txt", "label": "Transfo.", "kind": "num"},
+            {"key": "penalite_txt", "label": "Pénalités", "kind": "num"},
+            {"key": "drop_txt", "label": "Drops", "kind": "num"},
             {"key": "points", "label": "Points", "kind": "pos", "cmp": ("ruck", "points_total")}]},
     ]},
 ]
@@ -1444,11 +1446,15 @@ def _joueurs_detail_slides(bilan_slide, player_cards, tables):
             if spec["table"] == "ruck":
                 src["transfo_txt"] = (f"{src.get('transfo_reussies', 0)}/{src.get('transfo_tentees', 0)}"
                                       if src.get("transfo_tentees") else 0)
+                src["penalite_txt"] = (f"{src.get('penalite_reussies', 0)}/{src.get('penalite_tentees', 0)}"
+                                       if src.get("penalite_tentees") else 0)
+                src["drop_txt"] = (f"{src.get('drop_reussis', 0)}/{src.get('drop_tentes', 0)}"
+                                   if src.get("drop_tentes") else 0)
             rows.append({**meta, "name": card["name"], "v": {c["key"]: src.get(c["key"]) for c in cols},
                          "low": bool(src.get("plaquage_low_sample")) if src else False})
         tot = {}
         for c in cols:
-            if c["kind"] != "pct" and c["key"] != "transfo_txt":
+            if c["kind"] != "pct" and not c["key"].endswith("_txt"):
                 tot[c["key"]] = sum(int(r["v"].get(c["key"]) or 0) for r in rows)
         t = lambda k: tot.get(k, 0)
         if spec["table"] == "attack":
@@ -1461,6 +1467,11 @@ def _joueurs_detail_slides(bilan_slide, player_cards, tables):
             reus = sum(int((by_name.get(c["name"]) or {}).get("transfo_reussies") or 0) for c in player_cards)
             tent = sum(int((by_name.get(c["name"]) or {}).get("transfo_tentees") or 0) for c in player_cards)
             tot["transfo_txt"] = f"{reus}/{tent}" if tent else 0
+            for cle, k_ok, k_tent in (("penalite_txt", "penalite_reussies", "penalite_tentees"),
+                                      ("drop_txt", "drop_reussis", "drop_tentes")):
+                ok = sum(int((by_name.get(c["name"]) or {}).get(k_ok) or 0) for c in player_cards)
+                tt = sum(int((by_name.get(c["name"]) or {}).get(k_tent) or 0) for c in player_cards)
+                tot[cle] = f"{ok}/{tt}" if tt else 0
         groups = [{**g, "color": _SLIDE_GROUP_COLORS[i % 3]} for i, g in enumerate(spec["groups"])]
         slides.append({**spec, "groups": groups, "cols": cols, "rows": rows, "total": tot})
     return slides

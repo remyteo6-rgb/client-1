@@ -118,7 +118,7 @@
                     <th>Mêlées</th><th>Sauteur</th><th>Lifteur</th><th>Lanceurs</th>
                     <th class="sep-l">JAP</th><th>Coups d'envoi</th><th>Récep. CE</th><th>RCE +/=/-</th>
                     <th class="sep-l">Duels aér. +/=</th>
-                    <th class="sep-l">Essais</th><th>Transfo. (réus./tent.)</th><th>Points</th>
+                    <th class="sep-l">Essais</th><th>Transfo. (réus./tent.)</th><th>Pénalités (réus./tent.)</th><th>Drops (réus./tent.)</th><th>Points</th>
                 </tr>
             </thead>
             <tbody>
@@ -130,6 +130,8 @@
                     <td class="sep-l"><span class="stat-pos">{{ ruck.duels_aer_plus }}</span> / {{ ruck.duels_aer_neutre }}</td>
                     <td class="sep-l stat-pos">{{ ruck.essai }}</td>
                     <td>{{ ruck.transfo_reussies }} / {{ ruck.transfo_tentees }}</td>
+                    <td>{{ ruck.penalite_reussies }} / {{ ruck.penalite_tentees }}</td>
+                    <td>{{ ruck.drop_reussis }} / {{ ruck.drop_tentes }}</td>
                     <td class="stat-own">{{ ruck.points }}</td>
                 </tr>
             </tbody>

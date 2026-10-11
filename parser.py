@@ -3635,14 +3635,17 @@ def compute_player_ruck_table(instances):
     par le groupe 'RCE'), duels aériens (groupe 'AERIENS', +/=), essais et
     transformations (réussies vs tentées : seules les instances 'TRANSFORMATIONS'
     portant en plus le label 'SPECIFIQUES'='REUSSI' sont des transformations réussies),
-    et les points réels marqués par le joueur (5 × essais + 2 × transfos réussies)."""
+    et les points réels marqués par le joueur (5 × essais + 2 × transfos réussies
+    + 3 × pénalités réussies + 3 × drops réussis)."""
     rows = {}
     for name in _new_convention_player_names(instances):
         rows[name] = {"melee_conquete": 0, "lifteur": 0, "sauteur": 0, "lanceur": 0,
                       "jap": 0, "coup_envoi": 0, "recep_ce": 0,
                       "rce_plus": 0, "rce_neutre": 0, "rce_minus": 0,
                       "duels_aer_plus": 0, "duels_aer_neutre": 0,
-                      "essai": 0, "transfo_reussies": 0, "transfo_tentees": 0}
+                      "essai": 0, "transfo_reussies": 0, "transfo_tentees": 0,
+                      "penalite_reussies": 0, "penalite_tentees": 0,
+                      "drop_reussis": 0, "drop_tentes": 0}
 
     for i in instances:
         code = i["code_raw"]
@@ -3667,6 +3670,19 @@ def compute_player_ruck_table(instances):
             row["transfo_tentees"] += 1
             if "REUSSI" in specifiques:
                 row["transfo_reussies"] += 1
+        # Coups de pied au but du joueur : « DROP(S) » = drop ; « PENALITE(S) » n'est un tir
+        # que s'il porte un label Spécifiques de résultat (Réussi / Raté…), sinon c'est une
+        # pénalité concédée (comptée ailleurs, côté discipline).
+        resultat_tir = specifiques & {"REUSSI", "REUSSIE", "RATE", "RATEE", "MANQUE", "MANQUEE", "ECHEC"}
+        reussi_tir = bool(specifiques & {"REUSSI", "REUSSIE"})
+        if off_vals & {"DROP", "DROPS"}:
+            row["drop_tentes"] += 1
+            if reussi_tir:
+                row["drop_reussis"] += 1
+        if (off_vals & PLAYER_ACTION_PENALTY) and resultat_tir:
+            row["penalite_tentees"] += 1
+            if reussi_tir:
+                row["penalite_reussies"] += 1
         rce_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "RCE"}
         if "COUP D'ENVOI" in off_vals:
             row["coup_envoi"] += 1
@@ -3699,7 +3715,7 @@ def compute_player_ruck_table(instances):
         touche_total = r["lifteur"] + r["sauteur"] + r["lanceur"]
         rce_total = r["rce_plus"] + r["rce_neutre"] + r["rce_minus"]
         duels_aer_total = r["duels_aer_plus"] + r["duels_aer_neutre"]
-        points = r["essai"] * 5 + r["transfo_reussies"] * 2
+        points = r["essai"] * 5 + r["transfo_reussies"] * 2 + r["penalite_reussies"] * 3 + r["drop_reussis"] * 3
         row_out = {
             "name": name, **r,
             "touche_total": touche_total,
@@ -3986,6 +4002,7 @@ def _zero_ruck_row(name):
         "rce_plus": 0, "rce_neutre": 0, "rce_minus": 0, "rce_total": 0,
         "duels_aer_plus": 0, "duels_aer_neutre": 0, "duels_aer_total": 0,
         "essai": 0, "transfo_reussies": 0, "transfo_tentees": 0,
+        "penalite_reussies": 0, "penalite_tentees": 0, "drop_reussis": 0, "drop_tentes": 0,
         "points": 0,
     }
 

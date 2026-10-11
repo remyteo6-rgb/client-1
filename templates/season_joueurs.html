@@ -134,7 +134,7 @@
                     <th>Joueur</th><th>Mêlées</th><th>Sauteur</th><th>Lifteur</th><th>Lanceurs</th>
                     <th class="sep-l">JAP</th><th>Coups d'envoi</th><th>Récep. CE</th><th>RCE +/=/-</th>
                     <th class="sep-l">Duels aér. +/=</th>
-                    <th class="sep-l">Essais</th><th>Transfo. (réus./tent.)</th><th>Points</th>
+                    <th class="sep-l">Essais</th><th>Transfo. (réus./tent.)</th><th>Pénalités (réus./tent.)</th><th>Drops (réus./tent.)</th><th>Points</th>
                 </tr>
             </thead>
             <tbody>
@@ -148,6 +148,8 @@
                     <td class="sep-l"><span class="stat-pos">{{ r.duels_aer_plus }}</span> / {{ r.duels_aer_neutre }}</td>
                     <td class="sep-l stat-pos">{{ r.essai }}</td>
                     <td>{{ r.transfo_reussies }} / {{ r.transfo_tentees }}</td>
+                    <td>{{ r.penalite_reussies }} / {{ r.penalite_tentees }}</td>
+                    <td>{{ r.drop_reussis }} / {{ r.drop_tentes }}</td>
                     <td class="stat-own">{{ r.points }}</td>
                 </tr>
             {% endfor %}
