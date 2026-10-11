@@ -727,6 +727,24 @@ PLAYER_ACTION_OFFLOAD = {"OFLLOADS", "OFFLOADS", "OFLLOAD", "OFFLOAD", "OFLOAD",
 PLAYER_ACTION_PENALTY = {"PENALITE", "PENALITES"}
 
 
+def count_team_offloads(instances):
+    """Nombre de lignes « UBB Offloads » du XML (une instance = un offload de l'équipe,
+    qualifiée Super / Positif gardé / Négatif gardé / Perdu). Renvoie 0 si le fichier n'a
+    pas cette ligne (anciens fichiers).
+
+    Quand elle existe, c'est elle qui fait foi pour le TOTAL d'offloads (demande de Téo,
+    match Bordeaux-Biarritz : 17 lignes, alors que les labels « Offloads » posés sur les
+    joueurs en donnaient 18). Les labels des joueurs servent à les attribuer à un joueur
+    et restent le repli quand la ligne d'équipe n'existe pas. Une seule fonction pour la
+    page Review et le Bilan attaque, pour qu'elles affichent toujours le même chiffre."""
+    total = 0
+    for inst in instances:
+        tokens = _normalize_tag(inst.get("code_raw")).split()
+        if len(tokens) == 2 and tokens[0] == "UBB" and tokens[1] in PLAYER_ACTION_OFFLOAD:
+            total += 1
+    return total
+
+
 def _new_convention_zone_side(tokens, adv_token=None):
     """Pour un code de zone ("GOLD", "COP A", "USC COP"...), renvoie quelle équipe
     occupe le terrain adverse pendant cette séquence : 'own' si le ballon est dans le
@@ -854,9 +872,11 @@ def compute_new_convention_overview(instances):
                     gla_plus += 1
                 elif txt.endswith("-"):
                     gla_minus += 1
-        elif (_new_convention_code_match(tokens, ["OFLOAD"], adv_token)
-              or _new_convention_code_match(tokens, ["OFFLOAD"], adv_token)):
-            found = True  # "<Adverse> Ofload" (offloads adverses, comptés directement)
+        elif side == "adverse" and (_new_convention_code_match(tokens, ["OFLOAD"], adv_token)
+                                    or _new_convention_code_match(tokens, ["OFFLOAD"], adv_token)):
+            # "<Adverse> Ofload" (offloads adverses, comptés directement). Réservé au côté
+            # adverse : une ligne « UBB Offload » est à nous, comptée par count_team_offloads.
+            found = True
             offload_adverse += 1
         elif side is None:
             # Codes joueurs individuels (ex: "HUTTEAU") : chez nous, les actions sont
@@ -965,7 +985,8 @@ def compute_new_convention_overview(instances):
         },
         "break": breaks,
         "pdb": pdb,
-        "offload": {"own": offload_own, "adverse": offload_adverse},
+        # Total d'équipe = lignes « UBB Offloads » si le fichier en a, sinon labels des joueurs.
+        "offload": {"own": count_team_offloads(instances) or offload_own, "adverse": offload_adverse},
         "gain_line": {
             "plus": gla_plus, "total": gla_decided,
             "pct": round(100 * gla_plus / gla_decided, 1) if gla_decided else None,
@@ -1555,7 +1576,9 @@ def compute_bilan_attaque(instances, own_points=None):
         return round(100 * n / d, 1) if d else None
 
     contacts_total = sum(contacts.values())
-    offloads = sum(actions.get(k, 0) for k in PLAYER_ACTION_OFFLOAD)
+    # Même total que la page Review : lignes « UBB Offloads » si elles existent, sinon labels
+    # des joueurs (anciens fichiers).
+    offloads = count_team_offloads(instances) or sum(actions.get(k, 0) for k in PLAYER_ACTION_OFFLOAD)
     plaquages_casses = actions.get("DEF BATTUS", 0)
     contacts_joueurs = actions.get("CONTACTS", 0) or contacts_total
 
