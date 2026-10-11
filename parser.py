@@ -727,6 +727,28 @@ PLAYER_ACTION_OFFLOAD = {"OFLLOADS", "OFFLOADS", "OFLLOAD", "OFFLOAD", "OFLOAD",
 PLAYER_ACTION_PENALTY = {"PENALITE", "PENALITES"}
 
 
+# Libellés acceptés pour la ligne d'équipe des défenseurs battus (après normalisation).
+TEAM_DEF_BATTUS_SUFFIXES = {"DEF BATTUS", "DEF BATTU", "DEFENSEURS BATTUS", "DEFENSEUR BATTU"}
+
+
+def team_def_battus_lines(instances):
+    """Instances « UBB DEF BATTUS » du XML (une ligne = un défenseur battu de l'équipe,
+    qualifiée Ring / Corde, avec son label Chrono). Liste vide si le fichier n'a pas cette
+    ligne (anciens fichiers).
+
+    Comme pour les offloads, c'est elle qui fait foi pour le TOTAL et pour la répartition par
+    tranche (même source que Ring / Corde, donc les trois chiffres de la page concordent) ;
+    les labels « DEF BATTUS » posés sur les joueurs restent le repli et servent à les
+    attribuer à un joueur. Cas Bordeaux-Biarritz : 17 lignes d'équipe contre 18 labels joueurs,
+    l'écart tombant dans la tranche 60-80."""
+    lignes = []
+    for inst in instances:
+        tokens = _normalize_tag(inst.get("code_raw")).split()
+        if len(tokens) >= 2 and tokens[0] == "UBB" and " ".join(tokens[1:]) in TEAM_DEF_BATTUS_SUFFIXES:
+            lignes.append(inst)
+    return lignes
+
+
 def count_team_offloads(instances):
     """Nombre de lignes « UBB Offloads » du XML (une instance = un offload de l'équipe,
     qualifiée Super / Positif gardé / Négatif gardé / Perdu). Renvoie 0 si le fichier n'a
@@ -1579,7 +1601,16 @@ def compute_bilan_attaque(instances, own_points=None):
     # Même total que la page Review : lignes « UBB Offloads » si elles existent, sinon labels
     # des joueurs (anciens fichiers).
     offloads = count_team_offloads(instances) or sum(actions.get(k, 0) for k in PLAYER_ACTION_OFFLOAD)
-    plaquages_casses = actions.get("DEF BATTUS", 0)
+    lignes_def_battus = team_def_battus_lines(instances)
+    if lignes_def_battus:
+        plaquages_casses = len(lignes_def_battus)
+        # Répartition par tranche lue sur les mêmes lignes ; si certaines n'ont pas de label
+        # Chrono, on garde celle des joueurs plutôt que d'afficher des tranches incomplètes.
+        quarts_equipe = Counter(q for q in (_new_convention_period(i) for i in lignes_def_battus) if q)
+        if sum(quarts_equipe.values()) == plaquages_casses:
+            par_quart["plaquages_casses"] = quarts_equipe
+    else:
+        plaquages_casses = actions.get("DEF BATTUS", 0)
     contacts_joueurs = actions.get("CONTACTS", 0) or contacts_total
 
     return {
