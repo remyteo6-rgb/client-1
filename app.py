@@ -1364,7 +1364,8 @@ JOUEURS_SLIDES = [
         {"label": "Soutien", "cols": [
             {"key": "soutien_1er", "label": "1er", "kind": "pos"},
             {"key": "soutien_2eme", "label": "2e", "kind": "num"},
-            {"key": "soutien_3plus", "label": "3e +", "kind": "num"}]},
+            {"key": "soutien_3plus", "label": "3e +", "kind": "num"},
+            {"key": "cartouche", "label": "Cartouches", "kind": "num"}]},
         {"label": "Déchet", "cols": [
             {"key": "pdb", "label": "Ball. perdus", "kind": "neg"},
             {"key": "penalite_off", "label": "Pén. off.", "kind": "neg"},

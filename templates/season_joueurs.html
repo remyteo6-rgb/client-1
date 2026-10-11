@@ -103,7 +103,7 @@
                     <th class="sep-l">Déf. battus</th><th>Courses</th><th>Break</th>
                     <th class="sep-l">Passes +/=/-</th><th>Total / % propres</th>
                     <th class="sep-l">Offload +/=/-</th><th>Total / %</th>
-                    <th class="sep-l">Soutien 1er/2e/3e+</th>
+                    <th class="sep-l">Soutien 1er/2e/3e+</th><th>Cartouches</th>
                     <th class="sep-l">Ball. perdus</th><th>Pén. off.</th><th>Pén. déf.</th>
                 </tr>
             </thead>
@@ -118,7 +118,7 @@
                     <td>{{ r.passe_total }}{% if r.passe_pct is not none %} ({{ r.passe_pct }}%){% endif %}</td>
                     <td class="sep-l"><span class="{{ 'stat-pos' if r.offload_plus else '' }}">{{ r.offload_plus }}</span> / {{ r.offload_neutre }} / <span class="{{ 'stat-neg' if r.offload_minus else '' }}">{{ r.offload_minus }}</span></td>
                     <td>{{ r.offload_total }}{% if r.offload_pct is not none %} ({{ r.offload_pct }}%){% endif %}</td>
-                    <td class="sep-l">{{ r.soutien_1er }} / {{ r.soutien_2eme }} / {{ r.soutien_3plus }}</td>
+                    <td class="sep-l">{{ r.soutien_1er }} / {{ r.soutien_2eme }} / {{ r.soutien_3plus }}</td><td>{{ r.cartouche }}</td>
                     <td class="sep-l"><span class="{{ 'stat-neg' if r.pdb else '' }}">{{ r.pdb }}</span></td>
                     <td><span class="{{ 'stat-neg' if r.penalite_off else '' }}">{{ r.penalite_off }}</span></td>
                     <td><span class="{{ 'stat-neg' if r.penalite_def else '' }}">{{ r.penalite_def }}</span></td>

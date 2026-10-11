@@ -96,7 +96,7 @@
         <table class="bjr-table">
             <colgroup>
                 <col class="bjr-c-num"><col class="bjr-c-poste"><col class="bjr-c-nom">
-                {% for c in sl.cols %}<col class="{{ 'bjr-c-wide' if (c.label|length > 4 or c.kind == 'pct') else 'bjr-c-sm' }}">{% endfor %}
+                {% for c in sl.cols %}<col class="{{ 'bjr-c-xw' if (c.label.split()|map('length')|max) > 8 else ('bjr-c-wide' if (c.label|length > 4 or c.kind == 'pct') else 'bjr-c-sm') }}">{% endfor %}
             </colgroup>
             <thead>
                 <tr class="bjr-groups">
