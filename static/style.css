@@ -2416,6 +2416,11 @@ span.review-crest {
 .def-list-bar-zone { display: flex; align-items: center; gap: 5px; min-width: 0; }
 .def-list-bar { height: 13px; border-radius: 3px; min-width: 3px; }
 .def-list-value { font-size: .68rem; font-weight: 700; color: #1b1b1b; }
+/* Clash · détail : libellés alignés à gauche, barres longues */
+.def-list-clash .def-list-row { grid-template-columns: 84px minmax(0, 1fr); gap: 8px; }
+.def-list-clash .def-list-label { text-align: left; padding-left: 4px; }
+.def-list-clash .def-list-bar-zone { padding-right: 6px; }
+.def-list-clash .def-list-bar { flex: 0 1 auto; }
 .def-bar-dark  { background: #1b1b1b; }
 .def-bar-grey  { background: #9a9a9a; }
 .def-bar-green { background: #4cb85f; }
