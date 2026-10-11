@@ -3629,6 +3629,29 @@ def compute_season_dashboard(selected_matches):
     return dash
 
 
+KICK_RESULT_LABELS = {"REUSSI", "REUSSIE", "RATE", "RATEE", "MANQUE", "MANQUEE", "LOUPE", "LOUPEE",
+                      "NON REUSSI", "NON REUSSIE", "ECHEC", "ECHOUE"}
+KICK_MATCH_WINDOW = 20  # s vidéo entre l'instance du botteur et la ligne d'équipe
+
+
+def _match_own_kick_event(inst, kind, events, used):
+    """Ligne d'équipe « UBB Pénalité / Drop » qui coïncide dans le temps avec l'instance
+    d'un joueur (la plus proche, pas déjà attribuée), ou None."""
+    start = inst.get("start") or 0
+    end = inst.get("end") or start
+    best, best_gap = None, None
+    for idx, e in enumerate(events):
+        if e["kind"] != kind or idx in used:
+            continue
+        gap = max(e["start"] - end, start - e["end"], 0)
+        if gap <= KICK_MATCH_WINDOW and (best is None or gap < best_gap):
+            best, best_gap = idx, gap
+    if best is None:
+        return None
+    used.add(best)
+    return events[best]
+
+
 def compute_player_ruck_table(instances):
     """Conquête, jeu au pied et marque par joueur (convention 2026) : mêlées/touche
     (LIFTEUR/SAUTEUR/LANCE), jeu au pied (JAP/COUP D'ENVOI/RECEPTION CE, qualifiés +/=/-
@@ -3638,6 +3661,9 @@ def compute_player_ruck_table(instances):
     et les points réels marqués par le joueur (5 × essais + 2 × transfos réussies
     + 3 × pénalités réussies + 3 × drops réussis)."""
     rows = {}
+    kicks_own = [e for e in _scoring_events(instances, _detect_adverse_token(instances))
+                 if e["side"] == "own" and e["kind"] in ("penalties", "drops")]
+    kicks_used = set()
     for name in _new_convention_player_names(instances):
         rows[name] = {"melee_conquete": 0, "lifteur": 0, "sauteur": 0, "lanceur": 0,
                       "jap": 0, "coup_envoi": 0, "recep_ce": 0,
@@ -3670,19 +3696,31 @@ def compute_player_ruck_table(instances):
             row["transfo_tentees"] += 1
             if "REUSSI" in specifiques:
                 row["transfo_reussies"] += 1
-        # Coups de pied au but du joueur : « DROP(S) » = drop ; « PENALITE(S) » n'est un tir
-        # que s'il porte un label Spécifiques de résultat (Réussi / Raté…), sinon c'est une
-        # pénalité concédée (comptée ailleurs, côté discipline).
-        resultat_tir = specifiques & {"REUSSI", "REUSSIE", "RATE", "RATEE", "MANQUE", "MANQUEE", "ECHEC"}
-        reussi_tir = bool(specifiques & {"REUSSI", "REUSSIE"})
-        if off_vals & {"DROP", "DROPS"}:
-            row["drop_tentes"] += 1
-            if reussi_tir:
-                row["drop_reussis"] += 1
-        if (off_vals & PLAYER_ACTION_PENALTY) and resultat_tir:
-            row["penalite_tentees"] += 1
-            if reussi_tir:
-                row["penalite_reussies"] += 1
+        # Coups de pied au but du joueur (pénalités et drops, réussis ET manqués). Le
+        # résultat vient, dans l'ordre : de la ligne d'équipe « UBB Pénalité / Drop »
+        # qui coïncide dans le temps (label Points à 0 = manqué, même source que le
+        # score), puis du label Points du joueur, puis du label Spécifiques. Une
+        # « Pénalité » sans aucun de ces indices est une pénalité concédée (discipline).
+        kick_kinds = [k for k, toks in (("drops", {"DROP", "DROPS"}), ("penalties", PLAYER_ACTION_PENALTY))
+                      if off_vals & toks]
+        for kind in kick_kinds:
+            ev = _match_own_kick_event(i, kind, kicks_own, kicks_used)
+            pts = _points_label(i)
+            if ev is not None:
+                tente, reussi = True, ev["points"] > 0
+            elif pts is not None:
+                tente, reussi = True, pts > 0
+            elif specifiques & KICK_RESULT_LABELS:
+                tente, reussi = True, bool(specifiques & {"REUSSI", "REUSSIE"})
+            elif kind == "drops":
+                tente, reussi = True, bool(specifiques & {"REUSSI", "REUSSIE"})
+            else:
+                tente = reussi = False
+            if tente:
+                key = "drop" if kind == "drops" else "penalite"
+                row[key + ("_tentes" if kind == "drops" else "_tentees")] += 1
+                if reussi:
+                    row[key + ("_reussis" if kind == "drops" else "_reussies")] += 1
         rce_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "RCE"}
         if "COUP D'ENVOI" in off_vals:
             row["coup_envoi"] += 1
