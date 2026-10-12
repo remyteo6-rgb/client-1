@@ -2953,7 +2953,7 @@ def season_touches():
         return _avg_fmt(sum(v) / len(v), dec) if v else "—"
     summary = {"n": len(rows), "total": avg("total"), "gagnees": avg("gagnees"),
                "pct": avg("pct"), "qb_pct": avg("qb_pct")}
-    return render_template("season_touches.html", rows=rows, summary=summary, **ctx)
+    return render_template("season_touches.html", rows=rows, summary=summary, fmt=_avg_fmt, **ctx)
 
 
 @app.route("/season/discipline")
