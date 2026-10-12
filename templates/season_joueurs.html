@@ -1,165 +1,146 @@
 {% extends "base.html" %}
 {% import "_ppid_icons.html" as icons %}
+{% block title %}Joueurs — Saison{% endblock %}
 {% set active = 'joueurs' %}
-{% block title %}Effectif — Joueurs par poste{% endblock %}
 {% block content %}
-{% from "_players_overview.html" import players_overview %}
 
 <div class="page-header no-print">
     <div>
-        <h1>{{ icons.users() }} Effectif — Joueurs par poste</h1>
-        <p class="subtitle">Tout l'effectif, groupé par poste, statistiques cumulées sur {{ selected_count }} match{{ 's' if selected_count != 1 else '' }} sélectionné{{ 's' if selected_count != 1 else '' }}. Un joueur sans stat sur la sélection affiche une ligne à zéro.</p>
+        <h1>{{ icons.users() }} Joueurs — Saison</h1>
+        <p class="subtitle">Moyenne par match joué sur {{ season_selected_count }} match{{ 's' if season_selected_count != 1 else '' }} sélectionné{{ 's' if season_selected_count != 1 else '' }}, tous les joueurs dans l'ordre de la dernière composition. Pourcentages = moyenne des pourcentages match par match.</p>
     </div>
     <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
 {% include "_season_select.html" %}
 
+{% macro bjr_val(v, cls='') %}{% if v %}<td class="{{ cls }}">{{ v|nb }}</td>{% else %}<td class="bjr-zero">·</td>{% endif %}{% endmacro %}
+{% macro bjr_bar(r) %}
+<div class="bjr-bar">
+    {% for k, c in (('positives', 'pos'), ('neutres', 'neu'), ('negatives', 'neg')) %}
+    {% if r[k] %}<span class="bjr-seg bjr-seg-{{ c }}" style="flex: {{ r[k] }} 1 0;">{% if r.pct[k] >= 9 %}{{ r[k] }}{% endif %}</span>{% endif %}
+    {% endfor %}
+</div>
+{% endmacro %}
 
-{% for g in groups %}
-<details class="card section-block">
-    <summary>
-        <span class="section-title">{{ g.position }}</span>
-        <span class="section-help">{{ g.attack_rows|length }} joueur{{ 's' if g.attack_rows|length != 1 else '' }}</span>
-    </summary>
-    <div class="section-body">
-
-        <h3 style="font-size:13px; margin-bottom:8px; color:var(--text-secondary);">{{ icons.clipboard() }} Suivi (minutes / cartons)</h3>
-        <table class="stat-table zebra-table">
-            <thead>
-                <tr><th>Joueur</th><th>Minutes</th><th>Matchs joués</th><th>{{ icons.square(13, '', '#f5c518') }}</th><th>{{ icons.square(13, '', '#e5484d') }}</th><th>Matchs de suite</th></tr>
-            </thead>
-            <tbody>
-            {% for r in g.tracking_rows %}
-                <tr>
-                    <td>{{ r.name }}</td>
-                    <td class="stat-own">{{ r.minutes }}</td>
-                    <td>{{ r.matches_played }}</td>
-                    <td>{{ r.yellow }}</td>
-                    <td class="stat-adverse">{{ r.red }}</td>
-                    <td class="stat-own">{{ r.streak }}</td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-
-        <h3 style="font-size:13px; margin:16px 0 8px; color:var(--text-secondary);">{{ icons.clipboard() }} Vue d'ensemble (bilan positif/neutre/négatif)</h3>
-        <table class="stat-table zebra-table">
-            <thead>
-                <tr>
-                    <th>Joueur</th><th>Actions codées</th>
-                    <th class="sep-l">Positives</th><th>Neutres</th><th>Négatives</th>
-                    <th class="sep-l">Total signées</th><th class="sep-l">Bilan net</th>
-                </tr>
-            </thead>
-            <tbody>
-            {% for r in g.bilan_rows %}
-                <tr>
-                    <td>{{ r.name }}</td>
-                    <td>{{ r.actions_codees }}</td>
-                    <td class="sep-l stat-pos">{{ r.positives }}</td>
-                    <td>{{ r.neutres }}</td>
-                    <td class="stat-neg">{{ r.negatives }}</td>
-                    <td class="sep-l">{{ r.total_signees }}</td>
-                    <td class="sep-l stat-own">{{ r.bilan_net }}</td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-
-        <h3 style="font-size:13px; margin:16px 0 8px; color:var(--text-secondary);">{{ icons.shield() }} Défense, plaquages et combat</h3>
-        <table class="stat-table zebra-table">
-            <thead>
-                <tr>
-                    <th>Joueur</th><th>Réus.</th><th>Man.</th><th>Tent.</th><th>%</th>
-                    <th class="sep-l">Bas</th><th>Haut</th>
-                    <th class="sep-l">Qualité +/=/-</th>
-                    <th class="sep-l">Combattant Tot./Dom./Subis</th>
-                    <th class="sep-l">Chasseur Tot./+/-</th>
-                    <th class="sep-l">Ballons récup.</th>
-                </tr>
-            </thead>
-            <tbody>
-            {% for r in g.defense_rows %}
-                {% set reussis = r.plaquage_dominant + r.plaquage_neutre + r.plaquage_passif %}
-                <tr>
-                    <td>{{ r.name }}</td>
-                    <td class="stat-pos">{{ reussis }}</td>
-                    <td class="stat-neg">{{ r.plaquage_rate }}</td>
-                    <td>{{ r.plaquage_tentes }}</td>
-                    <td class="{{ 'stat-muted' if r.plaquage_low_sample }}">{{ r.plaquage_pct ~ '%' if r.plaquage_pct is not none else '—' }}</td>
-                    <td class="sep-l">{{ r.plaquage_bas }}</td><td>{{ r.plaquage_haut }}</td>
-                    <td class="sep-l"><span class="{{ 'stat-pos' if r.plaquage_dominant else '' }}">{{ r.plaquage_dominant }}</span> / {{ r.plaquage_neutre }} / <span class="{{ 'stat-neg' if r.plaquage_passif else '' }}">{{ r.plaquage_passif }}</span></td>
-                    <td class="sep-l">{{ r.combattant_total }} / <span class="stat-pos">{{ r.combattant_plus }}</span> / <span class="stat-neg">{{ r.combattant_minus }}</span></td>
-                    <td class="sep-l">{{ r.chasseur_total }} / <span class="stat-pos">{{ r.chasseur_plus }}</span> / <span class="stat-neg">{{ r.chasseur_minus }}</span></td>
-                    <td class="sep-l stat-own">{{ r.ballons_recuperes }}</td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-
-        <h3 style="font-size:13px; margin:16px 0 8px; color:var(--text-secondary);">{{ icons.swords() }} Jeu au contact, passes et soutien</h3>
-        <table class="stat-table zebra-table">
-            <thead>
-                <tr>
-                    <th>Joueur</th><th>Contact +/=/-</th><th>Total / %</th>
-                    <th class="sep-l">Déf. battus</th><th>Courses</th><th>Break</th>
-                    <th class="sep-l">Passes +/=/-</th><th>Total / % propres</th>
-                    <th class="sep-l">Offload +/=/-</th><th>Total / %</th>
-                    <th class="sep-l">Soutien 1er/2e/3e+</th><th>Cartouches</th>
-                    <th class="sep-l">Ball. perdus</th><th>Pén. off.</th><th>Pén. déf.</th>
-                </tr>
-            </thead>
-            <tbody>
-            {% for r in g.attack_rows %}
-                <tr>
-                    <td>{{ r.name }}</td>
-                    <td><span class="{{ 'stat-pos' if r.contact_plus else '' }}">{{ r.contact_plus }}</span> / {{ r.contact_neutre }} / <span class="{{ 'stat-neg' if r.contact_minus else '' }}">{{ r.contact_minus }}</span></td>
-                    <td>{{ r.contact_total }}{% if r.contact_pct is not none %} ({{ r.contact_pct }}%){% endif %}</td>
-                    <td class="sep-l">{{ r.def_battu }}</td><td>{{ r.cartouche }}</td><td>{{ r.break }}</td>
-                    <td class="sep-l"><span class="{{ 'stat-pos' if r.passe_plus else '' }}">{{ r.passe_plus }}</span> / {{ r.passe_neutre }} / <span class="{{ 'stat-neg' if r.passe_minus else '' }}">{{ r.passe_minus }}</span></td>
-                    <td>{{ r.passe_total }}{% if r.passe_pct is not none %} ({{ r.passe_pct }}%){% endif %}</td>
-                    <td class="sep-l"><span class="{{ 'stat-pos' if r.offload_plus else '' }}">{{ r.offload_plus }}</span> / {{ r.offload_neutre }} / <span class="{{ 'stat-neg' if r.offload_minus else '' }}">{{ r.offload_minus }}</span></td>
-                    <td>{{ r.offload_total }}{% if r.offload_pct is not none %} ({{ r.offload_pct }}%){% endif %}</td>
-                    <td class="sep-l">{{ r.soutien_1er }} / {{ r.soutien_2eme }} / {{ r.soutien_3plus }}</td><td>{{ r.cartouche }}</td>
-                    <td class="sep-l"><span class="{{ 'stat-neg' if r.pdb else '' }}">{{ r.pdb }}</span></td>
-                    <td><span class="{{ 'stat-neg' if r.penalite_off else '' }}">{{ r.penalite_off }}</span></td>
-                    <td><span class="{{ 'stat-neg' if r.penalite_def else '' }}">{{ r.penalite_def }}</span></td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-
-        <h3 style="font-size:13px; margin:16px 0 8px; color:var(--text-secondary);">{{ icons.handshake() }} Conquête, jeu au pied et marque</h3>
-        <table class="stat-table zebra-table">
-            <thead>
-                <tr>
-                    <th>Joueur</th><th>Mêlées</th><th>Sauteur</th><th>Lifteur</th><th>Lanceurs</th>
-                    <th class="sep-l">JAP</th><th>Coups d'envoi</th><th>Récep. CE</th><th>RCE +/=/-</th>
-                    <th class="sep-l">Duels aér. +/=</th>
-                    <th class="sep-l">Essais</th><th>Transfo. (réus./tent.)</th><th>Pénalités (réus./tent.)</th><th>Drops (réus./tent.)</th><th>Points</th>
-                </tr>
-            </thead>
-            <tbody>
-            {% for r in g.ruck_rows %}
-                <tr>
-                    <td>{{ r.name }}</td>
-                    <td>{{ r.melee_conquete }}</td>
-                    <td>{{ r.sauteur }}</td><td>{{ r.lifteur }}</td><td>{{ r.lanceur }}</td>
-                    <td class="sep-l">{{ r.jap }}</td><td>{{ r.coup_envoi }}</td><td>{{ r.recep_ce }}</td>
-                    <td><span class="stat-pos">{{ r.rce_plus }}</span> / {{ r.rce_neutre }} / <span class="stat-neg">{{ r.rce_minus }}</span></td>
-                    <td class="sep-l"><span class="stat-pos">{{ r.duels_aer_plus }}</span> / {{ r.duels_aer_neutre }}</td>
-                    <td class="sep-l stat-pos">{{ r.essai }}</td>
-                    <td>{{ r.transfo_reussies }} / {{ r.transfo_tentees }}</td>
-                    <td>{{ r.penalite_reussies }} / {{ r.penalite_tentees }}</td>
-                    <td>{{ r.drop_reussis }} / {{ r.drop_tentes }}</td>
-                    <td class="stat-own">{{ r.points }}</td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-
+{# Diapo « BILAN » : même mise en page que le rapport du staff — n° de la compo, poste,
+   nom, minutes, volume, bilan +/=/- et barre de répartition. Calculs : _bilan_slide (app.py). #}
+<div class="report-board bjr-report">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">BILAN</span>
     </div>
-</details>
+    <div class="bjr-panel">
+        <table class="bjr-table">
+            <colgroup>
+                <col class="bjr-c-num"><col class="bjr-c-poste"><col class="bjr-c-nom"><col class="bjr-c-min">
+                <col class="bjr-c-val"><col class="bjr-c-val"><col class="bjr-c-val"><col class="bjr-c-val"><col class="bjr-c-val"><col class="bjr-c-val">
+                <col class="bjr-c-bar">
+            </colgroup>
+            <thead>
+                <tr class="bjr-groups">
+                    <th colspan="4" class="bjr-g-joueur">Joueur</th>
+                    <th class="bjr-g-volume">Volume</th>
+                    <th colspan="4" class="bjr-g-bilan">Bilan global des actions</th>
+                    <th colspan="2" class="bjr-g-lecture">Lecture</th>
+                </tr>
+                <tr class="bjr-cols">
+                    <th colspan="2" class="bjr-left">Poste</th><th class="bjr-left">Nom</th><th>Min.</th>
+                    <th>Actions codées</th>
+                    <th>Positives</th><th>Neutres</th><th>Négatives</th><th>Total signées</th>
+                    <th>Bilan net</th><th>Répartition positives / neutres / négatives</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in bilan_slide.rows %}
+                <tr>
+                    <td class="bjr-num">{% if r.number %}<span>{{ r.number }}</span>{% endif %}</td>
+                    <td class="bjr-poste">{{ r.poste }}</td>
+                    <td class="bjr-nom">{{ r.nom }}</td>
+                    {% if r.minutes %}<td class="bjr-min">{{ r.minutes }}</td>{% else %}<td class="bjr-zero">·</td>{% endif %}
+                    <td>{{ r.actions_codees|nb }}</td>
+                    {{ bjr_val(r.positives, 'bjr-pos') }}
+                    {{ bjr_val(r.neutres) }}
+                    {{ bjr_val(r.negatives, 'bjr-neg') }}
+                    <td>{{ r.total_signees|nb }}</td>
+                    <td class="bjr-net {{ 'bjr-net-pos' if r.bilan_net > 0 else ('bjr-net-neg' if r.bilan_net < 0 else '') }}">{{ '+' if r.bilan_net > 0 }}{{ r.bilan_net|nb }}</td>
+                    <td class="bjr-barcell">{{ bjr_bar(r) }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+            {% set t = bilan_slide.total %}
+            <tfoot>
+                <tr>
+                    <td colspan="2"></td>
+                    <td class="bjr-nom">Total équipe</td>
+                    <td class="bjr-zero">·</td>
+                    <td>{{ t.actions_codees|nb }}</td>
+                    <td>{{ t.positives|nb }}</td><td>{{ t.neutres|nb }}</td><td>{{ t.negatives|nb }}</td>
+                    <td>{{ t.total_signees|nb }}</td>
+                    <td>{{ '+' if t.bilan_net > 0 }}{{ t.bilan_net|nb }}</td>
+                    <td class="bjr-barcell">{{ bjr_bar(t) }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+{# Diapos de détail (attaque / défense / conquête) : même mise en page que la diapo BILAN,
+   colonnes décrites dans JOUEURS_SLIDES (app.py), une colonne par chiffre (+ / = / −). #}
+{% for sl in detail_slides %}
+<div class="report-board bjr-report bjr-detail">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">{{ sl.title }}</span>
+    </div>
+    <div class="bjr-panel">
+        <table class="bjr-table">
+            <colgroup>
+                <col class="bjr-c-num"><col class="bjr-c-poste"><col class="bjr-c-nom">
+                {% for c in sl.cols %}<col class="{{ 'bjr-c-xw' if (c.label.split()|map('length')|max) > 8 else ('bjr-c-wide' if (c.label|length > 4 or c.kind == 'pct') else 'bjr-c-sm') }}">{% endfor %}
+            </colgroup>
+            <thead>
+                <tr class="bjr-groups">
+                    <th colspan="3" class="bjr-g-joueur">Joueur</th>
+                    {% for g in sl.groups %}<th colspan="{{ g.cols|length }}" class="bjr-g-{{ g.color }}">{{ g.label }}</th>{% endfor %}
+                </tr>
+                <tr class="bjr-cols">
+                    <th colspan="2" class="bjr-left">Poste</th><th class="bjr-left">Nom</th>
+                    {% for g in sl.groups %}{% for c in g.cols %}<th class="{{ 'bjr-gstart' if loop.first }}{{ ' bjr-sign' if c.label in ['+', '=', '−'] }}">{{ c.label }}</th>{% endfor %}{% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in sl.rows %}
+                                <tr>
+                    <td class="bjr-num">{% if r.number %}<span>{{ r.number }}</span>{% endif %}</td>
+                    <td class="bjr-poste">{{ r.poste }}</td>
+                    <td class="bjr-nom">{{ r.nom }}</td>
+                    {% for g in sl.groups %}{% for c in g.cols %}
+                    {% set v = r.v[c.key] %}
+                    {% set gs = ' bjr-gstart' if loop.first else '' %}
+                    {% if c.kind == 'pct' %}
+                    <td class="bjr-pct{{ gs }}{{ ' bjr-low' if r.low and c.key == 'plaquage_pct' }}">{% if v is not none %}{{ v }}%{% else %}<span class="bjr-dot">·</span>{% endif %}</td>
+                    {% elif v %}
+                    <td class="{{ 'bjr-pos' if c.kind == 'pos' else ('bjr-neg' if c.kind == 'neg' else '') }}{{ gs }}">{{ v|nb }}</td>
+                    {% else %}
+                    <td class="bjr-zero{{ gs }}">·</td>
+                    {% endif %}
+                    {% endfor %}{% endfor %}
+                </tr>
+            {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="2"></td>
+                    <td class="bjr-nom">Total équipe</td>
+                    {% for g in sl.groups %}{% for c in g.cols %}
+                    {% set v = sl.total.get(c.key) %}
+                    <td class="{{ 'bjr-gstart' if loop.first }}">{% if c.kind == 'pct' %}{{ (v ~ '%') if v is not none else '·' }}{% else %}{{ (v|nb) if v else '·' }}{% endif %}</td>
+                    {% endfor %}{% endfor %}
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
 {% endfor %}
 
 <script>
@@ -167,5 +148,6 @@ function preparePrint() {
     document.querySelectorAll('details.section-block').forEach(d => d.open = true);
     setTimeout(() => window.print(), 100);
 }
+
 </script>
 {% endblock %}

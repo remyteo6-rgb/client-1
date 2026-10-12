@@ -1307,7 +1307,22 @@ def _poste_effectif(xml_name):
     return best if score >= 0.8 else None
 
 
-def _bilan_slide(player_cards, composition, player_stats):
+def _clean_num(x):
+    """Nombre « propre » : entier si la valeur est ronde (3.0 → 3), sinon 1 décimale."""
+    x = round(float(x or 0), 1)
+    return int(x) if x == int(x) else x
+
+
+def _nbs(x):
+    """Nombre pour affichage dans un texte (« 1,5/2 »)."""
+    x = _clean_num(x)
+    return str(x).replace(".", ",")
+
+
+app.jinja_env.filters["nb"] = lambda v: _nbs(v) if isinstance(v, float) else v
+
+
+def _bilan_slide(player_cards, composition, player_stats, avg=False):
     """Lignes de la diapo BILAN (page Joueurs) : n°, poste, nom, minutes, volume et bilan
     +/=/- de chaque joueur dans l'ordre de la compo, plus la ligne « Total équipe »."""
     composition = composition or []
@@ -1328,9 +1343,11 @@ def _bilan_slide(player_cards, composition, player_stats):
             "minutes": minutes or None,
         }
         for k in total:
-            row[k] = int(b.get(k) or 0)
+            row[k] = _clean_num(b.get(k)) if avg else int(b.get(k) or 0)
             total[k] += row[k]
         rows.append(row)
+    if avg:
+        total = {k: _clean_num(v) for k, v in total.items()}
     for r in rows + [total]:
         tot = r["total_signees"]
         r["pct"] = {k: (r[k] / tot * 100 if tot else 0) for k in ("positives", "neutres", "negatives")}
@@ -1429,7 +1446,7 @@ def _pct(num, den):
     return round(num / den * 100) if den else None
 
 
-def _joueurs_detail_slides(bilan_slide, player_cards, tables):
+def _joueurs_detail_slides(bilan_slide, player_cards, tables, avg=False):
     """Une diapo par secteur (attaque / défense / conquête) avec les mêmes joueurs, dans
     le même ordre et avec les mêmes n° / poste / nom que la diapo BILAN. Un joueur sans
     action dans un secteur garde sa ligne (cases « · »)."""
@@ -1444,34 +1461,35 @@ def _joueurs_detail_slides(bilan_slide, player_cards, tables):
                 src["plaquage_reussis"] = (src.get("plaquage_dominant", 0) + src.get("plaquage_neutre", 0)
                                            + src.get("plaquage_passif", 0))
             if spec["table"] == "ruck":
-                src["transfo_txt"] = (f"{src.get('transfo_reussies', 0)}/{src.get('transfo_tentees', 0)}"
+                src["transfo_txt"] = (f"{_nbs(src.get('transfo_reussies', 0))}/{_nbs(src.get('transfo_tentees', 0))}"
                                       if src.get("transfo_tentees") else 0)
-                src["penalite_txt"] = (f"{src.get('penalite_reussies', 0)}/{src.get('penalite_tentees', 0)}"
+                src["penalite_txt"] = (f"{_nbs(src.get('penalite_reussies', 0))}/{_nbs(src.get('penalite_tentees', 0))}"
                                        if src.get("penalite_tentees") else 0)
-                src["drop_txt"] = (f"{src.get('drop_reussis', 0)}/{src.get('drop_tentes', 0)}"
+                src["drop_txt"] = (f"{_nbs(src.get('drop_reussis', 0))}/{_nbs(src.get('drop_tentes', 0))}"
                                    if src.get("drop_tentes") else 0)
             rows.append({**meta, "name": card["name"], "v": {c["key"]: src.get(c["key"]) for c in cols},
                          "low": bool(src.get("plaquage_low_sample")) if src else False})
         tot = {}
         for c in cols:
             if c["kind"] != "pct" and not c["key"].endswith("_txt"):
-                tot[c["key"]] = sum(int(r["v"].get(c["key"]) or 0) for r in rows)
+                tot[c["key"]] = (_clean_num(sum(float(r["v"].get(c["key"]) or 0) for r in rows)) if avg
+                                 else sum(int(r["v"].get(c["key"]) or 0) for r in rows))
         t = lambda k: tot.get(k, 0)
         if spec["table"] == "attack":
             tot["contact_pct"] = _pct(t("contact_plus"), t("contact_plus") + t("contact_neutre") + t("contact_minus"))
-            passes = sum(int(r.get("passes") or 0) for r in by_name.values())
+            passes = sum(float(r.get("passes") or 0) for r in by_name.values())
             tot["passe_pct"] = _pct(t("passe_plus") + t("passe_neutre"), passes)
         elif spec["table"] == "defense":
             tot["plaquage_pct"] = _pct(t("plaquage_reussis"), t("plaquage_tentes"))
         elif spec["table"] == "ruck":
-            reus = sum(int((by_name.get(c["name"]) or {}).get("transfo_reussies") or 0) for c in player_cards)
-            tent = sum(int((by_name.get(c["name"]) or {}).get("transfo_tentees") or 0) for c in player_cards)
-            tot["transfo_txt"] = f"{reus}/{tent}" if tent else 0
+            reus = sum(float((by_name.get(c["name"]) or {}).get("transfo_reussies") or 0) for c in player_cards)
+            tent = sum(float((by_name.get(c["name"]) or {}).get("transfo_tentees") or 0) for c in player_cards)
+            tot["transfo_txt"] = f"{_nbs(reus)}/{_nbs(tent)}" if tent else 0
             for cle, k_ok, k_tent in (("penalite_txt", "penalite_reussies", "penalite_tentees"),
                                       ("drop_txt", "drop_reussis", "drop_tentes")):
-                ok = sum(int((by_name.get(c["name"]) or {}).get(k_ok) or 0) for c in player_cards)
-                tt = sum(int((by_name.get(c["name"]) or {}).get(k_tent) or 0) for c in player_cards)
-                tot[cle] = f"{ok}/{tt}" if tt else 0
+                ok = sum(float((by_name.get(c["name"]) or {}).get(k_ok) or 0) for c in player_cards)
+                tt = sum(float((by_name.get(c["name"]) or {}).get(k_tent) or 0) for c in player_cards)
+                tot[cle] = f"{_nbs(ok)}/{_nbs(tt)}" if tt else 0
         groups = [{**g, "color": _SLIDE_GROUP_COLORS[i % 3]} for i, g in enumerate(spec["groups"])]
         slides.append({**spec, "groups": groups, "cols": cols, "rows": rows, "total": tot})
     return slides
@@ -2594,22 +2612,85 @@ def _load_training_sessions():
     return sessions
 
 
+def _season_player_tables(selected):
+    """Tableaux joueurs (bilan / attaque / défense / conquête) en MOYENNE PAR MATCH JOUÉ :
+    pour chaque joueur, somme de ses chiffres sur les matchs sélectionnés ÷ nombre de
+    matchs où il a des actions codées. Les pourcentages sont la moyenne de ses
+    pourcentages match par match (un match sans donnée est ignoré)."""
+    kinds = ("bilan", "attack", "defense", "ruck")
+    acc = {k: {} for k in kinds}
+    played = {}
+    for m in selected:
+        attack = compute_player_attack_table(m["instances"])
+        defense = compute_player_defense_table(m["instances"])
+        ruck = compute_player_ruck_table(m["instances"])
+        bilan = compute_player_bilan_table(m["instances"], attack_table=attack,
+                                           defense_table=defense, ruck_table=ruck)
+        tables = {"bilan": bilan, "attack": attack, "defense": defense, "ruck": ruck}
+        for r in bilan["rows"]:
+            if r.get("actions_codees"):
+                played[r["name"]] = played.get(r["name"], 0) + 1
+        for kind, table in tables.items():
+            for r in table["rows"]:
+                a = acc[kind].setdefault(r["name"], {"sums": {}, "pcts": {}, "other": {}})
+                for key, val in r.items():
+                    if isinstance(val, bool):
+                        a["other"][key] = a["other"].get(key, False) or val
+                    elif isinstance(val, (int, float)):
+                        if key == "pct" or key.endswith("_pct"):
+                            a["pcts"].setdefault(key, []).append(val)
+                        else:
+                            a["sums"][key] = a["sums"].get(key, 0) + val
+                    elif val is not None:
+                        a["other"].setdefault(key, val)
+    out = {}
+    for kind in kinds:
+        rows = []
+        for name, a in acc[kind].items():
+            n = max(played.get(name, 0), 1)
+            row = dict(a["other"])
+            row["name"] = name
+            for key, tot in a["sums"].items():
+                row[key] = _clean_num(tot / n)
+            for key in a["pcts"]:
+                v = a["pcts"][key]
+                row[key] = round(sum(v) / len(v)) if v else None
+            row["matchs"] = played.get(name, 0)
+            rows.append(row)
+        out[kind] = {"rows": rows}
+    return out
+
+
 @app.route("/season/joueurs")
 def season_joueurs():
     selected, ctx = _season_common("joueurs")
-    qs = ""
-    instances = _season_instances(selected)
-    groups = compute_squad_season_stats(instances, selected)
-    attack_table = compute_player_attack_table(instances)
-    defense_table = compute_player_defense_table(instances)
-    ruck_table = compute_player_ruck_table(instances)
-    bilan_table = compute_player_bilan_table(instances, attack_table=attack_table,
-                                              defense_table=defense_table, ruck_table=ruck_table)
-    player_cards = build_player_cards(bilan_table, attack_table, defense_table, ruck_table)
-    return render_template("season_joueurs.html", groups=groups, active="joueurs",
-                           qs=qs, selected_count=len(selected),
-                           attack_table=attack_table, defense_table=defense_table,
-                           ruck_table=ruck_table, bilan_table=bilan_table, player_cards=player_cards, **ctx)
+    tabs = _season_player_tables(selected)
+    attack_table, defense_table = tabs["attack"], tabs["defense"]
+    ruck_table, bilan_table = tabs["ruck"], tabs["bilan"]
+    # Ordre : celui de la dernière composition saisie parmi les matchs sélectionnés (comme
+    # sur la page d'un match), sinon l'ordre des boutons Sportscode, sinon alphabétique.
+    ordered_names = None
+    for m in reversed(selected):
+        comp = m.get("composition") or []
+        if any(comp):
+            xml_players = {r["name"] for t in tabs.values() for r in t["rows"]}
+            ordered_names = composition_ordered_names(comp, xml_players, m.get("row_order"))
+            break
+        if m.get("row_order") and ordered_names is None:
+            ordered_names = m.get("row_order")
+    player_cards = build_player_cards(bilan_table, attack_table, defense_table, ruck_table,
+                                      ordered_names=ordered_names)
+    bilan_slide = _bilan_slide(player_cards, None, None, avg=True)
+    for r in bilan_slide["rows"]:
+        r["number"] = None
+    detail_slides = _joueurs_detail_slides(bilan_slide, player_cards,
+                                           {"attack": attack_table, "defense": defense_table, "ruck": ruck_table},
+                                           avg=True)
+    for sl in detail_slides:
+        for r in sl["rows"]:
+            r["number"] = None
+    return render_template("season_joueurs.html", bilan_slide=bilan_slide, detail_slides=detail_slides,
+                           player_baselines={}, **ctx)
 
 
 def _season_match_rows(selected):
