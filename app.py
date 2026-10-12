@@ -1295,9 +1295,37 @@ def _joueur_nom_affiche(xml_name, comp_name=None):
     return comp_name.strip() if comp_name else _casse(xml_name)
 
 
+# Poste du club (liste « Joueurs et accès ») -> catégorie utilisée par les pages stats.
+PPID_VERS_POSTE_EFFECTIF = {
+    "Pilier": "Pilier", "Talon": "Talonneur", "2L": "2ème ligne", "3LC": "3ème ligne",
+    "3LA": "3ème ligne", "9": "Charnière", "10": "Charnière", "12-13": "Centre",
+    "11-14": "Ailier/Arrière", "15": "Ailier/Arrière",
+}
+
+
+def _site_postes():
+    """[(« Prénom Nom », catégorie)] des joueurs dont le poste est réglé dans ☰ →
+    Administration → Joueurs et accès (champ modifiable). Lu une seule fois par requête."""
+    if not hasattr(g, "_site_postes"):
+        rows = get_db().execute(
+            "SELECT first_name, last_name, ppid_position FROM players WHERE ppid_position IS NOT NULL AND ppid_position <> ''"
+        ).fetchall()
+        g._site_postes = [(f"{r['first_name']} {r['last_name']}".strip(), PPID_VERS_POSTE_EFFECTIF[r["ppid_position"]])
+                          for r in rows if r["ppid_position"] in PPID_VERS_POSTE_EFFECTIF]
+    return g._site_postes
+
+
 def _poste_effectif(xml_name):
-    """Poste dans l'effectif du club (SQUAD_ROSTER) pour un code joueur du XML, même si
-    l'ordre des mots diffère (« FANTCHO TAMBO » = « Tambo-Fantcho »)."""
+    """Poste d'un code joueur du XML, même si l'ordre des mots diffère (« FANTCHO TAMBO » =
+    « Tambo-Fantcho »). Priorité au poste réglé sur le site (modifiable par l'admin), à défaut
+    la liste d'effectif du code (SQUAD_ROSTER)."""
+    best, score = None, 0.0
+    for nom, poste in _site_postes():
+        sc = _composition_name_score(nom, xml_name)
+        if sc > score:
+            best, score = poste, sc
+    if score >= 0.8:
+        return best
     best, score = None, 0.0
     for poste, noms in SQUAD_ROSTER.items():
         for nom in noms:
