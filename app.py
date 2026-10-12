@@ -2936,16 +2936,37 @@ def season_discipline():
             p["jaunes"] += 1 if r["carton"] == "J" else 0
             p["rouges"] += 1 if r["carton"] == "R" else 0
     mean = lambda v: round(sum(v) / len(v), 1) if v else None
+    quarters = ["0-20", "20-40", "40-60", "60-80"]
+    par_periode = {side: {q: mean(periods[side].get(q, [])) or 0 for q in quarters} for side in periods}
+    rows = []
+    for p in sorted(players.values(), key=lambda p: -p["fautes"]):
+        if not (p["fautes"] or p["jaunes"] or p["rouges"]):
+            continue
+        rows.append({"name": p["name"], "groupe": p["groupe"], "fautes": round(p["fautes"] / n, 1) if n else 0,
+                     "total": p["fautes"], "jaunes": p["jaunes"], "rouges": p["rouges"]})
+    group_avg = lambda g: round(sum(p["fautes"] for p in players.values() if p["groupe"] == g) / n, 1) if n else 0
+    # Suivi match après match : mêmes données que la page Discipline d'un match.
+    suivi = []
+    for m in selected:
+        counts = compute_team_discipline_counts(m["instances"])
+        if not counts:
+            continue
+        opp = m.get("opponent") or "?"
+        words = opp.split()
+        short = opp if len(opp) <= 5 else ("".join(w[0] for w in words) if len(words) > 1 else opp[:3])
+        suivi.append({"id": m["id"], "opponent": opp, "short": short.upper(), "own": counts["own"],
+                      "adverse": counts["adverse"], "crest": _club_crest_url(m.get("opponent")), "current": False})
     data = {
         "team": {k: mean(v) for k, v in team.items()},
-        "team_total": {k: sum(v) if v else None for k, v in team.items()},
-        "par_periode": {side: {q: mean(v) for q, v in periods[side].items()} for side in periods},
-        "categories": [{"label": k, "avg": mean(v), "total": sum(v)} for k, v in cats.items()],
-        "players": sorted(({**p, "avg": round(p["fautes"] / n, 2) if n else None}
-                           for p in players.values() if p["fautes"] or p["jaunes"] or p["rouges"]),
-                          key=lambda p: -p["fautes"]),
+        "par_periode": par_periode,
+        "premiere_mi_temps": round(par_periode["own"]["0-20"] + par_periode["own"]["20-40"], 1),
+        "rows": rows,
+        "avants": group_avg("avants"), "trois_quarts": group_avg("3/4"),
+        "joueurs_total": round(sum(p["fautes"] for p in players.values()) / n, 1) if n else 0,
+        "categories": [{"label": k, "count": mean(v) or 0} for k, v in cats.items()],
     }
-    return render_template("season_discipline.html", data=data, fmt=_avg_fmt, **ctx)
+    assets = {"own_crest": url_for("static", filename="logo.png"), "adverse_crest": None}
+    return render_template("season_discipline.html", data=data, suivi=suivi, assets=assets, fmt=_avg_fmt, **ctx)
 
 
 @app.route("/season/entrainement", methods=["GET", "POST"])
