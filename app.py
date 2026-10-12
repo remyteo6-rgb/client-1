@@ -2643,6 +2643,11 @@ def season_joueurs():
             ordered_names = m.get("row_order")
     player_cards = build_player_cards(bilan_table, attack_table, defense_table, ruck_table,
                                       ordered_names=ordered_names)
+    # Classement par poste (piliers, talonneurs, 2e ligne, 3e ligne, charnière, centres,
+    # ailiers / arrière) ; à poste égal, l'ordre ci-dessus est conservé (tri stable).
+    poste_rang = {p: i for i, p in enumerate(("Pilier", "Talonneur", "2ème ligne", "3ème ligne",
+                                              "Charnière", "Centre", "Ailier/Arrière"))}
+    player_cards.sort(key=lambda c: poste_rang.get(_poste_effectif(c["name"]), len(poste_rang)))
     bilan_slide = _bilan_slide(player_cards, None, None)
     for r in bilan_slide["rows"]:
         r["number"] = None
