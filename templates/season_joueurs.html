@@ -7,7 +7,7 @@
 <div class="page-header no-print">
     <div>
         <h1>{{ icons.users() }} Joueurs — Saison</h1>
-        <p class="subtitle">Moyenne par match joué sur {{ season_selected_count }} match{{ 's' if season_selected_count != 1 else '' }} sélectionné{{ 's' if season_selected_count != 1 else '' }}, tous les joueurs dans l'ordre de la dernière composition. Pourcentages = moyenne des pourcentages match par match.</p>
+        <p class="subtitle">Total sur {{ season_selected_count }} match{{ 's' if season_selected_count != 1 else '' }} sélectionné{{ 's' if season_selected_count != 1 else '' }}, tous les joueurs dans l'ordre de la dernière composition.</p>
     </div>
     <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>

@@ -2613,52 +2613,15 @@ def _load_training_sessions():
 
 
 def _season_player_tables(selected):
-    """Tableaux joueurs (bilan / attaque / défense / conquête) en MOYENNE PAR MATCH JOUÉ :
-    pour chaque joueur, somme de ses chiffres sur les matchs sélectionnés ÷ nombre de
-    matchs où il a des actions codées. Les pourcentages sont la moyenne de ses
-    pourcentages match par match (un match sans donnée est ignoré)."""
-    kinds = ("bilan", "attack", "defense", "ruck")
-    acc = {k: {} for k in kinds}
-    played = {}
-    for m in selected:
-        attack = compute_player_attack_table(m["instances"])
-        defense = compute_player_defense_table(m["instances"])
-        ruck = compute_player_ruck_table(m["instances"])
-        bilan = compute_player_bilan_table(m["instances"], attack_table=attack,
-                                           defense_table=defense, ruck_table=ruck)
-        tables = {"bilan": bilan, "attack": attack, "defense": defense, "ruck": ruck}
-        for r in bilan["rows"]:
-            if r.get("actions_codees"):
-                played[r["name"]] = played.get(r["name"], 0) + 1
-        for kind, table in tables.items():
-            for r in table["rows"]:
-                a = acc[kind].setdefault(r["name"], {"sums": {}, "pcts": {}, "other": {}})
-                for key, val in r.items():
-                    if isinstance(val, bool):
-                        a["other"][key] = a["other"].get(key, False) or val
-                    elif isinstance(val, (int, float)):
-                        if key == "pct" or key.endswith("_pct"):
-                            a["pcts"].setdefault(key, []).append(val)
-                        else:
-                            a["sums"][key] = a["sums"].get(key, 0) + val
-                    elif val is not None:
-                        a["other"].setdefault(key, val)
-    out = {}
-    for kind in kinds:
-        rows = []
-        for name, a in acc[kind].items():
-            n = max(played.get(name, 0), 1)
-            row = dict(a["other"])
-            row["name"] = name
-            for key, tot in a["sums"].items():
-                row[key] = _clean_num(tot / n)
-            for key in a["pcts"]:
-                v = a["pcts"][key]
-                row[key] = round(sum(v) / len(v)) if v else None
-            row["matchs"] = played.get(name, 0)
-            rows.append(row)
-        out[kind] = {"rows": rows}
-    return out
+    """Tableaux joueurs (bilan / attaque / défense / conquête) en TOTAL sur les matchs
+    sélectionnés : mêmes calculs que sur un match, appliqués à tous leurs codes réunis
+    (les pourcentages sont donc recalculés sur les totaux)."""
+    instances = _season_instances(selected)
+    attack = compute_player_attack_table(instances)
+    defense = compute_player_defense_table(instances)
+    ruck = compute_player_ruck_table(instances)
+    bilan = compute_player_bilan_table(instances, attack_table=attack, defense_table=defense, ruck_table=ruck)
+    return {"bilan": bilan, "attack": attack, "defense": defense, "ruck": ruck}
 
 
 @app.route("/season/joueurs")
@@ -2680,12 +2643,11 @@ def season_joueurs():
             ordered_names = m.get("row_order")
     player_cards = build_player_cards(bilan_table, attack_table, defense_table, ruck_table,
                                       ordered_names=ordered_names)
-    bilan_slide = _bilan_slide(player_cards, None, None, avg=True)
+    bilan_slide = _bilan_slide(player_cards, None, None)
     for r in bilan_slide["rows"]:
         r["number"] = None
     detail_slides = _joueurs_detail_slides(bilan_slide, player_cards,
-                                           {"attack": attack_table, "defense": defense_table, "ruck": ruck_table},
-                                           avg=True)
+                                           {"attack": attack_table, "defense": defense_table, "ruck": ruck_table})
     for sl in detail_slides:
         for r in sl["rows"]:
             r["number"] = None
