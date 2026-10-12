@@ -2186,6 +2186,56 @@ def export_ppid():
     )
 
 
+@app.route("/admin/export-stats-joueurs")
+@admin_required
+def export_stats_joueurs():
+    """Fichier JSON des stats individuelles de chaque joueur (cumul sur les matchs
+    sélectionnés, par défaut toute la saison), à importer dans la mini-application du staff
+    hébergée sur Claude, qui n'a pas accès aux matchs. Mêmes tableaux et mêmes chiffres que
+    la fiche « Mes stats » / cahier d'entraînement du site ; un joueur dont le nom de famille
+    n'est codé dans aucun match sort avec matched=false et sans chiffres."""
+    db = get_db()
+    players = db.execute(
+        """SELECT p.id, p.first_name, p.last_name FROM players p ORDER BY p.last_name, p.first_name"""
+    ).fetchall()
+    matches_with_instances, selected, _ids, _qs = _season_context()
+    instances = _season_instances(selected)
+    out = []
+    if instances:
+        attack = compute_player_attack_table(instances)
+        defense = compute_player_defense_table(instances)
+        ruck = compute_player_ruck_table(instances)
+        bilan = compute_player_bilan_table(instances, attack_table=attack, defense_table=defense, ruck_table=ruck)
+        by = {k: {r["name"]: r for r in t["rows"]} for k, t in
+              (("attack", attack), ("defense", defense), ("ruck", ruck), ("bilan", bilan))}
+        coded = {n: _normalize_name(n) for n in set(by["attack"]) | set(by["defense"]) | set(by["ruck"])}
+    for p in players:
+        entry = {"site_id": p["id"], "first_name": p["first_name"], "last_name": p["last_name"], "matched": False}
+        if instances:
+            target = _normalize_name(p["last_name"])
+            name = next((n for n, norm in coded.items() if norm == target), None)
+            if name:
+                entry.update({
+                    "matched": True, "coded_name": name,
+                    "matches_played": sum(1 for m in selected
+                                          if any(i["kind"] == "player" and i["code_raw"] == name for i in m["instances"])),
+                    "attack": by["attack"].get(name), "defense": by["defense"].get(name),
+                    "ruck": by["ruck"].get(name), "bilan": by["bilan"].get(name),
+                })
+        out.append(entry)
+    payload = {
+        "format": "player-stats-v1", "exported_at": datetime.utcnow().isoformat(),
+        "total_matches": len(matches_with_instances), "selected_matches": len(selected),
+        "players": out,
+    }
+    ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    return Response(
+        json.dumps(payload, ensure_ascii=False, indent=1, default=str),
+        mimetype="application/json",
+        headers={"Content-Disposition": f"attachment; filename=stats_joueurs_{ts}.json"},
+    )
+
+
 def _ppid_norm_name(first, last):
     """Prénom + nom comparables (casse, accents, espaces) pour retrouver un joueur du site
     à partir d'une fiche créée dans la mini-application, qui n'a pas d'identifiant du site."""
