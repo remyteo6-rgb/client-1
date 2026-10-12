@@ -57,7 +57,7 @@
             <thead>
                 <tr>
                     <th>Contact +/=/-</th><th>Total / %</th>
-                    <th class="sep-l">Déf. battus</th><th>Courses</th><th>Break</th>
+                    <th class="sep-l">Déf. battus</th><th>Break</th>
                     <th class="sep-l">Passes +/=/-</th><th>Total / % propres</th>
                     <th class="sep-l">Offload +/=/-</th><th>Total / %</th>
                     <th class="sep-l">Soutien 1er/2e/3e+</th><th>Cartouches</th>
@@ -68,7 +68,7 @@
                 <tr>
                     <td><span class="stat-pos">{{ attack.contact_plus }}</span> / {{ attack.contact_neutre }} / <span class="stat-neg">{{ attack.contact_minus }}</span></td>
                     <td>{{ attack.contact_total }}{% if attack.contact_pct is not none %} ({{ attack.contact_pct }}%){% endif %}</td>
-                    <td class="sep-l">{{ attack.def_battu }}</td><td>{{ attack.cartouche }}</td><td>{{ attack.break }}</td>
+                    <td class="sep-l">{{ attack.def_battu }}</td><td>{{ attack.break }}</td>
                     <td class="sep-l"><span class="stat-pos">{{ attack.passe_plus }}</span> / {{ attack.passe_neutre }} / <span class="stat-neg">{{ attack.passe_minus }}</span></td>
                     <td>{{ attack.passe_total }}{% if attack.passe_pct is not none %} ({{ attack.passe_pct }}%){% endif %}</td>
                     <td class="sep-l"><span class="stat-pos">{{ attack.offload_plus }}</span> / {{ attack.offload_neutre }} / <span class="stat-neg">{{ attack.offload_minus }}</span></td>
