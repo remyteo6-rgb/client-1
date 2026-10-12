@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
+{% block title %}Stats saison — Review{% endblock %}
+{% block content %}
+<div class="page-header no-print">
+    <div>
+        <h1>{{ icons.chart() }} Stats saison — Review</h1>
+        <p class="subtitle">Moyennes par match sur {{ season_selected_count }} match{{ 's' if season_selected_count != 1 else '' }} sélectionné{{ 's' if season_selected_count != 1 else '' }}.</p>
+    </div>
+    {% if review %}<button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>{% endif %}
+</div>
+{% include "_season_select.html" %}
+{% if review %}
+{% include "_review_board.html" %}
+{% else %}
+<div class="card empty-state"><p>Aucun match sélectionné avec la convention de tagging du rapport.</p></div>
+{% endif %}
+{% endblock %}

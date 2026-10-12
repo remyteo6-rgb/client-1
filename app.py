@@ -2718,7 +2718,156 @@ def season_stats():
         rows=rows, averages=averages,
         ball_in_play={"avg": _mmss(bip_avg) if bip_avg else "—", "n": bip_n},
         record={"wins": wins, "draws": draws, "losses": losses}, fmt=_avg_fmt,
+        season_tab="tableaux", season_selected_ids=sorted(selected_ids),
     )
+
+
+def _average_structs(items, n_total=None):
+    """Moyenne par match de structures de stats imbriquées (dicts / listes de lignes
+    {label|name, ...} / nombres). Une valeur absente (None) dans un match est ignorée ;
+    les listes de lignes sont alignées par libellé ; les « top » par joueur sont cumulés
+    puis divisés par le nombre de matchs. Les nombres sont arrondis à 1 décimale (2 pour
+    les ratios et points par entrée)."""
+    items = [i for i in items if i is not None]
+    if not items:
+        return None
+
+    def _avg_nums(vals, key=""):
+        vals = [v for v in vals if isinstance(v, (int, float)) and not isinstance(v, bool)]
+        if not vals:
+            return None
+        dec = 2 if ("ratio" in key or "points_par" in key) else 1
+        v = round(sum(vals) / len(vals), dec)
+        return int(v) if v == int(v) else v
+
+    def rec(vals, key=""):
+        vals = [v for v in vals if v is not None]
+        if not vals:
+            return None
+        head = vals[0]
+        if isinstance(head, bool):
+            return any(vals)
+        if isinstance(head, (int, float)):
+            return _avg_nums(vals, key)
+        if isinstance(head, dict):
+            keys = []
+            for v in vals:
+                if isinstance(v, dict):
+                    for k in v:
+                        if k not in keys:
+                            keys.append(k)
+            return {k: rec([v.get(k) for v in vals if isinstance(v, dict)], str(k)) for k in keys}
+        if isinstance(head, list):
+            rows = [x for v in vals for x in v if isinstance(x, dict)]
+            if rows and all("name" in r for r in rows):
+                tot = {}
+                for r in rows:
+                    tot[r["name"]] = tot.get(r["name"], 0) + (r.get("snipers") or 0)
+                n = n_total or len(vals)
+                top = sorted(tot.items(), key=lambda kv: -kv[1])[:3]
+                return [{"name": nm, "snipers": _avg_nums([c / n])} for nm, c in top]
+            if rows and all("label" in r for r in rows):
+                labels = []
+                for r in rows:
+                    if r["label"] not in labels:
+                        labels.append(r["label"])
+                return [rec([r for r in rows if r["label"] == lb], "") for lb in labels]
+            return head
+        return head
+
+    return rec(items)
+
+
+def _season_bundle(selected):
+    """Calculs match par match réutilisés par les pages saison (Review, Attaque, Défense)."""
+    per = []
+    for m in selected:
+        own_points, adv_points, _s, own_tries, adv_tries = _resolve_match_score(m)
+        zg = compute_zone_gold_log(m["instances"], own_points=own_points, adverse_points=adv_points,
+                                   overrides=(m.get("manual_stats") or {}).get("zone_gold"))
+        per.append({"m": m, "own_points": own_points, "adv_points": adv_points,
+                    "own_tries": own_tries, "adv_tries": adv_tries, "zg": zg})
+    return per
+
+
+def _season_common(tab):
+    all_matches, selected, selected_ids, qs = _season_context()
+    return selected, {
+        "season_mode": True, "season_tab": tab, "season_all_matches": all_matches,
+        "season_selected_ids": sorted(selected_ids), "season_selected_count": len(selected),
+    }
+
+
+def _season_match_stub(count):
+    """Pseudo-match pour les gabarits de match : sert de titre et de blason."""
+    return {"id": 0, "own_team": CLUB_NAME, "opponent": "Moyenne saison",
+            "competition": f"Moyenne sur {count} match{'s' if count != 1 else ''}", "match_date": None}
+
+
+@app.route("/season")
+def season_home():
+    return redirect(url_for("season_review", **{"m": request.args.getlist("m")}))
+
+
+@app.route("/season/review")
+def season_review():
+    selected, ctx = _season_common("review")
+    per = _season_bundle(selected)
+    overviews = [compute_new_convention_overview(p["m"]["instances"]) for p in per]
+    ov = _average_structs(overviews, len(selected))
+    review = None
+    if ov:
+        zg = _average_structs([p["zg"] for p in per if p["zg"]], len(selected))
+        own_pts = [p["own_points"] for p in per if p["own_points"] is not None]
+        adv_pts = [p["adv_points"] for p in per if p["adv_points"] is not None]
+        own_t = [p["own_tries"] for p in per if p["own_tries"] is not None]
+        adv_t = [p["adv_tries"] for p in per if p["adv_tries"] is not None]
+        avg = lambda v, d=1: round(sum(v) / len(v), d) if v else None
+        score = {"own": _avg_fmt(avg(own_pts), 1) if own_pts else None,
+                 "adverse": _avg_fmt(avg(adv_pts), 1) if adv_pts else None,
+                 "own_tries": avg(own_t), "adverse_tries": avg(adv_t)}
+        review = _build_review(ov, score, zg)
+        if review:
+            review["rows"] = [r for r in review["rows"]]
+            review["assets"] = {
+                "background": _review_background_url(),
+                "own_crest": _club_crest_url(CLUB_NAME) or url_for("static", filename="logo.png"),
+                "adverse_crest": None, "own_slug": _club_slug(CLUB_NAME), "adverse_slug": "",
+            }
+            durs = [(o.get("ball_in_play") or {}).get("duration") for o in overviews if o]
+            durs = [d for d in durs if d]
+            review["ball_in_play"] = _mmss(sum(durs) / len(durs)) if durs else None
+    else:
+        score = None
+    return render_template("season_review.html", match=_season_match_stub(len(selected)),
+                           review=review, score=score, hide_adverse_crest=True,
+                           crest_next=url_for("season_review"), **ctx)
+
+
+@app.route("/season/bilan-attaque")
+def season_bilan_attaque():
+    selected, ctx = _season_common("attaque")
+    per = _season_bundle(selected)
+    data = _average_structs([compute_bilan_attaque(p["m"]["instances"]) for p in per], len(selected))
+    gold = _average_structs([(p["zg"] or {}).get("own") for p in per if p["zg"]], len(selected))
+    gold_fmt = {
+        "total": gold.get("total"), "ballons_perdus": gold.get("ballons_perdus"),
+        "efficacite": _fmt_fr(gold.get("efficacite"), 1, " %"),
+        "points_par_entree": _fmt_fr(gold.get("points_par_entree"), 2, always_decimals=True),
+    } if gold else None
+    return render_template("match_bilan_attaque.html", match=_season_match_stub(len(selected)),
+                           data=data, zone_gold=gold_fmt, **ctx)
+
+
+@app.route("/season/bilan-defense")
+def season_bilan_defense():
+    selected, ctx = _season_common("defense")
+    per = _season_bundle(selected)
+    data = _average_structs(
+        [compute_bilan_defense(p["m"]["instances"], adverse_points=p["adv_points"], zone_gold=p["zg"])
+         for p in per], len(selected))
+    return render_template("match_bilan_defense.html", match=_season_match_stub(len(selected)),
+                           data=data, **ctx)
 
 
 @app.route("/season/entrainement", methods=["GET", "POST"])

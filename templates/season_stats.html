@@ -18,6 +18,12 @@
     {% endif %}
 </div>
 
+<div class="cc-nav no-print" style="margin-bottom:14px;">
+    {% for key, label, endpoint in [('review', 'Review', 'season_review'), ('attaque', 'Attaque', 'season_bilan_attaque'), ('defense', 'Défense', 'season_bilan_defense'), ('tableaux', 'Tableaux', 'season_stats')] %}
+    <a class="cc-tab {{ 'active' if season_tab == key else '' }}" href="{{ url_for(endpoint, m=season_selected_ids) }}">{{ label }}</a>
+    {% endfor %}
+</div>
+
 {% if all_matches %}
 <div class="card no-print">
     <h2>Matchs inclus dans les moyennes</h2>

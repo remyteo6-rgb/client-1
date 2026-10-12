@@ -1,0 +1,27 @@
+{# Barre commune aux pages « Stats saison » : onglets + choix des matchs (moyennes par match). #}
+{% import "_ppid_icons.html" as icons %}
+<div class="cc-nav no-print" style="margin-bottom:14px;">
+    {% for key, label, endpoint in [('review', 'Review', 'season_review'), ('attaque', 'Attaque', 'season_bilan_attaque'), ('defense', 'Défense', 'season_bilan_defense'), ('tableaux', 'Tableaux', 'season_stats')] %}
+    <a class="cc-tab {{ 'active' if season_tab == key else '' }}" href="{{ url_for(endpoint, m=season_selected_ids) }}">{{ label }}</a>
+    {% endfor %}
+</div>
+{% if season_all_matches %}
+<details class="card no-print" style="margin-bottom:14px;">
+    <summary><h2 style="display:inline;">Matchs inclus dans les moyennes — {{ season_selected_count }} sur {{ season_all_matches|length }}</h2></summary>
+    <p class="subtitle">Tous cochés par défaut = saison complète. Coche les matchs à garder, puis « Mettre à jour » : les moyennes se recalculent sur ce nombre de matchs.</p>
+    <form method="get" action="{{ request.path }}">
+        <div class="two-col">
+            {% for m in season_all_matches %}
+            <label style="display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:6px;">
+                <input type="checkbox" name="m" value="{{ m['id'] }}" {% if m['id'] in season_selected_ids %}checked{% endif %}>
+                {{ m['match_date'] or '—' }} — {{ m['own_team'] }} vs {{ m['opponent'] }}{% if m['competition'] %} ({{ m['competition'] }}){% endif %}
+            </label>
+            {% endfor %}
+        </div>
+        <div style="display:flex; gap:10px; margin-top:14px;">
+            <button class="btn btn-secondary" type="submit">Mettre à jour</button>
+            <a class="btn btn-secondary" href="{{ request.path }}">Toute la saison</a>
+        </div>
+    </form>
+</details>
+{% endif %}
