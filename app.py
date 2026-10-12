@@ -2774,6 +2774,16 @@ def delete_training_session(session_id):
     return redirect(url_for("season_entrainement"))
 
 
+# Extensions qu'un navigateur sait afficher directement (bouton « Aperçu » + ouverture dans un
+# nouvel onglet) et icône affichée par type de fichier dans les listes de documents.
+DOC_INLINE_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "gif", "webp", "svg", "mp4", "mov", "webm", "txt", "csv"}
+DOC_TYPE_ICONS = {
+    "pdf": "📕", "doc": "📘", "docx": "📘", "xls": "📗", "xlsx": "📗", "csv": "📗",
+    "ppt": "📙", "pptx": "📙", "png": "🖼️", "jpg": "🖼️", "jpeg": "🖼️", "gif": "🖼️", "webp": "🖼️", "svg": "🖼️",
+    "mp4": "🎞️", "mov": "🎞️", "webm": "🎞️", "txt": "📄", "zip": "🗜️",
+}
+
+
 def _doc_ext(filename):
     return (filename or "").rsplit(".", 1)[-1].lower() if "." in (filename or "") else ""
 
