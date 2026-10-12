@@ -557,6 +557,20 @@
 </div>
 {% endif %}
 
+{% if selected_player and stats_sheet %}
+{% with attack=stats_sheet.attack, defense=stats_sheet.defense, ruck=stats_sheet.ruck, bilan=stats_sheet.bilan, matched_name=stats_sheet.matched_name %}
+<details class="cc-stats-sheet" open>
+    <summary><h2 class="cc-bottom-title" style="display:inline-block; margin:0;">{{ ppid_icons.chart() }} Stats individuelles de {{ selected_player['first_name'] }}</h2></summary>
+    <p class="subtitle">Cumul sur {{ stats_sheet.matches_played }} match{{ 's' if stats_sheet.matches_played != 1 else '' }} joué{{ 's' if stats_sheet.matches_played != 1 else '' }} (sur {{ stats_sheet.total_matches }} match{{ 's' if stats_sheet.total_matches != 1 else '' }} analysé{{ 's' if stats_sheet.total_matches != 1 else '' }} cette saison) — les mêmes chiffres que la page « Joueurs » du site.</p>
+    {% if not matched_name %}
+    <div class="empty-state"><p>Aucune statistique trouvée pour {{ selected_player['first_name'] }} {{ selected_player['last_name'] }} : son nom de famille n'a pas été codé dans Sportscode sur les matchs analysés, ou l'orthographe diffère de celle de la fiche joueur.</p></div>
+    {% else %}
+    {% include "_player_stats_sheet.html" %}
+    {% endif %}
+</details>
+{% endwith %}
+{% endif %}
+
 <div class="cc-bottom {{ '' if selected_player else 'cc-bottom-solo' }}">
     {% if selected_player %}
     <div class="cc-bottom-col">

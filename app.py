@@ -3033,12 +3033,9 @@ def player_document_preview(doc_id):
     return _serve_player_document(doc_id, inline=True)
 
 
-@app.route("/mes-stats")
-def player_stats():
-    db = get_db()
-    player = _current_player(db)
-    if not player:
-        abort(404)
+def _player_stats_sheet_context(player):
+    """Fiche de stats individuelles d'un joueur (cumul sur les matchs sélectionnés) : sert à
+    « Mes stats » (côté joueur) et au cahier d'entraînement (côté staff)."""
     matches_with_instances, selected, selected_ids, qs = _season_context()
     instances = _season_instances(selected)
     matched_name = _match_player_stats_name(player, instances) if instances else None
@@ -3054,11 +3051,20 @@ def player_stats():
             1 for m in selected
             if any(i["kind"] == "player" and i["code_raw"] == matched_name for i in m["instances"])
         )
-    return render_template(
-        "player_stats.html", player=player, matched_name=matched_name,
-        attack=attack_row, defense=defense_row, ruck=ruck_row, bilan=bilan_row,
-        matches_played=matches_played, total_matches=len(matches_with_instances),
-    )
+    return {
+        "matched_name": matched_name,
+        "attack": attack_row, "defense": defense_row, "ruck": ruck_row, "bilan": bilan_row,
+        "matches_played": matches_played, "total_matches": len(matches_with_instances),
+    }
+
+
+@app.route("/mes-stats")
+def player_stats():
+    db = get_db()
+    player = _current_player(db)
+    if not player:
+        abort(404)
+    return render_template("player_stats.html", player=player, **_player_stats_sheet_context(player))
 
 
 @app.route("/mes-evaluations")
@@ -3856,7 +3862,8 @@ def cahier_charges():
     rugby_evals_asc = sorted(rugby_evals, key=lambda e: e.get("eval_date") or (e.get("created_at") or ""))
     physical_evals_asc = sorted(physical_evals, key=lambda e: e.get("eval_date") or (e.get("created_at") or ""))
     return render_template(
-        "cahier_charges.html", columns=columns, statuses=CHARGES_STATUSES,
+        "cahier_charges.html", stats_sheet=(_player_stats_sheet_context(dict(selected_player)) if selected_player else None),
+        columns=columns, statuses=CHARGES_STATUSES,
         status_labels=CHARGES_STATUS_LABELS, total_count=len(rows),
         grouped_players=grouped_players, selected_player=selected_player, joueur_id=joueur_id, docs=docs_view,
         rugby_evals=rugby_evals, physical_evals=physical_evals, entretiens=entretiens,
