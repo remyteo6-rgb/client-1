@@ -2611,6 +2611,116 @@ def season_joueurs():
                            ruck_table=ruck_table, bilan_table=bilan_table, player_cards=player_cards)
 
 
+def _season_match_rows(selected):
+    """Une ligne de chiffres d'équipe par match sélectionné (mêmes calculs que la fiche
+    match / la Review : score, essais, possession, occupation, touches, mêlées, discipline,
+    break, offload, pertes de balle, points par entrée en zone Gold). Une valeur inconnue
+    (match non tagué pour cet indicateur) vaut None : elle est ignorée dans les moyennes
+    plutôt que comptée comme un faux zéro."""
+    rows = []
+    for m in selected:
+        instances = m["instances"]
+        own_points, adv_points, _src, own_tries, adv_tries = _resolve_match_score(m)
+        ov = compute_new_convention_overview(instances) or {}
+        gold = compute_zone_gold_log(instances, own_points=own_points, adverse_points=adv_points,
+                                     overrides=(m.get("manual_stats") or {}).get("zone_gold")) or {}
+        g_own, g_adv = gold.get("own") or {}, gold.get("adverse") or {}
+        touches, melees = ov.get("touches") or {}, ov.get("melees") or {}
+        poss, occ = ov.get("possession") or {}, ov.get("occupation") or {}
+        bip = (ov.get("bip") or ov.get("ball_in_play") or {}).get("duration") or None
+        disc, brk, off, pdb = (ov.get("discipline") or {}), (ov.get("break") or {}), (ov.get("offload") or {}), (ov.get("pdb") or {})
+        has = bool(ov)
+        rows.append({
+            "id": m["id"], "date": m.get("match_date"), "opponent": m.get("opponent"),
+            "own_points": own_points, "adverse_points": adv_points,
+            "own_tries": own_tries, "adverse_tries": adv_tries,
+            "ball_in_play": bip,
+            "possession_own": poss.get("own_pct"), "possession_adverse": poss.get("adverse_pct"),
+            "occupation_own": occ.get("own_pct"), "occupation_adverse": occ.get("adverse_pct"),
+            "touches_own": (touches.get("own") or {}).get("pct"), "touches_adverse": (touches.get("adverse") or {}).get("pct"),
+            "tqb_own": (touches.get("own") or {}).get("tqb_pct"), "tqb_adverse": (touches.get("adverse") or {}).get("tqb_pct"),
+            "melees_own": (melees.get("own") or {}).get("pct"), "melees_adverse": (melees.get("adverse") or {}).get("pct"),
+            "discipline_own": disc.get("own") if has else None, "discipline_adverse": disc.get("adverse") if has else None,
+            "break_own": brk.get("own") if has else None, "break_adverse": brk.get("adverse") if has else None,
+            "offload_own": off.get("own") if has else None, "offload_adverse": off.get("adverse") if has else None,
+            "pdb_own": pdb.get("own") if has else None, "pdb_adverse": pdb.get("adverse") if has else None,
+            "gain_line_own": (ov.get("gain_line") or {}).get("pct"),
+            "snipers_own": (ov.get("plaquage") or {}).get("pct"),
+            "points22_own": g_own.get("points_par_entree"), "points22_adverse": g_adv.get("points_par_entree"),
+        })
+    return rows
+
+
+# (libellé, clé nous, clé adverse, décimales, suffixe, cumul affiché ?)
+SEASON_METRICS = [
+    ("Points", "own_points", "adverse_points", 1, "", True),
+    ("Essais", "own_tries", "adverse_tries", 1, "", True),
+    ("Possession", "possession_own", "possession_adverse", 1, " %", False),
+    ("Occupation", "occupation_own", "occupation_adverse", 1, " %", False),
+    ("Touches (conquête)", "touches_own", "touches_adverse", 1, " %", False),
+    ("TQB (ballons de qualité)", "tqb_own", "tqb_adverse", 1, " %", False),
+    ("Mêlées (conquête)", "melees_own", "melees_adverse", 1, " %", False),
+    ("Disciplines", "discipline_own", "discipline_adverse", 1, "", True),
+    ("Break", "break_own", "break_adverse", 1, "", True),
+    ("Offloads", "offload_own", "offload_adverse", 1, "", True),
+    ("Pertes de balle", "pdb_own", "pdb_adverse", 1, "", True),
+    ("Points / entrée en 22", "points22_own", "points22_adverse", 2, "", False),
+    ("Gain de ligne d'avantage", "gain_line_own", None, 1, " %", False),
+    ("Réussite au plaquage (snipers)", "snipers_own", None, 1, " %", False),
+]
+
+
+def _avg_fmt(value, decimals, suffix=""):
+    if value is None:
+        return "—"
+    return f"{value:.{decimals}f}".replace(".", ",") + suffix
+
+
+def _mmss(seconds):
+    seconds = int(round(seconds or 0))
+    return f"{seconds // 60:02d}:{seconds % 60:02d}"
+
+
+def _season_averages(rows):
+    """Moyenne par match de chaque indicateur sur les matchs sélectionnés (les matchs où
+    l'indicateur n'est pas disponible sont écartés ; « n » dit sur combien de matchs la
+    moyenne est calculée)."""
+    def stat(key):
+        vals = [r[key] for r in rows if r.get(key) is not None]
+        return {"avg": (sum(vals) / len(vals)) if vals else None, "sum": sum(vals) if vals else None, "n": len(vals)}
+    out = []
+    for label, k_own, k_adv, dec, suffix, cumul in SEASON_METRICS:
+        own, adv = stat(k_own), (stat(k_adv) if k_adv else None)
+        out.append({
+            "label": label, "n": own["n"],
+            "own": _avg_fmt(own["avg"], dec, suffix), "adverse": _avg_fmt(adv["avg"], dec, suffix) if adv else None,
+            "own_total": _avg_fmt(own["sum"], 0) if cumul else None,
+            "adverse_total": (_avg_fmt(adv["sum"], 0) if (cumul and adv) else None),
+        })
+    bip = [r["ball_in_play"] for r in rows if r.get("ball_in_play")]
+    bip_avg = sum(bip) / len(bip) if bip else None
+    return out, bip_avg, len(bip)
+
+
+@app.route("/season/stats")
+def season_stats():
+    """Stats d'équipe sur la saison : moyenne par match sur les matchs cochés (par défaut
+    tous), avec le détail match par match et le bilan victoires / nuls / défaites."""
+    matches_with_instances, selected, selected_ids, qs = _season_context()
+    rows = _season_match_rows(selected)
+    averages, bip_avg, bip_n = _season_averages(rows)
+    wins = sum(1 for r in rows if r["own_points"] is not None and r["adverse_points"] is not None and r["own_points"] > r["adverse_points"])
+    losses = sum(1 for r in rows if r["own_points"] is not None and r["adverse_points"] is not None and r["own_points"] < r["adverse_points"])
+    draws = sum(1 for r in rows if r["own_points"] is not None and r["own_points"] == r["adverse_points"])
+    return render_template(
+        "season_stats.html", all_matches=matches_with_instances, selected_ids=selected_ids,
+        selected_count=len(selected), total_count=len(matches_with_instances),
+        rows=rows, averages=averages,
+        ball_in_play={"avg": _mmss(bip_avg) if bip_avg else "—", "n": bip_n},
+        record={"wins": wins, "draws": draws, "losses": losses}, fmt=_avg_fmt,
+    )
+
+
 @app.route("/season/entrainement", methods=["GET", "POST"])
 def season_entrainement():
     if request.method == "POST":

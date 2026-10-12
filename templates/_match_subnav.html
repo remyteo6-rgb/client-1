@@ -21,6 +21,7 @@
                         {% endif %}
                     </div>
                 </details>
+                <a href="{{ url_for('season_stats') }}">{{ icons.chart() }} Stats saison</a>
                 <a href="{{ url_for('season_joueurs') }}">{{ icons.users() }} Effectif</a>
                 <a href="{{ url_for('season_entrainement') }}">{{ icons.physical() }} Entraînement</a>
                 {% if not demo_forced %}
