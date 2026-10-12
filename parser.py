@@ -2105,6 +2105,25 @@ def player_row_order(instances, row_order):
     return [c for c in (row_order or []) if c in player_names]
 
 
+def compute_player_activity(instances):
+    """Nombre d'actions codées par joueur et par tranche de 20 minutes (0-20, 20-40, 40-60,
+    60-80) : une action = une instance posée sur le code du joueur, rangée dans le quart-temps
+    de son label « Chrono » (à défaut, celui de l'instance taguée précédente). Renvoie
+    {nom: {'0-20': n, ..., 'total': n}} pour tous les joueurs du XML."""
+    period_of = _period_lookup(instances)
+    out = {name: {q: 0 for q in POSSESSION_QUARTER_ORDER} for name in _new_convention_player_names(instances)}
+    for i in instances:
+        row = out.get(i["code_raw"])
+        if row is None:
+            continue
+        q = period_of(i)
+        if q in row:
+            row[q] += 1
+    for row in out.values():
+        row["total"] = sum(row[q] for q in POSSESSION_QUARTER_ORDER)
+    return out
+
+
 def compute_player_attack_table(instances):
     """Contact, passes, offloads, soutien au ruck, déchet/discipline offensive par joueur
     (convention 2026 : groupes 'Contacts'/'Passes'/'Offload'/'Disciplines').

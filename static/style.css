@@ -2919,3 +2919,13 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
 
 .board-free { width: 100%; max-width: none; margin: 0 0 var(--gap); }
 .board-free .bjr-c-poste { width: 170px; } .board-free .bjr-c-nom { width: 230px; } .board-free .bjr-c-val { width: 120px; }
+
+/* Diapo « ACTIVITÉ » (page Joueurs) : actions par quart-temps et profil en 4 barres. */
+.bjr-c-prof { width: 150px; }
+.bjr-groups .bjr-g-periode2 { background: #3a3f55; }
+.bjr-act .bjr-act-total { font-weight: 800; }
+.bjr-act-prof { padding: 3px 8px !important; }
+.bjr-act-prof div { display: flex; align-items: flex-end; gap: 3px; height: 26px; }
+.bjr-act-prof span { flex: 1; background: #1b2540; border-radius: 1px; }
+.bjr-act-prof span.is-empty { background: #eef0f4; }
+.bjr-season.bjr-act .bjr-act-prof div { height: 32px; }

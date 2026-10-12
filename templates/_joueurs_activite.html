@@ -1,0 +1,54 @@
+{# Diapo « ACTIVITÉ » : actions codées par joueur et par quart-temps (calculs : _activity_slide, app.py). #}
+{% set act = activity_slide %}
+<div class="report-board bjr-report bjr-detail bjr-act{{ ' bjr-season board-free' if season_mode else '' }}">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">ACTIVITÉ</span>
+    </div>
+    <div class="bjr-panel">
+        <table class="bjr-table">
+            <colgroup>
+                <col class="bjr-c-num"><col class="bjr-c-poste"><col class="bjr-c-nom"><col class="bjr-c-min">
+                <col class="bjr-c-val"><col class="bjr-c-val"><col class="bjr-c-val"><col class="bjr-c-val">
+                <col class="bjr-c-val"><col class="bjr-c-val"><col class="bjr-c-val"><col class="bjr-c-prof">
+            </colgroup>
+            <thead>
+                <tr class="bjr-groups">
+                    <th colspan="4" class="bjr-g-joueur">Joueur</th>
+                    <th colspan="2" class="bjr-g-volume">1<sup>re</sup> période</th>
+                    <th colspan="2" class="bjr-g-periode2">2<sup>e</sup> période</th>
+                    <th colspan="4" class="bjr-g-bilan">Répartition de l'activité</th>
+                </tr>
+                <tr class="bjr-cols">
+                    <th colspan="2" class="bjr-left">Poste</th><th class="bjr-left">Nom</th><th>Min.</th>
+                    {% for q in act.quarts %}<th>{{ q }}'</th>{% endfor %}
+                    <th>Total</th><th>Act./min</th><th>Pic</th><th>Profil sur les 4 quarts</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in act.rows %}
+                <tr>
+                    <td class="bjr-num">{% if r.number %}<span>{{ r.number }}</span>{% endif %}</td>
+                    <td class="bjr-poste">{{ r.poste }}</td>
+                    <td class="bjr-nom">{{ r.nom }}</td>
+                    {% if r.minutes %}<td class="bjr-min">{{ r.minutes }}</td>{% else %}<td class="bjr-zero">·</td>{% endif %}
+                    {% for q in act.quarts %}{% if r.q[q] %}<td>{{ r.q[q] }}</td>{% else %}<td class="bjr-zero">·</td>{% endif %}{% endfor %}
+                    <td class="bjr-act-total">{{ r.total }}</td>
+                    <td class="{{ '' if r.per_min else 'bjr-zero' }}">{{ r.per_min or '–' }}</td>
+                    <td>{{ (r.pic ~ "'") if r.pic else '·' }}</td>
+                    <td class="bjr-act-prof"><div>{% for h in r.bars %}<span style="height:{{ [h, 4]|max if h else 100 }}%" class="{{ '' if h else 'is-empty' }}"></span>{% endfor %}</div></td>
+                </tr>
+            {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="2"></td>
+                    <td class="bjr-nom">Total équipe</td>
+                    <td class="bjr-zero">·</td>
+                    {% for q in act.quarts %}<td>{{ act.total.q[q] }}</td>{% endfor %}
+                    <td>{{ act.total.total }}</td><td>–</td><td>{{ (act.total.pic ~ "'") if act.total.pic else '·' }}</td><td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>

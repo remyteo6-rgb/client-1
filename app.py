@@ -19,7 +19,7 @@ from parser import (
     SECTION_ICONS, SECTION_HELP, CATEGORY_HELP, generate_highlights, compute_radar_metrics,
     compute_score, compute_phase_timing,
     compute_player_attack_table, compute_player_defense_table, compute_player_ruck_table,
-    compute_player_bilan_table,
+    compute_player_bilan_table, compute_player_activity,
     compute_overview_dashboard, compute_squad_season_stats,
     compute_possession_log, compute_possession_summary,
     SQUAD_ROSTER, SQUAD_POSITION_ORDER, is_jiff,
@@ -1389,6 +1389,34 @@ def _bilan_slide(player_cards, composition, player_stats, avg=False):
     return {"rows": rows, "total": total}
 
 
+def _activity_slide(bilan_slide, player_cards, activity):
+    """Diapo « ACTIVITÉ » : actions codées par joueur et par quart-temps, total, actions par
+    minute (si les minutes jouées sont connues), quart-temps le plus chargé et profil sur les
+    4 quarts. Mêmes joueurs, même ordre et mêmes n° / poste / nom que la diapo BILAN."""
+    quarts = ["0-20", "20-40", "40-60", "60-80"]
+    rows = []
+    team = {q: 0 for q in quarts}
+    for meta, card in zip(bilan_slide["rows"], player_cards):
+        a = activity.get(card["name"]) or {}
+        per = {q: a.get(q, 0) for q in quarts}
+        total = sum(per.values())
+        for q in quarts:
+            team[q] += per[q]
+        mx = max(per.values()) if total else 0
+        minutes = meta.get("minutes")
+        rows.append({
+            **meta, "name": card["name"], "q": per, "total": total,
+            "per_min": _nbs(total / minutes) if minutes else None,
+            "pic": next((q for q in quarts if per[q] == mx), None) if total else None,
+            "bars": [round(100 * per[q] / mx) if mx else 0 for q in quarts],
+        })
+    team_total = sum(team.values())
+    tmx = max(team.values()) if team_total else 0
+    return {"quarts": quarts, "rows": rows, "total": {
+        "q": team, "total": team_total,
+        "pic": next((q for q in quarts if team[q] == tmx), None) if team_total else None}}
+
+
 # Diapos de détail de la page Joueurs (même mise en page que la diapo BILAN) : un groupe
 # = un bandeau de couleur au-dessus de ses colonnes. kind : 'pos' (vert si > 0), 'neg'
 # (rouge si > 0), 'num' (neutre), 'pct' (pourcentage, calculé aussi pour l'équipe).
@@ -1564,8 +1592,9 @@ def match_joueurs(match_id):
     bilan_slide = _bilan_slide(player_cards, composition, match.get("player_match_stats"))
     detail_slides = _joueurs_detail_slides(bilan_slide, player_cards,
                                            {"attack": attack_table, "defense": defense_table, "ruck": ruck_table})
+    activity_slide = _activity_slide(bilan_slide, player_cards, compute_player_activity(match["instances"]))
     return render_template("match_joueurs.html", match=match, attack_table=attack_table, bilan_slide=bilan_slide,
-                           detail_slides=detail_slides,
+                           detail_slides=detail_slides, activity_slide=activity_slide,
                            defense_table=defense_table, ruck_table=ruck_table,
                            bilan_table=bilan_table,
                            player_baselines=player_baselines, player_cards=player_cards)
@@ -2690,8 +2719,11 @@ def season_joueurs():
     for sl in detail_slides:
         for r in sl["rows"]:
             r["number"] = None
+    activity_slide = _activity_slide(bilan_slide, player_cards, compute_player_activity(_season_instances(selected)))
+    for r in activity_slide["rows"]:
+        r["number"] = None
     return render_template("season_joueurs.html", bilan_slide=bilan_slide, detail_slides=detail_slides,
-                           player_baselines={}, **ctx)
+                           activity_slide=activity_slide, player_baselines={}, **ctx)
 
 
 def _season_match_rows(selected):
