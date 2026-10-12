@@ -24,7 +24,7 @@
 
 {# Diapo « BILAN » : même mise en page que le rapport du staff — n° de la compo, poste,
    nom, minutes, volume, bilan +/=/- et barre de répartition. Calculs : _bilan_slide (app.py). #}
-<div class="report-board bjr-report bjr-season">
+<div class="report-board bjr-report bjr-season board-free">
     <div class="report-head">
         <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
         <span class="report-title">BILAN</span>
@@ -87,7 +87,7 @@
 {# Diapos de détail (attaque / défense / conquête) : même mise en page que la diapo BILAN,
    colonnes décrites dans JOUEURS_SLIDES (app.py), une colonne par chiffre (+ / = / −). #}
 {% for sl in detail_slides %}
-<div class="report-board bjr-report bjr-detail bjr-season">
+<div class="report-board bjr-report bjr-detail bjr-season board-free">
     <div class="report-head">
         <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
         <span class="report-title">{{ sl.title }}</span>

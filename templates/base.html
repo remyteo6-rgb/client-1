@@ -48,7 +48,8 @@ if (window.Chart) { Chart.defaults.color = '#2a1712'; }
 (function () {
     var W = 1280, H = 720;
     function boards() {
-        return document.querySelectorAll('.review-board, .report-board');
+        /* .board-free : pages à beaucoup de lignes (Joueurs saison), affichées à taille réelle sur toute la largeur plutôt que réduites dans une diapo 16/9. */
+        return document.querySelectorAll('.review-board:not(.board-free), .report-board:not(.board-free)');
     }
     function prepare() {
         boards().forEach(function (board) {

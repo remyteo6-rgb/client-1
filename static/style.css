@@ -2916,3 +2916,6 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
 .bjr-season .bjr-cols th { font-size: 14px; }
 .bjr-season.bjr-detail .bjr-cols th.bjr-sign { font-size: 20px; }
 .bjr-season .bjr-groups th { height: 30px; font-size: 13px; }
+
+.board-free { width: 100%; max-width: none; margin: 0 0 var(--gap); }
+.board-free .bjr-c-poste { width: 170px; } .board-free .bjr-c-nom { width: 230px; } .board-free .bjr-c-val { width: 120px; }
