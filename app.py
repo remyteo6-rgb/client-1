@@ -1304,13 +1304,14 @@ PPID_VERS_POSTE_EFFECTIF = {
 
 
 def _site_postes():
-    """[(« Prénom Nom », catégorie)] des joueurs dont le poste est réglé dans ☰ →
+    """[(prénom, nom, catégorie)] des joueurs dont le poste est réglé dans ☰ →
     Administration → Joueurs et accès (champ modifiable). Lu une seule fois par requête."""
     if not hasattr(g, "_site_postes"):
         rows = get_db().execute(
             "SELECT first_name, last_name, ppid_position FROM players WHERE ppid_position IS NOT NULL AND ppid_position <> ''"
         ).fetchall()
-        g._site_postes = [(f"{r['first_name']} {r['last_name']}".strip(), PPID_VERS_POSTE_EFFECTIF[r["ppid_position"]])
+        g._site_postes = [((r["first_name"] or "").strip(), (r["last_name"] or "").strip(),
+                           PPID_VERS_POSTE_EFFECTIF[r["ppid_position"]])
                           for r in rows if r["ppid_position"] in PPID_VERS_POSTE_EFFECTIF]
     return g._site_postes
 
@@ -1319,9 +1320,15 @@ def _poste_effectif(xml_name):
     """Poste d'un code joueur du XML, même si l'ordre des mots diffère (« FANTCHO TAMBO » =
     « Tambo-Fantcho »). Priorité au poste réglé sur le site (modifiable par l'admin), à défaut
     la liste d'effectif du code (SQUAD_ROSTER)."""
+    # Les codes du XML sont des noms de famille (« HUTTEAU », « L.FUKWAMOKO » : initiale du
+    # prénom en préfixe quand deux joueurs ont le même nom) : on compare au nom de famille,
+    # et à « Prénom Nom » en second choix, comme la page Composition.
+    initiale = xml_name.split(".")[0].strip().casefold() if "." in xml_name else ""
     best, score = None, 0.0
-    for nom, poste in _site_postes():
-        sc = _composition_name_score(nom, xml_name)
+    for prenom, nom, poste in _site_postes():
+        if initiale and prenom and prenom[:1].casefold() != initiale:
+            continue
+        sc = max(_composition_name_score(nom, xml_name), _composition_name_score(f"{prenom} {nom}", xml_name))
         if sc > score:
             best, score = poste, sc
     if score >= 0.8:
