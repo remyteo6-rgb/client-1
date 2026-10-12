@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
+{% set active = 'zone_gold' %}
+{% block title %}Zone Gold — Saison{% endblock %}
+{% block content %}
+<div class="page-header no-print">
+    <div>
+        <h1>{{ icons.square(13, '', '#f5c518') }} Zone Gold — Saison</h1>
+        <p class="subtitle">Entrées en zone des 22 m. Moyennes par match sur {{ season_selected_count }} match{{ 's' if season_selected_count != 1 else '' }}.</p>
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
+</div>
+{% include "_season_select.html" %}
+
+{% if not data %}
+<div class="card empty-state"><p>Aucun match sélectionné n'est tagué avec le suivi Zone Gold.</p></div>
+{% else %}
+<div class="report-board">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">ATTAQUE</span>
+        <span class="zg-heading"><span class="zg-heading-title">ZONE GOLD</span><span class="zg-heading-sub">MOYENNE PAR MATCH</span></span>
+    </div>
+    <div class="zg-board" style="grid-template-columns:minmax(0,1fr);">
+        <div class="zg-panel zg-panel-comp">
+            <div class="zg-panel-head">Comparatif</div>
+            <div class="zg-comp-teams"><span>UBB</span><span class="zg-adv">ADV</span></div>
+            <div class="zg-comp-row"><strong>{{ fmt(data.own.total, 1) }}</strong><span>Nombres d'Entrées</span><strong class="zg-adv">{{ fmt(data.adverse.total, 1) }}</strong></div>
+            <div class="zg-comp-row zg-comp-alt"><strong>{{ fmt(data.own.ballons_perdus, 1) }}</strong><span>Ballons Perdus</span><strong class="zg-adv">{{ fmt(data.adverse.ballons_perdus, 1) }}</strong></div>
+            <div class="zg-comp-row"><strong>{{ fmt(data.own.efficacite, 0, ' %') }}</strong><span>% Efficacité</span><strong class="zg-adv">{{ fmt(data.adverse.efficacite, 0, ' %') }}</strong></div>
+            <div class="zg-comp-row zg-comp-alt"><strong>{{ fmt(data.own.points_par_entree, 2) }}</strong><span>Points / Entrée</span><strong class="zg-adv">{{ fmt(data.adverse.points_par_entree, 2) }}</strong></div>
+        </div>
+    </div>
+</div>
+
+<div class="card" style="margin-top:14px;">
+    <h2>Match par match</h2>
+    <table class="stat-table zebra-table">
+        <thead><tr><th>Match</th><th>Entrées</th><th>Ballons perdus</th><th>Efficacité</th><th>Pts / entrée</th><th class="sep-l">Entrées adv.</th><th>Pts / entrée adv.</th></tr></thead>
+        <tbody>
+        {% for r in detail %}
+        <tr><td>{{ r.date or '—' }} — {{ r.opponent }}</td><td>{{ r.own.total }}</td><td>{{ r.own.ballons_perdus }}</td>
+            <td>{{ fmt(r.own.efficacite, 0, ' %') }}</td><td>{{ fmt(r.own.points_par_entree, 2) }}</td>
+            <td class="sep-l">{{ r.adverse.total }}</td><td>{{ fmt(r.adverse.points_par_entree, 2) }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <p class="subtitle">Points / entrée = essais et transformations + pénalités et drops réussis marqués « 22 », divisés par le nombre d'entrées. Moyenne = moyenne des matchs sélectionnés taggés Zone Gold.</p>
+</div>
+{% endif %}
+<script>
+function preparePrint() { setTimeout(() => window.print(), 100); }
+</script>
+{% endblock %}

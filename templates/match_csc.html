@@ -11,6 +11,7 @@
     </div>
     <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
+{% if season_mode %}{% include "_season_select.html" %}{% endif %}
 
 {% if not data %}
 <div class="card empty-state">

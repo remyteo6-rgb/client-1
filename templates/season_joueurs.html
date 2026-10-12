@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "_ppid_icons.html" as icons %}
+{% set active = 'joueurs' %}
 {% block title %}Effectif — Joueurs par poste{% endblock %}
 {% block content %}
 {% from "_players_overview.html" import players_overview %}
@@ -11,6 +12,7 @@
     </div>
     <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
+{% include "_season_select.html" %}
 
 
 {% for g in groups %}

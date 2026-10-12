@@ -62,7 +62,7 @@
         </details>
         <img src="{{ url_for('static', filename='logo.png') }}" class="subnav-logo" alt="{{ club_full_name }}">
         {% if match is defined %}
-        <span class="subnav-context" title="{{ match['own_team'] }} vs {{ match['opponent'] }}{% if match['match_date'] %} · {{ match['match_date'] }}{% endif %}">{{ icons.rugby() }} {{ match['own_team'] }} vs {{ match['opponent'] }}{% if match['match_date'] %} · {{ match['match_date'] }}{% endif %}</span>
+        {% if season_mode %}<span class="subnav-context">{{ icons.rugby() }} Saison · moyenne sur {{ season_selected_count }} match{{ 's' if season_selected_count != 1 else '' }}</span>{% else %}<span class="subnav-context" title="{{ match['own_team'] }} vs {{ match['opponent'] }}{% if match['match_date'] %} · {{ match['match_date'] }}{% endif %}">{{ icons.rugby() }} {{ match['own_team'] }} vs {{ match['opponent'] }}{% if match['match_date'] %} · {{ match['match_date'] }}{% endif %}</span>{% endif %}
         {% endif %}
 
         {% if nav_players %}
@@ -85,10 +85,24 @@
         {% endif %}
 
         {% if match is defined %}
-        {% set page_labels = {'overview': "Vue d'ensemble", 'bilan_attaque': 'Bilan attaque', 'bilan_defense': 'Bilan défense', 'csc': 'CSC', 'discipline': 'Discipline', 'touches': 'Touches', 'possessions': 'Nos possessions', 'zone_gold': 'Zone Gold', 'joueurs': 'Joueurs', 'composition': 'Composition'} %}
+        {% set page_labels = {'overview': "Vue d'ensemble", 'bilan_attaque': 'Bilan attaque', 'bilan_defense': 'Bilan défense', 'csc': 'CSC', 'discipline': 'Discipline', 'touches': 'Touches', 'possessions': 'Nos possessions', 'zone_gold': 'Zone Gold', 'joueurs': 'Joueurs', 'composition': 'Composition', 'tableaux': 'Tableaux'} %}
         {# Ordre des onglets = ordre du rapport (demande de Téo), Composition à la suite.
            « Nos possessions » retiré du menu à sa demande. Une seule liste pour la barre
-           et le menu déroulant. #}
+           et le menu déroulant. En mode saison : mêmes onglets, versions « moyenne par
+           match » (sans Composition, propre à un match) + « Tableaux ». #}
+        {% if season_mode %}
+        {% set match_tabs = [
+            ('overview', 'season_review', "Vue d'ensemble"),
+            ('bilan_attaque', 'season_bilan_attaque', 'Bilan attaque'),
+            ('zone_gold', 'season_zone_gold', 'Zone Gold'),
+            ('bilan_defense', 'season_bilan_defense', 'Bilan défense'),
+            ('csc', 'season_csc', 'CSC'),
+            ('discipline', 'season_discipline', 'Discipline'),
+            ('touches', 'season_touches', 'Touches'),
+            ('joueurs', 'season_joueurs', 'Joueurs'),
+            ('tableaux', 'season_stats', 'Tableaux'),
+        ] %}
+        {% else %}
         {% set match_tabs = [
             ('overview', 'match_detail', "Vue d'ensemble"),
             ('bilan_attaque', 'match_bilan_attaque', 'Bilan attaque'),
@@ -100,15 +114,17 @@
             ('joueurs', 'match_joueurs', 'Joueurs'),
             ('composition', 'match_composition', 'Composition'),
         ] %}
+        {% endif %}
+        {% macro tab_url(endpoint) %}{% if season_mode %}{{ url_for(endpoint, m=season_selected_ids) }}{% else %}{{ url_for(endpoint, match_id=match['id']) }}{% endif %}{% endmacro %}
         <div class="subnav-links">
             {% for key, endpoint, label in match_tabs %}
-            <a href="{{ url_for(endpoint, match_id=match['id']) }}" class="{{ 'active' if active==key else '' }}">{{ label }}</a>
+            <a href="{{ tab_url(endpoint) }}" class="{{ 'active' if active==key else '' }}">{{ label }}</a>
             {% endfor %}
             <details class="subnav-page-dropdown">
                 <summary>{{ page_labels.get(active, 'Pages') }} ▾</summary>
                 <div class="subnav-page-menu">
                     {% for key, endpoint, label in match_tabs %}
-                    <a href="{{ url_for(endpoint, match_id=match['id']) }}" class="{{ 'active' if active==key else '' }}">{{ label }}</a>
+                    <a href="{{ tab_url(endpoint) }}" class="{{ 'active' if active==key else '' }}">{{ label }}</a>
                     {% endfor %}
                 </div>
             </details>
@@ -125,9 +141,13 @@
 <nav class="subnav-breadcrumb no-print" aria-label="Fil d'Ariane">
     <a href="{{ url_for('landing') }}">Accueil</a>
     <span class="subnav-breadcrumb-sep" aria-hidden="true">›</span>
+    {% if season_mode %}
+    <span class="subnav-breadcrumb-current">Stats saison</span>
+    {% else %}
     <a href="{{ url_for('index') }}">Matchs</a>
     <span class="subnav-breadcrumb-sep" aria-hidden="true">›</span>
     <a href="{{ url_for('match_detail', match_id=match['id']) }}">{{ match['own_team'] }} vs {{ match['opponent'] }}</a>
+    {% endif %}
     {% if active and active != 'overview' %}
     <span class="subnav-breadcrumb-sep" aria-hidden="true">›</span>
     <span class="subnav-breadcrumb-current">{{ page_labels.get(active, '') }}</span>

@@ -2596,7 +2596,8 @@ def _load_training_sessions():
 
 @app.route("/season/joueurs")
 def season_joueurs():
-    _, selected, _, qs = _season_context()
+    selected, ctx = _season_common("joueurs")
+    qs = ""
     instances = _season_instances(selected)
     groups = compute_squad_season_stats(instances, selected)
     attack_table = compute_player_attack_table(instances)
@@ -2608,7 +2609,7 @@ def season_joueurs():
     return render_template("season_joueurs.html", groups=groups, active="joueurs",
                            qs=qs, selected_count=len(selected),
                            attack_table=attack_table, defense_table=defense_table,
-                           ruck_table=ruck_table, bilan_table=bilan_table, player_cards=player_cards)
+                           ruck_table=ruck_table, bilan_table=bilan_table, player_cards=player_cards, **ctx)
 
 
 def _season_match_rows(selected):
@@ -2706,7 +2707,8 @@ def _season_averages(rows):
 def season_stats():
     """Stats d'équipe sur la saison : moyenne par match sur les matchs cochés (par défaut
     tous), avec le détail match par match et le bilan victoires / nuls / défaites."""
-    matches_with_instances, selected, selected_ids, qs = _season_context()
+    selected, ctx = _season_common("tableaux")
+    matches_with_instances, selected_ids = ctx["season_all_matches"], set(ctx["season_selected_ids"])
     rows = _season_match_rows(selected)
     averages, bip_avg, bip_n = _season_averages(rows)
     wins = sum(1 for r in rows if r["own_points"] is not None and r["adverse_points"] is not None and r["own_points"] > r["adverse_points"])
@@ -2718,7 +2720,7 @@ def season_stats():
         rows=rows, averages=averages,
         ball_in_play={"avg": _mmss(bip_avg) if bip_avg else "—", "n": bip_n},
         record={"wins": wins, "draws": draws, "losses": losses}, fmt=_avg_fmt,
-        season_tab="tableaux", season_selected_ids=sorted(selected_ids),
+        **ctx,
     )
 
 
@@ -2795,6 +2797,7 @@ def _season_common(tab):
     return selected, {
         "season_mode": True, "season_tab": tab, "season_all_matches": all_matches,
         "season_selected_ids": sorted(selected_ids), "season_selected_count": len(selected),
+        "match": _season_match_stub(len(selected)),
     }
 
 
@@ -2839,8 +2842,7 @@ def season_review():
             review["ball_in_play"] = _mmss(sum(durs) / len(durs)) if durs else None
     else:
         score = None
-    return render_template("season_review.html", match=_season_match_stub(len(selected)),
-                           review=review, score=score, hide_adverse_crest=True,
+    return render_template("season_review.html", review=review, score=score, hide_adverse_crest=True,
                            crest_next=url_for("season_review"), **ctx)
 
 
@@ -2855,7 +2857,7 @@ def season_bilan_attaque():
         "efficacite": _fmt_fr(gold.get("efficacite"), 1, " %"),
         "points_par_entree": _fmt_fr(gold.get("points_par_entree"), 2, always_decimals=True),
     } if gold else None
-    return render_template("match_bilan_attaque.html", match=_season_match_stub(len(selected)),
+    return render_template("match_bilan_attaque.html",
                            data=data, zone_gold=gold_fmt, **ctx)
 
 
@@ -2866,8 +2868,84 @@ def season_bilan_defense():
     data = _average_structs(
         [compute_bilan_defense(p["m"]["instances"], adverse_points=p["adv_points"], zone_gold=p["zg"])
          for p in per], len(selected))
-    return render_template("match_bilan_defense.html", match=_season_match_stub(len(selected)),
+    return render_template("match_bilan_defense.html",
                            data=data, **ctx)
+
+
+@app.route("/season/zone-gold")
+def season_zone_gold():
+    selected, ctx = _season_common("zone_gold")
+    per = [p for p in _season_bundle(selected) if p["zg"]]
+    n = len(selected)
+    data = {side: _average_structs([{k: v for k, v in p["zg"][side].items() if k != "rows"} for p in per], n)
+            for side in ("own", "adverse")} if per else None
+    detail = [{"id": p["m"]["id"], "date": p["m"].get("match_date"), "opponent": p["m"].get("opponent"),
+               "own": {k: p["zg"]["own"].get(k) for k in ("total", "ballons_perdus", "efficacite", "points_par_entree")},
+               "adverse": {k: p["zg"]["adverse"].get(k) for k in ("total", "ballons_perdus", "efficacite", "points_par_entree")}}
+              for p in per]
+    return render_template("season_zone_gold.html", data=data, detail=detail, fmt=_avg_fmt, **ctx)
+
+
+@app.route("/season/csc")
+def season_csc():
+    selected, ctx = _season_common("csc")
+    data = _average_structs([compute_csc(m["instances"]) for m in selected], len(selected))
+    return render_template("match_csc.html", data=data, **ctx)
+
+
+@app.route("/season/touches")
+def season_touches():
+    selected, ctx = _season_common("touches")
+    rows = []
+    for m in selected:
+        d = compute_touches_page(m["instances"], (m.get("manual_stats") or {}).get("touches"))
+        if not d:
+            continue
+        qb = [r["qb"] for r in d["rows"] if r["qb"] is not None]
+        rows.append({"id": m["id"], "date": m.get("match_date"), "opponent": m.get("opponent"),
+                     "total": d["total"], "gagnees": d["gagnees"], "pct": d["pct"],
+                     "qb_pct": round(100 * sum(1 for x in qb if x) / len(qb), 1) if qb else None})
+    def avg(key, dec=1):
+        v = [r[key] for r in rows if r[key] is not None]
+        return _avg_fmt(sum(v) / len(v), dec) if v else "—"
+    summary = {"n": len(rows), "total": avg("total"), "gagnees": avg("gagnees"),
+               "pct": avg("pct"), "qb_pct": avg("qb_pct")}
+    return render_template("season_touches.html", rows=rows, summary=summary, **ctx)
+
+
+@app.route("/season/discipline")
+def season_discipline():
+    selected, ctx = _season_common("discipline")
+    n = len(selected)
+    team = {"own": [], "adverse": []}
+    periods = {"own": {}, "adverse": {}}
+    cats, players = {}, {}
+    for m in selected:
+        d = compute_discipline(m["instances"], m.get("row_order"), m.get("player_match_stats"),
+                               m.get("composition"), (m.get("manual_stats") or {}).get("discipline"))
+        for side in ("own", "adverse"):
+            if d["team"].get(side) is not None:
+                team[side].append(d["team"][side])
+            for q, v in d["par_periode"][side].items():
+                periods[side].setdefault(q, []).append(v)
+        for c in d["categories"]:
+            cats.setdefault(c["label"], []).append(c["count"] or 0)
+        for r in d["rows"]:
+            p = players.setdefault(r["name"], {"name": r["name"], "fautes": 0, "jaunes": 0, "rouges": 0, "groupe": r["groupe"]})
+            p["fautes"] += r["fautes"] or 0
+            p["jaunes"] += 1 if r["carton"] == "J" else 0
+            p["rouges"] += 1 if r["carton"] == "R" else 0
+    mean = lambda v: round(sum(v) / len(v), 1) if v else None
+    data = {
+        "team": {k: mean(v) for k, v in team.items()},
+        "team_total": {k: sum(v) if v else None for k, v in team.items()},
+        "par_periode": {side: {q: mean(v) for q, v in periods[side].items()} for side in periods},
+        "categories": [{"label": k, "avg": mean(v), "total": sum(v)} for k, v in cats.items()],
+        "players": sorted(({**p, "avg": round(p["fautes"] / n, 2) if n else None}
+                           for p in players.values() if p["fautes"] or p["jaunes"] or p["rouges"]),
+                          key=lambda p: -p["fautes"]),
+    }
+    return render_template("season_discipline.html", data=data, fmt=_avg_fmt, **ctx)
 
 
 @app.route("/season/entrainement", methods=["GET", "POST"])

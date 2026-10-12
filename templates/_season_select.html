@@ -1,10 +1,5 @@
 {# Barre commune aux pages « Stats saison » : onglets + choix des matchs (moyennes par match). #}
 {% import "_ppid_icons.html" as icons %}
-<div class="cc-nav no-print" style="margin-bottom:14px;">
-    {% for key, label, endpoint in [('review', 'Review', 'season_review'), ('attaque', 'Attaque', 'season_bilan_attaque'), ('defense', 'Défense', 'season_bilan_defense'), ('tableaux', 'Tableaux', 'season_stats')] %}
-    <a class="cc-tab {{ 'active' if season_tab == key else '' }}" href="{{ url_for(endpoint, m=season_selected_ids) }}">{{ label }}</a>
-    {% endfor %}
-</div>
 {% if season_all_matches %}
 <details class="card no-print" style="margin-bottom:14px;">
     <summary><h2 style="display:inline;">Matchs inclus dans les moyennes — {{ season_selected_count }} sur {{ season_all_matches|length }}</h2></summary>
