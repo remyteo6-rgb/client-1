@@ -1073,7 +1073,7 @@ def compute_csc(instances):
                 sniper["fautes"] += 1
             if "SNIPER RATE" in vals:
                 sniper["rates"] += 1
-            elif "SNIPER" in vals:
+            if "SNIPER" in vals:
                 sniper["reussis"] += 1
                 if "+" in vals:
                     sniper["plus"] += 1
@@ -1829,7 +1829,7 @@ def compute_bilan_defense(instances, adverse_points=None, zone_gold=None):
             found = True
             if "SNIPER RATE" in textes:
                 snipers_rates += 1
-            elif "SNIPER" in textes:
+            if "SNIPER" in textes:
                 snipers_reussis[inst.get("code_raw", "").strip()] += 1
 
     if not found:
@@ -2159,20 +2159,25 @@ def compute_player_attack_table(instances):
             else:
                 row["offload_neutre"] += 1
         if "SOUTIENS OFF" in off:
+            # Plusieurs rangs sur la même instance (« 2eme » et « 3+ ») = plusieurs soutiens.
             if "1ER" in off:
                 row["soutien_1er"] += 1
-            elif "2EME" in off:
+            if "2EME" in off:
                 row["soutien_2eme"] += 1
-            elif "3+" in off:
+            if "3+" in off:
                 row["soutien_3plus"] += 1
         disc = groups.get("DISCIPLINES", set())
         if "DISCIPLINES OFF" in disc:
             row["penalite_off"] += 1
         if "DISCIPLINES DEF" in disc:
             row["penalite_def"] += 1
-        for txt in off:
-            if txt in _ATTACK_ACTION_KEYS:
-                row[_ATTACK_ACTION_KEYS[txt]] += 1
+        # Un label répété sur la même instance (« Def battus » posé deux fois) = deux actions :
+        # on compte chaque occurrence, pas seulement les labels distincts.
+        for lab in i["labels"]:
+            if _normalize_tag(lab["group"]) == "JOUEURS OFF":
+                txt = _normalize_tag(lab["text"])
+                if txt in _ATTACK_ACTION_KEYS:
+                    row[_ATTACK_ACTION_KEYS[txt]] += 1
 
     result = []
     totals = defaultdict(int)
@@ -2219,9 +2224,11 @@ def compute_player_defense_table(instances):
         row = rows[code]
         sniper_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "SNIPERS"}
         if sniper_vals:
+            # « Sniper » et « Sniper raté » sur la même instance : un plaquage réussi ET un
+            # manqué (deux plaquages enchaînés), pas seulement le manqué.
             if "SNIPER RATE" in sniper_vals:
                 row["plaquage_rate"] += 1
-            elif "SNIPER" in sniper_vals:
+            if "SNIPER" in sniper_vals:
                 if "+" in sniper_vals:
                     row["plaquage_dominant"] += 1
                 elif "-" in sniper_vals:
