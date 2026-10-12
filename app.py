@@ -1402,7 +1402,6 @@ JOUEURS_SLIDES = [
             {"key": "contact_pct", "label": "% +", "kind": "pct", "cmp": ("attack", "contact_pct")}]},
         {"label": "Franchissement", "cols": [
             {"key": "def_battu", "label": "Déf. battus", "kind": "pos"},
-            {"key": "cartouche", "label": "Courses", "kind": "num"},
             {"key": "break", "label": "Breaks", "kind": "pos"}]},
         {"label": "Passes", "cols": [
             {"key": "passe_plus", "label": "+", "kind": "pos"},
