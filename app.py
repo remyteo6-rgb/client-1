@@ -2772,14 +2772,38 @@ def _load_training_sessions():
 
 def _season_player_tables(selected):
     """Tableaux joueurs (bilan / attaque / défense / conquête) en TOTAL sur les matchs
-    sélectionnés : mêmes calculs que sur un match, appliqués à tous leurs codes réunis
-    (les pourcentages sont donc recalculés sur les totaux)."""
-    instances = _season_instances(selected)
-    attack = compute_player_attack_table(instances)
-    defense = compute_player_defense_table(instances)
-    ruck = compute_player_ruck_table(instances)
-    bilan = compute_player_bilan_table(instances, attack_table=attack, defense_table=defense, ruck_table=ruck)
-    return {"bilan": bilan, "attack": attack, "defense": defense, "ruck": ruck}
+    sélectionnés. Chaque match est calculé SEPAREMENT puis les compteurs sont additionnés
+    (les pourcentages sont recalculés sur les totaux) : les calculs chronologiques (tirs au but
+    rattachés au joueur, touches et mêlées gagnées, etc.) comparent des temps vidéo, qui ne
+    doivent jamais se mélanger d'un match à l'autre."""
+    noms = ("bilan", "attack", "defense", "ruck")
+    par_match = []
+    for m in selected:
+        ins = m["instances"]
+        attack = compute_player_attack_table(ins)
+        defense = compute_player_defense_table(ins)
+        ruck = compute_player_ruck_table(ins)
+        bilan = compute_player_bilan_table(ins, attack_table=attack, defense_table=defense, ruck_table=ruck)
+        par_match.append({"bilan": bilan, "attack": attack, "defense": defense, "ruck": ruck})
+    out = {}
+    for k in noms:
+        lignes, totals = {}, {}
+        for t in par_match:
+            for r in t[k]["rows"]:
+                lignes.setdefault(r["name"], []).append(r)
+            for key, v in (t[k].get("totals") or {}).items():
+                totals[key] = totals.get(key, 0) + v
+        rows = []
+        for name, ls in lignes.items():
+            fused = _fusion_lignes(ls)
+            fused["name"] = name
+            rows.append(fused)
+        if k == "bilan":
+            rows.sort(key=lambda x: -x["bilan_net"])
+        else:
+            rows.sort(key=lambda x: x["name"].casefold())
+        out[k] = {"rows": rows, "totals": totals}
+    return out
 
 
 def _season_minutes(selected):
@@ -2954,6 +2978,8 @@ def _fusion_lignes(lignes):
     out["offload_pct"] = pct(out.get("offload_plus", 0) + out.get("offload_neutre", 0), out.get("offload_total", 0))
     made = out.get("plaquage_dominant", 0) + out.get("plaquage_neutre", 0) + out.get("plaquage_passif", 0)
     out["plaquage_pct"] = pct(made, out.get("plaquage_tentes", 0))
+    if "plaquage_tentes" in out:
+        out["plaquage_low_sample"] = out["plaquage_tentes"] < 3
     return out
 
 
