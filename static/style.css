@@ -2905,20 +2905,20 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
    sous le cadre. */
 .report-slide .def-cols { flex: 1.5; }
 
-/* Page Joueurs saison : ~40 joueurs, lignes et chiffres plus grands pour rester lisibles. */
-.bjr-season .bjr-table { font-size: 18px; }
-.bjr-season .bjr-table th, .bjr-season .bjr-table td { height: 42px; }
-.bjr-season .bjr-table .bjr-poste { font-size: 17px; }
-.bjr-season .bjr-table .bjr-nom { font-size: 20px; }
-.bjr-season .bjr-table td.bjr-pos, .bjr-season .bjr-table td.bjr-neg, .bjr-season .bjr-table td.bjr-net { font-size: 20px; }
-.bjr-season .bjr-table tfoot td { height: 46px; font-size: 20px; }
-.bjr-season.bjr-detail .bjr-table td { font-size: 19px; }
-.bjr-season .bjr-cols th { font-size: 14px; }
-.bjr-season.bjr-detail .bjr-cols th.bjr-sign { font-size: 20px; }
-.bjr-season .bjr-groups th { height: 30px; font-size: 13px; }
+/* Page Joueurs saison : ~40 joueurs, taille intermédiaire (lisible sans déborder de l'écran). */
+.bjr-season .bjr-table { font-size: 15px; }
+.bjr-season .bjr-table th, .bjr-season .bjr-table td { height: 34px; padding-left: 3px; padding-right: 3px; }
+.bjr-season .bjr-table .bjr-poste { font-size: 14px; }
+.bjr-season .bjr-table .bjr-nom { font-size: 16px; }
+.bjr-season .bjr-table td.bjr-pos, .bjr-season .bjr-table td.bjr-neg, .bjr-season .bjr-table td.bjr-net { font-size: 16px; }
+.bjr-season .bjr-table tfoot td { height: 36px; font-size: 16px; }
+.bjr-season.bjr-detail .bjr-table td { font-size: 15px; }
+.bjr-season .bjr-cols th { font-size: 11px; line-height: 1.1; }
+.bjr-season.bjr-detail .bjr-cols th.bjr-sign { font-size: 16px; }
+.bjr-season .bjr-groups th { height: 26px; font-size: 11px; letter-spacing: .08em; }
 
 .board-free { width: 100%; max-width: none; margin: 0 0 var(--gap); }
-.board-free .bjr-c-poste { width: 170px; } .board-free .bjr-c-nom { width: 230px; } .board-free .bjr-c-val { width: 120px; }
+.board-free .bjr-c-poste { width: 100px; } .board-free .bjr-c-nom { width: 150px; } .board-free .bjr-c-val { width: 56px; }
 
 /* Diapo « ACTIVITÉ » (page Joueurs) : actions par quart-temps et profil en 4 barres. */
 .bjr-c-prof { width: 150px; }
@@ -2928,4 +2928,4 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
 .bjr-act-prof div { display: flex; align-items: flex-end; gap: 3px; height: 26px; }
 .bjr-act-prof span { flex: 1; background: #1b2540; border-radius: 1px; }
 .bjr-act-prof span.is-empty { background: #eef0f4; }
-.bjr-season.bjr-act .bjr-act-prof div { height: 32px; }
+.bjr-season.bjr-act .bjr-act-prof div { height: 26px; }
