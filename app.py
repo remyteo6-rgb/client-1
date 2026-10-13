@@ -2922,7 +2922,7 @@ def _compare_radar(selected, name_a, name_b, poste=None):
     infos = {m["id"]: _match_infos(m) for m in selected}
     cache = {}
 
-    def key(nom):
+    def cle(nom):
         return nom.strip().casefold()
 
     def matchs_au_poste(nom):
@@ -2930,7 +2930,7 @@ def _compare_radar(selected, name_a, name_b, poste=None):
         à défaut son poste habituel."""
         out = []
         for m in selected:
-            mn, p = infos[m["id"]].get(key(nom), (0, None))
+            mn, p = infos[m["id"]].get(cle(nom), (0, None))
             if mn and (p or _poste_effectif(nom)) == poste:
                 out.append(m)
         return out
@@ -2941,7 +2941,7 @@ def _compare_radar(selected, name_a, name_b, poste=None):
         if ids not in cache:
             cache[ids] = _season_player_tables(ms) if ms else None
         tabs = cache[ids]
-        minutes = sum(infos[m["id"]].get(key(nom), (0, None))[0] for m in ms)
+        minutes = sum(infos[m["id"]].get(cle(nom), (0, None))[0] for m in ms)
         by = {k: {r["name"].strip().casefold(): r for r in t["rows"]} for k, t in tabs.items()} if tabs else {}
         return by, minutes, len(ms)
 
@@ -2957,7 +2957,7 @@ def _compare_radar(selected, name_a, name_b, poste=None):
     pool = []
     for nom in {r["name"] for t in tabs_all.values() for r in t["rows"]}:
         by, mn, _n = donnees(nom)
-        if mn >= 40 or key(nom) in (key(name_a), key(name_b)):
+        if mn >= 40 or cle(nom) in (cle(name_a), cle(name_b)):
             pool.append((nom, 80 / mn if mn else None))
 
     def val(nom, fn):
@@ -2965,7 +2965,7 @@ def _compare_radar(selected, name_a, name_b, poste=None):
         if mn <= 0:
             return None
         try:
-            return fn({t: by[t].get(key(nom)) for t in by}, 80 / mn)
+            return fn({t: by[t].get(cle(nom)) for t in by}, 80 / mn)
         except Exception:
             return None
     out_axes = []
