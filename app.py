@@ -3896,6 +3896,7 @@ PPID_RUGBY_CATEGORY_KEYS = PPID_RUGBY_SLOT_KEYS + [k for k, _l in PPID_RUGBY_COM
 # Notes conservées des anciennes grilles, affichées en fin de tableau (« ancienne grille »)
 # sans être modifiables : l'ancien critère commun, et les cases de la grille d'avant
 # octobre 2026 qui n'existent plus pour le poste (voir _ppid_migrer_grille_2026).
+PPID_AFFICHER_ANCIENNE_GRILLE = False  # True : réaffiche les lignes « ancienne grille »
 PPID_RUGBY_LEGACY_LABELS = {"durete_etat_esprit": "Dureté / État d'esprit"}
 # Marqueur posé dans les notes (clé « _grille ») de toute évaluation faite ou remise à la
 # grille d'octobre 2026 : la reprise des anciennes évaluations ne la retouche jamais.
@@ -4171,7 +4172,11 @@ def _ppid_rugby_legacy_rows(evals):
     """Lignes « ancienne grille » à afficher sous les critères actuels : toute note gardée
     sous une clé qui n'est plus un critère en cours (ancien critère commun « Dureté / État
     d'esprit », cases archivées lors du passage à la nouvelle grille). Libellé : celui
-    enregistré avec la note, sinon PPID_RUGBY_LEGACY_LABELS."""
+    enregistré avec la note, sinon PPID_RUGBY_LEGACY_LABELS.
+    Masqué à la demande de Téo : les anciens critères n'apparaissent plus sur la fiche
+    (les notes restent en base, rien n'est effacé)."""
+    if not PPID_AFFICHER_ANCIENNE_GRILLE:
+        return []
     rows, seen = [], set()
     for ev in evals:
         for key, entry in (ev.get("ratings") or {}).items():
