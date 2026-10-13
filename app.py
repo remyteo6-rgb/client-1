@@ -2920,11 +2920,40 @@ COMPARE_FAMILLES = [
 ]
 
 
+def _fusion_lignes(lignes):
+    """Additionne les lignes d'un même joueur issues de plusieurs matchs (compteurs), puis
+    recalcule les pourcentages à partir des totaux. Évite de refaire tout le calcul des
+    tableaux pour chaque combinaison de matchs : chaque match n'est calculé qu'une fois."""
+    lignes = [l for l in lignes if l]
+    if not lignes:
+        return None
+    out = {}
+    for l in lignes:
+        for k, v in l.items():
+            if k.endswith("_pct") or isinstance(v, bool) or not isinstance(v, (int, float)):
+                continue
+            out[k] = out.get(k, 0) + v
+    def pct(num, den):
+        return round(num / den * 100) if den else None
+    out["contact_pct"] = pct(out.get("contact_plus", 0), out.get("contact_total", 0))
+    out["passe_pct"] = pct(out.get("passe_plus", 0) + out.get("passe_neutre", 0), out.get("passe_total", 0))
+    out["offload_pct"] = pct(out.get("offload_plus", 0) + out.get("offload_neutre", 0), out.get("offload_total", 0))
+    made = out.get("plaquage_dominant", 0) + out.get("plaquage_neutre", 0) + out.get("plaquage_passif", 0)
+    out["plaquage_pct"] = pct(made, out.get("plaquage_tentes", 0))
+    return out
+
+
 def _compare_radar(selected, name_a, name_b, poste=None):
     import math
-    tabs_all = _season_player_tables(selected)
     infos = {m["id"]: _match_infos(m) for m in selected}
-    cache = {}
+    # Tableaux joueurs calculés une seule fois par match : {id match: {type: {nom: ligne}}}
+    par_match = {}
+    for m in selected:
+        t = _season_player_tables([m])
+        par_match[m["id"]] = {k: {r["name"].strip().casefold(): r for r in tab["rows"]} for k, tab in t.items()}
+    tous_noms = {r["name"] for m in selected for tab in par_match[m["id"]].values() for r in tab.values()}
+    noms_par_cle = {n.strip().casefold(): n for n in tous_noms}
+    memo = {}
 
     def cle(nom):
         return nom.strip().casefold()
@@ -2940,22 +2969,14 @@ def _compare_radar(selected, name_a, name_b, poste=None):
                 out.append(m)
         return out
 
-    memo = {}
-
     def donnees(nom):
         if cle(nom) not in memo:
-            memo[cle(nom)] = _donnees(nom)
+            ms = matchs_au_poste(nom)
+            minutes = sum(infos[m["id"]].get(cle(nom), (0, None))[0] for m in ms)
+            by = {t: {cle(nom): _fusion_lignes([par_match[m["id"]][t].get(cle(nom)) for m in ms])}
+                  for t in ("bilan", "attack", "defense", "ruck")}
+            memo[cle(nom)] = (by, minutes, len(ms))
         return memo[cle(nom)]
-
-    def _donnees(nom):
-        ms = matchs_au_poste(nom)
-        ids = tuple(m["id"] for m in ms)
-        if ids not in cache:
-            cache[ids] = _season_player_tables(ms) if ms else None
-        tabs = cache[ids]
-        minutes = sum(infos[m["id"]].get(cle(nom), (0, None))[0] for m in ms)
-        by = {k: {r["name"].strip().casefold(): r for r in t["rows"]} for k, t in tabs.items()} if tabs else {}
-        return by, minutes, len(ms)
 
     poste = poste or _poste_effectif(name_a) or _poste_effectif(name_b)
     axes = COMPARE_COMMUN + COMPARE_POSTE.get(poste, [])
@@ -2967,7 +2988,7 @@ def _compare_radar(selected, name_a, name_b, poste=None):
         return {"manque_minutes": True, "minutes": (ma, mb), "poste": poste}
     # Joueurs ayant tenu ce poste (au moins 40 min à ce poste) = référence (0 = pire, 100 = meilleur).
     pool = []
-    for nom in {r["name"] for t in tabs_all.values() for r in t["rows"]}:
+    for nom in tous_noms:
         by, mn, _n = donnees(nom)
         if mn >= 40 or cle(nom) in (cle(name_a), cle(name_b)):
             pool.append((nom, 80 / mn if mn else None))
