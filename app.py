@@ -11,6 +11,7 @@ from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, render_template, request, redirect, url_for, flash, g, abort, session, Response, jsonify
 from parser import (
+    _normalize_tag,
     ZONE_GOLD_CHOICES,
     compute_touches_page,
     compute_discipline,
@@ -3161,9 +3162,37 @@ def _season_bundle(selected):
     return per
 
 
+# Labels dont l'absence dans un match vient en général d'un tag pas encore posé (et non d'une
+# vraie absence d'action) : ils faussent les cumuls saison, d'où l'avertissement.
+SEASON_LABELS_SUIVIS = [("Cartouches", "JOUEURS OFF", "CARTOUCHES"),
+                        ("Points/Entrée « 22 »", "POINTS/ENTREE", "22")]
+
+
+def _season_warnings(selected):
+    """Avertit quand un label existe dans certains matchs sélectionnés mais pas dans d'autres."""
+    if len(selected) < 2:
+        return []
+    presents = {nom: set() for nom, _g, _t in SEASON_LABELS_SUIVIS}
+    for m in selected:
+        for i in m.get("instances") or []:
+            for lab in i.get("labels") or []:
+                g, t = _normalize_tag(lab.get("group")), _normalize_tag(lab.get("text"))
+                for nom, gg, tt in SEASON_LABELS_SUIVIS:
+                    if g == gg and t == tt:
+                        presents[nom].add(m["id"])
+    out = []
+    for nom, ids in presents.items():
+        if ids and len(ids) < len(selected):
+            manquants = [f"{m.get('match_date') or '?'} vs {m.get('opponent') or '?'}" for m in selected if m["id"] not in ids]
+            out.append(f"« {nom} » n'est pas tagué dans : {' ; '.join(manquants)}. "
+                       "Le cumul saison est sous-estimé pour ce critère (zéro faute de tag).")
+    return out
+
+
 def _season_common(tab):
     all_matches, selected, selected_ids, qs = _season_context()
     return selected, {
+        "season_warnings": _season_warnings(selected),
         "season_mode": True, "season_tab": tab, "season_all_matches": all_matches,
         "season_selected_ids": sorted(selected_ids), "season_selected_count": len(selected),
         "match": _season_match_stub(len(selected)),

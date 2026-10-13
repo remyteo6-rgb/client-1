@@ -1,5 +1,10 @@
 {# Barre commune aux pages « Stats saison » : onglets + choix des matchs (moyennes par match). #}
 {% import "_ppid_icons.html" as icons %}
+{% if season_warnings %}
+<div class="card no-print" style="margin-bottom:14px; border-left:4px solid #f9a240;">
+    {% for w in season_warnings %}<p style="margin:4px 0;">⚠ {{ w }}</p>{% endfor %}
+</div>
+{% endif %}
 {% if season_all_matches %}
 <details class="card no-print" style="margin-bottom:14px;">
     <summary><h2 style="display:inline;">Matchs inclus dans les moyennes — {{ season_selected_count }} sur {{ season_all_matches|length }}</h2></summary>
