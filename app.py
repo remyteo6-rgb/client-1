@@ -2918,12 +2918,19 @@ COMPARE_POSTE = {
 }
 # Familles servant à nommer le profil du joueur (moyenne des axes normalisés de la famille).
 COMPARE_FAMILLES = [
-    ("Porteur de balle", ("contact", "contact_pct", "franchi", "offload", "offload_pct")),
-    ("Défenseur", ("plaquage", "plaquage_pct", "plaquage_dom", "plaquage_bas", "combat")),
-    ("Soutien / travail de l'ombre", ("soutien", "activite")),
+    ("Percuteur", ("contact", "franchi")),
+    ("Joueur de continuité", ("offload", "offload_pct")),
+    ("Fiable au contact", ("contact_pct",)),
+    ("Plaqueur", ("plaquage", "plaquage_pct")),
+    ("Plaqueur dominant", ("plaquage_dom", "plaquage_bas")),
+    ("Récupérateur", ("combat",)),
+    ("Soutien / nettoyeur", ("soutien",)),
+    ("Moteur", ("activite",)),
     ("Passeur", ("passes", "passes_pct")),
-    ("Conquête", ("melee", "melee_off_pct", "melee_def_pct", "lanceur", "lancer_pct", "sauteur", "sauteur_pct", "lifteur", "lifteur_pct")),
-    ("Jeu au pied / aérien", ("jap", "aerien")),
+    ("Homme de mêlée", ("melee", "melee_off_pct", "melee_def_pct")),
+    ("Homme de touche", ("lanceur", "lancer_pct", "sauteur", "sauteur_pct", "lifteur_pct")),
+    ("Jeu au pied", ("jap",)),
+    ("Joueur aérien", ("aerien",)),
 ]
 
 
@@ -3028,15 +3035,17 @@ def _compare_radar(selected, name_a, name_b, poste=None):
             row["vals"].append(v)
             row["scores"].append(sc)
         out_axes.append(row)
-    # Profil : famille avec la meilleure moyenne
+    # Profils : les 2 familles d'axes avec la meilleure moyenne de notes (le 2e n'est gardé
+    # que s'il atteint 50). Un profil est relatif au poste comparé, pas absolu.
     profils = []
     for i in (0, 1):
-        best, best_sc = None, -1
+        scores = []
         for nom_f, keys in COMPARE_FAMILLES:
             sc = [a["scores"][i] for a in out_axes if a["key"] in keys and a["scores"][i] is not None]
-            if sc and sum(sc) / len(sc) > best_sc:
-                best, best_sc = nom_f, sum(sc) / len(sc)
-        profils.append(best)
+            if sc:
+                scores.append((nom_f, round(sum(sc) / len(sc))))
+        scores.sort(key=lambda x: -x[1])
+        profils.append([{"nom": n, "score": v} for n, v in scores[:2] if v >= 50 or (n, v) == scores[0]])
     # Géométrie du radar (SVG calculé ici)
     n = len(out_axes)
     cx, cy, R = 260, 250, 170

@@ -75,8 +75,8 @@
             <div class="bil-panel">
                 <div class="bil-panel-head bil-head-blue">Les deux joueurs</div>
                 <div class="cmp-legend">
-                    <p class="cmp-a"><span class="cmp-sq" style="background:#2f5d8a;"></span><strong>{{ display_name(a) }}</strong> — {{ radar.minutes[0] }} min ({{ radar.matchs[0] }} match{{ 's' if radar.matchs[0] != 1 else '' }} à ce poste) · {{ radar.profils[0] or '—' }}</p>
-                    <p class="cmp-b"><span class="cmp-sq" style="background:#a5305f;"></span><strong>{{ display_name(b) }}</strong> — {{ radar.minutes[1] }} min ({{ radar.matchs[1] }} match{{ 's' if radar.matchs[1] != 1 else '' }} à ce poste) · {{ radar.profils[1] or '—' }}</p>
+                    <p class="cmp-a"><span class="cmp-sq" style="background:#2f5d8a;"></span><strong>{{ display_name(a) }}</strong> — {{ radar.minutes[0] }} min ({{ radar.matchs[0] }} match{{ 's' if radar.matchs[0] != 1 else '' }} à ce poste) · {% for p in radar.profils[0] %}{{ p.nom }} ({{ p.score }}){{ ' · ' if not loop.last }}{% else %}—{% endfor %}</p>
+                    <p class="cmp-b"><span class="cmp-sq" style="background:#a5305f;"></span><strong>{{ display_name(b) }}</strong> — {{ radar.minutes[1] }} min ({{ radar.matchs[1] }} match{{ 's' if radar.matchs[1] != 1 else '' }} à ce poste) · {% for p in radar.profils[1] %}{{ p.nom }} ({{ p.score }}){{ ' · ' if not loop.last }}{% else %}—{% endfor %}</p>
                 </div>
                 <p class="gp-note" style="padding-top:2px; color:#6a6a6a;">Référence : {{ radar.pool }} joueurs ayant tenu ce poste au moins 40 min (seuls les matchs joués à ce poste comptent). 100 = le meilleur du poste, 0 = le moins élevé ; pourcentages : valeur réelle.</p>
             </div>
