@@ -3164,8 +3164,7 @@ def _season_bundle(selected):
 
 # Labels dont l'absence dans un match vient en général d'un tag pas encore posé (et non d'une
 # vraie absence d'action) : ils faussent les cumuls saison, d'où l'avertissement.
-SEASON_LABELS_SUIVIS = [("Cartouches", "JOUEURS OFF", "CARTOUCHES"),
-                        ("Points/Entrée « 22 »", "POINTS/ENTREE", "22")]
+SEASON_LABELS_SUIVIS = [("Cartouches", "JOUEURS OFF", "CARTOUCHES")]
 
 
 def _season_warnings(selected):
