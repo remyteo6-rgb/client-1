@@ -32,7 +32,7 @@ from parser import (
     player_row_order,
     compute_momentum, render_momentum_svg,
     compute_zone_gold_log, compute_new_convention_tries, compute_new_convention_score,
-    compute_new_convention_overview, compute_csc, compute_bilan_attaque,
+    compute_new_convention_overview, compute_csc, compute_bilan_attaque, gold_points_par_entree_matchs,
     compute_bilan_defense,
 )
 from parser_ubb import parse_ubb_xml, compute_ubb_overview
@@ -3049,6 +3049,85 @@ def _compare_radar(selected, name_a, name_b, poste=None):
     return {"poste": poste, "axes": out_axes, "polys": polys, "rings": rings, "profils": profils,
             "mode": "par 80 min", "minutes": (ma, mb), "matchs": (da[2], db_[2]),
             "pool": len(pool), "cx": cx, "cy": cy}
+
+
+# ---- Ce qui nous fait gagner ou perdre : critères du club, victoires vs défaites ---------
+# (clé, libellé, unité, décimales, sens) — sens "hi" : plus c'est haut mieux c'est ; "lo" : l'inverse.
+GP_CRITERES = [
+    ("clics", "Clics", "", 1, "hi"),
+    ("offloads", "Offloads", "", 1, "hi"),
+    ("def_battus", "Défenseurs battus", "", 1, "hi"),
+    ("plaquage_pct", "% au plaquage", " %", 1, "hi"),
+    ("dominance", "Dominance au contact", " %", 1, "hi"),
+    ("pts_entree", "Points / entrée (22)", "", 2, "hi"),
+    ("discipline", "Discipline (pénalités concédées)", "", 1, "lo"),
+]
+
+
+def _gp_valeurs_match(m):
+    """Les 7 critères du club pour un match (None quand le match n'a pas l'info)."""
+    ins = m["instances"]
+    att = compute_bilan_attaque(ins) or {}
+    dfn = compute_player_defense_table(ins).get("totals") or {}
+    made = (dfn.get("plaquage_dominant", 0) + dfn.get("plaquage_neutre", 0) + dfn.get("plaquage_passif", 0))
+    tentes = made + dfn.get("plaquage_rate", 0)
+    disc = compute_team_discipline_counts(ins)
+    return {
+        "clics": att.get("clics") if att else None,
+        "offloads": att.get("offloads") if att else None,
+        "def_battus": att.get("plaquages_casses") if att else None,
+        "plaquage_pct": round(100 * made / tentes, 1) if tentes else None,
+        "dominance": att.get("dominants_pct") if att else None,
+        "pts_entree": gold_points_par_entree_matchs([ins], "own"),
+        "discipline": disc["own"] if disc else None,
+    }
+
+
+def _gagner_perdre(selected):
+    matchs = []
+    for m in selected:
+        own, adv = _resolve_match_score(m)[:2]
+        if own is None or adv is None:
+            res = None
+        else:
+            res = "V" if own > adv else ("D" if own < adv else "N")
+        opp = m.get("opponent") or "?"
+        matchs.append({"id": m["id"], "opponent": opp, "date": m.get("match_date"), "own": own, "adv": adv,
+                       "res": res, "vals": _gp_valeurs_match(m)})
+    avec_res = [x for x in matchs if x["res"] in ("V", "D")]
+    nb_v = sum(1 for x in avec_res if x["res"] == "V")
+    nb_d = len(avec_res) - nb_v
+    crit = []
+    for key, label, unite, dec, sens in GP_CRITERES:
+        pts = [{"opponent": x["opponent"], "res": x["res"], "val": x["vals"][key]}
+               for x in matchs if x["vals"][key] is not None]
+        def moy(r):
+            v = [p["val"] for p in pts if p["res"] == r]
+            return sum(v) / len(v) if v else None
+        mv, md = moy("V"), moy("D")
+        ecart = verdict = None
+        if mv is not None and md is not None:
+            ecart = mv - md
+            ref = max(abs(mv), abs(md))
+            rel = (ecart / ref) if ref else 0
+            fav = rel if sens == "hi" else -rel      # > 0 : la valeur est meilleure quand on gagne
+            verdict = "differencie" if fav >= 0.15 else ("inverse" if fav <= -0.15 else "proche")
+            rel = fav
+        else:
+            rel = None
+        crit.append({"key": key, "label": label, "unite": unite, "dec": dec, "sens": sens,
+                     "moy_v": mv, "moy_d": md, "ecart": ecart, "verdict": verdict, "rel": rel, "pts": pts,
+                     "max": max([abs(p["val"]) for p in pts] + [1e-9])})
+    classement = sorted([c for c in crit if c["rel"] is not None], key=lambda c: -c["rel"])
+    return {"matchs": matchs, "nb_v": nb_v, "nb_d": nb_d, "criteres": crit, "classement": classement,
+            "nb_nuls": sum(1 for x in matchs if x["res"] == "N"),
+            "sans_score": [x for x in matchs if x["res"] is None]}
+
+
+@app.route("/season/gagner-perdre")
+def season_gagner_perdre():
+    selected, ctx = _season_common("gagner_perdre")
+    return render_template("season_gagner_perdre.html", gp=_gagner_perdre(selected), fmt=_avg_fmt, **ctx)
 
 
 @app.route("/season/comparer")
