@@ -2929,13 +2929,21 @@ def _compare_radar(selected, name_a, name_b, poste=None):
         """Matchs où le joueur a tenu ce poste : poste principal saisi sur la page Composition,
         à défaut son poste habituel."""
         out = []
+        defaut = _poste_effectif(nom)  # une seule fois par joueur (rapprochement de noms coûteux)
         for m in selected:
             mn, p = infos[m["id"]].get(cle(nom), (0, None))
-            if mn and (p or _poste_effectif(nom)) == poste:
+            if mn and (p or defaut) == poste:
                 out.append(m)
         return out
 
+    memo = {}
+
     def donnees(nom):
+        if cle(nom) not in memo:
+            memo[cle(nom)] = _donnees(nom)
+        return memo[cle(nom)]
+
+    def _donnees(nom):
         ms = matchs_au_poste(nom)
         ids = tuple(m["id"] for m in ms)
         if ids not in cache:
