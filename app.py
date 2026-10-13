@@ -3061,11 +3061,26 @@ GP_CRITERES = [
     ("dominance", "Dominance au contact", " %", 1, "hi"),
     ("pts_entree", "Points / entrée (22)", "", 2, "hi"),
     ("discipline", "Discipline (pénalités concédées)", "", 1, "lo"),
+    ("touches_pct", "% touches gagnées", " %", 1, "hi"),
+    ("melees_pct", "% mêlées gagnées", " %", 1, "hi"),
 ]
 
 
+def _melees_pct_equipe(instances):
+    """% de nos mêlées gagnées (codes « UBB Mêlées », groupe Conquête : Gagné / Perdu)."""
+    g = p = 0
+    for i in instances:
+        if _normalize_tag(i.get("code_raw")) != "UBB MELEES":
+            continue
+        vals = {_normalize_tag(l.get("text")) for l in i.get("labels") or []
+                if _normalize_tag(l.get("group")) in ("CONQUETE", "CONQUÊTE")}
+        g += 1 if vals & {"GAGNE", "GAGNEE"} else 0
+        p += 1 if vals & {"PERDU", "PERDUE"} else 0
+    return round(100 * g / (g + p), 1) if (g + p) else None
+
+
 def _gp_valeurs_match(m):
-    """Les 7 critères du club pour un match (None quand le match n'a pas l'info)."""
+    """Les critères du club pour un match (None quand le match n'a pas l'info)."""
     ins = m["instances"]
     att = compute_bilan_attaque(ins) or {}
     dfn = compute_player_defense_table(ins).get("totals") or {}
@@ -3080,6 +3095,8 @@ def _gp_valeurs_match(m):
         "dominance": att.get("dominants_pct") if att else None,
         "pts_entree": gold_points_par_entree_matchs([ins], "own"),
         "discipline": disc["own"] if disc else None,
+        "touches_pct": (compute_touches_page(ins) or {}).get("pct"),
+        "melees_pct": _melees_pct_equipe(ins),
     }
 
 
