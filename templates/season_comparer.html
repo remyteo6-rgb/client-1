@@ -62,9 +62,9 @@
             <polygon points="{{ radar.polys[1] }}" fill="rgba(229,72,77,.22)" stroke="#d6313a" stroke-width="2.5"/>
         </svg>
         <div style="flex:1 1 320px; min-width:300px;">
-            <p><span style="color:#2f5fc4;">■</span> <strong>{{ display_name(a) }}</strong> — {{ radar.minutes[0] }} min · profil : {{ radar.profils[0] or '—' }}</p>
-            <p><span style="color:#d6313a;">■</span> <strong>{{ display_name(b) }}</strong> — {{ radar.minutes[1] }} min · profil : {{ radar.profils[1] or '—' }}</p>
-            <p class="subtitle">Poste de comparaison : {{ radar.poste }} · référence : {{ radar.pool }} joueurs du poste avec au moins 40 min.</p>
+            <p><span style="color:#2f5fc4;">■</span> <strong>{{ display_name(a) }}</strong> — {{ radar.minutes[0] }} min ({{ radar.matchs[0] }} match{{ 's' if radar.matchs[0] != 1 else '' }} à ce poste) · profil : {{ radar.profils[0] or '—' }}</p>
+            <p><span style="color:#d6313a;">■</span> <strong>{{ display_name(b) }}</strong> — {{ radar.minutes[1] }} min ({{ radar.matchs[1] }} match{{ 's' if radar.matchs[1] != 1 else '' }} à ce poste) · profil : {{ radar.profils[1] or '—' }}</p>
+            <p class="subtitle">Poste de comparaison : {{ radar.poste }} · référence : {{ radar.pool }} joueurs ayant tenu ce poste au moins 40 min (seuls les matchs joués à ce poste comptent).</p>
             <table class="stat-table zebra-table">
                 <thead><tr><th>Critère (pour 80 min)</th><th style="color:#2f5fc4;">{{ display_name(a) }}</th><th style="color:#d6313a;">{{ display_name(b) }}</th></tr></thead>
                 <tbody>

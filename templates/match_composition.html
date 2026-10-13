@@ -7,7 +7,7 @@
 <div class="page-header no-print">
     <div>
         <h1>{{ icons.clipboard() }} Composition — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
-        <p class="subtitle">Choisis le joueur qui porte chaque numéro (1 à 23), ses minutes jouées et ses cartons pour ce match. Une fois validé, ce match alimente le suivi JIFF et le suivi joueur (minutes/cartons/matchs de suite) de la saison.</p>
+        <p class="subtitle">Choisis le joueur qui porte chaque numéro (1 à 23), son poste principal ce match (laisser « Poste habituel » sauf changement de poste), ses minutes jouées et ses cartons pour ce match. Une fois validé, ce match alimente le suivi JIFF et le suivi joueur (minutes/cartons/matchs de suite) de la saison.</p>
     </div>
 </div>
 
@@ -29,6 +29,11 @@
                     {% endfor %}
                 </optgroup>
                 {% endfor %}
+            </select>
+            <select name="poste_joue" {% if not is_admin %}disabled{% endif %} style="width:130px;"
+                    title="Poste principal tenu ce match (sert au radar saison)">
+                <option value="">Poste habituel</option>
+                {% for po in stats_postes %}<option value="{{ po }}" {% if current.get('poste') == po %}selected{% endif %}>{{ po }}</option>{% endfor %}
             </select>
             <input type="number" name="minutes" min="0" max="80" placeholder="min"
                    value="{{ current.get('minutes', '') }}" {% if not is_admin %}disabled{% endif %}

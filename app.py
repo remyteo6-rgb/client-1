@@ -1674,6 +1674,7 @@ def match_composition(match_id):
         minutes_in = (request.form.getlist("minutes") + [""] * 23)[:23]
         yellow_in = (request.form.getlist("yellow") + [""] * 23)[:23]
         red_in = (request.form.getlist("red") + [""] * 23)[:23]
+        poste_in = (request.form.getlist("poste_joue") + [""] * 23)[:23]
         def _to_int(v):
             try:
                 return max(0, int(v))
@@ -1688,6 +1689,8 @@ def match_composition(match_id):
                 "yellow": _to_int(yellow_in[i]),
                 "red": _to_int(red_in[i]),
             }
+            if poste_in[i] in STATS_POSTES:  # poste principal tenu ce match (radar saison)
+                player_stats[name]["poste"] = poste_in[i]
         db = get_db()
         db.execute(
             "UPDATE matches SET composition_json = %s, player_match_stats_json = %s WHERE id = %s",
@@ -1702,7 +1705,8 @@ def match_composition(match_id):
     filled_count = sum(1 for p in slots if p)
     player_stats = match.get("player_match_stats") or {}
     return render_template("match_composition.html", match=match, all_players=all_players,
-                           slots=slots, filled_count=filled_count, player_stats=player_stats)
+                           slots=slots, filled_count=filled_count, player_stats=player_stats,
+                           stats_postes=list(STATS_POSTES))
 
 
 def _fmt_fr(value, decimals=1, suffix="", always_decimals=False):
@@ -2765,6 +2769,24 @@ def _season_minutes(selected):
     return total
 
 
+def _match_infos(m):
+    """{nom XML en minuscules: (minutes, poste principal saisi ou None)} pour un match, d'après
+    la page Composition (même rapprochement des noms que _season_minutes)."""
+    comp = m.get("composition") or []
+    stats = m.get("player_match_stats") or {}
+    out = {}
+    if not any(comp) or not stats:
+        return out
+    xml_players = set(_new_convention_player_names(m["instances"]))
+    slots = composition_ordered_names(comp, xml_players, m.get("row_order"))
+    for cname, xname in zip(comp, slots):
+        if not cname or not xname:
+            continue
+        st = stats.get(cname) or {}
+        out[xname.strip().casefold()] = (int(st.get("minutes") or 0), st.get("poste") or None)
+    return out
+
+
 @app.route("/season/joueurs")
 def season_joueurs():
     selected, ctx = _season_common("joueurs")
@@ -2871,46 +2893,65 @@ COMPARE_FAMILLES = [
 
 def _compare_radar(selected, name_a, name_b, poste=None):
     import math
-    tabs = _season_player_tables(selected)
-    by = {k: {r["name"].strip().casefold(): r for r in t["rows"]} for k, t in tabs.items()}
-    minutes = {k.strip().casefold(): v for k, v in _season_minutes(selected).items()}
-    nb_matchs = max(1, len(selected))
+    tabs_all = _season_player_tables(selected)
+    infos = {m["id"]: _match_infos(m) for m in selected}
+    cache = {}
 
-    def lignes(nom):
-        k = nom.strip().casefold()
-        return {t: by[t].get(k) for t in by}
+    def key(nom):
+        return nom.strip().casefold()
+
+    def matchs_au_poste(nom):
+        """Matchs où le joueur a tenu ce poste : poste principal saisi sur la page Composition,
+        à défaut son poste habituel."""
+        out = []
+        for m in selected:
+            mn, p = infos[m["id"]].get(key(nom), (0, None))
+            if mn and (p or _poste_effectif(nom)) == poste:
+                out.append(m)
+        return out
+
+    def donnees(nom):
+        ms = matchs_au_poste(nom)
+        ids = tuple(m["id"] for m in ms)
+        if ids not in cache:
+            cache[ids] = _season_player_tables(ms) if ms else None
+        tabs = cache[ids]
+        minutes = sum(infos[m["id"]].get(key(nom), (0, None))[0] for m in ms)
+        by = {k: {r["name"].strip().casefold(): r for r in t["rows"]} for k, t in tabs.items()} if tabs else {}
+        return by, minutes, len(ms)
+
     poste = poste or _poste_effectif(name_a) or _poste_effectif(name_b)
     axes = COMPARE_COMMUN + COMPARE_POSTE.get(poste, [])
-    ma, mb = minutes.get(name_a.strip().casefold(), 0), minutes.get(name_b.strip().casefold(), 0)
+    da, db_ = donnees(name_a), donnees(name_b)
+    ma, mb = da[1], db_[1]
     mode_80 = ma >= 40 and mb >= 40
     if not mode_80:
         # Tout est ramené à 80 minutes de jeu : il faut les minutes (page Composition de chaque match).
         return {"manque_minutes": True, "minutes": (ma, mb), "poste": poste}
-    # Joueurs du même poste = référence (0 = pire du poste, 100 = meilleur du poste).
+    # Joueurs ayant tenu ce poste (au moins 40 min à ce poste) = référence (0 = pire, 100 = meilleur).
     pool = []
-    for nom in {r["name"] for t in tabs.values() for r in t["rows"]}:
-        if _poste_effectif(nom) != poste and nom.strip().casefold() not in (name_a.strip().casefold(), name_b.strip().casefold()):
-            continue
-        mn = minutes.get(nom.strip().casefold(), 0)
-        if mode_80 and mn < 40:
-            continue
-        pool.append((nom, (80 / mn) if mode_80 else 1 / nb_matchs))
+    for nom in {r["name"] for t in tabs_all.values() for r in t["rows"]}:
+        by, mn, _n = donnees(nom)
+        if mn >= 40 or key(nom) in (key(name_a), key(name_b)):
+            pool.append((nom, 80 / mn if mn else None))
 
-    def val(nom, base, fn):
+    def val(nom, fn):
+        by, mn, _n = donnees(nom)
+        if mn <= 0:
+            return None
         try:
-            return fn(lignes(nom), base)
+            return fn({t: by[t].get(key(nom)) for t in by}, 80 / mn)
         except Exception:
             return None
     out_axes = []
     for key, label, fn, sens in axes:
-        valeurs = [val(n, b, fn) for n, b in pool]
+        valeurs = [val(n, fn) for n, _b in pool]
         valeurs = [v for v in valeurs if v is not None]
         mx = max(valeurs) if valeurs else 0
         mn_ = min(valeurs) if valeurs else 0
         row = {"key": key, "label": label, "sens": sens, "vals": [], "scores": []}
         for nom in (name_a, name_b):
-            base = (80 / minutes[nom.strip().casefold()]) if mode_80 else 1 / nb_matchs
-            v = val(nom, base, fn)
+            v = val(nom, fn)
             if v is None:
                 sc = None
             elif sens == "pct":
@@ -2948,7 +2989,7 @@ def _compare_radar(selected, name_a, name_b, poste=None):
         a["anchor"] = "middle" if abs(lx - cx) < 20 else ("start" if lx > cx else "end")
     rings = [" ".join(f"{x},{y}" for x, y in (pt(i, f) for i in range(n))) for f in (0.25, 0.5, 0.75, 1)]
     return {"poste": poste, "axes": out_axes, "polys": polys, "rings": rings, "profils": profils,
-            "mode": "par 80 min", "minutes": (ma, mb),
+            "mode": "par 80 min", "minutes": (ma, mb), "matchs": (da[2], db_[2]),
             "pool": len(pool), "cx": cx, "cy": cy}
 
 
@@ -2973,7 +3014,7 @@ def season_comparer():
             poste_cmp = request.args.get("p") if request.args.get("p") in ordre else (_poste_effectif(a) or _poste_effectif(b))
             radar = _compare_radar(selected, a, b, poste_cmp)
             if radar.get("manque_minutes"):
-                erreur = ("Minutes jouées insuffisantes pour comparer à 80 minutes (moins de 40 min cumulées "
+                erreur = ("Minutes insuffisantes à ce poste pour comparer à 80 minutes (moins de 40 min cumulées "
                           f"sur la sélection : {radar['minutes'][0]} min et {radar['minutes'][1]} min). "
                           "Saisis les minutes dans la page Composition de chaque match.")
                 radar = None
