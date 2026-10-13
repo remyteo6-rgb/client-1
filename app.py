@@ -3035,8 +3035,7 @@ def _compare_radar(selected, name_a, name_b, poste=None):
             row["vals"].append(v)
             row["scores"].append(sc)
         out_axes.append(row)
-    # Profils : les 2 familles d'axes avec la meilleure moyenne de notes (le 2e n'est gardé
-    # que s'il atteint 50). Un profil est relatif au poste comparé, pas absolu.
+    # Profils : familles d'axes classées par moyenne de notes. Un profil est relatif au poste comparé, pas absolu.
     profils = []
     for i in (0, 1):
         scores = []
@@ -3045,7 +3044,14 @@ def _compare_radar(selected, name_a, name_b, poste=None):
             if sc:
                 scores.append((nom_f, round(sum(sc) / len(sc))))
         scores.sort(key=lambda x: -x[1])
-        profils.append([{"nom": n, "score": v} for n, v in scores[:2] if v >= 50 or (n, v) == scores[0]])
+        # Tous les profils à 75+ (4 au plus) : un joueur peut être à la fois plaqueur et homme de
+        # touche. À défaut, le meilleur, et le 2e s'il atteint 50.
+        gardes = [x for x in scores if x[1] >= 75][:4]
+        if not gardes:
+            gardes = [x for k, x in enumerate(scores[:2]) if k == 0 or x[1] >= 50]
+        elif len(gardes) == 1 and len(scores) > 1 and scores[1][1] >= 50:
+            gardes.append(scores[1])
+        profils.append([{"nom": n, "score": v} for n, v in gardes])
     # Géométrie du radar (SVG calculé ici)
     n = len(out_axes)
     cx, cy, R = 260, 250, 170
