@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
+{% set active = 'comparer' %}
+{% block title %}Comparer deux joueurs — Saison{% endblock %}
+{% block content %}
+<div class="page-header no-print">
+    <div>
+        <h1>{{ icons.users() }} Comparer deux joueurs</h1>
+        <p class="subtitle">Deux joueurs du même poste, valeurs ramenées à 80 minutes de jeu sur {{ season_selected_count }} match{{ 's' if season_selected_count != 1 else '' }}. Sur le radar, 100 = le meilleur du poste, 0 = le moins élevé (pourcentages : valeur réelle).</p>
+    </div>
+</div>
+{% include "_season_select.html" %}
+
+<form method="get" action="{{ url_for('season_comparer') }}" class="card no-print" id="cmp-form" style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+    {% for mid in season_selected_ids %}<input type="hidden" name="m" value="{{ mid }}">{% endfor %}
+    <label>Poste<br>
+        <select id="cmp-poste">{% for p in postes %}<option value="{{ p }}">{{ p }}</option>{% endfor %}<option value="Sans poste">Sans poste</option></select>
+    </label>
+    <label>Joueur A<br><select name="a" id="cmp-a">{% for j in joueurs %}<option value="{{ j.name }}" data-poste="{{ j.poste }}" {{ 'selected' if j.name == a else '' }}>{{ display_name(j.name) }}</option>{% endfor %}</select></label>
+    <label>Joueur B<br><select name="b" id="cmp-b">{% for j in joueurs %}<option value="{{ j.name }}" data-poste="{{ j.poste }}" {{ 'selected' if j.name == b else '' }}>{{ display_name(j.name) }}</option>{% endfor %}</select></label>
+    <button class="btn" type="submit">Comparer</button>
+</form>
+<script>
+(function () {
+    var poste = document.getElementById('cmp-poste'), sel = [document.getElementById('cmp-a'), document.getElementById('cmp-b')];
+    function filtre() {
+        sel.forEach(function (s) {
+            var first = null;
+            Array.prototype.forEach.call(s.options, function (o) {
+                var ok = o.getAttribute('data-poste') === poste.value;
+                o.hidden = !ok; o.disabled = !ok;
+                if (ok && !first) first = o;
+            });
+            if (s.selectedOptions[0] && s.selectedOptions[0].disabled && first) s.value = first.value;
+        });
+        if (sel[0].value === sel[1].value) {
+            var alt = Array.prototype.filter.call(sel[1].options, function (o) { return !o.disabled && o.value !== sel[0].value; })[0];
+            if (alt) sel[1].value = alt.value;
+        }
+    }
+    var cur = sel[0].selectedOptions[0];
+    if (cur) poste.value = cur.getAttribute('data-poste');
+    poste.addEventListener('change', filtre);
+    filtre();
+})();
+</script>
+
+{% if erreur %}<div class="card"><p>{{ erreur }}</p></div>{% endif %}
+
+{% if radar %}
+<div class="card">
+    <div style="display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start;">
+        <svg viewBox="0 0 520 500" width="520" style="max-width:100%; height:auto;" role="img" aria-label="Radar de comparaison">
+            {% for ring in radar.rings %}<polygon points="{{ ring }}" fill="none" stroke="#d9d3cf" stroke-width="1"/>{% endfor %}
+            {% for ax in radar.axes %}
+            <line x1="{{ radar.cx }}" y1="{{ radar.cy }}" x2="{{ ax.axis_end[0] }}" y2="{{ ax.axis_end[1] }}" stroke="#d9d3cf" stroke-width="1"/>
+            <text x="{{ ax.label_pos[0] }}" y="{{ ax.label_pos[1] }}" text-anchor="{{ ax.anchor }}" font-size="12" font-weight="700" fill="#3a2a25">{{ ax.label }}</text>
+            {% endfor %}
+            <polygon points="{{ radar.polys[0] }}" fill="rgba(79,127,214,.28)" stroke="#2f5fc4" stroke-width="2.5"/>
+            <polygon points="{{ radar.polys[1] }}" fill="rgba(229,72,77,.22)" stroke="#d6313a" stroke-width="2.5"/>
+        </svg>
+        <div style="flex:1 1 320px; min-width:300px;">
+            <p><span style="color:#2f5fc4;">■</span> <strong>{{ display_name(a) }}</strong> — {{ radar.minutes[0] }} min · profil : {{ radar.profils[0] or '—' }}</p>
+            <p><span style="color:#d6313a;">■</span> <strong>{{ display_name(b) }}</strong> — {{ radar.minutes[1] }} min · profil : {{ radar.profils[1] or '—' }}</p>
+            <p class="subtitle">{{ radar.poste }} · référence : {{ radar.pool }} joueurs du poste avec au moins 40 min.</p>
+            <table class="stat-table zebra-table">
+                <thead><tr><th>Critère (pour 80 min)</th><th style="color:#2f5fc4;">{{ display_name(a) }}</th><th style="color:#d6313a;">{{ display_name(b) }}</th></tr></thead>
+                <tbody>
+                {% for ax in radar.axes %}<tr><td>{{ ax.label }}{{ ' (moins = mieux)' if ax.sens == 'lo' else '' }}</td>
+                    {% for v in ax.vals %}<td>{% if v is none %}—{% elif ax.sens == 'pct' %}{{ v|round(0)|int }} %{% else %}{{ v|round(1) }}{% endif %}</td>{% endfor %}</tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

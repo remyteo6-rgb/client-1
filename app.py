@@ -2803,6 +2803,167 @@ def season_joueurs():
                            activity_slide=activity_slide, player_baselines={}, **ctx)
 
 
+# ---- Comparateur de deux joueurs du même poste (radar) ---------------------------------
+# Un axe = (clé, libellé, fonction(lignes joueur, base) -> valeur, sens). Sens : "hi" = plus
+# c'est haut mieux c'est ; "lo" = à l'envers (discipline) ; "pct" = déjà un pourcentage.
+# `base` = facteur de normalisation (80 / minutes jouées, ou 1 / nb de matchs sans minutes).
+def _v(row, *keys):
+    return sum((row or {}).get(k) or 0 for k in keys)
+
+
+COMPARE_COMMUN = [
+    ("contact", "Contact (volume)", lambda r, b: _v(r["attack"], "contact_total") * b, "hi"),
+    ("contact_pct", "Contact (% positifs)", lambda r, b: (r["attack"] or {}).get("contact_pct") if _v(r["attack"], "contact_total") >= 3 else None, "pct"),
+    ("franchi", "Franchissement", lambda r, b: _v(r["attack"], "def_battu", "break") * b, "hi"),
+    ("soutien", "Soutien", lambda r, b: _v(r["attack"], "soutien_total") * b, "hi"),
+    ("plaquage", "Plaquage (volume)", lambda r, b: _v(r["defense"], "plaquage_tentes") * b, "hi"),
+    ("plaquage_pct", "Plaquage (% réussis)", lambda r, b: (r["defense"] or {}).get("plaquage_pct") if _v(r["defense"], "plaquage_tentes") >= 5 else None, "pct"),
+    ("combat", "Combat / ballons gagnés", lambda r, b: _v(r["defense"], "combattant_total", "chasseur_total", "ballons_recuperes") * b, "hi"),
+    ("discipline", "Discipline", lambda r, b: _v(r["attack"], "penalite_off", "penalite_def") * b, "lo"),
+    ("activite", "Activité", lambda r, b: _v(r["bilan"], "actions_codees") * b, "hi"),
+]
+# Axes propres à chaque poste (conquête, passes, jeu au pied). Pour ajouter un descripteur
+# (ex. mêlée gagnée / pénalisée du pilier, lancer réussi du talonneur) : ajouter une ligne ici
+# une fois le label tagué dans le XML et compté dans parser.compute_player_ruck_table.
+COMPARE_POSTE = {
+    "Pilier": [("melee", "Mêlée", lambda r, b: _v(r["ruck"], "melee_conquete") * b, "hi"),
+               ("lifteur", "Lifteur", lambda r, b: _v(r["ruck"], "lifteur") * b, "hi")],
+    "Talonneur": [("lanceur", "Lancer en touche", lambda r, b: _v(r["ruck"], "lanceur") * b, "hi"),
+                  ("melee", "Mêlée", lambda r, b: _v(r["ruck"], "melee_conquete") * b, "hi"),
+                  ("lifteur", "Lifteur", lambda r, b: _v(r["ruck"], "lifteur") * b, "hi")],
+    "2ème ligne": [("sauteur", "Sauteur", lambda r, b: _v(r["ruck"], "sauteur") * b, "hi"),
+                   ("lifteur", "Lifteur", lambda r, b: _v(r["ruck"], "lifteur") * b, "hi")],
+    "3ème ligne": [("sauteur", "Sauteur", lambda r, b: _v(r["ruck"], "sauteur") * b, "hi"),
+                   ("lifteur", "Lifteur", lambda r, b: _v(r["ruck"], "lifteur") * b, "hi")],
+    "Charnière": [("passes", "Passes (volume)", lambda r, b: _v(r["attack"], "passe_total") * b, "hi"),
+                  ("passes_pct", "Passes (% propres)", lambda r, b: (r["attack"] or {}).get("passe_pct") if _v(r["attack"], "passe_total") >= 5 else None, "pct"),
+                  ("jap", "Jeu au pied", lambda r, b: _v(r["ruck"], "jap") * b, "hi")],
+    "Centre": [("jap", "Jeu au pied", lambda r, b: _v(r["ruck"], "jap") * b, "hi")],
+    "Ailier/Arrière": [("jap", "Jeu au pied", lambda r, b: _v(r["ruck"], "jap") * b, "hi"),
+                       ("aerien", "Jeu aérien", lambda r, b: _v(r["ruck"], "duels_aer_total", "recep_ce") * b, "hi")],
+}
+# Familles servant à nommer le profil du joueur (moyenne des axes normalisés de la famille).
+COMPARE_FAMILLES = [
+    ("Porteur de balle", ("contact", "contact_pct", "franchi")),
+    ("Défenseur", ("plaquage", "plaquage_pct", "combat")),
+    ("Soutien / travail de l'ombre", ("soutien", "activite")),
+    ("Passeur", ("passes", "passes_pct")),
+    ("Conquête", ("melee", "lanceur", "sauteur", "lifteur")),
+    ("Jeu au pied / aérien", ("jap", "aerien")),
+]
+
+
+def _compare_radar(selected, name_a, name_b):
+    import math
+    tabs = _season_player_tables(selected)
+    by = {k: {r["name"].strip().casefold(): r for r in t["rows"]} for k, t in tabs.items()}
+    minutes = {k.strip().casefold(): v for k, v in _season_minutes(selected).items()}
+    nb_matchs = max(1, len(selected))
+
+    def lignes(nom):
+        k = nom.strip().casefold()
+        return {t: by[t].get(k) for t in by}
+    poste = _poste_effectif(name_a) or _poste_effectif(name_b)
+    axes = COMPARE_COMMUN + COMPARE_POSTE.get(poste, [])
+    ma, mb = minutes.get(name_a.strip().casefold(), 0), minutes.get(name_b.strip().casefold(), 0)
+    mode_80 = ma >= 40 and mb >= 40
+    if not mode_80:
+        # Tout est ramené à 80 minutes de jeu : il faut les minutes (page Composition de chaque match).
+        return {"manque_minutes": True, "minutes": (ma, mb), "poste": poste}
+    # Joueurs du même poste = référence (0 = pire du poste, 100 = meilleur du poste).
+    pool = []
+    for nom in {r["name"] for t in tabs.values() for r in t["rows"]}:
+        if _poste_effectif(nom) != poste and nom.strip().casefold() not in (name_a.strip().casefold(), name_b.strip().casefold()):
+            continue
+        mn = minutes.get(nom.strip().casefold(), 0)
+        if mode_80 and mn < 40:
+            continue
+        pool.append((nom, (80 / mn) if mode_80 else 1 / nb_matchs))
+
+    def val(nom, base, fn):
+        try:
+            return fn(lignes(nom), base)
+        except Exception:
+            return None
+    out_axes = []
+    for key, label, fn, sens in axes:
+        valeurs = [val(n, b, fn) for n, b in pool]
+        valeurs = [v for v in valeurs if v is not None]
+        mx = max(valeurs) if valeurs else 0
+        mn_ = min(valeurs) if valeurs else 0
+        row = {"key": key, "label": label, "sens": sens, "vals": [], "scores": []}
+        for nom in (name_a, name_b):
+            base = (80 / minutes[nom.strip().casefold()]) if mode_80 else 1 / nb_matchs
+            v = val(nom, base, fn)
+            if v is None:
+                sc = None
+            elif sens == "pct":
+                sc = max(0, min(100, v))
+            elif sens == "lo":
+                sc = 100 if mx <= 0 else max(0, min(100, 100 * (1 - v / mx)))
+            else:
+                sc = 0 if mx <= 0 else max(0, min(100, 100 * v / mx))
+            row["vals"].append(v)
+            row["scores"].append(sc)
+        out_axes.append(row)
+    # Profil : famille avec la meilleure moyenne
+    profils = []
+    for i in (0, 1):
+        best, best_sc = None, -1
+        for nom_f, keys in COMPARE_FAMILLES:
+            sc = [a["scores"][i] for a in out_axes if a["key"] in keys and a["scores"][i] is not None]
+            if sc and sum(sc) / len(sc) > best_sc:
+                best, best_sc = nom_f, sum(sc) / len(sc)
+        profils.append(best)
+    # Géométrie du radar (SVG calculé ici)
+    n = len(out_axes)
+    cx, cy, R = 260, 250, 170
+    def pt(i, frac):
+        ang = -math.pi / 2 + 2 * math.pi * i / n
+        return round(cx + R * frac * math.cos(ang), 1), round(cy + R * frac * math.sin(ang), 1)
+    polys = []
+    for j in (0, 1):
+        pts = [pt(i, (a["scores"][j] or 0) / 100) for i, a in enumerate(out_axes)]
+        polys.append(" ".join(f"{x},{y}" for x, y in pts))
+    for i, a in enumerate(out_axes):
+        a["axis_end"] = pt(i, 1)
+        lx, ly = pt(i, 1.17)
+        a["label_pos"] = (lx, ly)
+        a["anchor"] = "middle" if abs(lx - cx) < 20 else ("start" if lx > cx else "end")
+    rings = [" ".join(f"{x},{y}" for x, y in (pt(i, f) for i in range(n))) for f in (0.25, 0.5, 0.75, 1)]
+    return {"poste": poste, "axes": out_axes, "polys": polys, "rings": rings, "profils": profils,
+            "mode": "par 80 min", "minutes": (ma, mb),
+            "pool": len(pool), "cx": cx, "cy": cy}
+
+
+@app.route("/season/comparer")
+def season_comparer():
+    selected, ctx = _season_common("comparer")
+    tabs = _season_player_tables(selected)
+    noms = sorted({r["name"] for t in tabs.values() for r in t["rows"]}, key=str.casefold)
+    ordre = list(STATS_POSTES)
+    joueurs = [{"name": n, "poste": _poste_effectif(n) or "Sans poste"} for n in noms]
+    joueurs.sort(key=lambda j: (ordre.index(j["poste"]) if j["poste"] in ordre else 99, j["name"].casefold()))
+    a, b = request.args.get("a", ""), request.args.get("b", "")
+    radar, erreur = None, None
+    if a and b:
+        if a == b:
+            erreur = "Choisis deux joueurs différents."
+        elif a not in noms or b not in noms:
+            erreur = "Joueur introuvable dans les matchs sélectionnés."
+        elif _poste_effectif(a) != _poste_effectif(b):
+            erreur = "Les deux joueurs doivent être du même poste."
+        else:
+            radar = _compare_radar(selected, a, b)
+            if radar.get("manque_minutes"):
+                erreur = ("Minutes jouées insuffisantes pour comparer à 80 minutes (moins de 40 min cumulées "
+                          f"sur la sélection : {radar['minutes'][0]} min et {radar['minutes'][1]} min). "
+                          "Saisis les minutes dans la page Composition de chaque match.")
+                radar = None
+    return render_template("season_comparer.html", joueurs=joueurs, postes=ordre, a=a, b=b,
+                           radar=radar, erreur=erreur, display_name=_joueur_nom_affiche, **ctx)
+
+
 def _season_match_rows(selected):
     """Une ligne de chiffres d'équipe par match sélectionné (mêmes calculs que la fiche
     match / la Review : score, essais, possession, occupation, touches, mêlées, discipline,
