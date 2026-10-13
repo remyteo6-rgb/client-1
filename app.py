@@ -2872,10 +2872,14 @@ def _pct_choix(ruck, g_exp, p_exp, g_auto, p_auto, minimum=3):
 COMPARE_COMMUN = [
     ("contact", "Contact (volume)", lambda r, b: _v(r["attack"], "contact_total") * b, "hi"),
     ("contact_pct", "Contact (% positifs)", lambda r, b: (r["attack"] or {}).get("contact_pct") if _v(r["attack"], "contact_total") >= 3 else None, "pct"),
+    ("offload", "Offload (volume)", lambda r, b: _v(r["attack"], "offload_total") * b, "hi"),
+    ("offload_pct", "Offload (% réussis)", lambda r, b: (r["attack"] or {}).get("offload_pct") if _v(r["attack"], "offload_total") >= 3 else None, "pct"),
     ("franchi", "Franchissement", lambda r, b: _v(r["attack"], "def_battu", "break") * b, "hi"),
     ("soutien", "Soutien", lambda r, b: _v(r["attack"], "soutien_total") * b, "hi"),
     ("plaquage", "Plaquage (volume)", lambda r, b: _v(r["defense"], "plaquage_tentes") * b, "hi"),
-    ("plaquage_pct", "Plaquage (% réussis)", lambda r, b: (r["defense"] or {}).get("plaquage_pct") if _v(r["defense"], "plaquage_tentes") >= 5 else None, "pct"),
+    ("plaquage_pct", "Sniper (% plaquages réussis)", lambda r, b: (r["defense"] or {}).get("plaquage_pct") if _v(r["defense"], "plaquage_tentes") >= 5 else None, "pct"),
+    ("plaquage_dom", "Plaquage dominant (%)", lambda r, b: None if _v(r["defense"], "plaquage_dominant", "plaquage_neutre", "plaquage_passif") < 5 else 100 * _v(r["defense"], "plaquage_dominant") / _v(r["defense"], "plaquage_dominant", "plaquage_neutre", "plaquage_passif"), "pct"),
+    ("plaquage_bas", "Plaquage bas (%)", lambda r, b: None if _v(r["defense"], "plaquage_bas", "plaquage_haut") < 5 else 100 * _v(r["defense"], "plaquage_bas") / _v(r["defense"], "plaquage_bas", "plaquage_haut"), "pct"),
     ("combat", "Combat / ballons gagnés", lambda r, b: _v(r["defense"], "combattant_total", "chasseur_total", "ballons_recuperes") * b, "hi"),
     ("discipline", "Discipline", lambda r, b: _v(r["attack"], "penalite_off", "penalite_def") * b, "lo"),
     ("activite", "Activité", lambda r, b: _v(r["bilan"], "actions_codees") * b, "hi"),
@@ -2907,8 +2911,8 @@ COMPARE_POSTE = {
 }
 # Familles servant à nommer le profil du joueur (moyenne des axes normalisés de la famille).
 COMPARE_FAMILLES = [
-    ("Porteur de balle", ("contact", "contact_pct", "franchi")),
-    ("Défenseur", ("plaquage", "plaquage_pct", "combat")),
+    ("Porteur de balle", ("contact", "contact_pct", "franchi", "offload", "offload_pct")),
+    ("Défenseur", ("plaquage", "plaquage_pct", "plaquage_dom", "plaquage_bas", "combat")),
     ("Soutien / travail de l'ombre", ("soutien", "activite")),
     ("Passeur", ("passes", "passes_pct")),
     ("Conquête", ("melee", "melee_off_pct", "melee_def_pct", "lanceur", "lancer_pct", "sauteur", "sauteur_pct", "lifteur", "lifteur_pct")),
