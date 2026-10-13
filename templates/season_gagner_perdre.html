@@ -42,6 +42,11 @@
 </div>
 {% endif %}
 
+{% if gp.nb_v and gp.nb_d and not gp.fiable %}
+<div class="card" style="margin-bottom:14px; border-left:4px solid #f9a240;">
+    <p style="margin:0;"><strong>Échantillon trop petit pour conclure.</strong> Il faut au moins {{ gp.min_par_issue }} victoires et {{ gp.min_par_issue }} défaites ({{ gp.nb_v }} V / {{ gp.nb_d }} D dans la sélection). Les écarts ci-dessous sont des tendances à confirmer, pas des verdicts. Les objectifs du club (plus bas) restent lisibles dès maintenant.</p>
+</div>
+{% endif %}
 {% if gp.nb_v and gp.nb_d %}
 <div class="card" style="margin-bottom:14px;">
     <h3 style="margin-top:0;">Ce qui fait la différence</h3>
@@ -62,7 +67,8 @@
         <h3>{{ c.label }}
             {% if c.verdict == 'differencie' %}<span class="gp-badge differencie">Fait gagner</span>
             {% elif c.verdict == 'inverse' %}<span class="gp-badge inverse">À surveiller</span>
-            {% elif c.verdict == 'proche' %}<span class="gp-badge proche">Peu d'écart</span>{% endif %}
+            {% elif c.verdict == 'proche' %}<span class="gp-badge proche">Peu d'écart</span>
+            {% elif c.verdict == 'tendance' %}<span class="gp-badge proche">À confirmer</span>{% endif %}
         </h3>
         <div class="gp-sub">{{ 'Plus haut = mieux' if c.sens == 'hi' else 'Plus bas = mieux' }}</div>
         {% set top = [c.moy_v or 0, c.moy_d or 0, 1e-9]|max %}
@@ -72,11 +78,37 @@
         <div class="gp-row"><span class="gp-lab">Défaites</span>
             <span class="gp-bar"><span class="gp-fill gp-loss" style="display:block;width:{{ ((c.moy_d or 0) / top * 100)|round }}%;"></span></span>
             <span class="gp-val">{{ fmt(c.moy_d, c.dec, c.unite) }}</span></div>
+        {% if c.obj %}
+        <div class="gp-sub" style="margin-top:10px;">🎯 Objectif {{ fmt(c.obj.cible, c.dec, c.unite) }} :
+            atteint {{ c.obj.atteint.n }} fois ({{ c.obj.atteint.v }} V / {{ c.obj.atteint.d }} D),
+            raté {{ c.obj.rate.n }} fois ({{ c.obj.rate.v }} V / {{ c.obj.rate.d }} D)</div>
+        {% endif %}
+        {% if c.r_marge is not none %}
+        <div class="gp-sub">Lien avec l'écart de score : {{ ('%+.2f'|format(c.r_marge)).replace('.', ',') }}
+            ({{ 'fort' if c.r_marge|abs >= 0.6 else ('moyen' if c.r_marge|abs >= 0.3 else 'faible') }}{{ ', dans le bon sens' if c.r_marge > 0.3 else (', à contre-sens' if c.r_marge < -0.3 else '') }})</div>
+        {% endif %}
         <div class="gp-dots">
-            {% for p in c.pts %}<span class="gp-dot {{ p.res or 'N' }}" title="{{ p.opponent }}">{{ p.opponent[:10] }} · {{ fmt(p.val, c.dec) }}</span>{% endfor %}
+            {% for p in c.pts %}<span class="gp-dot {{ p.res or 'N' }}" title="{{ p.opponent }}">{{ p.opponent[:10] }} · {{ fmt(p.val, c.dec) }}{% if p.marge is not none %} ({{ '%+d'|format(p.marge) }}){% endif %}</span>{% endfor %}
         </div>
     </div>
 {% endfor %}
 </div>
+{% endif %}
+{% if is_admin %}
+<details class="card" style="margin-top:18px;">
+    <summary><strong>🎯 Objectifs du club</strong> (laisser vide = pas d'objectif)</summary>
+    <form method="post" action="{{ url_for('season_gagner_perdre_cibles') }}" style="margin-top:10px;">
+        {% for i in season_selected_ids %}<input type="hidden" name="m" value="{{ i }}">{% endfor %}
+        <div class="gp-grid">
+        {% for c in gp.criteres %}
+            <label style="display:flex;align-items:center;gap:8px;">
+                <span style="flex:1;">{{ c.label }} ({{ 'au moins' if c.sens == 'hi' else 'au plus' }})</span>
+                <input type="text" name="cible_{{ c.key }}" value="{{ cibles.get(c.key, '') }}" style="width:80px;">
+            </label>
+        {% endfor %}
+        </div>
+        <button type="submit" class="btn" style="margin-top:12px;">Enregistrer les objectifs</button>
+    </form>
+</details>
 {% endif %}
 {% endblock %}

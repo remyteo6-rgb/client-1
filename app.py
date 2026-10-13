@@ -865,6 +865,13 @@ def init_db():
             poste TEXT NOT NULL
         )
     """)
+    # Objectifs du club pour la page Saison → Gagner / Perdre (clé du critère -> valeur cible).
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS gp_cibles (
+            critere TEXT PRIMARY KEY,
+            valeur DOUBLE PRECISION NOT NULL
+        )
+    """)
     # Une ligne = un point d'étape (3 à 4 par saison, comme sur le cahier papier) : notes
     # + commentaires par catégorie technique (JSON en texte plutôt qu'une colonne par
     # catégorie, pour ne pas avoir à migrer le schéma si les catégories évoluent un jour),
@@ -3107,43 +3114,84 @@ def _gp_valeurs_match(m):
     }
 
 
-def _gagner_perdre(selected):
+GP_CIBLES_DEFAUT = {"offloads": 13, "def_battus": 18}  # cibles déjà fixées par le staff (bilan attaque)
+GP_MIN_PAR_ISSUE = 3   # victoires ET défaites minimum avant d'afficher un verdict
+
+
+def _gp_cibles():
+    cibles = dict(GP_CIBLES_DEFAUT)
+    for r in get_db().execute("SELECT critere, valeur FROM gp_cibles").fetchall():
+        cibles[r["critere"]] = r["valeur"]
+    return cibles
+
+
+def _pearson(xs, ys):
+    n = len(xs)
+    if n < 3:
+        return None
+    mx, my = sum(xs) / n, sum(ys) / n
+    sx = sum((x - mx) ** 2 for x in xs) ** 0.5
+    sy = sum((y - my) ** 2 for y in ys) ** 0.5
+    if not sx or not sy:
+        return None
+    return sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / (sx * sy)
+
+
+def _gagner_perdre(selected, cibles=None):
+    cibles = cibles or {}
     matchs = []
     for m in selected:
         own, adv = _resolve_match_score(m)[:2]
         if own is None or adv is None:
-            res = None
+            res, marge = None, None
         else:
             res = "V" if own > adv else ("D" if own < adv else "N")
-        opp = m.get("opponent") or "?"
-        matchs.append({"id": m["id"], "opponent": opp, "date": m.get("match_date"), "own": own, "adv": adv,
-                       "res": res, "vals": _gp_valeurs_match(m)})
+            marge = own - adv
+        matchs.append({"id": m["id"], "opponent": m.get("opponent") or "?", "date": m.get("match_date"),
+                       "own": own, "adv": adv, "res": res, "marge": marge, "vals": _gp_valeurs_match(m)})
     avec_res = [x for x in matchs if x["res"] in ("V", "D")]
     nb_v = sum(1 for x in avec_res if x["res"] == "V")
     nb_d = len(avec_res) - nb_v
+    fiable = nb_v >= GP_MIN_PAR_ISSUE and nb_d >= GP_MIN_PAR_ISSUE
     crit = []
     for key, label, unite, dec, sens in GP_CRITERES:
-        pts = [{"opponent": x["opponent"], "res": x["res"], "val": x["vals"][key]}
-               for x in matchs if x["vals"][key] is not None]
+        pts = [{"opponent": x["opponent"], "res": x["res"], "val": x["vals"][key], "marge": x["marge"]}
+               for x in matchs if x["vals"][key] is not None and x["res"] is not None]
+
         def moy(r):
             v = [p["val"] for p in pts if p["res"] == r]
             return sum(v) / len(v) if v else None
         mv, md = moy("V"), moy("D")
-        ecart = verdict = None
+        rel = verdict = None
         if mv is not None and md is not None:
-            ecart = mv - md
             ref = max(abs(mv), abs(md))
-            rel = (ecart / ref) if ref else 0
-            fav = rel if sens == "hi" else -rel      # > 0 : la valeur est meilleure quand on gagne
-            verdict = "differencie" if fav >= 0.15 else ("inverse" if fav <= -0.15 else "proche")
-            rel = fav
-        else:
-            rel = None
+            r_ = ((mv - md) / ref) if ref else 0
+            rel = r_ if sens == "hi" else -r_      # > 0 : meilleur quand on gagne
+            if fiable:
+                verdict = "differencie" if rel >= 0.15 else ("inverse" if rel <= -0.15 else "proche")
+            else:
+                verdict = "tendance"
+        # Lien avec l'écart de score (tous les matchs, nuls compris) : r de Pearson, ≥ 5 matchs.
+        lie = [(p["val"], p["marge"]) for p in pts if p["marge"] is not None]
+        r_marge = _pearson([a for a, _ in lie], [b for _, b in lie]) if len(lie) >= 5 else None
+        if r_marge is not None and sens == "lo":
+            r_marge = -r_marge  # lecture unifiée : > 0 = « mieux quand l'écart est favorable »
+        # Objectif du club : atteint / raté, et résultat des matchs dans chaque cas.
+        cible = cibles.get(key)
+        obj = None
+        if cible is not None:
+            ok = [p for p in pts if (p["val"] >= cible if sens == "hi" else p["val"] <= cible)]
+            ko = [p for p in pts if p not in ok]
+            def vd(lst):
+                return {"n": len(lst), "v": sum(1 for p in lst if p["res"] == "V"),
+                        "d": sum(1 for p in lst if p["res"] == "D")}
+            obj = {"cible": cible, "atteint": vd(ok), "rate": vd(ko)}
         crit.append({"key": key, "label": label, "unite": unite, "dec": dec, "sens": sens,
-                     "moy_v": mv, "moy_d": md, "ecart": ecart, "verdict": verdict, "rel": rel, "pts": pts,
-                     "max": max([abs(p["val"]) for p in pts] + [1e-9])})
+                     "moy_v": mv, "moy_d": md, "verdict": verdict, "rel": rel, "pts": pts,
+                     "r_marge": r_marge, "obj": obj})
     classement = sorted([c for c in crit if c["rel"] is not None], key=lambda c: -c["rel"])
     return {"matchs": matchs, "nb_v": nb_v, "nb_d": nb_d, "criteres": crit, "classement": classement,
+            "fiable": fiable, "min_par_issue": GP_MIN_PAR_ISSUE,
             "nb_nuls": sum(1 for x in matchs if x["res"] == "N"),
             "sans_score": [x for x in matchs if x["res"] is None]}
 
@@ -3151,7 +3199,29 @@ def _gagner_perdre(selected):
 @app.route("/season/gagner-perdre")
 def season_gagner_perdre():
     selected, ctx = _season_common("gagner_perdre")
-    return render_template("season_gagner_perdre.html", gp=_gagner_perdre(selected), fmt=_avg_fmt, **ctx)
+    cibles = _gp_cibles()
+    return render_template("season_gagner_perdre.html", gp=_gagner_perdre(selected, cibles), fmt=_avg_fmt,
+                           cibles=cibles, **ctx)
+
+
+@app.route("/season/gagner-perdre/cibles", methods=["POST"])
+@admin_required
+def season_gagner_perdre_cibles():
+    db = get_db()
+    for key, *_rest in GP_CRITERES:
+        raw = (request.form.get(f"cible_{key}") or "").strip().replace(",", ".")
+        if not raw:
+            db.execute("DELETE FROM gp_cibles WHERE critere = %s", (key,))
+            continue
+        try:
+            val = float(raw)
+        except ValueError:
+            continue
+        db.execute("""INSERT INTO gp_cibles (critere, valeur) VALUES (%s, %s)
+                      ON CONFLICT (critere) DO UPDATE SET valeur = EXCLUDED.valeur""", (key, val))
+    db.commit()
+    flash("Objectifs enregistrés.", "success")
+    return redirect(url_for("season_gagner_perdre", m=request.form.getlist("m")))
 
 
 @app.route("/season/comparer")
