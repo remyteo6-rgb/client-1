@@ -3141,6 +3141,48 @@ def _match_own_kick_event(inst, kind, events, used):
     return events[best]
 
 
+def _conquete_auto(instances):
+    """Réussite des touches et des mêlées UBB rattachée aux joueurs qui y participent, par
+    simple chronologie : la ligne d'équipe « UBB Touches » / « UBB Mêlées » porte le résultat
+    (groupe Conquête : Gagné / Perdu) et les joueurs dont l'action (Lancé, Sauteur, Lifteur,
+    Mêlées) démarre pendant elle, ou quelques secondes avant, y sont associés. Chaque action
+    de joueur n'est rattachée qu'à la ligne d'équipe la plus proche dans le temps. Les
+    résultats sont ceux de l'équipe : un lifteur « gagne » la touche avec ses coéquipiers."""
+    out = defaultdict(lambda: defaultdict(int))
+    roles = {"LANCE": "lanceur", "SAUTEUR": "sauteur", "LIFTEUR": "lifteur", "MELEES": "melee"}
+    teams = []
+    for i in instances:
+        toks = _normalize_tag(i["code_raw"]).split()
+        if toks[:1] != ["UBB"] or i["kind"] != "player":
+            continue
+        res = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "CONQUETE"}
+        kind = "touche" if "TOUCHES" in toks[1:2] else ("melee" if "MELEES" in toks[1:2] else None)
+        if kind and res & {"GAGNE", "PERDU"}:
+            teams.append((kind, i["start"], i["end"], "gagne" if "GAGNE" in res else "perdu"))
+    if not teams:
+        return out
+    for i in instances:
+        if i["kind"] != "player" or _normalize_tag(i["code_raw"]).split()[:1] == ["UBB"]:
+            continue
+        for lab in i["labels"]:
+            if _normalize_tag(lab["group"]) != "JOUEURS OFF":
+                continue
+            role = roles.get(_normalize_tag(lab["text"]))
+            if not role:
+                continue
+            kind = "melee" if role == "melee" else "touche"
+            best, gap = None, None
+            for t in teams:
+                if t[0] != kind or not (t[1] - 4 <= i["start"] <= t[2]):
+                    continue
+                d = abs(i["start"] - t[1])
+                if gap is None or d < gap:
+                    best, gap = t, d
+            if best:
+                out[i["code_raw"]][f"{role}_{best[3]}_auto"] += 1
+    return out
+
+
 def compute_player_ruck_table(instances):
     """Conquête, jeu au pied et marque par joueur (convention 2026) : mêlées/touche
     (LIFTEUR/SAUTEUR/LANCE), jeu au pied (JAP/COUP D'ENVOI/RECEPTION CE, qualifiés +/=/-
@@ -3153,11 +3195,13 @@ def compute_player_ruck_table(instances):
     kicks_own = [e for e in _scoring_events(instances, _detect_adverse_token(instances))
                  if e["side"] == "own" and e["kind"] in ("penalties", "drops")]
     kicks_used = set()
+    auto = _conquete_auto(instances)
     for name in _new_convention_player_names(instances):
         rows[name] = {"melee_conquete": 0, "lifteur": 0, "sauteur": 0, "lanceur": 0,
                       "melee_off_gagnee": 0, "melee_off_perdue": 0,
                       "melee_def_gagnee": 0, "melee_def_perdue": 0,
                       "lancer_gagne": 0, "lancer_perdu": 0,
+                      "lanceur_gagne_auto": auto.get(name, {}).get("lanceur_gagne_auto", 0), "lanceur_perdu_auto": auto.get(name, {}).get("lanceur_perdu_auto", 0), "sauteur_gagne_auto": auto.get(name, {}).get("sauteur_gagne_auto", 0), "sauteur_perdu_auto": auto.get(name, {}).get("sauteur_perdu_auto", 0), "lifteur_gagne_auto": auto.get(name, {}).get("lifteur_gagne_auto", 0), "lifteur_perdu_auto": auto.get(name, {}).get("lifteur_perdu_auto", 0), "melee_gagne_auto": auto.get(name, {}).get("melee_gagne_auto", 0), "melee_perdu_auto": auto.get(name, {}).get("melee_perdu_auto", 0), 
                       "jap": 0, "coup_envoi": 0, "recep_ce": 0,
                       "rce_plus": 0, "rce_neutre": 0, "rce_minus": 0,
                       "duels_aer_plus": 0, "duels_aer_neutre": 0,

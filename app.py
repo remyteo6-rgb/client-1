@@ -2811,6 +2811,16 @@ def _v(row, *keys):
     return sum((row or {}).get(k) or 0 for k in keys)
 
 
+def _pct_choix(ruck, g_exp, p_exp, g_auto, p_auto, minimum=3):
+    """% de réussite : descripteurs tagués à la main s'ils existent (au moins `minimum`
+    actions), sinon réussite chronologique calculée par le parseur (touche / mêlée d'équipe
+    rattachée au joueur)."""
+    g, p = _v(ruck, g_exp), _v(ruck, p_exp)
+    if g + p < minimum:
+        g, p = _v(ruck, g_auto), _v(ruck, p_auto)
+    return None if g + p < minimum else 100 * g / (g + p)
+
+
 COMPARE_COMMUN = [
     ("contact", "Contact (volume)", lambda r, b: _v(r["attack"], "contact_total") * b, "hi"),
     ("contact_pct", "Contact (% positifs)", lambda r, b: (r["attack"] or {}).get("contact_pct") if _v(r["attack"], "contact_total") >= 3 else None, "pct"),
@@ -2827,19 +2837,19 @@ COMPARE_COMMUN = [
 # une fois le label tagué dans le XML et compté dans parser.compute_player_ruck_table.
 COMPARE_POSTE = {
     "Pilier": [("melee", "Mêlée", lambda r, b: _v(r["ruck"], "melee_conquete") * b, "hi"),
-               ("melee_off_pct", "Mêlée off (% gagnées)", lambda r, b: None if _v(r["ruck"], "melee_off_gagnee", "melee_off_perdue") < 3 else 100 * _v(r["ruck"], "melee_off_gagnee") / _v(r["ruck"], "melee_off_gagnee", "melee_off_perdue"), "pct"),
+               ("melee_off_pct", "Mêlée off (% gagnées)", lambda r, b: _pct_choix(r["ruck"], "melee_off_gagnee", "melee_off_perdue", "melee_gagne_auto", "melee_perdu_auto"), "pct"),
                ("melee_def_pct", "Mêlée def (% gagnées)", lambda r, b: None if _v(r["ruck"], "melee_def_gagnee", "melee_def_perdue") < 3 else 100 * _v(r["ruck"], "melee_def_gagnee") / _v(r["ruck"], "melee_def_gagnee", "melee_def_perdue"), "pct"),
-               ("lifteur", "Lifteur", lambda r, b: _v(r["ruck"], "lifteur") * b, "hi")],
+               ("lifteur_pct", "Lifteur (% touches gagnées)", lambda r, b: _pct_choix(r["ruck"], "x_", "x_", "lifteur_gagne_auto", "lifteur_perdu_auto"), "pct")],
     "Talonneur": [("lanceur", "Lancer en touche", lambda r, b: _v(r["ruck"], "lanceur") * b, "hi"),
-                  ("lancer_pct", "Lancer (% touches gagnées)", lambda r, b: None if _v(r["ruck"], "lancer_gagne", "lancer_perdu") < 3 else 100 * _v(r["ruck"], "lancer_gagne") / _v(r["ruck"], "lancer_gagne", "lancer_perdu"), "pct"),
-                  ("melee", "Mêlée", lambda r, b: _v(r["ruck"], "melee_conquete") * b, "hi"),
-                  ("melee_off_pct", "Mêlée off (% gagnées)", lambda r, b: None if _v(r["ruck"], "melee_off_gagnee", "melee_off_perdue") < 3 else 100 * _v(r["ruck"], "melee_off_gagnee") / _v(r["ruck"], "melee_off_gagnee", "melee_off_perdue"), "pct"),
-                  ("melee_def_pct", "Mêlée def (% gagnées)", lambda r, b: None if _v(r["ruck"], "melee_def_gagnee", "melee_def_perdue") < 3 else 100 * _v(r["ruck"], "melee_def_gagnee") / _v(r["ruck"], "melee_def_gagnee", "melee_def_perdue"), "pct"),
-                  ("lifteur", "Lifteur", lambda r, b: _v(r["ruck"], "lifteur") * b, "hi")],
+                  ("lancer_pct", "Lancer (% touches gagnées)", lambda r, b: _pct_choix(r["ruck"], "lancer_gagne", "lancer_perdu", "lanceur_gagne_auto", "lanceur_perdu_auto"), "pct"),
+                  ("melee_off_pct", "Mêlée off (% gagnées)", lambda r, b: _pct_choix(r["ruck"], "melee_off_gagnee", "melee_off_perdue", "melee_gagne_auto", "melee_perdu_auto"), "pct"),
+                  ("melee_def_pct", "Mêlée def (% gagnées)", lambda r, b: None if _v(r["ruck"], "melee_def_gagnee", "melee_def_perdue") < 3 else 100 * _v(r["ruck"], "melee_def_gagnee") / _v(r["ruck"], "melee_def_gagnee", "melee_def_perdue"), "pct")],
     "2ème ligne": [("sauteur", "Sauteur", lambda r, b: _v(r["ruck"], "sauteur") * b, "hi"),
-                   ("lifteur", "Lifteur", lambda r, b: _v(r["ruck"], "lifteur") * b, "hi")],
+                   ("sauteur_pct", "Sauteur (% touches gagnées)", lambda r, b: _pct_choix(r["ruck"], "x_", "x_", "sauteur_gagne_auto", "sauteur_perdu_auto"), "pct"),
+                   ("lifteur_pct", "Lifteur (% touches gagnées)", lambda r, b: _pct_choix(r["ruck"], "x_", "x_", "lifteur_gagne_auto", "lifteur_perdu_auto"), "pct")],
     "3ème ligne": [("sauteur", "Sauteur", lambda r, b: _v(r["ruck"], "sauteur") * b, "hi"),
-                   ("lifteur", "Lifteur", lambda r, b: _v(r["ruck"], "lifteur") * b, "hi")],
+                   ("sauteur_pct", "Sauteur (% touches gagnées)", lambda r, b: _pct_choix(r["ruck"], "x_", "x_", "sauteur_gagne_auto", "sauteur_perdu_auto"), "pct"),
+                   ("lifteur_pct", "Lifteur (% touches gagnées)", lambda r, b: _pct_choix(r["ruck"], "x_", "x_", "lifteur_gagne_auto", "lifteur_perdu_auto"), "pct")],
     "Charnière": [("passes", "Passes (volume)", lambda r, b: _v(r["attack"], "passe_total") * b, "hi"),
                   ("passes_pct", "Passes (% propres)", lambda r, b: (r["attack"] or {}).get("passe_pct") if _v(r["attack"], "passe_total") >= 5 else None, "pct"),
                   ("jap", "Jeu au pied", lambda r, b: _v(r["ruck"], "jap") * b, "hi")],
@@ -2853,7 +2863,7 @@ COMPARE_FAMILLES = [
     ("Défenseur", ("plaquage", "plaquage_pct", "combat")),
     ("Soutien / travail de l'ombre", ("soutien", "activite")),
     ("Passeur", ("passes", "passes_pct")),
-    ("Conquête", ("melee", "melee_off_pct", "melee_def_pct", "lanceur", "lancer_pct", "sauteur", "lifteur")),
+    ("Conquête", ("melee", "melee_off_pct", "melee_def_pct", "lanceur", "lancer_pct", "sauteur", "sauteur_pct", "lifteur", "lifteur_pct")),
     ("Jeu au pied / aérien", ("jap", "aerien")),
 ]
 
