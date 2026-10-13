@@ -3063,6 +3063,9 @@ GP_CRITERES = [
     ("discipline", "Discipline (pénalités concédées)", "", 1, "lo"),
     ("touches_pct", "% touches gagnées", " %", 1, "hi"),
     ("melees_pct", "% mêlées gagnées", " %", 1, "hi"),
+    ("possession", "Possession", " %", 1, "hi"),
+    ("occupation", "Occupation", " %", 1, "hi"),
+    ("bip", "Ball in play (% du match)", " %", 0, "hi"),
 ]
 
 
@@ -3082,6 +3085,7 @@ def _melees_pct_equipe(instances):
 def _gp_valeurs_match(m):
     """Les critères du club pour un match (None quand le match n'a pas l'info)."""
     ins = m["instances"]
+    ov = compute_new_convention_overview(ins) or {}
     att = compute_bilan_attaque(ins) or {}
     dfn = compute_player_defense_table(ins).get("totals") or {}
     made = (dfn.get("plaquage_dominant", 0) + dfn.get("plaquage_neutre", 0) + dfn.get("plaquage_passif", 0))
@@ -3097,6 +3101,9 @@ def _gp_valeurs_match(m):
         "discipline": disc["own"] if disc else None,
         "touches_pct": (compute_touches_page(ins) or {}).get("pct"),
         "melees_pct": _melees_pct_equipe(ins),
+        "possession": ((ov.get("possession") or {}).get("own_pct")),
+        "occupation": ((ov.get("occupation") or {}).get("own_pct")),
+        "bip": ((ov.get("ball_in_play") or {}).get("pct_match") or None),
     }
 
 
