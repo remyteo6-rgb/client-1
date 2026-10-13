@@ -3477,13 +3477,22 @@ def _composition_name_score(comp_name, xml_name):
     et un code joueur du XML (« FANTCHO TAMBO », « COMBRICK », « L.FUKWAMOKO ») : on ignore
     l'initiale du XML et l'ordre des mots, et on tolère une faute de frappe."""
     import difflib
-    a = _name_key(comp_name)
+    # Initiale du prénom (« L.Fukwamoko » / « L.FUKWAMOKO ») : si les deux noms en ont une
+    # et qu'elles diffèrent, ce sont deux joueurs différents (homonymes).
+    ini_c = comp_name.split(".")[0].strip().casefold() if "." in comp_name else ""
+    ini_x = xml_name.split(".")[0].strip().casefold() if "." in xml_name else ""
+    if ini_c and ini_x and ini_c != ini_x:
+        return 0.0
+    a = _name_key(comp_name.split(".")[-1])
     b = _name_key(xml_name.split(".")[-1])
     if not a or not b:
         return 0.0
     direct = difflib.SequenceMatcher(None, a, b).ratio()
     sorted_tokens = difflib.SequenceMatcher(None, " ".join(sorted(a.split())), " ".join(sorted(b.split()))).ratio()
-    return max(direct, sorted_tokens)
+    score = max(direct, sorted_tokens)
+    if ini_c and ini_c == ini_x:
+        score = min(1.0, score + 0.001)
+    return score
 
 
 def composition_ordered_names(composition, player_names, row_order=None, threshold=0.8):

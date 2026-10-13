@@ -1338,7 +1338,7 @@ def _stats_postes_forces():
     return g._stats_postes_forces
 
 
-def _poste_effectif(xml_name):
+def _poste_effectif(xml_name, roster=True):
     """Poste d'un code joueur du XML, même si l'ordre des mots diffère (« FANTCHO TAMBO » =
     « Tambo-Fantcho »). Priorité au poste réglé sur le site (modifiable par l'admin), à défaut
     la liste d'effectif du code (SQUAD_ROSTER)."""
@@ -1358,6 +1358,8 @@ def _poste_effectif(xml_name):
             best, score = poste, sc
     if score >= 0.8:
         return best
+    if not roster:
+        return None
     best, score = None, 0.0
     for poste, noms in SQUAD_ROSTER.items():
         for nom in noms:
@@ -1631,7 +1633,7 @@ def _composition_groups():
     """Joueurs proposés sur la page Composition, rangés par poste en tenant compte des
     réglages faits sur le site (Joueurs et accès, Postes des joueurs (stats)) ; à défaut,
     le poste de la liste d'effectif. Les joueurs réglés sur le site mais absents de la liste
-    d'effectif sont ajoutés. Un nom présent à deux postes (deux Fukwamoko) reste tel quel."""
+    d'effectif sont ajoutés. Les homonymes (L. et M. Fukwamoko) sont proposés avec l'initiale du XML."""
     ordre = list(SQUAD_POSITION_ORDER)
     doubles = {}
     for poste, noms in SQUAD_ROSTER.items():
@@ -1639,8 +1641,31 @@ def _composition_groups():
             doubles[n] = doubles.get(n, 0) + 1
     groupes = {p: [] for p in ordre}
     connus = []
+    # Homonymes (Fukwamoko, Poigneau) : le XML les distingue par l'initiale du prénom
+    # (« L.FUKWAMOKO », « M.FUKWAMOKO »). On les propose sous cette forme dans la liste, avec
+    # le poste réglé sur le site ; à défaut, les postes de la liste d'effectif dans l'ordre.
+    postes_roster = {}
     for poste, noms in SQUAD_ROSTER.items():
         for n in noms:
+            postes_roster.setdefault(n, []).append(poste)
+    eclates = set()
+    for n, postes in postes_roster.items():
+        if len(postes) < 2:
+            continue
+        initiales = sorted({prenom[:1].upper() for prenom, nom, _c in _site_postes()
+                            if prenom and _composition_name_score(n, nom) >= 0.8})
+        if len(initiales) != len(postes) and n == "Fukwamoko":
+            initiales = ["L", "M"]  # initiales utilisées dans les XML
+        if len(initiales) == len(postes):
+            for ini, poste_def in zip(initiales, postes):
+                code = f"{ini}.{n}"
+                groupes.setdefault(_poste_effectif(code, roster=False) or poste_def, []).append(code)
+                connus.append(code)
+            eclates.add(n)
+    for poste, noms in SQUAD_ROSTER.items():
+        for n in noms:
+            if n in eclates:
+                continue
             cible = poste if doubles[n] > 1 else (_poste_effectif(n) or poste)
             groupes.setdefault(cible, []).append(n)
             connus.append(n)
