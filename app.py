@@ -2827,9 +2827,14 @@ COMPARE_COMMUN = [
 # une fois le label tagué dans le XML et compté dans parser.compute_player_ruck_table.
 COMPARE_POSTE = {
     "Pilier": [("melee", "Mêlée", lambda r, b: _v(r["ruck"], "melee_conquete") * b, "hi"),
+               ("melee_off_pct", "Mêlée off (% gagnées)", lambda r, b: None if _v(r["ruck"], "melee_off_gagnee", "melee_off_perdue") < 3 else 100 * _v(r["ruck"], "melee_off_gagnee") / _v(r["ruck"], "melee_off_gagnee", "melee_off_perdue"), "pct"),
+               ("melee_def_pct", "Mêlée def (% gagnées)", lambda r, b: None if _v(r["ruck"], "melee_def_gagnee", "melee_def_perdue") < 3 else 100 * _v(r["ruck"], "melee_def_gagnee") / _v(r["ruck"], "melee_def_gagnee", "melee_def_perdue"), "pct"),
                ("lifteur", "Lifteur", lambda r, b: _v(r["ruck"], "lifteur") * b, "hi")],
     "Talonneur": [("lanceur", "Lancer en touche", lambda r, b: _v(r["ruck"], "lanceur") * b, "hi"),
+                  ("lancer_pct", "Lancer (% touches gagnées)", lambda r, b: None if _v(r["ruck"], "lancer_gagne", "lancer_perdu") < 3 else 100 * _v(r["ruck"], "lancer_gagne") / _v(r["ruck"], "lancer_gagne", "lancer_perdu"), "pct"),
                   ("melee", "Mêlée", lambda r, b: _v(r["ruck"], "melee_conquete") * b, "hi"),
+                  ("melee_off_pct", "Mêlée off (% gagnées)", lambda r, b: None if _v(r["ruck"], "melee_off_gagnee", "melee_off_perdue") < 3 else 100 * _v(r["ruck"], "melee_off_gagnee") / _v(r["ruck"], "melee_off_gagnee", "melee_off_perdue"), "pct"),
+                  ("melee_def_pct", "Mêlée def (% gagnées)", lambda r, b: None if _v(r["ruck"], "melee_def_gagnee", "melee_def_perdue") < 3 else 100 * _v(r["ruck"], "melee_def_gagnee") / _v(r["ruck"], "melee_def_gagnee", "melee_def_perdue"), "pct"),
                   ("lifteur", "Lifteur", lambda r, b: _v(r["ruck"], "lifteur") * b, "hi")],
     "2ème ligne": [("sauteur", "Sauteur", lambda r, b: _v(r["ruck"], "sauteur") * b, "hi"),
                    ("lifteur", "Lifteur", lambda r, b: _v(r["ruck"], "lifteur") * b, "hi")],
@@ -2848,7 +2853,7 @@ COMPARE_FAMILLES = [
     ("Défenseur", ("plaquage", "plaquage_pct", "combat")),
     ("Soutien / travail de l'ombre", ("soutien", "activite")),
     ("Passeur", ("passes", "passes_pct")),
-    ("Conquête", ("melee", "lanceur", "sauteur", "lifteur")),
+    ("Conquête", ("melee", "melee_off_pct", "melee_def_pct", "lanceur", "lancer_pct", "sauteur", "lifteur")),
     ("Jeu au pied / aérien", ("jap", "aerien")),
 ]
 

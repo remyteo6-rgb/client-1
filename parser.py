@@ -3155,6 +3155,9 @@ def compute_player_ruck_table(instances):
     kicks_used = set()
     for name in _new_convention_player_names(instances):
         rows[name] = {"melee_conquete": 0, "lifteur": 0, "sauteur": 0, "lanceur": 0,
+                      "melee_off_gagnee": 0, "melee_off_perdue": 0,
+                      "melee_def_gagnee": 0, "melee_def_perdue": 0,
+                      "lancer_gagne": 0, "lancer_perdu": 0,
                       "jap": 0, "coup_envoi": 0, "recep_ce": 0,
                       "rce_plus": 0, "rce_neutre": 0, "rce_minus": 0,
                       "duels_aer_plus": 0, "duels_aer_neutre": 0,
@@ -3176,6 +3179,22 @@ def compute_player_ruck_table(instances):
             row["sauteur"] += 1
         if "LANCE" in off_vals:
             row["lanceur"] += 1
+        # Descripteurs de conquête (groupes dédiés sur l'instance du joueur) : « Mêlée Off » et
+        # « Mêlée Def » (Gagné / Perdu), « Lancer » (Touche gagnée / Touche perdue).
+        for l in i["labels"]:
+            grp, txt = _normalize_tag(l["group"]), _normalize_tag(l["text"])
+            if grp.startswith("MELEE") and "OFF" in grp:
+                pref = "melee_off_"
+            elif grp.startswith("MELEE") and "DEF" in grp:
+                pref = "melee_def_"
+            elif grp in ("LANCER", "LANCEUR", "LANCE"):
+                pref = "lancer_"
+            else:
+                continue
+            if "GAGN" in txt:
+                row[pref + ("gagne" if pref == "lancer_" else "gagnee")] += 1
+            elif "PERD" in txt:
+                row[pref + ("perdu" if pref == "lancer_" else "perdue")] += 1
         if "JAP" in off_vals:
             row["jap"] += 1
         if "ESSAIS" in off_vals:
@@ -3525,6 +3544,8 @@ def _zero_defense_row(name):
 def _zero_ruck_row(name):
     return {
         "name": name, "melee_conquete": 0, "lifteur": 0, "sauteur": 0, "lanceur": 0, "touche_total": 0,
+        "melee_off_gagnee": 0, "melee_off_perdue": 0, "melee_def_gagnee": 0, "melee_def_perdue": 0,
+        "lancer_gagne": 0, "lancer_perdu": 0,
         "jap": 0, "coup_envoi": 0, "recep_ce": 0, "coup_envoi_recep_total": 0,
         "rce_plus": 0, "rce_neutre": 0, "rce_minus": 0, "rce_total": 0,
         "duels_aer_plus": 0, "duels_aer_neutre": 0, "duels_aer_total": 0,
