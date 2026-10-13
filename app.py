@@ -5271,6 +5271,89 @@ def admin_joueurs_groupe(player_id):
     return redirect(url_for("admin_joueurs"))
 
 
+def _controle_xml():
+    """Contrôle de cohérence des XML importés : noms de joueurs écrits différemment d'un match
+    à l'autre (ou en double dans un match), groupes / labels présents dans certains matchs
+    seulement, codes d'action rares, composition ou minutes manquantes."""
+    import difflib
+    from collections import Counter, defaultdict
+    db = get_db()
+    rows = db.execute("SELECT id, opponent, match_date, instances_json, composition_json, "
+                      "player_match_stats_json FROM matches ORDER BY match_date, id").fetchall()
+    matchs, joueurs_par_match = [], {}
+    groupes = defaultdict(set)        # groupe -> ids des matchs
+    labels = defaultdict(set)         # (groupe, texte) -> ids des matchs
+    codes = defaultdict(set)          # catégorie d'action (hors joueurs) -> ids des matchs
+    for r in rows:
+        try:
+            insts = json.loads(r["instances_json"] or "[]")
+        except ValueError:
+            insts = []
+        noms = _new_convention_player_names(insts)
+        joueurs_par_match[r["id"]] = noms
+        for i in insts:
+            if i.get("kind") != "player":
+                codes[i.get("category") or i.get("code_raw")].add(r["id"])
+            for lab in i.get("labels") or []:
+                groupes[lab.get("group")].add(r["id"])
+                labels[(lab.get("group"), lab.get("text"))].add(r["id"])
+        try:
+            comp = [c for c in json.loads(r["composition_json"] or "[]") if c]
+        except ValueError:
+            comp = []
+        try:
+            stats = json.loads(r["player_match_stats_json"] or "{}") or {}
+        except ValueError:
+            stats = {}
+        sans_minutes = [c for c in comp if not (stats.get(c) or {}).get("minutes")]
+        matchs.append({"id": r["id"], "titre": f"{r['match_date'] or '?'} · vs {r['opponent'] or '?'}",
+                       "instances": len(insts), "joueurs": len(noms), "compo": len(comp),
+                       "sans_minutes": sans_minutes})
+    total = len(rows) or 1
+    titre = {m["id"]: m["titre"] for m in matchs}
+    # Noms de joueurs proches mais écrits différemment (dans un même match ou entre matchs)
+    cle = lambda n: _name_key(n.split(".")[-1])
+    tous = defaultdict(set)           # code exact -> matchs
+    for mid, noms in joueurs_par_match.items():
+        for n in noms:
+            tous[n].add(mid)
+    liste = sorted(tous)
+    proches = []
+    for a_i in range(len(liste)):
+        for b_i in range(a_i + 1, len(liste)):
+            a, b = liste[a_i], liste[b_i]
+            ka, kb = cle(a), cle(b)
+            sc = difflib.SequenceMatcher(None, ka, kb).ratio()
+            sc = max(sc, difflib.SequenceMatcher(None, " ".join(sorted(ka.split())), " ".join(sorted(kb.split()))).ratio())
+            if sc >= 0.8:
+                ensemble = sorted(titre[m] for m in (tous[a] | tous[b]))
+                meme_match = any(a in n and b in n for n in joueurs_par_match.values())
+                proches.append({"a": a, "b": b, "score": round(sc * 100), "meme_match": meme_match,
+                                "matchs_a": len(tous[a]), "matchs_b": len(tous[b])})
+    proches.sort(key=lambda p: (-p["meme_match"], -p["score"]))
+    # Joueurs vus dans un seul match
+    uniques = sorted(((n, titre[next(iter(ms))]) for n, ms in tous.items() if len(ms) == 1),
+                     key=lambda t: t[0])
+    def rares(d, seuil):
+        out = []
+        for k, ms in d.items():
+            if 0 < len(ms) < seuil and len(rows) >= 3:
+                absents = [titre[m["id"]] for m in matchs if m["id"] not in ms]
+                out.append({"nom": " / ".join(str(x) for x in (k if isinstance(k, tuple) else (k,)) if x),
+                            "presents": len(ms), "absents": absents})
+        return sorted(out, key=lambda x: (x["presents"], x["nom"]))
+    return {"nb_matchs": len(rows), "matchs": matchs, "proches": proches, "uniques": uniques,
+            "groupes_rares": rares(groupes, total),
+            "labels_rares": [x for x in rares(labels, max(2, total // 2 + 1))][:60],
+            "codes_rares": rares(codes, max(2, total // 2 + 1))[:40]}
+
+
+@app.route("/admin/controle-xml")
+@admin_required
+def admin_controle_xml():
+    return render_template("admin_controle_xml.html", c=_controle_xml())
+
+
 @app.route("/admin/postes-stats")
 @admin_required
 def admin_postes_stats():

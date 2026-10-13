@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
+{% block title %}Contrôle des XML — Rugby Analytics{% endblock %}
+{% block content %}
+<div class="page-header no-print">
+    <div>
+        <h1>{{ icons.criteria() }} Contrôle des XML importés</h1>
+        <p class="subtitle">{{ c.nb_matchs }} match{{ 's' if c.nb_matchs != 1 else '' }} analysé{{ 's' if c.nb_matchs != 1 else '' }}. Cette page repère les écritures différentes d'un même joueur, les labels qui ne sont pas présents partout et les compositions incomplètes.</p>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Noms de joueurs écrits presque pareil</h2>
+    {% if c.proches %}
+    <p class="subtitle">Probablement le même joueur écrit de deux façons : ses stats sont alors coupées en deux sur la page saison. (« Même match » = les deux écritures existent dans un même XML, donc ce sont soit des doublons, soit deux joueurs homonymes.)</p>
+    <table class="stat-table zebra-table">
+        <thead><tr><th>Écriture 1</th><th>Écriture 2</th><th>Ressemblance</th><th>Matchs (1 / 2)</th><th>Dans un même match</th></tr></thead>
+        <tbody>{% for p in c.proches %}<tr><td><strong>{{ p.a }}</strong></td><td><strong>{{ p.b }}</strong></td><td>{{ p.score }} %</td><td>{{ p.matchs_a }} / {{ p.matchs_b }}</td><td>{{ 'oui' if p.meme_match else 'non' }}</td></tr>{% endfor %}</tbody>
+    </table>
+    {% else %}<p class="subtitle">Aucun doublon d'écriture détecté.</p>{% endif %}
+</div>
+
+<div class="card">
+    <h2>Joueurs présents dans un seul match</h2>
+    <p class="subtitle">Un nom fautif apparaît souvent ici (une seule occurrence).</p>
+    {% if c.uniques %}<p>{% for n, m in c.uniques %}<span title="{{ m }}"><strong>{{ n }}</strong> ({{ m }})</span>{{ ' · ' if not loop.last }}{% endfor %}</p>{% else %}<p class="subtitle">Aucun.</p>{% endif %}
+</div>
+
+<div class="card">
+    <h2>Par match</h2>
+    <table class="stat-table zebra-table">
+        <thead><tr><th>Match</th><th>Instances</th><th>Joueurs vus dans le XML</th><th>Composition saisie</th><th>Joueurs de la compo sans minutes</th></tr></thead>
+        <tbody>{% for m in c.matchs %}<tr><td><a href="{{ url_for('match_composition', match_id=m.id) }}">{{ m.titre }}</a></td><td>{{ m.instances }}</td><td>{{ m.joueurs }}</td><td>{{ m.compo or '—' }}</td><td>{{ m.sans_minutes|length if m.compo else '—' }}{% if m.sans_minutes %} ({{ m.sans_minutes|join(', ') }}){% endif %}</td></tr>{% endfor %}</tbody>
+    </table>
+</div>
+
+{% for titre, items, aide in [
+    ('Groupes de labels absents de certains matchs', c.groupes_rares, 'Un groupe de labels (Joueurs Off, Chrono…) présent dans certains XML seulement : convention de tagging différente.'),
+    ('Labels présents dans peu de matchs', c.labels_rares, 'Peut être normal (action rare) ou une faute de frappe dans le label.'),
+    ('Codes d\'action présents dans peu de matchs', c.codes_rares, 'Boutons Sportscode utilisés dans quelques matchs seulement.')] %}
+<div class="card">
+    <h2>{{ titre }}</h2>
+    <p class="subtitle">{{ aide }}</p>
+    {% if items %}
+    <table class="stat-table zebra-table">
+        <thead><tr><th>Élément</th><th>Présent dans</th><th>Absent de</th></tr></thead>
+        <tbody>{% for x in items %}<tr><td><strong>{{ x.nom }}</strong></td><td>{{ x.presents }} match{{ 's' if x.presents != 1 else '' }}</td><td>{{ x.absents|join(' ; ') }}</td></tr>{% endfor %}</tbody>
+    </table>
+    {% else %}<p class="subtitle">Rien à signaler.</p>{% endif %}
+</div>
+{% endfor %}
+{% endblock %}
