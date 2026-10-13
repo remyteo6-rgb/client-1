@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
+{% block title %}Postes des joueurs (stats) — Rugby Analytics{% endblock %}
+{% block content %}
+<div class="page-header no-print">
+    <div>
+        <h1>{{ icons.users() }} Postes des joueurs (stats)</h1>
+        <p class="subtitle">Tous les joueurs présents dans tes XML. Le poste choisi ici sert au classement et à la colonne « Poste » des pages Joueurs (match et saison), même pour un joueur absent du cahier d'entraînement. « Auto » = poste réglé dans Joueurs et accès, sinon liste de l'effectif.</p>
+    </div>
+</div>
+
+<div class="card">
+    <table class="stat-table zebra-table">
+        <thead><tr><th>Joueur</th><th>Code XML</th><th>Auto</th><th>Poste forcé</th></tr></thead>
+        <tbody>
+        {% for l in lignes %}
+        <tr id="{{ l.key }}">
+            <td><strong>{{ l.nom }}</strong></td>
+            <td>{{ l.code }}</td>
+            <td>{{ l.auto or '—' }}</td>
+            <td>
+                <form method="POST" action="{{ url_for('admin_postes_stats_save', code_key=l.key) }}">
+                    <input type="hidden" name="name" value="{{ l.code }}">
+                    <select name="poste" onchange="this.form.submit()">
+                        <option value="">Auto</option>
+                        {% for p in postes %}<option value="{{ p }}" {{ 'selected' if l.force == p else '' }}>{{ p }}</option>{% endfor %}
+                    </select>
+                </form>
+            </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4">Aucun joueur trouvé : importe d'abord un match.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

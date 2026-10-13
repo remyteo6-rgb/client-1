@@ -19,7 +19,7 @@ from parser import (
     SECTION_ICONS, SECTION_HELP, CATEGORY_HELP, generate_highlights, compute_radar_metrics,
     compute_score, compute_phase_timing,
     compute_player_attack_table, compute_player_defense_table, compute_player_ruck_table,
-    compute_player_bilan_table, compute_player_activity,
+    compute_player_bilan_table, compute_player_activity, _new_convention_player_names,
     compute_overview_dashboard, compute_squad_season_stats,
     compute_possession_log, compute_possession_summary,
     SQUAD_ROSTER, SQUAD_POSITION_ORDER, is_jiff,
@@ -855,6 +855,15 @@ def init_db():
     # ex. "3LC" vs "3LA" — et sert uniquement à mettre en évidence la bonne colonne du
     # tableau de référence "Profil par poste" ; renseigné à la main par l'admin.
     db.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS ppid_position TEXT")
+    # Poste « stats » d'un joueur du XML (réglé dans Administration → Postes des joueurs) :
+    # sert aux joueurs absents du cahier ; code_key = code Sportscode en minuscules.
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS stats_player_postes (
+            code_key TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            poste TEXT NOT NULL
+        )
+    """)
     # Une ligne = un point d'étape (3 à 4 par saison, comme sur le cahier papier) : notes
     # + commentaires par catégorie technique (JSON en texte plutôt qu'une colonne par
     # catégorie, pour ne pas avoir à migrer le schéma si les catégories évoluent un jour),
@@ -1316,6 +1325,18 @@ def _site_postes():
     return g._site_postes
 
 
+STATS_POSTES = ["Pilier", "Talonneur", "2ème ligne", "3ème ligne", "Charnière", "Centre", "Ailier/Arrière"]
+
+
+def _stats_postes_forces():
+    """{code joueur en minuscules: poste} réglés à la main (Administration → Postes des
+    joueurs), prioritaires sur tout le reste. Lu une seule fois par requête."""
+    if not hasattr(g, "_stats_postes_forces"):
+        rows = get_db().execute("SELECT code_key, poste FROM stats_player_postes").fetchall()
+        g._stats_postes_forces = {r["code_key"]: r["poste"] for r in rows if r["poste"] in STATS_POSTES}
+    return g._stats_postes_forces
+
+
 def _poste_effectif(xml_name):
     """Poste d'un code joueur du XML, même si l'ordre des mots diffère (« FANTCHO TAMBO » =
     « Tambo-Fantcho »). Priorité au poste réglé sur le site (modifiable par l'admin), à défaut
@@ -1323,6 +1344,9 @@ def _poste_effectif(xml_name):
     # Les codes du XML sont des noms de famille (« HUTTEAU », « L.FUKWAMOKO » : initiale du
     # prénom en préfixe quand deux joueurs ont le même nom) : on compare au nom de famille,
     # et à « Prénom Nom » en second choix, comme la page Composition.
+    forces = _stats_postes_forces()
+    if xml_name.strip().casefold() in forces:
+        return forces[xml_name.strip().casefold()]
     initiale = xml_name.split(".")[0].strip().casefold() if "." in xml_name else ""
     best, score = None, 0.0
     for prenom, nom, poste in _site_postes():
@@ -5187,6 +5211,52 @@ def admin_joueurs_groupe(player_id):
     db.commit()
     flash(f"Groupe mis à jour pour {player['first_name']} {player['last_name']}.", "success")
     return redirect(url_for("admin_joueurs"))
+
+
+@app.route("/admin/postes-stats")
+@admin_required
+def admin_postes_stats():
+    """Postes des joueurs vus dans les XML (pages Joueurs : classement et libellé « Poste »),
+    modifiables un par un, y compris pour ceux qui ne sont pas dans le cahier d'entraînement."""
+    db = get_db()
+    noms = {}
+    for row in db.execute("SELECT instances_json FROM matches").fetchall():
+        try:
+            insts = json.loads(row["instances_json"] or "[]")
+        except ValueError:
+            continue
+        for n in _new_convention_player_names(insts):
+            noms.setdefault(n.strip().casefold(), n.strip())
+    forces = _stats_postes_forces()
+    lignes = []
+    for key, nom in noms.items():
+        auto = None
+        # poste « automatique » = ce que donneraient le site puis la liste du code, sans réglage manuel
+        g._stats_postes_forces = {k: v for k, v in forces.items() if k != key}
+        auto = _poste_effectif(nom)
+        g._stats_postes_forces = forces
+        lignes.append({"key": key, "nom": _joueur_nom_affiche(nom), "code": nom,
+                       "auto": auto, "force": forces.get(key)})
+    rang = {p: i for i, p in enumerate(STATS_POSTES)}
+    lignes.sort(key=lambda l: (rang.get(l["force"] or l["auto"], len(rang)), l["nom"].casefold()))
+    return render_template("admin_postes_stats.html", lignes=lignes, postes=STATS_POSTES)
+
+
+@app.route("/admin/postes-stats/<path:code_key>", methods=["POST"])
+@admin_required
+def admin_postes_stats_save(code_key):
+    poste = request.form.get("poste") or ""
+    db = get_db()
+    if poste and poste not in STATS_POSTES:
+        abort(400)
+    if poste:
+        db.execute("""INSERT INTO stats_player_postes (code_key, name, poste) VALUES (%s, %s, %s)
+                      ON CONFLICT (code_key) DO UPDATE SET poste = EXCLUDED.poste, name = EXCLUDED.name""",
+                   (code_key.strip().casefold(), request.form.get("name") or code_key, poste))
+    else:
+        db.execute("DELETE FROM stats_player_postes WHERE code_key = %s", (code_key.strip().casefold(),))
+    db.commit()
+    return redirect(url_for("admin_postes_stats") + "#" + code_key)
 
 
 @app.route("/admin/joueurs/<int:player_id>/poste-ppid", methods=["POST"])
