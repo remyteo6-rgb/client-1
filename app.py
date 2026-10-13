@@ -27,7 +27,7 @@ from parser import (
     TRAINING_TAXONOMY, group_training_sessions_by_period,
     PHASE_ICONS, PHASE_HELP, compute_match_baseline,
     compute_player_season_baselines, build_player_cards, order_rows_by_reference_order,
-    composition_ordered_names, _composition_name_score,
+    composition_ordered_names, _composition_name_score, _name_key,
     player_row_order,
     compute_momentum, render_momentum_svg,
     compute_zone_gold_log, compute_new_convention_tries, compute_new_convention_score,
@@ -1381,7 +1381,7 @@ def _nbs(x):
 app.jinja_env.filters["nb"] = lambda v: _nbs(v) if isinstance(v, float) else v
 
 
-def _bilan_slide(player_cards, composition, player_stats, avg=False):
+def _bilan_slide(player_cards, composition, player_stats, avg=False, minutes_by_name=None):
     """Lignes de la diapo BILAN (page Joueurs) : n°, poste, nom, minutes, volume et bilan
     +/=/- de chaque joueur dans l'ordre de la compo, plus la ligne « Total équipe »."""
     composition = composition or []
@@ -1397,6 +1397,8 @@ def _bilan_slide(player_cards, composition, player_stats, avg=False):
         else:
             poste = POSTE_EFFECTIF_LIBELLE.get(_poste_effectif(c["name"]) or "", "")
         minutes = ((player_stats or {}).get(comp_name) or {}).get("minutes") if comp_name else None
+        if minutes_by_name is not None:
+            minutes = minutes_by_name.get(c["name"])
         row = {
             "number": num, "poste": poste, "nom": _joueur_nom_affiche(c["name"], comp_name),
             "minutes": minutes or None,
@@ -1624,6 +1626,41 @@ def match_joueurs(match_id):
                            player_baselines=player_baselines, player_cards=player_cards)
 
 
+def _composition_groups():
+    """Joueurs proposés sur la page Composition, rangés par poste en tenant compte des
+    réglages faits sur le site (Joueurs et accès, Postes des joueurs (stats)) ; à défaut,
+    le poste de la liste d'effectif. Les joueurs réglés sur le site mais absents de la liste
+    d'effectif sont ajoutés. Un nom présent à deux postes (deux Fukwamoko) reste tel quel."""
+    ordre = list(SQUAD_POSITION_ORDER)
+    doubles = {}
+    for poste, noms in SQUAD_ROSTER.items():
+        for n in noms:
+            doubles[n] = doubles.get(n, 0) + 1
+    groupes = {p: [] for p in ordre}
+    connus = []
+    for poste, noms in SQUAD_ROSTER.items():
+        for n in noms:
+            cible = poste if doubles[n] > 1 else (_poste_effectif(n) or poste)
+            groupes.setdefault(cible, []).append(n)
+            connus.append(n)
+
+    def _inconnu(nom):
+        jetons = set(_name_key(nom.split(".")[-1]).split())
+        for c in connus:
+            cj = set(_name_key(c).split())
+            if _composition_name_score(c, nom) >= 0.8 or (jetons and (jetons <= cj or cj <= jetons)):
+                return False
+        return True
+    extras = [nom for _prenom, nom, _cat in _site_postes() if nom]
+    extras += [r["name"] for r in get_db().execute("SELECT name FROM stats_player_postes").fetchall()]
+    for nom in extras:
+        if _inconnu(nom):
+            connus.append(nom)
+            groupes.setdefault(_poste_effectif(nom) or ordre[-1], []).append(nom)
+    return [{"position": p, "players": [{"name": n, "jiff": is_jiff(n)} for n in sorted(groupes[p], key=str.casefold)]}
+            for p in ordre if groupes.get(p)]
+
+
 @app.route("/match/<int:match_id>/composition", methods=["GET", "POST"])
 def match_composition(match_id):
     match = _get_match_or_404(match_id)
@@ -1660,10 +1697,7 @@ def match_composition(match_id):
         return redirect(url_for("match_composition", match_id=match_id))
     slots = (match.get("composition") or [])[:23]
     slots = slots + [""] * (23 - len(slots))
-    all_players = [
-        {"position": position, "players": [{"name": p, "jiff": is_jiff(p)} for p in SQUAD_ROSTER[position]]}
-        for position in SQUAD_POSITION_ORDER
-    ]
+    all_players = _composition_groups()
     filled_count = sum(1 for p in slots if p)
     player_stats = match.get("player_match_stats") or {}
     return render_template("match_composition.html", match=match, all_players=all_players,
@@ -2711,6 +2745,25 @@ def _season_player_tables(selected):
     return {"bilan": bilan, "attack": attack, "defense": defense, "ruck": ruck}
 
 
+def _season_minutes(selected):
+    """Minutes jouées en TOTAL sur les matchs sélectionnés, par code joueur du XML : les
+    minutes saisies sur la page Composition de chaque match (nom du cahier) sont rattachées
+    au code XML du même joueur (même rapprochement que la page d'un match), puis additionnées."""
+    total = {}
+    for m in selected:
+        comp = m.get("composition") or []
+        stats = m.get("player_match_stats") or {}
+        if not any(comp) or not stats:
+            continue
+        xml_players = set(_new_convention_player_names(m["instances"]))
+        slots = composition_ordered_names(comp, xml_players, m.get("row_order"))
+        for cname, xname in zip(comp, slots):
+            mn = (stats.get(cname) or {}).get("minutes") if cname else None
+            if xname and mn:
+                total[xname] = total.get(xname, 0) + int(mn)
+    return total
+
+
 @app.route("/season/joueurs")
 def season_joueurs():
     selected, ctx = _season_common("joueurs")
@@ -2735,7 +2788,7 @@ def season_joueurs():
     poste_rang = {p: i for i, p in enumerate(("Pilier", "Talonneur", "2ème ligne", "3ème ligne",
                                               "Charnière", "Centre", "Ailier/Arrière"))}
     player_cards.sort(key=lambda c: poste_rang.get(_poste_effectif(c["name"]), len(poste_rang)))
-    bilan_slide = _bilan_slide(player_cards, None, None)
+    bilan_slide = _bilan_slide(player_cards, None, None, minutes_by_name=_season_minutes(selected))
     for r in bilan_slide["rows"]:
         r["number"] = None
     detail_slides = _joueurs_detail_slides(bilan_slide, player_cards,
