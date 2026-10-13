@@ -13,21 +13,24 @@
 
 <form method="get" action="{{ url_for('season_comparer') }}" class="card no-print" id="cmp-form" style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
     {% for mid in season_selected_ids %}<input type="hidden" name="m" value="{{ mid }}">{% endfor %}
-    <label>Poste<br>
-        <select id="cmp-poste">{% for p in postes %}<option value="{{ p }}">{{ p }}</option>{% endfor %}<option value="Sans poste">Sans poste</option></select>
+    <label>Poste de comparaison<br>
+        <select name="p" id="cmp-poste">{% for p in postes %}<option value="{{ p }}" {{ 'selected' if p == poste_choisi else '' }}>{{ p }}</option>{% endfor %}</select>
     </label>
-    <label>Joueur A<br><select name="a" id="cmp-a">{% for j in joueurs %}<option value="{{ j.name }}" data-poste="{{ j.poste }}" {{ 'selected' if j.name == a else '' }}>{{ display_name(j.name) }}</option>{% endfor %}</select></label>
-    <label>Joueur B<br><select name="b" id="cmp-b">{% for j in joueurs %}<option value="{{ j.name }}" data-poste="{{ j.poste }}" {{ 'selected' if j.name == b else '' }}>{{ display_name(j.name) }}</option>{% endfor %}</select></label>
+    <label>Joueur A<br><select name="a" id="cmp-a">{% for j in joueurs %}<option value="{{ j.name }}" data-poste="{{ j.poste }}" {{ 'selected' if j.name == a else '' }}>{{ display_name(j.name) }}{{ ' (' ~ j.poste ~ ')' if j.poste }}</option>{% endfor %}</select></label>
+    <label>Joueur B<br><select name="b" id="cmp-b">{% for j in joueurs %}<option value="{{ j.name }}" data-poste="{{ j.poste }}" {{ 'selected' if j.name == b else '' }}>{{ display_name(j.name) }}{{ ' (' ~ j.poste ~ ')' if j.poste }}</option>{% endfor %}</select></label>
+    <label style="display:flex; align-items:center; gap:6px;"><input type="checkbox" name="tous" value="1" id="cmp-tous" {{ 'checked' if tous else '' }}> Tous les joueurs (hors poste habituel)</label>
     <button class="btn" type="submit">Comparer</button>
 </form>
+<p class="subtitle no-print">Le poste choisi décide des critères du radar et de la référence (100 = le meilleur du poste). Coche « Tous les joueurs » pour comparer, par exemple, un talonneur qui joue 3e ligne avec les autres 3e lignes.</p>
 <script>
 (function () {
-    var poste = document.getElementById('cmp-poste'), sel = [document.getElementById('cmp-a'), document.getElementById('cmp-b')];
+    var poste = document.getElementById('cmp-poste'), tous = document.getElementById('cmp-tous'),
+        sel = [document.getElementById('cmp-a'), document.getElementById('cmp-b')];
     function filtre() {
         sel.forEach(function (s) {
             var first = null;
             Array.prototype.forEach.call(s.options, function (o) {
-                var ok = o.getAttribute('data-poste') === poste.value;
+                var ok = tous.checked || o.getAttribute('data-poste') === poste.value;
                 o.hidden = !ok; o.disabled = !ok;
                 if (ok && !first) first = o;
             });
@@ -38,9 +41,8 @@
             if (alt) sel[1].value = alt.value;
         }
     }
-    var cur = sel[0].selectedOptions[0];
-    if (cur) poste.value = cur.getAttribute('data-poste');
-    poste.addEventListener('change', filtre);
+    if (!poste.value || !'{{ poste_choisi }}') { var cur = sel[0].selectedOptions[0]; if (cur && cur.getAttribute('data-poste')) poste.value = cur.getAttribute('data-poste'); }
+    poste.addEventListener('change', filtre); tous.addEventListener('change', filtre);
     filtre();
 })();
 </script>
@@ -62,7 +64,7 @@
         <div style="flex:1 1 320px; min-width:300px;">
             <p><span style="color:#2f5fc4;">■</span> <strong>{{ display_name(a) }}</strong> — {{ radar.minutes[0] }} min · profil : {{ radar.profils[0] or '—' }}</p>
             <p><span style="color:#d6313a;">■</span> <strong>{{ display_name(b) }}</strong> — {{ radar.minutes[1] }} min · profil : {{ radar.profils[1] or '—' }}</p>
-            <p class="subtitle">{{ radar.poste }} · référence : {{ radar.pool }} joueurs du poste avec au moins 40 min.</p>
+            <p class="subtitle">Poste de comparaison : {{ radar.poste }} · référence : {{ radar.pool }} joueurs du poste avec au moins 40 min.</p>
             <table class="stat-table zebra-table">
                 <thead><tr><th>Critère (pour 80 min)</th><th style="color:#2f5fc4;">{{ display_name(a) }}</th><th style="color:#d6313a;">{{ display_name(b) }}</th></tr></thead>
                 <tbody>

@@ -2868,7 +2868,7 @@ COMPARE_FAMILLES = [
 ]
 
 
-def _compare_radar(selected, name_a, name_b):
+def _compare_radar(selected, name_a, name_b, poste=None):
     import math
     tabs = _season_player_tables(selected)
     by = {k: {r["name"].strip().casefold(): r for r in t["rows"]} for k, t in tabs.items()}
@@ -2878,7 +2878,7 @@ def _compare_radar(selected, name_a, name_b):
     def lignes(nom):
         k = nom.strip().casefold()
         return {t: by[t].get(k) for t in by}
-    poste = _poste_effectif(name_a) or _poste_effectif(name_b)
+    poste = poste or _poste_effectif(name_a) or _poste_effectif(name_b)
     axes = COMPARE_COMMUN + COMPARE_POSTE.get(poste, [])
     ma, mb = minutes.get(name_a.strip().casefold(), 0), minutes.get(name_b.strip().casefold(), 0)
     mode_80 = ma >= 40 and mb >= 40
@@ -2966,16 +2966,18 @@ def season_comparer():
             erreur = "Choisis deux joueurs différents."
         elif a not in noms or b not in noms:
             erreur = "Joueur introuvable dans les matchs sélectionnés."
-        elif _poste_effectif(a) != _poste_effectif(b):
-            erreur = "Les deux joueurs doivent être du même poste."
         else:
-            radar = _compare_radar(selected, a, b)
+            # Le poste de comparaison se choisit : un joueur peut évoluer à plusieurs postes
+            # (2e / 3e ligne, talonneur en 3e ligne...). Par défaut, le poste du joueur A.
+            poste_cmp = request.args.get("p") if request.args.get("p") in ordre else (_poste_effectif(a) or _poste_effectif(b))
+            radar = _compare_radar(selected, a, b, poste_cmp)
             if radar.get("manque_minutes"):
                 erreur = ("Minutes jouées insuffisantes pour comparer à 80 minutes (moins de 40 min cumulées "
                           f"sur la sélection : {radar['minutes'][0]} min et {radar['minutes'][1]} min). "
                           "Saisis les minutes dans la page Composition de chaque match.")
                 radar = None
     return render_template("season_comparer.html", joueurs=joueurs, postes=ordre, a=a, b=b,
+                           poste_choisi=request.args.get("p", ""), tous=bool(request.args.get("tous")),
                            radar=radar, erreur=erreur, display_name=_joueur_nom_affiche, **ctx)
 
 
