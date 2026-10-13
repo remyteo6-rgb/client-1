@@ -11,7 +11,7 @@
 </div>
 {% include "_season_select.html" %}
 
-<form method="get" action="{{ url_for('season_comparer') }}" class="card no-print" id="cmp-form" style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+<form method="get" action="{{ url_for('season_comparer') }}" class="card no-print cmp-form" id="cmp-form">
     {% for mid in season_selected_ids %}<input type="hidden" name="m" value="{{ mid }}">{% endfor %}
     <label>Poste de comparaison<br>
         <select name="p" id="cmp-poste">{% for p in postes %}<option value="{{ p }}" {{ 'selected' if p == poste_choisi else '' }}>{{ p }}</option>{% endfor %}</select>
@@ -50,28 +50,46 @@
 {% if erreur %}<div class="card"><p>{{ erreur }}</p></div>{% endif %}
 
 {% if radar %}
-<div class="card">
-    <div style="display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start;">
-        <svg viewBox="0 0 520 500" width="520" style="max-width:100%; height:auto;" role="img" aria-label="Radar de comparaison">
-            {% for ring in radar.rings %}<polygon points="{{ ring }}" fill="none" stroke="#d9d3cf" stroke-width="1"/>{% endfor %}
-            {% for ax in radar.axes %}
-            <line x1="{{ radar.cx }}" y1="{{ radar.cy }}" x2="{{ ax.axis_end[0] }}" y2="{{ ax.axis_end[1] }}" stroke="#d9d3cf" stroke-width="1"/>
-            <text x="{{ ax.label_pos[0] }}" y="{{ ax.label_pos[1] }}" text-anchor="{{ ax.anchor }}" font-size="12" font-weight="700" fill="#3a2a25">{{ ax.label }}</text>
-            {% endfor %}
-            <polygon points="{{ radar.polys[0] }}" fill="rgba(79,127,214,.28)" stroke="#2f5fc4" stroke-width="2.5"/>
-            <polygon points="{{ radar.polys[1] }}" fill="rgba(229,72,77,.22)" stroke="#d6313a" stroke-width="2.5"/>
-        </svg>
-        <div style="flex:1 1 320px; min-width:300px;">
-            <p><span style="color:#2f5fc4;">■</span> <strong>{{ display_name(a) }}</strong> — {{ radar.minutes[0] }} min ({{ radar.matchs[0] }} match{{ 's' if radar.matchs[0] != 1 else '' }} à ce poste) · profil : {{ radar.profils[0] or '—' }}</p>
-            <p><span style="color:#d6313a;">■</span> <strong>{{ display_name(b) }}</strong> — {{ radar.minutes[1] }} min ({{ radar.matchs[1] }} match{{ 's' if radar.matchs[1] != 1 else '' }} à ce poste) · profil : {{ radar.profils[1] or '—' }}</p>
-            <p class="subtitle">Poste de comparaison : {{ radar.poste }} · référence : {{ radar.pool }} joueurs ayant tenu ce poste au moins 40 min (seuls les matchs joués à ce poste comptent).</p>
-            <table class="stat-table zebra-table">
-                <thead><tr><th>Critère (pour 80 min)</th><th style="color:#2f5fc4;">{{ display_name(a) }}</th><th style="color:#d6313a;">{{ display_name(b) }}</th></tr></thead>
-                <tbody>
-                {% for ax in radar.axes %}<tr><td>{{ ax.label }}{{ ' (moins = mieux)' if ax.sens == 'lo' else '' }}</td>
-                    {% for v in ax.vals %}<td>{% if v is none %}—{% elif ax.sens == 'pct' %}{{ v|round(0)|int }} %{% else %}{{ v|round(1) }}{% endif %}</td>{% endfor %}</tr>{% endfor %}
-                </tbody>
-            </table>
+<div class="report-board">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">COMPARER</span>
+        <span class="report-subtitle">{{ radar.poste }} · par 80 min</span>
+    </div>
+    <div class="bil-board" style="grid-template-columns: minmax(340px, 1.1fr) 1fr;">
+        <div class="bil-panel">
+            <div class="bil-panel-head">Radar</div>
+            <div style="padding:8px 8px 4px; text-align:center;">
+                <svg viewBox="-90 0 700 500" width="640" style="max-width:100%; height:auto;" role="img" aria-label="Radar de comparaison">
+                    {% for ring in radar.rings %}<polygon points="{{ ring }}" fill="none" stroke="#d9d3cf" stroke-width="1"/>{% endfor %}
+                    {% for ax in radar.axes %}
+                    <line x1="{{ radar.cx }}" y1="{{ radar.cy }}" x2="{{ ax.axis_end[0] }}" y2="{{ ax.axis_end[1] }}" stroke="#d9d3cf" stroke-width="1"/>
+                    <text x="{{ ax.label_pos[0] }}" y="{{ ax.label_pos[1] }}" text-anchor="{{ ax.anchor }}" font-size="12" font-weight="700" fill="#530d34">{{ ax.label }}</text>
+                    {% endfor %}
+                    <polygon points="{{ radar.polys[0] }}" fill="rgba(47,93,138,.28)" stroke="#2f5d8a" stroke-width="2.5"/>
+                    <polygon points="{{ radar.polys[1] }}" fill="rgba(165,48,95,.25)" stroke="#a5305f" stroke-width="2.5"/>
+                </svg>
+            </div>
+        </div>
+        <div class="bil-col">
+            <div class="bil-panel">
+                <div class="bil-panel-head bil-head-blue">Les deux joueurs</div>
+                <div class="cmp-legend">
+                    <p class="cmp-a"><span class="cmp-sq" style="background:#2f5d8a;"></span><strong>{{ display_name(a) }}</strong> — {{ radar.minutes[0] }} min ({{ radar.matchs[0] }} match{{ 's' if radar.matchs[0] != 1 else '' }} à ce poste) · {{ radar.profils[0] or '—' }}</p>
+                    <p class="cmp-b"><span class="cmp-sq" style="background:#a5305f;"></span><strong>{{ display_name(b) }}</strong> — {{ radar.minutes[1] }} min ({{ radar.matchs[1] }} match{{ 's' if radar.matchs[1] != 1 else '' }} à ce poste) · {{ radar.profils[1] or '—' }}</p>
+                </div>
+                <p class="gp-note" style="padding-top:2px; color:#6a6a6a;">Référence : {{ radar.pool }} joueurs ayant tenu ce poste au moins 40 min (seuls les matchs joués à ce poste comptent). 100 = le meilleur du poste, 0 = le moins élevé ; pourcentages : valeur réelle.</p>
+            </div>
+            <div class="bil-panel">
+                <div class="bil-panel-head">Critères (pour 80 min)</div>
+                <table class="bil-table bil-table-quad">
+                    <thead><tr><th></th><th class="cmp-a">{{ display_name(a) }}</th><th class="cmp-b">{{ display_name(b) }}</th></tr></thead>
+                    <tbody>
+                    {% for ax in radar.axes %}<tr><th>{{ ax.label }}{{ ' (moins = mieux)' if ax.sens == 'lo' else '' }}</th>
+                        {% for v in ax.vals %}<td>{% if v is none %}—{% elif ax.sens == 'pct' %}{{ v|round(0)|int }} %{% else %}{{ v|round(1) }}{% endif %}</td>{% endfor %}</tr>{% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>

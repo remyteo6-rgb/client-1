@@ -2929,3 +2929,41 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
 .bjr-act-prof span { flex: 1; background: #1b2540; border-radius: 1px; }
 .bjr-act-prof span.is-empty { background: #eef0f4; }
 .bjr-season.bjr-act .bjr-act-prof div { height: 26px; }
+
+/* ---- Pages Saison : Gagner / Perdre et Comparer (même habillage que les pages du rapport :
+   .report-board + .bil-panel, bandeau bordeaux, tableaux .bil-table) ---------------------- */
+.gp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; align-items: start; }
+.gp-note { padding: 12px 16px; font-size: .86rem; line-height: 1.45; }
+.gp-note strong { font-weight: 800; }
+.gp-pill {
+    font-size: .62rem; font-weight: 800; letter-spacing: .6px; padding: 2px 9px; border-radius: 10px;
+    background: rgba(255,255,255,.22); color: #fff; white-space: nowrap;
+}
+.gp-pill-good { background: #38a24a; }
+.gp-pill-bad  { background: #d9463c; }
+.gp-body { padding: 12px 14px 14px; }
+.gp-hint { font-size: .72rem; color: #6a6a6a; margin: 0 0 8px; }
+.gp-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.gp-lab { width: 66px; font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--bg-header); }
+.gp-bar { flex: 1; height: 20px; background: #eee9e2; border-radius: 4px; overflow: hidden; }
+.gp-fill { display: block; height: 100%; border-radius: 4px; }
+.gp-win  { background: #38a24a; }
+.gp-loss { background: #d9463c; }
+.gp-val { width: 64px; text-align: right; font-weight: 800; font-size: .95rem; }
+.gp-meta { font-size: .72rem; color: #4a4a4a; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(0,0,0,.07); }
+.gp-dots { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.gp-dot { font-size: .66rem; font-weight: 700; padding: 2px 8px; border-radius: 10px; color: #fff; }
+.gp-dot.V { background: #38a24a; } .gp-dot.D { background: #d9463c; } .gp-dot.N { background: #8a8a8a; }
+.gp-rank { display: flex; align-items: center; gap: 10px; padding: 5px 16px; font-size: .86rem; }
+.gp-rank .gp-rank-label { width: 230px; font-weight: 700; }
+.gp-rank .gp-rank-bar { height: 12px; border-radius: 6px; background: #38a24a; }
+.gp-rank .gp-rank-bar.neg { background: #d9463c; }
+.gp-rank .gp-rank-val { font-weight: 800; min-width: 52px; }
+.cmp-form { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; padding: 14px 16px; }
+.cmp-form label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--bg-header); }
+.cmp-form select { margin-top: 3px; }
+.cmp-legend { padding: 12px 16px 4px; font-size: .9rem; }
+.cmp-legend p { margin: 4px 0; }
+.cmp-sq { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.cmp-a { color: #2f5d8a; } .cmp-b { color: #a5305f; }
+@media (max-width: 760px) { .gp-rank .gp-rank-label { width: 130px; } }
