@@ -18,6 +18,8 @@ PASSES_RATEES = {"9": (0.4, 2.5), "10": (0.4, 2.5), "12-13": (0.15, 0.75)}
 PASSES_RATEES_DEFAUT = (0.1, 0.5)
 BONUS = {"essai": 0.7, "essai_max": 2.0}
 PLAQUAGE_RATE = (0.25, 1.5)   # malus par plaquage raté, plafond par match
+CONFIANCE_MIN = 60            # minutes jouées pour que la note soit pleinement « crue »
+NOTE_NEUTRE = 5.0
 SHRINK_MIN = 20               # volumes : minutes « virtuelles » à demi-cible ajoutées, pour ne pas extrapoler un court passage
 SHRINK_K = 4                  # un pourcentage est tiré vers la moyenne attendue tant qu'il repose sur peu d'actions
 
@@ -334,6 +336,10 @@ def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
     if not detail:
         return None
     base = _clamp(tot_s / tot_w * CALAGE.get(PROFIL_FAMILLE.get(poste), 1.0))
+    # Peu de minutes = peu de preuves : sous CONFIANCE_MIN minutes, la note est tirée vers la
+    # note neutre (5) au prorata des minutes jouées.
+    confiance = min(1.0, minutes / CONFIANCE_MIN)
+    base = base * confiance + NOTE_NEUTRE * (1 - confiance)
     attack = rows.get("attack")
     pen = _v(attack, "penalite_off", "penalite_def")
     pdb = _v(attack, "pdb")

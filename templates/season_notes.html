@@ -47,8 +47,8 @@
             <div class="nt-body">
                 {% if j.forts %}<p><strong>Points forts :</strong> {% for c in j.forts %}{{ c.label }} ({{ c.score }}){{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
                 {% if j.faibles %}<p><strong>À travailler :</strong> {% for c in j.faibles %}{{ c.label }} ({{ c.score }}){{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
-                {% if j.criteres %}<table class="bil-table notes-table notes-detail"><thead><tr><th>Critère</th><th>Note /10</th><th>Poids</th></tr></thead>
-                    {% for c in j.criteres %}<tr><td>{{ c.label }}</td><td>{{ c.score }}</td><td>{{ c.poids }}</td></tr>{% endfor %}</table>
+                {% if j.criteres %}<table class="bil-table notes-table notes-detail"><thead><tr><th>Critère</th><th>Note /10</th><th>Poids</th><th>Valeur /80 min</th></tr></thead>
+                    {% for c in j.criteres %}<tr><td>{{ c.label }}</td><td>{{ c.score }}</td><td>{{ c.poids }}</td><td>{{ c.valeur }}</td></tr>{% endfor %}</table>
                 {% else %}<p>Pas de note : {% for x in j.matchs %}{{ x.opponent }} ({{ x.raison }}){{ ', ' if not loop.last }}{% endfor %}.</p>{% endif %}
             </div>
         </details>

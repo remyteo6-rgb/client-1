@@ -3423,10 +3423,12 @@ def _notes_saison(selected, bar=None):
         crit = {}
         for x in notes:
             for d in x["res"]["detail"]:
-                c = crit.setdefault(d["critere"], {"label": d["label"], "w": 0.0, "s": 0.0, "poids": d["poids"]})
+                c = crit.setdefault(d["critere"], {"label": d["label"], "w": 0.0, "s": 0.0, "v": 0.0, "poids": d["poids"]})
                 c["w"] += x["minutes"]
                 c["s"] += d["score"] * x["minutes"]
-        criteres = sorted([{"label": v["label"], "score": round(v["s"] / v["w"], 1), "poids": v["poids"]}
+                c["v"] += d["valeur"] * x["minutes"]
+        criteres = sorted([{"label": v["label"], "score": round(v["s"] / v["w"], 1), "poids": v["poids"],
+                            "valeur": round(v["v"] / v["w"], 1)}
                            for v in crit.values()], key=lambda d: -d["poids"])
         malus = round(-sum(sum(mm["points"] for mm in x["res"]["malus"]) for x in notes) / len(notes), 1)
         forts = [c for c in sorted(criteres, key=lambda d: -d["score"]) if c["score"] >= 6][:2]
