@@ -21,19 +21,19 @@
     {% for g in groupes %}
     <div class="bil-panel" style="margin-bottom:16px;">
         <div class="bil-panel-head">{{ g.poste }}</div>
-        <table class="bil-table">
+        <table class="bil-table notes-table">
             <thead><tr><th>Joueur</th><th>Note</th><th>Min</th><th>Malus moy.</th><th>Par match</th></tr></thead>
             <tbody>
             {% for j in g.joueurs %}
             <tr>
                 <td><details><summary>{{ display_name(j.name) }}</summary>
-                    {% if j.criteres %}<table class="bil-table" style="margin-top:6px;">
+                    {% if j.criteres %}<table class="bil-table notes-table notes-detail">
                         {% for c in j.criteres %}<tr><td>{{ c.label }}</td><td>{{ c.score }}/10</td><td>poids {{ c.poids }}</td></tr>{% endfor %}
                     </table>{% endif %}</details></td>
                 <td><strong>{{ j.note if j.note is not none else '—' }}</strong></td>
                 <td>{{ j.minutes }}</td>
                 <td>{% if j.malus %}−{{ j.malus }}{% else %}0{% endif %}</td>
-                <td>{% for x in j.matchs %}<span title="{{ x.poste }} · {{ x.minutes }} min{% for mm in (x.res.malus if x.res else []) %} · {{ mm.label }} {{ mm.points }}{% endfor %}">{{ x.opponent }} <strong>{{ x.res.note if x.res else '—' }}</strong></span>{{ ' · ' if not loop.last }}{% endfor %}</td>
+                <td class="notes-matchs">{% for x in j.matchs %}<span class="notes-chip" title="{{ x.poste }} · {{ x.minutes }} min{% for mm in (x.res.malus if x.res else []) %} · {{ mm.label }} {{ mm.points }}{% endfor %}">{{ x.opponent }} <strong>{{ x.res.note if x.res else '—' }}</strong></span>{% endfor %}</td>
             </tr>
             {% endfor %}
             </tbody>

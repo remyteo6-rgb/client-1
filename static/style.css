@@ -2967,3 +2967,16 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
 .cmp-sq { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
 .cmp-a { color: #2f5d8a; } .cmp-b { color: #a5305f; }
 @media (max-width: 760px) { .gp-rank .gp-rank-label { width: 130px; } }
+
+/* Notes joueurs */
+.notes-table { font-size: 1rem; }
+.notes-table th { font-size: .8rem; text-transform: uppercase; letter-spacing: .4px; color: #6a6a6a; text-align: center; font-weight: 600; }
+.notes-table th:first-child, .notes-table th:last-child { text-align: left; }
+.notes-table td { text-align: center; font-weight: 600; font-size: 1rem; }
+.notes-table td:first-child, .notes-table td.notes-matchs { text-align: left; }
+.notes-table summary { cursor: pointer; font-weight: 700; font-size: 1.05rem; }
+.notes-table td strong { font-size: 1.1rem; }
+.notes-detail { margin-top: 6px; font-size: .9rem; }
+.notes-detail td { font-weight: 500; font-size: .9rem; text-align: left; }
+.notes-matchs { display: flex; flex-wrap: wrap; gap: 6px; }
+.notes-chip { background: rgba(80,20,50,.08); border-radius: 12px; padding: 2px 10px; font-size: .85rem; font-weight: 600; white-space: nowrap; }
