@@ -3321,7 +3321,7 @@ NUMERO_PROFIL = {1: "Pilier", 2: "Talonneur", 3: "Pilier", 4: "2ème ligne", 5: 
                  14: "11-14", 15: "15"}
 
 
-def _profil_note(xml_name, poste_match, numero=None, poste_saisi=None):
+def _profil_note(xml_name, poste_match, numero=None, poste_saisi=None, habituel=None):
     """(profil de notation, précis ?) d'un joueur sur un match. Le poste précis du club est utilisé
     s'il correspond au poste joué ce jour-là ; sinon (changement de poste, poste non réglé) profil
     par défaut du poste (9 pour les charnières, 11-14 pour ailiers/arrières). « précis » est False
@@ -3331,6 +3331,10 @@ def _profil_note(xml_name, poste_match, numero=None, poste_saisi=None):
     num = NUMERO_PROFIL.get(numero)
     if num and (poste_saisi is None or bareme.PROFIL_FAMILLE[num] == poste_saisi):
         return num, True
+    # Remplaçant : poste où il a le plus joué en titulaire cette saison (Lee, centre sur le papier,
+    # joue surtout à l'aile), avant le poste réglé sur le site.
+    if habituel and (poste_saisi is None or bareme.PROFIL_FAMILLE[habituel] == poste_saisi):
+        return habituel, True
     fin = _ppid_fin(xml_name)
     profil = PPID_VERS_PROFIL.get(fin) if fin else None
     if profil and (poste_match is None or bareme.PROFIL_FAMILLE[profil] == poste_match):
@@ -3351,6 +3355,15 @@ def _bareme_courant():
 def _notes_saison(selected, bar=None):
     bar = bar or _bareme_courant()
     joueurs = {}
+    infos_matchs = {m["id"]: _match_infos_full(m) for m in selected}
+    minutes_profil = {}
+    for infos in infos_matchs.values():
+        for c, info in infos.items():
+            p = NUMERO_PROFIL.get(info.get("numero"))
+            if p and info["minutes"] and (info["poste"] is None or bareme.PROFIL_FAMILLE[p] == info["poste"]):
+                minutes_profil.setdefault(c, {})
+                minutes_profil[c][p] = minutes_profil[c].get(p, 0) + info["minutes"]
+    habituels = {c: max(d, key=d.get) for c, d in minutes_profil.items()}
     for m in selected:
         ins = m["instances"]
         attack = compute_player_attack_table(ins)
@@ -3358,14 +3371,14 @@ def _notes_saison(selected, bar=None):
         ruck = compute_player_ruck_table(ins)
         tabs = {"attack": attack, "defense": defense, "ruck": ruck}
         by = {k: {r["name"].strip().casefold(): r for r in t["rows"]} for k, t in tabs.items()}
-        infos = _match_infos_full(m)
+        infos = infos_matchs[m["id"]]
         noms = {r["name"] for t in tabs.values() for r in t["rows"]}
         for nom in noms:
             c = nom.strip().casefold()
             info = infos.get(c)
             if not info or not info["minutes"]:
                 continue
-            poste, precis = _profil_note(nom, info["poste"] or _poste_effectif(nom), info.get("numero"), info["poste"])
+            poste, precis = _profil_note(nom, info["poste"] or _poste_effectif(nom), info.get("numero"), info["poste"], habituels.get(c))
             if not poste:
                 continue
             rows = {k: by[k].get(c) for k in by}
