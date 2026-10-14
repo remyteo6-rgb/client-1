@@ -2980,3 +2980,15 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
 .notes-detail td { font-weight: 500; font-size: .9rem; text-align: left; }
 .notes-matchs { display: flex; flex-wrap: wrap; gap: 6px; }
 .notes-chip { background: rgba(80,20,50,.08); border-radius: 12px; padding: 2px 10px; font-size: .85rem; font-weight: 600; white-space: nowrap; }
+.nt-badge { display:inline-block; min-width:38px; text-align:center; padding:3px 8px; border-radius:8px; font-weight:800; font-size:1rem; color:#fff; }
+.nt-top { background:#2f6b39; } .nt-ok { background:#6a9a3a; } .nt-mid { background:#e0912f; } .nt-low { background:#d9463c; } .nt-na { background:#c9c9c9; color:#555; }
+.nt-legend { display:flex; flex-wrap:wrap; gap:16px; padding:12px 14px 4px; font-size:.95rem; }
+.nt-card { border-top:1px solid rgba(0,0,0,.08); padding:10px 14px; }
+.nt-card summary { display:flex; flex-wrap:wrap; align-items:center; gap:12px; cursor:pointer; list-style:none; }
+.nt-name { font-weight:800; font-size:1.1rem; min-width:150px; }
+.nt-ecart { font-size:.9rem; font-weight:700; color:#777; } .nt-ecart.pos { color:#2f6b39; } .nt-ecart.neg { color:#d9463c; }
+.nt-min { font-size:.9rem; color:#666; }
+.nt-matchs { display:flex; flex-wrap:wrap; gap:6px; margin-left:auto; }
+.nt-chip { display:inline-flex; align-items:center; gap:6px; background:rgba(80,20,50,.07); border-radius:12px; padding:2px 6px 2px 10px; font-size:.85rem; font-weight:600; }
+.nt-chip .nt-badge { min-width:30px; font-size:.85rem; padding:1px 6px; }
+.nt-body { padding:10px 4px 4px; font-size:.95rem; }

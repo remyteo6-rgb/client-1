@@ -2,42 +2,53 @@
 {% import "_ppid_icons.html" as icons %}
 {% set active = 'notes' %}
 {% block title %}Notes joueurs — Saison{% endblock %}
+{% macro badge(n) %}{% if n is none %}<span class="nt-badge nt-na">—</span>{% else %}<span class="nt-badge {{ 'nt-top' if n >= 6.5 else ('nt-ok' if n >= 5 else ('nt-mid' if n >= 3.5 else 'nt-low')) }}">{{ n }}</span>{% endif %}{% endmacro %}
 {% block content %}
 <div class="page-header no-print">
     <div>
         <h1>{{ icons.chart() }} Notes des joueurs</h1>
-        <p class="subtitle">Note sur 10 selon un barème propre à chaque poste, pondérée par les minutes jouées. Minimum {{ min_minutes }} min par match. <a href="{{ url_for('season_bareme') }}">Voir le barème</a></p>
+        <p class="subtitle">Note sur 10 par match, comparée à la cible du poste. <a href="{{ url_for('season_bareme') }}">Voir le barème</a></p>
     </div>
 </div>
 {% include "_season_select.html" %}
 <div class="report-board">
-    <div class="report-head">
-        <span class="report-title">NOTES SAISON</span>
-        <span class="report-subtitle">Pénalités : −{{ malus.penalite }} · jaune : −{{ malus.jaune }} · rouge : −{{ malus.rouge }}</span>
+    <div class="report-head"><span class="report-title">NOTES SAISON</span></div>
+
+    <div class="bil-panel" style="margin-bottom:16px;">
+        <div class="bil-panel-head bil-head-blue">Comment lire une note</div>
+        <div class="nt-legend">
+            <span><span class="nt-badge nt-top">6,5+</span> très bon match pour son poste</span>
+            <span><span class="nt-badge nt-ok">5–6,5</span> solide</span>
+            <span><span class="nt-badge nt-mid">3,5–5</span> en dessous des attentes</span>
+            <span><span class="nt-badge nt-low">&lt; 3,5</span> match à revoir</span>
+        </div>
+        <p class="gp-note">10 = toutes les cibles du poste atteintes. Chaque critère est noté de 0 à 10 selon sa cible, puis pondéré. On retire ensuite les fautes (pénalité −{{ malus.penalite }}, jaune −{{ malus.jaune }}, rouge −{{ malus.rouge }}) et on ajoute les essais. Pas de note sous {{ min_minutes }} min jouées. La note de saison pèse chaque match par ses minutes. <strong>« Écart »</strong> = note du joueur moins la moyenne de son poste.</p>
     </div>
+
     {% if not groupes %}
     <div class="bil-panel"><div class="gp-note">Aucune note : renseigne les minutes dans la page Composition de chaque match.</div></div>
     {% endif %}
     {% for g in groupes %}
     <div class="bil-panel" style="margin-bottom:16px;">
-        <div class="bil-panel-head">{{ g.poste }}</div>
-        <table class="bil-table notes-table">
-            <thead><tr><th>Joueur</th><th>Note</th><th>Min</th><th>Malus moy.</th><th>Par match</th></tr></thead>
-            <tbody>
-            {% for j in g.joueurs %}
-            <tr>
-                <td><details><summary>{{ display_name(j.name) }}</summary>
-                    {% if j.criteres %}<table class="bil-table notes-table notes-detail">
-                        {% for c in j.criteres %}<tr><td>{{ c.label }}</td><td>{{ c.score }}/10</td><td>poids {{ c.poids }}</td></tr>{% endfor %}
-                    </table>{% endif %}</details></td>
-                <td><strong>{{ j.note if j.note is not none else '—' }}</strong></td>
-                <td>{{ j.minutes }}</td>
-                <td>{% if j.malus %}−{{ j.malus }}{% else %}0{% endif %}</td>
-                <td class="notes-matchs">{% for x in j.matchs %}<span class="notes-chip" title="{{ x.poste }} · {{ x.minutes }} min{% for mm in (x.res.malus if x.res else []) %} · {{ mm.label }} {{ mm.points }}{% endfor %}">{{ x.opponent }} <strong>{{ x.res.note if x.res else '—' }}</strong></span>{% endfor %}</td>
-            </tr>
-            {% endfor %}
-            </tbody>
-        </table>
+        <div class="bil-panel-head">{{ g.poste }}{% if g.moyenne is not none %} · moyenne du poste {{ g.moyenne }}{% endif %}</div>
+        {% for j in g.joueurs %}
+        <details class="nt-card">
+            <summary>
+                <span class="nt-name">{{ display_name(j.name) }}</span>
+                {{ badge(j.note) }}
+                <span class="nt-ecart {{ 'pos' if j.ecart and j.ecart > 0 else ('neg' if j.ecart and j.ecart < 0 else '') }}">{% if j.ecart is not none %}{{ '%+.1f'|format(j.ecart) }} vs poste{% endif %}</span>
+                <span class="nt-min">{{ j.minutes }} min{% if j.malus %} · fautes −{{ j.malus }}/match{% endif %}</span>
+                <span class="nt-matchs">{% for x in j.matchs %}<span class="nt-chip" title="{{ x.poste }} · {{ x.minutes }} min{% if x.raison %} · {{ x.raison }}{% endif %}{% for mm in (x.res.malus if x.res else []) %} · {{ mm.label }} {{ mm.points }}{% endfor %}">{{ x.opponent }} {{ badge(x.res.note if x.res else none) }}</span>{% endfor %}</span>
+            </summary>
+            <div class="nt-body">
+                {% if j.forts %}<p><strong>Points forts :</strong> {% for c in j.forts %}{{ c.label }} ({{ c.score }}){{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
+                {% if j.faibles %}<p><strong>À travailler :</strong> {% for c in j.faibles %}{{ c.label }} ({{ c.score }}){{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
+                {% if j.criteres %}<table class="bil-table notes-table notes-detail"><thead><tr><th>Critère</th><th>Note /10</th><th>Poids</th></tr></thead>
+                    {% for c in j.criteres %}<tr><td>{{ c.label }}</td><td>{{ c.score }}</td><td>{{ c.poids }}</td></tr>{% endfor %}</table>
+                {% else %}<p>Pas de note : {% for x in j.matchs %}{{ x.opponent }} ({{ x.raison }}){{ ', ' if not loop.last }}{% endfor %}.</p>{% endif %}
+            </div>
+        </details>
+        {% endfor %}
     </div>
     {% endfor %}
 </div>

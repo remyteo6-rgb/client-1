@@ -3315,7 +3315,8 @@ def _notes_saison(selected, bar=None):
             res = bareme.note_match(poste, rows, info["minutes"], info["yellow"], info["red"], bar)
             j = joueurs.setdefault(c, {"name": nom, "matchs": []})
             j["matchs"].append({"id": m["id"], "opponent": m.get("opponent") or "?", "date": m.get("match_date"),
-                                "minutes": info["minutes"], "poste": poste, "res": res})
+                                "minutes": info["minutes"], "poste": poste, "res": res,
+                                "raison": None if res else ("moins de %d min" % bareme.MIN_MINUTES if info["minutes"] < bareme.MIN_MINUTES else "pas de stats codées")})
     out = []
     for j in joueurs.values():
         notes = [x for x in j["matchs"] if x["res"]]
@@ -3338,8 +3339,10 @@ def _notes_saison(selected, bar=None):
         criteres = sorted([{"label": v["label"], "score": round(v["s"] / v["w"], 1), "poids": v["poids"]}
                            for v in crit.values()], key=lambda d: -d["poids"])
         malus = round(-sum(sum(mm["points"] for mm in x["res"]["malus"]) for x in notes) / len(notes), 1)
+        forts = [c for c in sorted(criteres, key=lambda d: -d["score"]) if c["score"] >= 6][:2]
+        faibles = [c for c in sorted(criteres, key=lambda d: d["score"]) if c["score"] < 5][:2]
         out.append({**j, "note": round(note, 1), "minutes": mins, "poste": poste_princ, "criteres": criteres,
-                    "malus": malus, "postes": par_poste})
+                    "malus": malus, "postes": par_poste, "forts": forts, "faibles": faibles})
     ordre = {p: i for i, p in enumerate(bareme.POSTES)}
     out.sort(key=lambda j: (ordre.get(j["poste"], 99), -(j["note"] if j["note"] is not None else -1), j["name"].casefold()))
     return out
@@ -3353,7 +3356,12 @@ def season_notes():
     for p in bareme.POSTES:
         lst = [j for j in joueurs if j["poste"] == p]
         if lst:
-            groupes.append({"poste": p, "joueurs": lst})
+            notes = [(j["note"], j["minutes"]) for j in lst if j["note"] is not None]
+            tm = sum(m for _n, m in notes)
+            moy = round(sum(n * m for n, m in notes) / tm, 1) if tm else None
+            for j in lst:
+                j["ecart"] = round(j["note"] - moy, 1) if (moy is not None and j["note"] is not None) else None
+            groupes.append({"poste": p, "joueurs": lst, "moyenne": moy})
     return render_template("season_notes.html", groupes=groupes, min_minutes=bareme.MIN_MINUTES,
                            malus=bareme.MALUS, display_name=_joueur_nom_affiche, **ctx)
 
