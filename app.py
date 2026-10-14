@@ -3315,11 +3315,10 @@ def _ppid_fin(xml_name):
     return best if score >= 0.8 else None
 
 
-# Maillot de la composition (n°1 à 23) -> profil de notation. Le 23 n'a pas de poste fixe.
+# Maillot de la composition (n°1 à 23) -> profil de notation. Le banc (16 à 23) n'a pas de poste fixe : poste habituel.
 NUMERO_PROFIL = {1: "Pilier", 2: "Talonneur", 3: "Pilier", 4: "2ème ligne", 5: "2ème ligne", 6: "3ème ligne",
                  7: "3ème ligne", 8: "3ème ligne", 9: "9", 10: "10", 11: "11-14", 12: "12-13", 13: "12-13",
-                 14: "11-14", 15: "15", 16: "Talonneur", 17: "Pilier", 18: "Pilier", 19: "2ème ligne",
-                 20: "3ème ligne", 21: "9", 22: "10"}
+                 14: "11-14", 15: "15"}
 
 
 def _profil_note(xml_name, poste_match, numero=None, poste_saisi=None):
