@@ -225,13 +225,13 @@ PROFILS = {
         ("Transmission", {"passes": 24}),
         ("Colle au ballon / soutenir", {"soutien": 8}),
         ("Plaquer / circulation défensive", {"plaquage": 5, "plaquage_pct": 5, "recup": 6}),
-        ("Jeu au pied / sortie de camp", {"jap": 16, "kicks_pct": 6}),
+        ("Jeu au pied / sortie de camp", {"kicks_pct": 6}),
         ("Duel off", {"contact_dom": 6, "contact": 4}),
         ("Habileté technique", {"offload": 2, "offload_pct": 2, "break": 4}),
     ],
     "10": [
         ("Transmission", {"passes": 20, "soutien": 3}),
-        ("Jeu au pied (pression, occupation, CE/CR, drop) et stratégie", {"jap": 24, "kicks_pct": 10}),
+        ("Jeu au pied (pression, occupation, CE/CR, drop) et stratégie", {"kicks_pct": 10}),
         ("Plaquer / circulation défensive", {"plaquage": 5, "plaquage_pct": 5, "recup": 6}),
         ("Duel / franchissement", {"contact_dom": 6, "break": 6, "def_battu": 6}),
         ("Habileté technique", {"offload": 2, "offload_pct": 2}),
@@ -239,7 +239,7 @@ PROFILS = {
     "12-13": [
         ("Duel off / franchissement", {"contact_dom": 10, "break": 12, "def_battu": 12, "contact": 4}),
         ("Circulation def / plaquer / contest / défendre", {"plaquage": 6, "plaquage_pct": 6, "recup": 8, "plaquage_dom": 6}),
-        ("Habileté technique (main / pied)", {"offload": 6, "offload_pct": 4, "passes": 6, "jap": 6}),
+        ("Habileté technique (main / pied)", {"offload": 6, "offload_pct": 4, "passes": 6}),
         ("Soutien / ruck offensif", {"soutien": 6}),
     ],
     "11-14": [
@@ -247,11 +247,10 @@ PROFILS = {
         ("Réception / duel aérien", {"rce_pct": 10, "aerien_pct": 10}),
         ("Plaquer / lecture défense", {"plaquage": 5, "plaquage_pct": 5, "recup": 4}),
         ("Soutien / ruck offensif", {"soutien": 4}),
-        ("Habileté technique (mains / pied)", {"offload": 3, "offload_pct": 3, "passes": 4, "jap": 8}),
+        ("Habileté technique (mains / pied)", {"offload": 3, "offload_pct": 3, "passes": 4}),
     ],
     "15": [
         ("1 contre 1 défensif", {"plaquage": 6, "plaquage_pct": 6, "plaquage_dom": 6}),
-        ("Jeu au pied", {"jap": 22}),
         ("Duel / franchissement", {"break": 14, "def_battu": 12, "contact_dom": 6}),
         ("Réception / duel aérien", {"rce_pct": 10, "aerien_pct": 10}),
         ("Habileté technique", {"offload": 2, "offload_pct": 2, "passes": 4}),
@@ -260,7 +259,7 @@ PROFILS = {
 POSTES = list(PROFILS)
 NON_MESURABLES = ["Lecture du jeu", "Stratégie", "Leadership", "Communication", "Se déplacer / enchaîner les tâches",
                   "Compréhension du système", "Défense de maul", "Gestion du 3ème rideau / contre-attaque",
-                  "Dureté", "État d'esprit"]
+                  "Qualité du jeu au pied", "Dureté", "État d'esprit"]
 
 
 def _construire():
