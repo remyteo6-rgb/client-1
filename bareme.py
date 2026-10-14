@@ -18,6 +18,7 @@ PASSES_RATEES = {"9": (0.4, 2.5), "10": (0.4, 2.5), "12-13": (0.15, 0.75)}
 PASSES_RATEES_DEFAUT = (0.1, 0.5)
 BONUS = {"essai": 0.7, "essai_max": 2.0}
 PLAQUAGE_RATE = (0.25, 1.5)   # malus par plaquage raté, plafond par match
+SHRINK_MIN = 20               # volumes : minutes « virtuelles » à demi-cible ajoutées, pour ne pas extrapoler un court passage
 SHRINK_K = 4                  # un pourcentage est tiré vers la moyenne attendue tant qu'il repose sur peu d'actions
 
 
@@ -301,7 +302,6 @@ def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
     if minutes < MIN_MINUTES or poste not in POSTES:
         return None
     reglages = (bareme or BAREME_DEFAUT).get(poste) or {}
-    k80 = 80.0 / minutes
     detail, tot_w, tot_s = [], 0.0, 0.0
     for crit, (poids, cible, plancher) in reglages.items():
         if poids <= 0 or crit not in CRITERES:
@@ -314,7 +314,10 @@ def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
         if val is None:
             continue
         if kind == "vol":
-            val80 = val * k80
+            # Rythme par minute lissé : un court passage n'est pas multiplié tel quel jusqu'à 80 min.
+            # On ajoute SHRINK_MIN minutes virtuelles jouées à demi-cible.
+            prior = 0.5 * cible * SHRINK_MIN / 80.0
+            val80 = (val + prior) / (minutes + SHRINK_MIN) * 80.0
             score = _clamp(10 * val80 / cible) if cible else 0.0
             shown = round(val80, 1)
         else:
