@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% import "_ppid_icons.html" as icons %}
-{% set active = 'notes' %}
+{% set active = 'bareme' %}
 {% block title %}Barème — Saison{% endblock %}
 {% block content %}
 <div class="page-header no-print">
@@ -17,15 +17,16 @@
     <div class="bil-panel" style="margin-bottom:16px;">
         <div class="bil-panel-head">{{ p }}</div>
         <table class="bil-table">
-            <thead><tr><th>Critère</th><th>Type</th><th>Poids</th><th>Cible</th><th>Plancher</th></tr></thead>
+            <thead><tr><th>Critère</th><th>Type</th><th>Poids</th><th>Part de la note</th><th>Cible</th><th>Plancher</th></tr></thead>
             <tbody>
-            {% for crit, v in bar[p].items() %}
+            {% set tot = bar[p].values()|map('first')|sum %}
+            {% for crit, v in bar[p].items()|sort(attribute='1.0', reverse=True) %}
             <tr><td>{{ criteres[crit][0] }}</td><td>{{ 'volume /80' if criteres[crit][1]=='vol' else '%' }}</td>
             {% if is_admin %}
-                <td><input name="w|{{ p }}|{{ crit }}" value="{{ v[0] }}" size="4"></td>
+                <td><input name="w|{{ p }}|{{ crit }}" value="{{ v[0] }}" size="4"></td><td>{{ (100*v[0]/tot)|round|int }} %</td>
                 <td><input name="c|{{ p }}|{{ crit }}" value="{{ v[1] }}" size="4"></td>
                 <td><input name="f|{{ p }}|{{ crit }}" value="{{ v[2] }}" size="4"></td>
-            {% else %}<td>{{ v[0] }}</td><td>{{ v[1] }}</td><td>{{ v[2] }}</td>{% endif %}</tr>
+            {% else %}<td>{{ v[0] }}</td><td>{{ (100*v[0]/tot)|round|int }} %</td><td>{{ v[1] }}</td><td>{{ v[2] }}</td>{% endif %}</tr>
             {% endfor %}
             </tbody>
         </table>
