@@ -17,7 +17,9 @@ MALUS = {"penalite": 0.3, "penalite_max": 1.5, "jaune": 0.7, "rouge": 2.0, "pdb"
 PASSES_RATEES = {"9": (0.4, 2.5), "10": (0.4, 2.5), "12-13": (0.15, 0.75)}
 PASSES_RATEES_DEFAUT = (0.1, 0.5)
 BONUS = {"essai": 0.7, "essai_max": 2.0}
-PLAQUAGE_RATE = (0.15, 1.0)   # malus par plaquage raté, plafond par match
+PLAQUAGE_RATE = (0.15, 1.0)
+PLAQUAGE_PASSIF = (0.1, 0.5)  # plaquage passif subi : malus léger
+PLAQUAGE_HAUT = (0.1, 0.5)    # plaquage haut : malus léger (risque)   # malus par plaquage raté, plafond par match
 CONFIANCE_MIN = 60            # minutes jouées pour que la note soit pleinement « crue »
 NOTE_NEUTRE = 5.0
 SHRINK_MIN = 20               # volumes : minutes « virtuelles » à demi-cible ajoutées, pour ne pas extrapoler un court passage
@@ -154,20 +156,20 @@ CRITERES = {
 # --- Cibles de référence (valeur donnant 10/10, plancher donnant 0/10) par famille de poste -----
 # Calées sur ce qui est réellement codé dans les XML (par 80 min pour un volume).
 _CIBLES = {
-    "Pilier": {"melee_off_pct": (90, 40), "melee_def_pct": (80, 30), "plaquage_pct": (95, 70), "plaquage": (9, 0), "contact": (11, 0),
+    "Pilier": {"melee_off_pct": (90, 40), "melee_def_pct": (80, 30), "plaquage_pct": (95, 70), "plaquage_dom": (50, 10), "plaquage": (9, 0), "contact": (11, 0),
                "contact_dom": (65, 30), "soutien": (10, 0), "lifteur_pct": (95, 50), "lifteur": (6, 0),
                "recup": (5, 0), "offload": (3, 0), "offload_pct": (100, 50), "passes": (6, 0)},
-    "Talonneur": {"lancer_pct": (95, 50), "melee_off_pct": (90, 40), "melee_def_pct": (80, 30), "plaquage_pct": (95, 70), "plaquage": (9, 0),
+    "Talonneur": {"lancer_pct": (95, 50), "melee_off_pct": (90, 40), "melee_def_pct": (80, 30), "plaquage_pct": (95, 70), "plaquage_dom": (50, 10), "plaquage": (9, 0),
                   "contact": (11, 0), "contact_dom": (65, 30), "soutien": (10, 0), "lanceur": (14, 0),
                   "recup": (5, 0), "offload": (3, 0), "offload_pct": (100, 50), "passes": (6, 0)},
     "2ème ligne": {"sauteur_pct": (95, 50), "sauteur": (12, 0), "lifteur_pct": (95, 50), "lifteur": (8, 0),
-                   "melee_off_pct": (90, 40), "melee_def_pct": (80, 30), "plaquage_pct": (95, 70), "plaquage": (9, 0), "soutien": (10, 0),
+                   "melee_off_pct": (90, 40), "melee_def_pct": (80, 30), "plaquage_pct": (95, 70), "plaquage_dom": (50, 10), "plaquage": (9, 0), "soutien": (10, 0),
                    "contact": (11, 0), "contact_dom": (65, 30), "recup": (6, 0), "offload": (3, 0), "offload_pct": (100, 50)},
     "3ème ligne": {"contact": (12, 0), "contact_dom": (65, 30), "break": (2, 0), "def_battu": (4, 0),
                    "soutien": (9, 0), "plaquage_pct": (95, 70), "plaquage": (10, 0), "recup": (8, 0), "plaquage_dom": (50, 10),
                    "offload": (3, 0), "offload_pct": (100, 50), "passes": (8, 0), "sauteur_pct": (95, 50),
                    "sauteur": (10, 0), "lifteur_pct": (95, 50), "lifteur": (6, 0)},
-    "Charnière": {"passes": (50, 0), "jap": (12, 0), "kicks_pct": (85, 25), "plaquage_pct": (95, 70), "plaquage": (5, 0), "recup": (3, 0),
+    "Charnière": {"passes": (50, 0), "jap": (12, 0), "kicks_pct": (85, 25), "plaquage_pct": (95, 70), "plaquage_dom": (50, 10), "plaquage": (5, 0), "recup": (3, 0),
                   "soutien": (4, 0), "contact": (4, 0), "contact_dom": (65, 30), "break": (2, 0),
                   "def_battu": (3, 0), "offload": (2, 0)},
     "Centre": {"contact": (11, 0), "contact_dom": (65, 30), "def_battu": (5, 0), "break": (3, 0),
@@ -193,7 +195,7 @@ PROFILS = {
     "Pilier": [
         ("Mêlée fermée", {"melee_off_pct": 14, "melee_def_pct": 10}),
         ("Lift sur touche, CE et renvoi", {"lifteur_pct": 12, "lifteur": 7}),
-        ("Plaquer / contest", {"plaquage": 4, "plaquage_pct": 4, "recup": 7}),
+        ("Plaquer / contest", {"plaquage_dom": 4, "plaquage": 4, "plaquage_pct": 4, "recup": 7}),
         ("Soutenir / rucker", {"soutien": 5}),
         ("Duel off", {"contact_dom": 6, "contact": 4}),
         ("Habileté technique", {"offload": 3, "offload_pct": 2, "passes": 3}),
@@ -201,7 +203,7 @@ PROFILS = {
     "Talonneur": [
         ("Lancer", {"lancer_pct": 17, "lanceur": 7}),
         ("Mêlée fermée", {"melee_off_pct": 11, "melee_def_pct": 8}),
-        ("Plaquer / contest", {"plaquage": 4, "plaquage_pct": 4, "recup": 7}),
+        ("Plaquer / contest", {"plaquage_dom": 4, "plaquage": 4, "plaquage_pct": 4, "recup": 7}),
         ("Soutenir / rucker", {"soutien": 5}),
         ("Duel off", {"contact_dom": 6, "contact": 4}),
         ("Habileté technique", {"offload": 3, "offload_pct": 2, "passes": 3}),
@@ -209,7 +211,7 @@ PROFILS = {
     "2ème ligne": [
         ("Sauter / lifter / touche, CE et CR", {"sauteur_pct": 9, "sauteur": 6, "lifteur_pct": 5, "lifteur": 4}),
         ("Mêlée fermée", {"melee_off_pct": 11, "melee_def_pct": 8}),
-        ("Plaquer / contest / défendre", {"plaquage": 4, "plaquage_pct": 4, "recup": 7}),
+        ("Plaquer / contest / défendre", {"plaquage_dom": 4, "plaquage": 4, "plaquage_pct": 4, "recup": 7}),
         ("Soutenir / rucker", {"soutien": 5}),
         ("Duel off / porteur de balle", {"contact_dom": 5, "contact": 3}),
     ],
@@ -224,7 +226,7 @@ PROFILS = {
     "9": [
         ("Transmission", {"passes": 24}),
         ("Colle au ballon / soutenir", {"soutien": 8}),
-        ("Plaquer / circulation défensive", {"plaquage": 5, "plaquage_pct": 5, "recup": 6}),
+        ("Plaquer / circulation défensive", {"plaquage_dom": 4, "plaquage": 5, "plaquage_pct": 5, "recup": 6}),
         ("Jeu au pied / sortie de camp", {"kicks_pct": 6}),
         ("Duel off", {"contact_dom": 6, "contact": 4}),
         ("Habileté technique", {"offload": 2, "offload_pct": 2, "break": 4}),
@@ -232,7 +234,7 @@ PROFILS = {
     "10": [
         ("Transmission", {"passes": 20, "soutien": 3}),
         ("Jeu au pied (pression, occupation, CE/CR, drop) et stratégie", {"kicks_pct": 10}),
-        ("Plaquer / circulation défensive", {"plaquage": 5, "plaquage_pct": 5, "recup": 6}),
+        ("Plaquer / circulation défensive", {"plaquage_dom": 4, "plaquage": 5, "plaquage_pct": 5, "recup": 6}),
         ("Duel / franchissement", {"contact_dom": 6, "break": 6, "def_battu": 6}),
         ("Habileté technique", {"offload": 2, "offload_pct": 2}),
     ],
@@ -245,7 +247,7 @@ PROFILS = {
     "11-14": [
         ("Duel / franchissement", {"contact_dom": 8, "break": 16, "def_battu": 14}),
         ("Réception / duel aérien", {"rce_pct": 10, "aerien_pct": 10}),
-        ("Plaquer / lecture défense", {"plaquage": 5, "plaquage_pct": 5, "recup": 4}),
+        ("Plaquer / lecture défense", {"plaquage_dom": 4, "plaquage": 5, "plaquage_pct": 5, "recup": 4}),
         ("Soutien / ruck offensif", {"soutien": 4}),
         ("Habileté technique (mains / pied)", {"offload": 3, "offload_pct": 3, "passes": 4}),
     ],
@@ -344,10 +346,14 @@ def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
     pdb = _v(attack, "pdb")
     rates = _v(attack, "passe_minus")
     rates_t = _v(rows.get("defense"), "plaquage_rate")
+    passifs = _v(rows.get("defense"), "plaquage_passif")
+    hauts = _v(rows.get("defense"), "plaquage_haut")
     pr = PASSES_RATEES.get(poste, PASSES_RATEES_DEFAUT)
     essais = _v(rows.get("ruck"), "essai")
     malus = [("Pénalités concédées", min(pen * MALUS["penalite"], MALUS["penalite_max"]), pen),
              ("Plaquages ratés", min(rates_t * PLAQUAGE_RATE[0], PLAQUAGE_RATE[1]), rates_t),
+             ("Plaquages passifs", min(passifs * PLAQUAGE_PASSIF[0], PLAQUAGE_PASSIF[1]), passifs),
+             ("Plaquages hauts", min(hauts * PLAQUAGE_HAUT[0], PLAQUAGE_HAUT[1]), hauts),
              ("Cartons jaunes", jaunes * MALUS["jaune"], jaunes),
              ("Cartons rouges", rouges * MALUS["rouge"], rouges),
              ("Passes ratées", min(rates * pr[0], pr[1]), rates),
