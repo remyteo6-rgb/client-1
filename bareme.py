@@ -16,7 +16,9 @@ MALUS = {"penalite": 0.3, "penalite_max": 1.5, "jaune": 0.7, "rouge": 2.0, "pdb"
 # Passes ratées : réussir une passe est normal (aucun bonus), la rater coûte, surtout aux 9/10.
 PASSES_RATEES = {"Charnière": (0.4, 2.5), "Centre": (0.15, 0.75)}
 PASSES_RATEES_DEFAUT = (0.1, 0.5)
-BONUS = {"essai": 0.5, "essai_max": 1.0}
+BONUS = {"essai": 0.7, "essai_max": 2.0}
+PLAQUAGE_RATE = (0.25, 1.5)   # malus par plaquage raté, plafond par match
+SHRINK_K = 4                  # un pourcentage est tiré vers la moyenne attendue tant qu'il repose sur peu d'actions
 
 POSTES = ["Pilier", "Talonneur", "2ème ligne", "3ème ligne", "Charnière", "Centre", "Ailier/Arrière"]
 
@@ -185,6 +187,24 @@ BAREME_DEFAUT = {
 }
 
 
+# Réussir est « normal » : le pourcentage de plaquages n'entre plus dans la note (les plaquages
+# ratés sont un malus). Les volumes (quantité d'actions) pèsent moins que la qualité, et le
+# pourcentage du lifteur (dépend du lancer) aussi.
+for _p, _c in BAREME_DEFAUT.items():
+    _c.pop("plaquage_pct", None)
+    for _k in ("plaquage", "contact", "soutien", "jap", "passes"):
+        if _k in _c:
+            w, ci, pl = _c[_k]
+            _c[_k] = (round(w * 0.6, 1), ci, pl)
+    if "lifteur_pct" in _c:
+        w, ci, pl = _c["lifteur_pct"]
+        _c["lifteur_pct"] = (round(w * 0.5, 1), ci, pl)
+
+# Calage par poste : certains postes ont des cibles plus dures dans les faits (moins d'actions
+# codées). Coefficient appliqué à la note de base pour que la moyenne de chaque poste soit comparable.
+CALAGE = {"3ème ligne": 1.3, "Ailier/Arrière": 1.4, "Centre": 1.05}
+
+
 def bareme_effectif(overrides=None):
     """Barème de départ + réglages enregistrés. overrides = {(poste, critère): (poids, cible, plancher)}."""
     out = {p: dict(c) for p, c in BAREME_DEFAUT.items()}
@@ -222,6 +242,9 @@ def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
             shown = round(val80, 1)
         else:
             span = (cible - plancher) or 1
+            if n:
+                prior = plancher + 0.7 * span
+                val = (val * n + prior * SHRINK_K) / (n + SHRINK_K)
             score = _clamp(10 * (val - plancher) / span)
             shown = round(val)
         detail.append({"critere": crit, "label": label, "type": kind, "valeur": shown, "actions": n,
@@ -230,14 +253,16 @@ def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
         tot_s += poids * score
     if not detail:
         return None
-    base = tot_s / tot_w
+    base = _clamp(tot_s / tot_w * CALAGE.get(poste, 1.0))
     attack = rows.get("attack")
     pen = _v(attack, "penalite_off", "penalite_def")
     pdb = _v(attack, "pdb")
     rates = _v(attack, "passe_minus")
+    rates_t = _v(rows.get("defense"), "plaquage_rate")
     pr = PASSES_RATEES.get(poste, PASSES_RATEES_DEFAUT)
     essais = _v(rows.get("ruck"), "essai")
     malus = [("Pénalités concédées", min(pen * MALUS["penalite"], MALUS["penalite_max"]), pen),
+             ("Plaquages ratés", min(rates_t * PLAQUAGE_RATE[0], PLAQUAGE_RATE[1]), rates_t),
              ("Cartons jaunes", jaunes * MALUS["jaune"], jaunes),
              ("Cartons rouges", rouges * MALUS["rouge"], rouges),
              ("Passes ratées", min(rates * pr[0], pr[1]), rates),

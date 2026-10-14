@@ -6,7 +6,7 @@
 <div class="page-header no-print">
     <div>
         <h1>{{ icons.chart() }} Barème de notation</h1>
-        <p class="subtitle">Chaque critère vaut une note de 0 à 10 : volume (rapporté à 80 min) ÷ cible, ou % entre plancher et cible. La note est la moyenne pondérée, moins les malus, plus les essais (max +{{ bonus.essai_max }}).</p>
+        <p class="subtitle">Chaque critère vaut une note de 0 à 10 : volume (rapporté à 80 min) ÷ cible, ou % entre plancher et cible. La note est la moyenne pondérée, moins les malus, plus les essais (max +{{ bonus.essai_max }}).<br>Réussir est normal : les passes et plaquages réussis n'ajoutent rien, les <strong>passes ratées</strong> (surtout au 9/10) et les <strong>plaquages ratés</strong> (−{{ plaquage_rate }} chacun, max −{{ plaquage_rate_max }}) sont retirés. Un pourcentage reposant sur peu d'actions est tiré vers la moyenne attendue. Calage de poste : {% for p, k in calage.items() %}{{ p }} ×{{ k }}{{ ', ' if not loop.last }}{% endfor %}.</p>
     </div>
 </div>
 <div class="report-board board-free">

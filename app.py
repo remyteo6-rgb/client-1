@@ -3414,7 +3414,8 @@ def season_bareme():
     selected, ctx = _season_common("bareme")
     return render_template("season_bareme.html", bar=_bareme_courant(), postes=bareme.POSTES, criteres=bareme.CRITERES,
                            malus=bareme.MALUS, bonus=bareme.BONUS, min_minutes=bareme.MIN_MINUTES,
-                           passes_charniere=bareme.PASSES_RATEES['Charnière'][0], **ctx)
+                           passes_charniere=bareme.PASSES_RATEES['Charnière'][0], plaquage_rate=bareme.PLAQUAGE_RATE[0],
+                           plaquage_rate_max=bareme.PLAQUAGE_RATE[1], calage=bareme.CALAGE, **ctx)
 
 
 @app.route("/season/comparer")
