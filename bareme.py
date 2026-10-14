@@ -14,13 +14,12 @@ Saison → Notes → Barème (valeurs enregistrées en base, prioritaires)."""
 MIN_MINUTES = 30      # en dessous, le joueur n'est pas noté sur le match
 MALUS = {"penalite": 0.3, "penalite_max": 1.5, "jaune": 0.7, "rouge": 2.0, "pdb": 0.05, "pdb_max": 0.5, "total_max": 3.0}
 # Passes ratées : réussir une passe est normal (aucun bonus), la rater coûte, surtout aux 9/10.
-PASSES_RATEES = {"Charnière": (0.4, 2.5), "Centre": (0.15, 0.75)}
+PASSES_RATEES = {"9": (0.4, 2.5), "10": (0.4, 2.5), "12-13": (0.15, 0.75)}
 PASSES_RATEES_DEFAUT = (0.1, 0.5)
 BONUS = {"essai": 0.7, "essai_max": 2.0}
 PLAQUAGE_RATE = (0.25, 1.5)   # malus par plaquage raté, plafond par match
 SHRINK_K = 4                  # un pourcentage est tiré vers la moyenne attendue tant qu'il repose sur peu d'actions
 
-POSTES = ["Pilier", "Talonneur", "2ème ligne", "3ème ligne", "Charnière", "Centre", "Ailier/Arrière"]
 
 
 def _v(row, *keys):
@@ -145,64 +144,138 @@ CRITERES = {
     "kicks_pct":    ("Coups de pied au but réussis (%)", "pct", _p_kicks),
 }
 
-# Réglages de départ : poste -> {critère: (poids, cible, plancher)}. « cible » = valeur qui donne
-# 10/10 (par 80 min pour un volume, en % pour un pourcentage) ; « plancher » = valeur qui donne 0/10
-# (pourcentages seulement, 0 pour un volume).
-BAREME_DEFAUT = {
-    "Pilier": {
-        "melee_off_pct": (14, 90, 40), "melee_def_pct": (6, 80, 30), "plaquage": (10, 9, 0),
-        "plaquage_pct": (12, 95, 70), "contact": (8, 11, 0), "contact_dom": (8, 65, 30),
-        "soutien": (10, 18, 0), "lifteur_pct": (8, 95, 50), "lifteur": (4, 6, 0),
-        "recup": (4, 5, 0), "offload": (2, 3, 0)},
-    "Talonneur": {
-        "lancer_pct": (16, 95, 50), "lanceur": (4, 14, 0), "melee_off_pct": (10, 90, 40),
-        "melee_def_pct": (4, 80, 30), "plaquage": (10, 9, 0), "plaquage_pct": (12, 95, 70),
-        "contact": (8, 11, 0), "contact_dom": (8, 65, 30), "soutien": (8, 18, 0),
-        "recup": (4, 5, 0), "offload": (2, 3, 0), "passes": (2, 6, 0)},
-    "2ème ligne": {
-        "sauteur_pct": (14, 95, 50), "sauteur": (8, 12, 0), "lifteur_pct": (8, 95, 50),
-        "lifteur": (4, 8, 0), "plaquage": (10, 9, 0), "plaquage_pct": (12, 95, 70),
-        "contact": (8, 11, 0), "contact_dom": (8, 65, 30), "soutien": (10, 18, 0),
-        "recup": (6, 6, 0), "offload": (2, 3, 0)},
-    "3ème ligne": {
-        "plaquage": (10, 10, 0), "plaquage_pct": (12, 95, 70), "plaquage_dom": (6, 50, 10),
-        "recup": (10, 8, 0), "contact": (8, 12, 0), "contact_dom": (8, 65, 30),
-        "soutien": (8, 16, 0), "sauteur_pct": (6, 95, 50), "sauteur": (4, 10, 0),
-        "lifteur_pct": (4, 95, 50), "def_battu": (6, 4, 0), "offload": (3, 3, 0), "break": (3, 2, 0)},
-    "Charnière": {
-        "passes": (6, 50, 0), "jap": (14, 12, 0),
-        "kicks_pct": (10, 85, 25), "plaquage": (6, 5, 0), "plaquage_pct": (8, 95, 70),
-        "soutien": (6, 8, 0), "contact": (4, 4, 0), "break": (4, 2, 0), "offload": (3, 2, 0),
-        "recup": (3, 3, 0)},
-    "Centre": {
-        "contact": (8, 11, 0), "contact_dom": (10, 65, 30), "def_battu": (10, 5, 0),
-        "break": (6, 3, 0), "plaquage": (10, 10, 0), "plaquage_pct": (12, 95, 70),
-        "plaquage_dom": (4, 50, 10), "passes": (6, 15, 0),
-        "offload": (6, 3, 0), "offload_pct": (3, 100, 50), "jap": (6, 8, 0), "recup": (4, 6, 0)},
-    "Ailier/Arrière": {
-        "break": (10, 4, 0), "def_battu": (10, 5, 0), "contact_dom": (8, 65, 30),
-        "contact": (4, 9, 0), "plaquage": (8, 8, 0), "plaquage_pct": (12, 95, 70),
-        "jap": (8, 5, 0), "rce_pct": (8, 75, 25), "aerien_pct": (8, 80, 30),
-        "offload": (4, 3, 0), "passes": (2, 6, 0), "recup": (4, 4, 0), "kicks_pct": (4, 85, 25)},
+# --- Cibles de référence (valeur donnant 10/10, plancher donnant 0/10) par famille de poste -----
+# Calées sur ce qui est réellement codé dans les XML (par 80 min pour un volume).
+_CIBLES = {
+    "Pilier": {"melee_off_pct": (90, 40), "melee_def_pct": (80, 30), "plaquage": (9, 0), "contact": (11, 0),
+               "contact_dom": (65, 30), "soutien": (18, 0), "lifteur_pct": (95, 50), "lifteur": (6, 0),
+               "recup": (5, 0), "offload": (3, 0), "passes": (6, 0)},
+    "Talonneur": {"lancer_pct": (95, 50), "melee_off_pct": (90, 40), "melee_def_pct": (80, 30), "plaquage": (9, 0),
+                  "contact": (11, 0), "contact_dom": (65, 30), "soutien": (18, 0), "lanceur": (14, 0),
+                  "recup": (5, 0), "offload": (3, 0), "passes": (6, 0)},
+    "2ème ligne": {"sauteur_pct": (95, 50), "sauteur": (12, 0), "lifteur_pct": (95, 50), "lifteur": (8, 0),
+                   "melee_off_pct": (90, 40), "melee_def_pct": (80, 30), "plaquage": (9, 0), "soutien": (18, 0),
+                   "contact": (11, 0), "contact_dom": (65, 30), "recup": (6, 0), "offload": (3, 0)},
+    "3ème ligne": {"contact": (12, 0), "contact_dom": (65, 30), "break": (2, 0), "def_battu": (4, 0),
+                   "soutien": (16, 0), "plaquage": (10, 0), "recup": (8, 0), "plaquage_dom": (50, 10),
+                   "offload": (3, 0), "offload_pct": (100, 50), "passes": (8, 0), "sauteur_pct": (95, 50),
+                   "sauteur": (10, 0), "lifteur_pct": (95, 50), "lifteur": (6, 0)},
+    "Charnière": {"passes": (50, 0), "jap": (12, 0), "kicks_pct": (85, 25), "plaquage": (5, 0), "recup": (3, 0),
+                  "soutien": (8, 0), "contact": (4, 0), "contact_dom": (65, 30), "break": (2, 0),
+                  "def_battu": (3, 0), "offload": (2, 0)},
+    "Centre": {"contact": (11, 0), "contact_dom": (65, 30), "def_battu": (5, 0), "break": (3, 0),
+               "plaquage": (10, 0), "plaquage_dom": (50, 10), "recup": (6, 0), "passes": (15, 0),
+               "offload": (3, 0), "offload_pct": (100, 50), "jap": (8, 0), "soutien": (14, 0)},
+    "Ailier/Arrière": {"break": (4, 0), "def_battu": (5, 0), "contact_dom": (65, 30), "contact": (9, 0),
+                       "plaquage": (8, 0), "plaquage_dom": (50, 10), "jap": (5, 0), "rce_pct": (75, 25),
+                       "aerien_pct": (80, 30), "offload": (3, 0), "passes": (6, 0), "recup": (4, 0),
+                       "soutien": (12, 0)},
 }
 
+# Famille de chaque profil (sert aux cibles de référence et au calage).
+PROFIL_FAMILLE = {"Pilier": "Pilier", "Talonneur": "Talonneur", "2ème ligne": "2ème ligne",
+                  "3ème ligne": "3ème ligne", "9": "Charnière", "10": "Charnière", "12-13": "Centre",
+                  "11-14": "Ailier/Arrière", "15": "Ailier/Arrière"}
 
-# Réussir est « normal » : le pourcentage de plaquages n'entre plus dans la note (les plaquages
-# ratés sont un malus). Les volumes (quantité d'actions) pèsent moins que la qualité, et le
-# pourcentage du lifteur (dépend du lancer) aussi.
-for _p, _c in BAREME_DEFAUT.items():
-    _c.pop("plaquage_pct", None)
-    for _k in ("plaquage", "contact", "soutien", "jap", "passes"):
-        if _k in _c:
-            w, ci, pl = _c[_k]
-            _c[_k] = (round(w * 0.6, 1), ci, pl)
-    if "lifteur_pct" in _c:
-        w, ci, pl = _c["lifteur_pct"]
-        _c["lifteur_pct"] = (round(w * 0.5, 1), ci, pl)
+# --- Grille d'attentes du club (auto-évaluation par poste) traduite en statistiques ------------
+# Pour chaque profil : liste de (attente du club, {critère: poids}). Seules les attentes qui se
+# mesurent en stats sont ici ; les autres (lecture, stratégie, leadership, communication, se
+# déplacer / enchaîner, compréhension du système, défense de maul, dureté, état d'esprit) ne
+# peuvent pas être notées automatiquement.
+PROFILS = {
+    "Pilier": [
+        ("Mêlée fermée", {"melee_off_pct": 14, "melee_def_pct": 10}),
+        ("Lift sur touche, CE et renvoi", {"lifteur_pct": 12, "lifteur": 7}),
+        ("Plaquer / contest", {"plaquage": 8, "recup": 7}),
+        ("Soutenir / rucker", {"soutien": 12}),
+        ("Duel off", {"contact_dom": 6, "contact": 4}),
+        ("Habileté technique", {"offload": 5, "passes": 3}),
+    ],
+    "Talonneur": [
+        ("Lancer", {"lancer_pct": 17, "lanceur": 7}),
+        ("Mêlée fermée", {"melee_off_pct": 11, "melee_def_pct": 8}),
+        ("Plaquer / contest", {"plaquage": 8, "recup": 7}),
+        ("Soutenir / rucker", {"soutien": 12}),
+        ("Duel off", {"contact_dom": 6, "contact": 4}),
+        ("Habileté technique", {"offload": 5, "passes": 3}),
+    ],
+    "2ème ligne": [
+        ("Sauter / lifter / touche, CE et CR", {"sauteur_pct": 9, "sauteur": 6, "lifteur_pct": 5, "lifteur": 4}),
+        ("Mêlée fermée", {"melee_off_pct": 11, "melee_def_pct": 8}),
+        ("Plaquer / contest / défendre", {"plaquage": 8, "recup": 7}),
+        ("Soutenir / rucker", {"soutien": 12}),
+        ("Duel off / porteur de balle", {"contact_dom": 5, "contact": 3}),
+    ],
+    "3ème ligne": [
+        ("Duel off / franchissement", {"contact_dom": 7, "break": 7, "def_battu": 5, "contact": 3}),
+        ("Soutenir / rucker", {"soutien": 20}),
+        ("Plaquer / contest / défendre", {"plaquage": 10, "recup": 8, "plaquage_dom": 4}),
+        ("Assurer la continuité", {"offload": 6, "passes": 4}),
+        ("Sauter / lifter / lecture touche", {"sauteur_pct": 5, "sauteur": 3, "lifteur_pct": 2, "lifteur": 2}),
+        ("Habileté technique", {"offload_pct": 6}),
+    ],
+    "9": [
+        ("Transmission", {"passes": 24}),
+        ("Colle au ballon / soutenir", {"soutien": 20}),
+        ("Plaquer / circulation défensive", {"plaquage": 10, "recup": 6}),
+        ("Jeu au pied / sortie de camp", {"jap": 16, "kicks_pct": 6}),
+        ("Duel off", {"contact_dom": 6, "contact": 4}),
+        ("Habileté technique", {"offload": 4, "break": 4}),
+    ],
+    "10": [
+        ("Transmission", {"passes": 20, "soutien": 8}),
+        ("Jeu au pied (pression, occupation, CE/CR, drop) et stratégie", {"jap": 24, "kicks_pct": 10}),
+        ("Plaquer / circulation défensive", {"plaquage": 10, "recup": 6}),
+        ("Duel / franchissement", {"contact_dom": 6, "break": 6, "def_battu": 6}),
+        ("Habileté technique", {"offload": 4}),
+    ],
+    "12-13": [
+        ("Duel off / franchissement", {"contact_dom": 10, "break": 12, "def_battu": 12, "contact": 4}),
+        ("Circulation def / plaquer / contest / défendre", {"plaquage": 12, "recup": 8, "plaquage_dom": 6}),
+        ("Habileté technique (main / pied)", {"offload": 6, "offload_pct": 4, "passes": 6, "jap": 6}),
+        ("Soutien / ruck offensif", {"soutien": 14}),
+    ],
+    "11-14": [
+        ("Duel / franchissement", {"contact_dom": 8, "break": 16, "def_battu": 14}),
+        ("Réception / duel aérien", {"rce_pct": 10, "aerien_pct": 10}),
+        ("Plaquer / lecture défense", {"plaquage": 10, "recup": 4}),
+        ("Soutien / ruck offensif", {"soutien": 10}),
+        ("Habileté technique (mains / pied)", {"offload": 6, "passes": 4, "jap": 8}),
+    ],
+    "15": [
+        ("1 contre 1 défensif", {"plaquage": 12, "plaquage_dom": 6}),
+        ("Jeu au pied", {"jap": 22}),
+        ("Duel / franchissement", {"break": 14, "def_battu": 12, "contact_dom": 6}),
+        ("Réception / duel aérien", {"rce_pct": 10, "aerien_pct": 10}),
+        ("Habileté technique", {"offload": 4, "passes": 4}),
+    ],
+}
+POSTES = list(PROFILS)
+NON_MESURABLES = ["Lecture du jeu", "Stratégie", "Leadership", "Communication", "Se déplacer / enchaîner les tâches",
+                  "Compréhension du système", "Défense de maul", "Gestion du 3ème rideau / contre-attaque",
+                  "Dureté", "État d'esprit"]
 
-# Calage par poste : certains postes ont des cibles plus dures dans les faits (moins d'actions
-# codées). Coefficient appliqué à la note de base pour que la moyenne de chaque poste soit comparable.
-CALAGE = {"3ème ligne": 1.3, "Ailier/Arrière": 1.4, "Centre": 1.05}
+
+def _construire():
+    out, labels = {}, {}
+    for profil, attentes in PROFILS.items():
+        fam = PROFIL_FAMILLE[profil]
+        d, lab = {}, {}
+        for nom, crits in attentes:
+            for crit, poids in crits.items():
+                cible, plancher = _CIBLES[fam].get(crit) or next(
+                    (v[crit] for v in _CIBLES.values() if crit in v), (10, 0))
+                d[crit] = (poids, cible, plancher)
+                lab[crit] = nom
+        out[profil], labels[profil] = d, lab
+    return out, labels
+
+
+BAREME_DEFAUT, ATTENTE_DU_CRITERE = _construire()
+
+# Calage par famille : certains postes ont des cibles plus dures dans les faits (moins d'actions
+# codées). Coefficient appliqué à la note de base pour rendre les moyennes comparables.
+CALAGE = {"3ème ligne": 1.15, "Ailier/Arrière": 1.2, "Centre": 1.05}
 
 
 def bareme_effectif(overrides=None):
@@ -253,7 +326,7 @@ def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
         tot_s += poids * score
     if not detail:
         return None
-    base = _clamp(tot_s / tot_w * CALAGE.get(poste, 1.0))
+    base = _clamp(tot_s / tot_w * CALAGE.get(PROFIL_FAMILLE.get(poste), 1.0))
     attack = rows.get("attack")
     pen = _v(attack, "penalite_off", "penalite_def")
     pdb = _v(attack, "pdb")

@@ -3286,6 +3286,50 @@ def season_gagner_perdre_cibles():
 
 # ---- Notes des joueurs (barème par poste, note sur 10) ---------------------------------------
 
+PPID_VERS_PROFIL = {"Pilier": "Pilier", "Talon": "Talonneur", "2L": "2ème ligne", "3LC": "3ème ligne",
+                    "3LA": "3ème ligne", "9": "9", "10": "10", "12-13": "12-13", "11-14": "11-14", "15": "15"}
+PROFIL_PAR_DEFAUT = {"Pilier": "Pilier", "Talonneur": "Talonneur", "2ème ligne": "2ème ligne",
+                     "3ème ligne": "3ème ligne", "Charnière": "9", "Centre": "12-13", "Ailier/Arrière": "11-14"}
+PROFIL_LIBELLE = {"Pilier": "Piliers", "Talonneur": "Talonneurs", "2ème ligne": "2ème ligne",
+                  "3ème ligne": "3ème ligne (LC et LA)", "9": "Demi de mêlée (9)", "10": "Ouvreur (10)",
+                  "12-13": "Centres (12-13)", "11-14": "Ailiers (11-14)", "15": "Arrière (15)"}
+
+
+def _ppid_fin(xml_name):
+    """Poste précis du club (Pilier, Talon, 2L, 3LC, 3LA, 9, 10, 12-13, 11-14, 15) réglé dans
+    « Joueurs et accès », même rapprochement de nom que _poste_effectif. None si non réglé."""
+    if not hasattr(g, "_ppid_fins"):
+        rows = get_db().execute(
+            "SELECT first_name, last_name, ppid_position FROM players WHERE ppid_position IS NOT NULL AND ppid_position <> ''"
+        ).fetchall()
+        g._ppid_fins = [((r["first_name"] or "").strip(), (r["last_name"] or "").strip(), r["ppid_position"])
+                        for r in rows if r["ppid_position"] in PPID_VERS_PROFIL]
+    initiale = xml_name.split(".")[0].strip().casefold() if "." in xml_name else ""
+    best, score = None, 0.0
+    for prenom, nom, ppid in g._ppid_fins:
+        if initiale and prenom and prenom[:1].casefold() != initiale:
+            continue
+        sc = max(_composition_name_score(nom, xml_name), _composition_name_score(f"{prenom} {nom}", xml_name))
+        if sc > score:
+            best, score = ppid, sc
+    return best if score >= 0.8 else None
+
+
+def _profil_note(xml_name, poste_match):
+    """(profil de notation, précis ?) d'un joueur sur un match. Le poste précis du club est utilisé
+    s'il correspond au poste joué ce jour-là ; sinon (changement de poste, poste non réglé) profil
+    par défaut du poste (9 pour les charnières, 11-14 pour ailiers/arrières). « précis » est False
+    quand 9/10 ou 11-14/15 n'a pas pu être déterminé."""
+    fin = _ppid_fin(xml_name)
+    profil = PPID_VERS_PROFIL.get(fin) if fin else None
+    if profil and (poste_match is None or bareme.PROFIL_FAMILLE[profil] == poste_match):
+        return profil, True
+    if poste_match not in PROFIL_PAR_DEFAUT:
+        return None, True
+    defaut = PROFIL_PAR_DEFAUT[poste_match]
+    return defaut, poste_match not in ("Charnière", "Ailier/Arrière")
+
+
 def _bareme_courant():
     ov = {}
     for r in get_db().execute("SELECT poste, critere, poids, cible, plancher FROM bareme_reglages").fetchall():
@@ -3310,10 +3354,13 @@ def _notes_saison(selected, bar=None):
             info = infos.get(c)
             if not info or not info["minutes"]:
                 continue
-            poste = info["poste"] or _poste_effectif(nom)
+            poste, precis = _profil_note(nom, info["poste"] or _poste_effectif(nom))
+            if not poste:
+                continue
             rows = {k: by[k].get(c) for k in by}
             res = bareme.note_match(poste, rows, info["minutes"], info["yellow"], info["red"], bar)
-            j = joueurs.setdefault(c, {"name": nom, "matchs": []})
+            j = joueurs.setdefault(c, {"name": nom, "matchs": [], "approx": False})
+            j["approx"] = j["approx"] or not precis
             j["matchs"].append({"id": m["id"], "opponent": m.get("opponent") or "?", "date": m.get("match_date"),
                                 "minutes": info["minutes"], "poste": poste, "res": res, "rows": rows,
                                 "yellow": info["yellow"], "red": info["red"],
@@ -3381,7 +3428,8 @@ def season_notes():
             for j in lst:
                 j["ecart"] = round(j["note"] - moy, 1) if (moy is not None and j["note"] is not None) else None
             groupes.append({"poste": p, "joueurs": lst, "moyenne": moy})
-    return render_template("season_notes.html", groupes=groupes, min_minutes=bareme.MIN_MINUTES,
+    approx = [_joueur_nom_affiche(j["name"]) for j in joueurs if j.get("approx")]
+    return render_template("season_notes.html", groupes=groupes, approx=approx, libelles=PROFIL_LIBELLE, min_minutes=bareme.MIN_MINUTES,
                            malus=bareme.MALUS, display_name=_joueur_nom_affiche, **ctx)
 
 
@@ -3414,7 +3462,7 @@ def season_bareme():
     selected, ctx = _season_common("bareme")
     return render_template("season_bareme.html", bar=_bareme_courant(), postes=bareme.POSTES, criteres=bareme.CRITERES,
                            malus=bareme.MALUS, bonus=bareme.BONUS, min_minutes=bareme.MIN_MINUTES,
-                           passes_charniere=bareme.PASSES_RATEES['Charnière'][0], plaquage_rate=bareme.PLAQUAGE_RATE[0],
+                           passes_charniere=bareme.PASSES_RATEES["9"][0], attentes=bareme.ATTENTE_DU_CRITERE, non_mesurables=bareme.NON_MESURABLES, libelles=PROFIL_LIBELLE, plaquage_rate=bareme.PLAQUAGE_RATE[0],
                            plaquage_rate_max=bareme.PLAQUAGE_RATE[1], calage=bareme.CALAGE, **ctx)
 
 

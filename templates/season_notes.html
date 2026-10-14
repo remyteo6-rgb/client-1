@@ -25,12 +25,16 @@
         <p class="gp-note">10 = toutes les cibles du poste atteintes. Chaque critère est noté de 0 à 10 selon sa cible, puis pondéré. On retire ensuite les fautes (pénalité −{{ malus.penalite }}, jaune −{{ malus.jaune }}, rouge −{{ malus.rouge }}) et on ajoute les essais. Pas de note sous {{ min_minutes }} min jouées. La note de saison pèse chaque match par ses minutes. <strong>« Écart »</strong> = note du joueur moins la moyenne de son poste.</p>
     </div>
 
+    {% if approx %}
+    <div class="bil-panel" style="margin-bottom:16px;"><div class="bil-panel-head" style="background:#e0912f;">Poste précis à régler</div>
+        <div class="gp-note">Pour {% for n in approx %}{{ n }}{{ ', ' if not loop.last }}{% endfor %}, le poste précis n'est pas réglé : un charnière est noté comme demi de mêlée (9) et un ailier/arrière comme ailier (11-14). Règle-le dans ☰ → Administration → Joueurs et accès (champ poste).</div></div>
+    {% endif %}
     {% if not groupes %}
     <div class="bil-panel"><div class="gp-note">Aucune note : renseigne les minutes dans la page Composition de chaque match.</div></div>
     {% endif %}
     {% for g in groupes %}
     <div class="bil-panel" style="margin-bottom:16px;">
-        <div class="bil-panel-head">{{ g.poste }}{% if g.moyenne is not none %} · moyenne du poste {{ g.moyenne }}{% endif %}</div>
+        <div class="bil-panel-head">{{ libelles.get(g.poste, g.poste) }}{% if g.moyenne is not none %} · moyenne du poste {{ g.moyenne }}{% endif %}</div>
         {% for j in g.joueurs %}
         <details class="nt-card">
             <summary>
