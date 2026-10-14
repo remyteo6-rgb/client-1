@@ -37,8 +37,8 @@
                 <span class="nt-name">{{ display_name(j.name) }}</span>
                 {{ badge(j.note) }}
                 <span class="nt-ecart {{ 'pos' if j.ecart and j.ecart > 0 else ('neg' if j.ecart and j.ecart < 0 else '') }}">{% if j.ecart is not none %}{{ '%+.1f'|format(j.ecart) }} vs poste{% endif %}</span>
-                <span class="nt-min">{{ j.minutes }} min{% if j.malus %} · fautes −{{ j.malus }}/match{% endif %}</span>
-                <span class="nt-matchs">{% for x in j.matchs %}<span class="nt-chip" title="{{ x.poste }} · {{ x.minutes }} min{% if x.raison %} · {{ x.raison }}{% endif %}{% for mm in (x.res.malus if x.res else []) %} · {{ mm.label }} {{ mm.points }}{% endfor %}">{{ x.opponent }} {{ badge(x.res.note if x.res else none) }}</span>{% endfor %}</span>
+                <span class="nt-min">{{ j.minutes }} min{% if j.cumul_min %} (dont {{ j.cumul_min }} en courtes entrées, cumulées){% endif %}{% if j.malus %} · fautes −{{ j.malus }}/match{% endif %}</span>
+                <span class="nt-matchs">{% for x in j.matchs %}<span class="nt-chip" title="{{ x.poste }} · {{ x.minutes }} min{% if x.raison %} · {{ x.raison }}{% endif %}{% for mm in (x.res.malus if x.res else []) %} · {{ mm.label }} {{ mm.points }}{% endfor %}">{{ x.opponent }}{% if x.poste != j.poste %} ({{ x.poste }}){% endif %} {% if x.cumul %}<span class="nt-badge nt-na" title="cumulé">cumul</span>{% else %}{{ badge(x.res.note if x.res else none) }}{% endif %}</span>{% endfor %}</span>
             </summary>
             <div class="nt-body">
                 {% if j.forts %}<p><strong>Points forts :</strong> {% for c in j.forts %}{{ c.label }} ({{ c.score }}){{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}

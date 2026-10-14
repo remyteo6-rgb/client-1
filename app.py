@@ -3315,11 +3315,30 @@ def _notes_saison(selected, bar=None):
             res = bareme.note_match(poste, rows, info["minutes"], info["yellow"], info["red"], bar)
             j = joueurs.setdefault(c, {"name": nom, "matchs": []})
             j["matchs"].append({"id": m["id"], "opponent": m.get("opponent") or "?", "date": m.get("match_date"),
-                                "minutes": info["minutes"], "poste": poste, "res": res,
+                                "minutes": info["minutes"], "poste": poste, "res": res, "rows": rows,
+                                "yellow": info["yellow"], "red": info["red"],
                                 "raison": None if res else ("moins de %d min" % bareme.MIN_MINUTES if info["minutes"] < bareme.MIN_MINUTES else "pas de stats codées")})
     out = []
     for j in joueurs.values():
         notes = [x for x in j["matchs"] if x["res"]]
+        # Remplaçant : les courts passages (< 30 min) sont cumulés et notés ensemble sur la saison.
+        courts = [x for x in j["matchs"] if not x["res"] and 0 < x["minutes"] < bareme.MIN_MINUTES
+                  and any(x["rows"].values())]
+        if courts and sum(x["minutes"] for x in courts) >= bareme.MIN_MINUTES:
+            mins_c = sum(x["minutes"] for x in courts)
+            par = {}
+            for x in courts:
+                par[x["poste"]] = par.get(x["poste"], 0) + x["minutes"]
+            poste_c = max(par, key=par.get)
+            fam = {k: _fusion_lignes([x["rows"].get(k) for x in courts]) for k in ("attack", "defense", "ruck")}
+            res_c = bareme.note_match(poste_c, fam, mins_c, sum(x["yellow"] for x in courts),
+                                      sum(x["red"] for x in courts), bar)
+            if res_c:
+                notes.append({"minutes": mins_c, "poste": poste_c, "res": res_c})
+                for x in courts:
+                    x["raison"] = "courte entrée, cumulée dans la note de saison"
+                    x["cumul"] = True
+                j["cumul_min"] = mins_c
         if not notes:
             out.append({**j, "note": None, "minutes": sum(x["minutes"] for x in j["matchs"]),
                         "poste": (j["matchs"][0]["poste"] if j["matchs"] else None), "criteres": [], "malus": 0})
