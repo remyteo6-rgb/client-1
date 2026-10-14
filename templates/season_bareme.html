@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
+{% set active = 'notes' %}
+{% block title %}Barème — Saison{% endblock %}
+{% block content %}
+<div class="page-header no-print">
+    <div>
+        <h1>{{ icons.chart() }} Barème de notation</h1>
+        <p class="subtitle">Chaque critère vaut une note de 0 à 10 : volume (rapporté à 80 min) ÷ cible, ou % entre plancher et cible. La note est la moyenne pondérée, moins les malus, plus les essais (max +{{ bonus.essai_max }}).</p>
+    </div>
+</div>
+<div class="report-board">
+    <div class="report-head"><span class="report-title">BARÈME</span>
+        <span class="report-subtitle">Pénalité −{{ malus.penalite }} · jaune −{{ malus.jaune }} · rouge −{{ malus.rouge }} · essai +{{ bonus.essai }}</span></div>
+    <form method="post">
+    {% for p in postes %}
+    <div class="bil-panel" style="margin-bottom:16px;">
+        <div class="bil-panel-head">{{ p }}</div>
+        <table class="bil-table">
+            <thead><tr><th>Critère</th><th>Type</th><th>Poids</th><th>Cible</th><th>Plancher</th></tr></thead>
+            <tbody>
+            {% for crit, v in bar[p].items() %}
+            <tr><td>{{ criteres[crit][0] }}</td><td>{{ 'volume /80' if criteres[crit][1]=='vol' else '%' }}</td>
+            {% if is_admin %}
+                <td><input name="w|{{ p }}|{{ crit }}" value="{{ v[0] }}" size="4"></td>
+                <td><input name="c|{{ p }}|{{ crit }}" value="{{ v[1] }}" size="4"></td>
+                <td><input name="f|{{ p }}|{{ crit }}" value="{{ v[2] }}" size="4"></td>
+            {% else %}<td>{{ v[0] }}</td><td>{{ v[1] }}</td><td>{{ v[2] }}</td>{% endif %}</tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endfor %}
+    {% if is_admin %}<button class="btn" type="submit">Enregistrer le barème</button>{% endif %}
+    </form>
+</div>
+{% endblock %}

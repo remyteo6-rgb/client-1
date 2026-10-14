@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
+{% set active = 'notes' %}
+{% block title %}Notes joueurs — Saison{% endblock %}
+{% block content %}
+<div class="page-header no-print">
+    <div>
+        <h1>{{ icons.chart() }} Notes des joueurs</h1>
+        <p class="subtitle">Note sur 10 selon un barème propre à chaque poste, pondérée par les minutes jouées. Minimum {{ min_minutes }} min par match. <a href="{{ url_for('season_bareme') }}">Voir le barème</a></p>
+    </div>
+</div>
+{% include "_season_select.html" %}
+<div class="report-board">
+    <div class="report-head">
+        <span class="report-title">NOTES SAISON</span>
+        <span class="report-subtitle">Pénalités : −{{ malus.penalite }} · jaune : −{{ malus.jaune }} · rouge : −{{ malus.rouge }}</span>
+    </div>
+    {% if not groupes %}
+    <div class="bil-panel"><div class="gp-note">Aucune note : renseigne les minutes dans la page Composition de chaque match.</div></div>
+    {% endif %}
+    {% for g in groupes %}
+    <div class="bil-panel" style="margin-bottom:16px;">
+        <div class="bil-panel-head">{{ g.poste }}</div>
+        <table class="bil-table">
+            <thead><tr><th>Joueur</th><th>Note</th><th>Min</th><th>Malus moy.</th><th>Par match</th></tr></thead>
+            <tbody>
+            {% for j in g.joueurs %}
+            <tr>
+                <td><details><summary>{{ display_name(j.name) }}</summary>
+                    {% if j.criteres %}<table class="bil-table" style="margin-top:6px;">
+                        {% for c in j.criteres %}<tr><td>{{ c.label }}</td><td>{{ c.score }}/10</td><td>poids {{ c.poids }}</td></tr>{% endfor %}
+                    </table>{% endif %}</details></td>
+                <td><strong>{{ j.note if j.note is not none else '—' }}</strong></td>
+                <td>{{ j.minutes }}</td>
+                <td>{% if j.malus %}−{{ j.malus }}{% else %}0{% endif %}</td>
+                <td>{% for x in j.matchs %}<span title="{{ x.poste }} · {{ x.minutes }} min{% for mm in (x.res.malus if x.res else []) %} · {{ mm.label }} {{ mm.points }}{% endfor %}">{{ x.opponent }} <strong>{{ x.res.note if x.res else '—' }}</strong></span>{{ ' · ' if not loop.last }}{% endfor %}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

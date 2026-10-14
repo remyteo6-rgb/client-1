@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, render_template, request, redirect, url_for, flash, g, abort, session, Response, jsonify
+import bareme
 from parser import (
     _normalize_tag,
     ZONE_GOLD_CHOICES,
@@ -870,6 +871,17 @@ def init_db():
         CREATE TABLE IF NOT EXISTS gp_cibles (
             critere TEXT PRIMARY KEY,
             valeur DOUBLE PRECISION NOT NULL
+        )
+    """)
+    # Réglages du barème de notation (poids / cible / plancher d'un critère pour un poste).
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS bareme_reglages (
+            poste TEXT NOT NULL,
+            critere TEXT NOT NULL,
+            poids DOUBLE PRECISION NOT NULL,
+            cible DOUBLE PRECISION NOT NULL,
+            plancher DOUBLE PRECISION NOT NULL DEFAULT 0,
+            PRIMARY KEY (poste, critere)
         )
     """)
     # Une ligne = un point d'étape (3 à 4 par saison, comme sur le cahier papier) : notes
@@ -2825,9 +2837,9 @@ def _season_minutes(selected):
     return total
 
 
-def _match_infos(m):
-    """{nom XML en minuscules: (minutes, poste principal saisi ou None)} pour un match, d'après
-    la page Composition (même rapprochement des noms que _season_minutes)."""
+def _match_infos_full(m):
+    """{nom XML en minuscules: {"minutes", "poste" (principal saisi ou None), "yellow", "red"}} pour un
+    match, d'après la page Composition (même rapprochement des noms que _season_minutes)."""
     comp = m.get("composition") or []
     stats = m.get("player_match_stats") or {}
     out = {}
@@ -2839,8 +2851,15 @@ def _match_infos(m):
         if not cname or not xname:
             continue
         st = stats.get(cname) or {}
-        out[xname.strip().casefold()] = (int(st.get("minutes") or 0), st.get("poste") or None)
+        out[xname.strip().casefold()] = {"minutes": int(st.get("minutes") or 0), "poste": st.get("poste") or None,
+                                         "yellow": int(st.get("yellow") or 0), "red": int(st.get("red") or 0),
+                                         "xml_name": xname}
     return out
+
+
+def _match_infos(m):
+    """{nom XML en minuscules: (minutes, poste principal saisi ou None)}."""
+    return {k: (v["minutes"], v["poste"]) for k, v in _match_infos_full(m).items()}
 
 
 @app.route("/season/joueurs")
@@ -3263,6 +3282,111 @@ def season_gagner_perdre_cibles():
     db.commit()
     flash("Objectifs enregistrés.", "success")
     return redirect(url_for("season_gagner_perdre", m=request.form.getlist("m")))
+
+
+# ---- Notes des joueurs (barème par poste, note sur 10) ---------------------------------------
+
+def _bareme_courant():
+    ov = {}
+    for r in get_db().execute("SELECT poste, critere, poids, cible, plancher FROM bareme_reglages").fetchall():
+        ov[(r["poste"], r["critere"])] = (r["poids"], r["cible"], r["plancher"])
+    return bareme.bareme_effectif(ov)
+
+
+def _notes_saison(selected, bar=None):
+    bar = bar or _bareme_courant()
+    joueurs = {}
+    for m in selected:
+        ins = m["instances"]
+        attack = compute_player_attack_table(ins)
+        defense = compute_player_defense_table(ins)
+        ruck = compute_player_ruck_table(ins)
+        tabs = {"attack": attack, "defense": defense, "ruck": ruck}
+        by = {k: {r["name"].strip().casefold(): r for r in t["rows"]} for k, t in tabs.items()}
+        infos = _match_infos_full(m)
+        noms = {r["name"] for t in tabs.values() for r in t["rows"]}
+        for nom in noms:
+            c = nom.strip().casefold()
+            info = infos.get(c)
+            if not info or not info["minutes"]:
+                continue
+            poste = info["poste"] or _poste_effectif(nom)
+            rows = {k: by[k].get(c) for k in by}
+            res = bareme.note_match(poste, rows, info["minutes"], info["yellow"], info["red"], bar)
+            j = joueurs.setdefault(c, {"name": nom, "matchs": []})
+            j["matchs"].append({"id": m["id"], "opponent": m.get("opponent") or "?", "date": m.get("match_date"),
+                                "minutes": info["minutes"], "poste": poste, "res": res})
+    out = []
+    for j in joueurs.values():
+        notes = [x for x in j["matchs"] if x["res"]]
+        if not notes:
+            out.append({**j, "note": None, "minutes": sum(x["minutes"] for x in j["matchs"]),
+                        "poste": (j["matchs"][0]["poste"] if j["matchs"] else None), "criteres": [], "malus": 0})
+            continue
+        mins = sum(x["minutes"] for x in notes)
+        note = sum(x["res"]["note"] * x["minutes"] for x in notes) / mins
+        par_poste = {}
+        for x in notes:
+            par_poste[x["poste"]] = par_poste.get(x["poste"], 0) + x["minutes"]
+        poste_princ = max(par_poste, key=par_poste.get)
+        crit = {}
+        for x in notes:
+            for d in x["res"]["detail"]:
+                c = crit.setdefault(d["critere"], {"label": d["label"], "w": 0.0, "s": 0.0, "poids": d["poids"]})
+                c["w"] += x["minutes"]
+                c["s"] += d["score"] * x["minutes"]
+        criteres = sorted([{"label": v["label"], "score": round(v["s"] / v["w"], 1), "poids": v["poids"]}
+                           for v in crit.values()], key=lambda d: -d["poids"])
+        malus = round(-sum(sum(mm["points"] for mm in x["res"]["malus"]) for x in notes) / len(notes), 1)
+        out.append({**j, "note": round(note, 1), "minutes": mins, "poste": poste_princ, "criteres": criteres,
+                    "malus": malus, "postes": par_poste})
+    ordre = {p: i for i, p in enumerate(bareme.POSTES)}
+    out.sort(key=lambda j: (ordre.get(j["poste"], 99), -(j["note"] if j["note"] is not None else -1), j["name"].casefold()))
+    return out
+
+
+@app.route("/season/notes")
+def season_notes():
+    selected, ctx = _season_common("notes")
+    joueurs = _notes_saison(selected)
+    groupes = []
+    for p in bareme.POSTES:
+        lst = [j for j in joueurs if j["poste"] == p]
+        if lst:
+            groupes.append({"poste": p, "joueurs": lst})
+    return render_template("season_notes.html", groupes=groupes, min_minutes=bareme.MIN_MINUTES,
+                           malus=bareme.MALUS, display_name=_joueur_nom_affiche, **ctx)
+
+
+@app.route("/season/bareme", methods=["GET", "POST"])
+def season_bareme():
+    if request.method == "POST":
+        if not session.get("is_admin"):
+            flash("Connecte-toi pour modifier le barème.", "error")
+            return redirect(url_for("login", next=request.path))
+        db = get_db()
+        for poste in bareme.POSTES:
+            for crit in bareme.CRITERES:
+                raw = [(request.form.get(f"{k}|{poste}|{crit}") or "").strip().replace(",", ".") for k in ("w", "c", "f")]
+                if not any(raw):
+                    continue
+                try:
+                    poids, cible, plancher = float(raw[0] or 0), float(raw[1] or 0), float(raw[2] or 0)
+                except ValueError:
+                    continue
+                defaut = bareme.BAREME_DEFAUT.get(poste, {}).get(crit)
+                if defaut and (poids, cible, plancher) == tuple(float(x) for x in defaut):
+                    db.execute("DELETE FROM bareme_reglages WHERE poste = %s AND critere = %s", (poste, crit))
+                    continue
+                db.execute("""INSERT INTO bareme_reglages (poste, critere, poids, cible, plancher) VALUES (%s,%s,%s,%s,%s)
+                              ON CONFLICT (poste, critere) DO UPDATE SET poids = EXCLUDED.poids, cible = EXCLUDED.cible,
+                              plancher = EXCLUDED.plancher""", (poste, crit, poids, cible, plancher))
+        db.commit()
+        flash("Barème enregistré.", "success")
+        return redirect(url_for("season_bareme", m=request.form.getlist("m")))
+    selected, ctx = _season_common("bareme")
+    return render_template("season_bareme.html", bar=_bareme_courant(), postes=bareme.POSTES, criteres=bareme.CRITERES,
+                           malus=bareme.MALUS, bonus=bareme.BONUS, min_minutes=bareme.MIN_MINUTES, **ctx)
 
 
 @app.route("/season/comparer")
