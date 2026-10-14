@@ -3413,7 +3413,8 @@ def season_bareme():
         return redirect(url_for("season_bareme", m=request.form.getlist("m")))
     selected, ctx = _season_common("bareme")
     return render_template("season_bareme.html", bar=_bareme_courant(), postes=bareme.POSTES, criteres=bareme.CRITERES,
-                           malus=bareme.MALUS, bonus=bareme.BONUS, min_minutes=bareme.MIN_MINUTES, **ctx)
+                           malus=bareme.MALUS, bonus=bareme.BONUS, min_minutes=bareme.MIN_MINUTES,
+                           passes_charniere=bareme.PASSES_RATEES['Charnière'][0], **ctx)
 
 
 @app.route("/season/comparer")

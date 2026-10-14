@@ -12,7 +12,10 @@ Les poids et les cibles ci-dessous sont les valeurs de départ ; elles se règle
 Saison → Notes → Barème (valeurs enregistrées en base, prioritaires)."""
 
 MIN_MINUTES = 30      # en dessous, le joueur n'est pas noté sur le match
-MALUS = {"penalite": 0.3, "penalite_max": 1.5, "jaune": 0.7, "rouge": 2.0, "pdb": 0.05, "pdb_max": 0.5, "total_max": 2.5}
+MALUS = {"penalite": 0.3, "penalite_max": 1.5, "jaune": 0.7, "rouge": 2.0, "pdb": 0.05, "pdb_max": 0.5, "total_max": 3.0}
+# Passes ratées : réussir une passe est normal (aucun bonus), la rater coûte, surtout aux 9/10.
+PASSES_RATEES = {"Charnière": (0.4, 2.5), "Centre": (0.15, 0.75)}
+PASSES_RATEES_DEFAUT = (0.1, 0.5)
 BONUS = {"essai": 0.5, "essai_max": 1.0}
 
 POSTES = ["Pilier", "Talonneur", "2ème ligne", "3ème ligne", "Charnière", "Centre", "Ailier/Arrière"]
@@ -165,14 +168,14 @@ BAREME_DEFAUT = {
         "soutien": (8, 16, 0), "sauteur_pct": (6, 95, 50), "sauteur": (4, 10, 0),
         "lifteur_pct": (4, 95, 50), "def_battu": (6, 4, 0), "offload": (3, 3, 0), "break": (3, 2, 0)},
     "Charnière": {
-        "passes": (12, 50, 0), "passes_pct": (14, 100, 85), "jap": (12, 12, 0),
+        "passes": (6, 50, 0), "jap": (14, 12, 0),
         "kicks_pct": (10, 85, 25), "plaquage": (6, 5, 0), "plaquage_pct": (8, 95, 70),
         "soutien": (6, 8, 0), "contact": (4, 4, 0), "break": (4, 2, 0), "offload": (3, 2, 0),
         "recup": (3, 3, 0)},
     "Centre": {
         "contact": (8, 11, 0), "contact_dom": (10, 65, 30), "def_battu": (10, 5, 0),
         "break": (6, 3, 0), "plaquage": (10, 10, 0), "plaquage_pct": (12, 95, 70),
-        "plaquage_dom": (4, 50, 10), "passes": (6, 15, 0), "passes_pct": (4, 100, 85),
+        "plaquage_dom": (4, 50, 10), "passes": (6, 15, 0),
         "offload": (6, 3, 0), "offload_pct": (3, 100, 50), "jap": (6, 8, 0), "recup": (4, 6, 0)},
     "Ailier/Arrière": {
         "break": (10, 4, 0), "def_battu": (10, 5, 0), "contact_dom": (8, 65, 30),
@@ -231,10 +234,13 @@ def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
     attack = rows.get("attack")
     pen = _v(attack, "penalite_off", "penalite_def")
     pdb = _v(attack, "pdb")
+    rates = _v(attack, "passe_minus")
+    pr = PASSES_RATEES.get(poste, PASSES_RATEES_DEFAUT)
     essais = _v(rows.get("ruck"), "essai")
     malus = [("Pénalités concédées", min(pen * MALUS["penalite"], MALUS["penalite_max"]), pen),
              ("Cartons jaunes", jaunes * MALUS["jaune"], jaunes),
              ("Cartons rouges", rouges * MALUS["rouge"], rouges),
+             ("Passes ratées", min(rates * pr[0], pr[1]), rates),
              ("Ballons perdus", min(pdb * MALUS["pdb"], MALUS["pdb_max"]), pdb)]
     malus = [{"label": l, "points": round(-p, 1), "n": n} for l, p, n in malus if p > 0]
     bonus_pts = min(essais * BONUS["essai"], BONUS["essai_max"])
