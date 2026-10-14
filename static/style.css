@@ -2980,15 +2980,19 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
 .notes-detail td { font-weight: 500; font-size: .9rem; text-align: left; }
 .notes-matchs { display: flex; flex-wrap: wrap; gap: 6px; }
 .notes-chip { background: rgba(80,20,50,.08); border-radius: 12px; padding: 2px 10px; font-size: .85rem; font-weight: 600; white-space: nowrap; }
-.nt-badge { display:inline-block; min-width:38px; text-align:center; padding:3px 8px; border-radius:8px; font-weight:800; font-size:1rem; color:#fff; }
-.nt-top { background:#2f6b39; } .nt-ok { background:#6a9a3a; } .nt-mid { background:#e0912f; } .nt-low { background:#d9463c; } .nt-na { background:#c9c9c9; color:#555; }
-.nt-legend { display:flex; flex-wrap:wrap; gap:16px; padding:12px 14px 4px; font-size:.95rem; }
-.nt-card { border-top:1px solid rgba(0,0,0,.08); padding:10px 14px; }
-.nt-card summary { display:flex; flex-wrap:wrap; align-items:center; gap:12px; cursor:pointer; list-style:none; }
-.nt-name { font-weight:800; font-size:1.1rem; min-width:150px; }
-.nt-ecart { font-size:.9rem; font-weight:700; color:#777; } .nt-ecart.pos { color:#2f6b39; } .nt-ecart.neg { color:#d9463c; }
-.nt-min { font-size:.9rem; color:#666; }
-.nt-matchs { display:flex; flex-wrap:wrap; gap:6px; margin-left:auto; }
-.nt-chip { display:inline-flex; align-items:center; gap:6px; background:rgba(80,20,50,.07); border-radius:12px; padding:2px 6px 2px 10px; font-size:.85rem; font-weight:600; }
-.nt-chip .nt-badge { min-width:30px; font-size:.85rem; padding:1px 6px; }
-.nt-body { padding:10px 4px 4px; font-size:.95rem; }
+.nt-board { max-width: 1180px; margin-left: auto; margin-right: auto; font-size: 17px; }
+.nt-board .nt-badge { display:inline-block; min-width:48px; text-align:center; padding:4px 10px; border-radius:9px; font-weight:800; font-size:20px; color:#fff; }
+.nt-top { background:#2f6b39; } .nt-ok { background:#6a9a3a; } .nt-mid { background:#e0912f; } .nt-low { background:#d9463c; } .nt-na { background:#c9c9c9; color:#555 !important; }
+.nt-board .nt-legend { display:flex; flex-wrap:wrap; gap:18px; padding:14px 16px 6px; font-size:16px; }
+.nt-board .gp-note { font-size:16px; line-height:1.5; }
+.nt-board .bil-panel-head { font-size:16px; padding:10px 16px; }
+.nt-card { border-top:1px solid rgba(0,0,0,.08); padding:14px 16px; }
+.nt-card summary { display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; cursor:pointer; list-style:none; }
+.nt-name { font-weight:800; font-size:20px; min-width:190px; }
+.nt-ecart { font-size:16px; font-weight:700; color:#777; } .nt-ecart.pos { color:#2f6b39; } .nt-ecart.neg { color:#d9463c; }
+.nt-min { font-size:16px; color:#555; }
+.nt-matchs { display:flex; flex-wrap:wrap; gap:8px; flex-basis:100%; padding-left:2px; }
+.nt-chip { display:inline-flex; align-items:center; gap:8px; background:rgba(80,20,50,.08); border-radius:14px; padding:4px 8px 4px 12px; font-size:15px; font-weight:600; }
+.nt-board .nt-chip .nt-badge { min-width:40px; font-size:16px; padding:2px 8px; }
+.nt-body { padding:12px 4px 4px; font-size:16px; line-height:1.55; }
+.nt-board .notes-table td, .nt-board .notes-table th { font-size:16px; }
