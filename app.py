@@ -2847,11 +2847,11 @@ def _match_infos_full(m):
         return out
     xml_players = set(_new_convention_player_names(m["instances"]))
     slots = composition_ordered_names(comp, xml_players, m.get("row_order"))
-    for cname, xname in zip(comp, slots):
+    for idx, (cname, xname) in enumerate(zip(comp, slots)):
         if not cname or not xname:
             continue
         st = stats.get(cname) or {}
-        out[xname.strip().casefold()] = {"minutes": int(st.get("minutes") or 0), "poste": st.get("poste") or None,
+        out[xname.strip().casefold()] = {"numero": idx + 1, "minutes": int(st.get("minutes") or 0), "poste": st.get("poste") or None,
                                          "yellow": int(st.get("yellow") or 0), "red": int(st.get("red") or 0),
                                          "xml_name": xname}
     return out
@@ -3315,11 +3315,23 @@ def _ppid_fin(xml_name):
     return best if score >= 0.8 else None
 
 
-def _profil_note(xml_name, poste_match):
+# Maillot de la composition (n°1 à 23) -> profil de notation. Le 23 n'a pas de poste fixe.
+NUMERO_PROFIL = {1: "Pilier", 2: "Talonneur", 3: "Pilier", 4: "2ème ligne", 5: "2ème ligne", 6: "3ème ligne",
+                 7: "3ème ligne", 8: "3ème ligne", 9: "9", 10: "10", 11: "11-14", 12: "12-13", 13: "12-13",
+                 14: "11-14", 15: "15", 16: "Talonneur", 17: "Pilier", 18: "Pilier", 19: "2ème ligne",
+                 20: "3ème ligne", 21: "9", 22: "10"}
+
+
+def _profil_note(xml_name, poste_match, numero=None, poste_saisi=None):
     """(profil de notation, précis ?) d'un joueur sur un match. Le poste précis du club est utilisé
     s'il correspond au poste joué ce jour-là ; sinon (changement de poste, poste non réglé) profil
     par défaut du poste (9 pour les charnières, 11-14 pour ailiers/arrières). « précis » est False
     quand 9/10 ou 11-14/15 n'a pas pu être déterminé."""
+    # Le numéro de maillot de la composition donne le poste précis (le 11 est un ailier, le 10 un
+    # ouvreur...), sauf si le poste joué saisi à la main dit autre chose.
+    num = NUMERO_PROFIL.get(numero)
+    if num and (poste_saisi is None or bareme.PROFIL_FAMILLE[num] == poste_saisi):
+        return num, True
     fin = _ppid_fin(xml_name)
     profil = PPID_VERS_PROFIL.get(fin) if fin else None
     if profil and (poste_match is None or bareme.PROFIL_FAMILLE[profil] == poste_match):
@@ -3354,7 +3366,7 @@ def _notes_saison(selected, bar=None):
             info = infos.get(c)
             if not info or not info["minutes"]:
                 continue
-            poste, precis = _profil_note(nom, info["poste"] or _poste_effectif(nom))
+            poste, precis = _profil_note(nom, info["poste"] or _poste_effectif(nom), info.get("numero"), info["poste"])
             if not poste:
                 continue
             rows = {k: by[k].get(c) for k in by}
