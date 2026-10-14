@@ -12,7 +12,7 @@ Les poids et les cibles ci-dessous sont les valeurs de départ ; elles se règle
 Saison → Notes → Barème (valeurs enregistrées en base, prioritaires)."""
 
 MIN_MINUTES = 30      # en dessous, le joueur n'est pas noté sur le match
-MALUS = {"penalite": 0.5, "jaune": 1.0, "rouge": 3.0, "pdb": 0.1, "pdb_max": 1.0}
+MALUS = {"penalite": 0.3, "penalite_max": 1.5, "jaune": 0.7, "rouge": 2.0, "pdb": 0.05, "pdb_max": 0.5, "total_max": 2.5}
 BONUS = {"essai": 0.5, "essai_max": 1.0}
 
 POSTES = ["Pilier", "Talonneur", "2ème ligne", "3ème ligne", "Charnière", "Centre", "Ailier/Arrière"]
@@ -232,13 +232,14 @@ def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
     pen = _v(attack, "penalite_off", "penalite_def")
     pdb = _v(attack, "pdb")
     essais = _v(rows.get("ruck"), "essai")
-    malus = [("Pénalités concédées", pen * MALUS["penalite"], pen),
+    malus = [("Pénalités concédées", min(pen * MALUS["penalite"], MALUS["penalite_max"]), pen),
              ("Cartons jaunes", jaunes * MALUS["jaune"], jaunes),
              ("Cartons rouges", rouges * MALUS["rouge"], rouges),
              ("Ballons perdus", min(pdb * MALUS["pdb"], MALUS["pdb_max"]), pdb)]
     malus = [{"label": l, "points": round(-p, 1), "n": n} for l, p, n in malus if p > 0]
     bonus_pts = min(essais * BONUS["essai"], BONUS["essai_max"])
     bonus = [{"label": "Essais", "points": round(bonus_pts, 1), "n": essais}] if bonus_pts > 0 else []
-    note = _clamp(base - sum(-m["points"] for m in malus) + bonus_pts)
+    total_malus = min(sum(-m["points"] for m in malus), MALUS["total_max"])
+    note = _clamp(base - total_malus + bonus_pts)
     return {"note": round(note, 1), "base": round(base, 1), "malus": malus, "bonus": bonus,
             "detail": sorted(detail, key=lambda d: -d["poids"]), "minutes": minutes, "poste": poste}
