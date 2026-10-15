@@ -3,6 +3,8 @@ import time
 import re
 import json
 import unicodedata
+import copy
+import threading
 import psycopg2
 import psycopg2.extras
 import openpyxl
@@ -2737,15 +2739,77 @@ def delete_match(match_id):
 
 
 
+# ---- Cache des calculs de saison ------------------------------------------------------------
+# Avant : chaque page de saison relisait tous les matchs (des Mo de JSON) depuis la base puis
+# refaisait tous les calculs. Maintenant : chaque match n'est relu que s'il a changé (empreinte
+# md5 de sa ligne, calculée côté base), et les résultats des gros calculs sont gardés tant que
+# les matchs et les petites tables de réglages n'ont pas changé. Aucun risque de chiffres périmés :
+# la moindre modification change l'empreinte.
+_MATCH_CACHE = {}        # id -> (empreinte, match)
+_RESULT_CACHE = {}       # clé -> résultat
+_CACHE_LOCK = threading.Lock()
+_MATCH_CACHE_MAX = 40
+_RESULT_CACHE_MAX = 80
+_DEPS_TABLES = ("players", "stats_player_postes", "bareme_reglages", "gp_cibles")
+
+
+def _deps_signature():
+    """Empreinte des petites tables qui influencent les calculs (postes, barème, objectifs)."""
+    if not hasattr(g, "_deps_sig"):
+        db = get_db()
+        parts = []
+        for t in _DEPS_TABLES:
+            try:
+                r = db.execute(f"SELECT md5(coalesce(string_agg(x::text, ',' ORDER BY x::text), '')) AS s FROM {t} x").fetchone()
+                parts.append(r["s"])
+            except Exception:
+                db._conn.rollback()
+                parts.append("?")
+        g._deps_sig = "|".join(parts)
+    return g._deps_sig
+
+
+def _cached_result(name, selected, compute, extra="", copy_result=True):
+    """Résultat gardé en mémoire tant que les matchs sélectionnés et les réglages sont inchangés."""
+    key = (name, tuple((m["id"], m.get("_sig")) for m in selected), _deps_signature(), extra)
+    with _CACHE_LOCK:
+        hit = _RESULT_CACHE.get(key)
+    if hit is not None:
+        return copy.deepcopy(hit) if copy_result else hit
+    value = compute()
+    with _CACHE_LOCK:
+        _RESULT_CACHE[key] = copy.deepcopy(value) if copy_result else value
+        while len(_RESULT_CACHE) > _RESULT_CACHE_MAX:
+            _RESULT_CACHE.pop(next(iter(_RESULT_CACHE)))
+    return value
+
+
 def _season_context():
     """Matchs sélectionnés pour le cumul saison (case à cocher sur /season, conservée via
     ?m=id&m=id... sur toutes les pages secteur saison) + la query string à réutiliser dans
     les liens du sous-menu pour ne pas perdre la sélection en changeant d'onglet."""
     db = get_db()
-    rows = db.execute(
-        "SELECT * FROM matches ORDER BY COALESCE(match_date, created_at)"
+    sigs = db.execute(
+        "SELECT id, md5(m::text) AS sig FROM matches m ORDER BY COALESCE(m.match_date, m.created_at)"
     ).fetchall()
-    all_matches = [_row_to_match(r) for r in rows]
+    ids = [r["id"] for r in sigs]
+    sigmap = {r["id"]: r["sig"] for r in sigs}
+    with _CACHE_LOCK:
+        need = [i for i in ids if _MATCH_CACHE.get(i, (None, None))[0] != sigmap[i]]
+    if need:
+        fresh = {}
+        for r in db.execute("SELECT * FROM matches WHERE id = ANY(%s)", (need,)).fetchall():
+            m = _row_to_match(r)
+            m["_sig"] = sigmap.get(m["id"])
+            fresh[m["id"]] = (m["_sig"], m)
+        with _CACHE_LOCK:
+            _MATCH_CACHE.update(fresh)
+    with _CACHE_LOCK:
+        for k in [k for k in _MATCH_CACHE if k not in sigmap]:
+            del _MATCH_CACHE[k]
+        while len(_MATCH_CACHE) > _MATCH_CACHE_MAX:
+            _MATCH_CACHE.pop(next(iter(_MATCH_CACHE)))
+        all_matches = [_MATCH_CACHE[i][1] for i in ids if i in _MATCH_CACHE]
     matches_with_instances = [m for m in all_matches if m["instances"]]
     selected_ids_param = request.args.getlist("m")
     if selected_ids_param:
@@ -2783,6 +2847,10 @@ def _load_training_sessions():
 
 
 def _season_player_tables(selected):
+    return _cached_result("tables", selected, lambda: _season_player_tables_calc(selected))
+
+
+def _season_player_tables_calc(selected):
     """Tableaux joueurs (bilan / attaque / défense / conquête) en TOTAL sur les matchs
     sélectionnés. Chaque match est calculé SEPAREMENT puis les compteurs sont additionnés
     (les pourcentages sont recalculés sur les totaux) : les calculs chronologiques (tirs au but
@@ -3198,6 +3266,10 @@ def _pearson(xs, ys):
 
 
 def _gagner_perdre(selected, cibles=None):
+    return _cached_result("gp", selected, lambda: _gagner_perdre_calc(selected, cibles), extra=repr(sorted((cibles or {}).items())))
+
+
+def _gagner_perdre_calc(selected, cibles=None):
     cibles = cibles or {}
     matchs = []
     for m in selected:
@@ -3353,6 +3425,12 @@ def _bareme_courant():
 
 
 def _notes_saison(selected, bar=None):
+    if bar is not None:
+        return _notes_saison_calc(selected, bar)
+    return _cached_result("notes", selected, lambda: _notes_saison_calc(selected))
+
+
+def _notes_saison_calc(selected, bar=None):
     bar = bar or _bareme_courant()
     joueurs = {}
     infos_matchs = {m["id"]: _match_infos_full(m) for m in selected}
@@ -3709,6 +3787,10 @@ def _average_structs(items, n_total=None):
 
 
 def _season_bundle(selected):
+    return _cached_result("bundle", selected, lambda: _season_bundle_calc(selected), copy_result=False)
+
+
+def _season_bundle_calc(selected):
     """Calculs match par match réutilisés par les pages saison (Review, Attaque, Défense)."""
     per = []
     for m in selected:
@@ -3726,6 +3808,10 @@ SEASON_LABELS_SUIVIS = [("Cartouches", "JOUEURS OFF", "CARTOUCHES")]
 
 
 def _season_warnings(selected):
+    return _cached_result("warn", selected, lambda: _season_warnings_calc(selected))
+
+
+def _season_warnings_calc(selected):
     """Avertit quand un label existe dans certains matchs sélectionnés mais pas dans d'autres."""
     if len(selected) < 2:
         return []
