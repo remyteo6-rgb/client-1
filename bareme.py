@@ -246,7 +246,7 @@ PROFILS = {
     "12-13": [
         ("Duel off / franchissement", {"contact_dom": 10, "break": 12, "def_battu": 12, "contact": 4}),
         ("Circulation def / plaquer / contest / défendre", {"plaquage": 6, "plaquage_pct": 6, "recup": 8, "plaquage_dom": 6}),
-        ("Habileté technique (main / pied)", {"offload": 6, "offload_pct": 4, "passes": 6}),
+        ("Habileté technique (main / pied)", {"offload": 9, "offload_pct": 6, "passes": 3}),
         ("Soutien / ruck offensif", {"soutien": 6}),
     ],
     "11-14": [
@@ -254,13 +254,13 @@ PROFILS = {
         ("Réception / duel aérien", {"rce_pct": 8, "aerien_pct": 12}),
         ("Plaquer / lecture défense", {"plaquage_dom": 4, "plaquage": 5, "plaquage_pct": 5, "recup": 4}),
         ("Soutien / ruck offensif", {"soutien": 4}),
-        ("Habileté technique (mains / pied)", {"offload": 3, "offload_pct": 3, "passes": 4}),
+        ("Habileté technique (mains / pied)", {"offload": 7, "offload_pct": 5, "passes": 2}),
     ],
     "15": [
         ("1 contre 1 défensif", {"plaquage": 6, "plaquage_pct": 6, "plaquage_dom": 6}),
         ("Duel / franchissement", {"break": 14, "def_battu": 12, "contact_dom": 6}),
         ("Réception / duel aérien", {"rce_pct": 8, "aerien_pct": 12}),
-        ("Habileté technique", {"offload": 2, "offload_pct": 2, "passes": 4}),
+        ("Habileté technique", {"offload": 6, "offload_pct": 4, "passes": 2}),
     ],
 }
 POSTES = list(PROFILS)
