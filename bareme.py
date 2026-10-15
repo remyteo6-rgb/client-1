@@ -17,6 +17,9 @@ MALUS = {"penalite": 0.3, "penalite_max": 1.5, "jaune": 0.7, "rouge": 2.0, "pdb"
 PASSES_RATEES = {"9": (0.4, 2.5), "10": (0.4, 2.5), "12-13": (0.15, 0.75)}
 PASSES_RATEES_DEFAUT = (0.1, 0.5)
 BONUS = {"essai": 0.7, "essai_max": 2.0}
+# Duels aériens des ailiers/arrière : jouer et gagner rapporte, ne pas en avoir à jouer ne coûte rien
+# (le nombre dépend des coups de pied adverses contestables). +0,3 par duel gagné, +0,15 par duel neutre.
+BONUS_AERIEN = {"gagne": 0.3, "neutre": 0.15, "max": 1.0, "profils": ("11-14", "15")}
 PLAQUAGE_RATE = (0.15, 1.0)
 PLAQUAGE_PASSIF = (0.1, 0.5)  # plaquage passif subi : malus léger
 PLAQUAGE_HAUT = (0.1, 0.5)    # plaquage haut : malus léger (risque)   # malus par plaquage raté, plafond par match
@@ -248,7 +251,7 @@ PROFILS = {
     ],
     "11-14": [
         ("Duel / franchissement", {"contact_dom": 8, "break": 16, "def_battu": 14}),
-        ("Réception / duel aérien", {"rce_pct": 8, "aerien": 8, "aerien_pct": 10}),
+        ("Réception / duel aérien", {"rce_pct": 8, "aerien_pct": 12}),
         ("Plaquer / lecture défense", {"plaquage_dom": 4, "plaquage": 5, "plaquage_pct": 5, "recup": 4}),
         ("Soutien / ruck offensif", {"soutien": 4}),
         ("Habileté technique (mains / pied)", {"offload": 3, "offload_pct": 3, "passes": 4}),
@@ -256,7 +259,7 @@ PROFILS = {
     "15": [
         ("1 contre 1 défensif", {"plaquage": 6, "plaquage_pct": 6, "plaquage_dom": 6}),
         ("Duel / franchissement", {"break": 14, "def_battu": 12, "contact_dom": 6}),
-        ("Réception / duel aérien", {"rce_pct": 8, "aerien": 8, "aerien_pct": 10}),
+        ("Réception / duel aérien", {"rce_pct": 8, "aerien_pct": 12}),
         ("Habileté technique", {"offload": 2, "offload_pct": 2, "passes": 4}),
     ],
 }
@@ -363,6 +366,13 @@ def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
     malus = [{"label": l, "points": round(-p, 1), "n": n} for l, p, n in malus if p > 0]
     bonus_pts = min(essais * BONUS["essai"], BONUS["essai_max"])
     bonus = [{"label": "Essais", "points": round(bonus_pts, 1), "n": essais}] if bonus_pts > 0 else []
+    if poste in BONUS_AERIEN["profils"]:
+        ruck = rows.get("ruck")
+        g_, n_ = _v(ruck, "duels_aer_plus"), _v(ruck, "duels_aer_neutre")
+        pts = min(g_ * BONUS_AERIEN["gagne"] + n_ * BONUS_AERIEN["neutre"], BONUS_AERIEN["max"])
+        if pts > 0:
+            bonus.append({"label": "Duels aériens joués", "points": round(pts, 1), "n": g_ + n_})
+            bonus_pts += pts
     total_malus = min(sum(-m["points"] for m in malus), MALUS["total_max"])
     note = _clamp(base - total_malus + bonus_pts)
     return {"note": round(note, 1), "base": round(base, 1), "malus": malus, "bonus": bonus,
