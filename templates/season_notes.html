@@ -42,11 +42,12 @@
                 {{ badge(j.note) }}
                 <span class="nt-ecart {{ 'pos' if j.ecart and j.ecart > 0 else ('neg' if j.ecart and j.ecart < 0 else '') }}">{% if j.ecart is not none %}{{ '%+.1f'|format(j.ecart) }} vs poste{% endif %}</span>
                 <span class="nt-min">{{ j.minutes }} min{% if j.cumul_min %} (dont {{ j.cumul_min }} en courtes entrées, cumulées){% endif %}{% if j.malus %} · fautes −{{ j.malus }}/match{% endif %}</span>
-                <span class="nt-matchs">{% for x in j.matchs %}<span class="nt-chip" title="{{ x.poste }} · {{ x.minutes }} min{% if x.raison %} · {{ x.raison }}{% endif %}{% for mm in (x.res.malus if x.res else []) %} · {{ mm.label }} {{ mm.points }}{% endfor %}">{{ x.opponent }}{% if x.poste != j.poste %} ({{ x.poste }}){% endif %} {% if x.cumul %}<span class="nt-badge nt-na" title="cumulé">cumul</span>{% else %}{{ badge(x.res.note if x.res else none) }}{% endif %}</span>{% endfor %}</span>
+                <span class="nt-matchs">{% for x in j.matchs %}<span class="nt-chip" title="{{ x.poste }} · {{ x.minutes }} min{% if x.raison %} · {{ x.raison }}{% endif %}{% for mm in ((x.res.bonus + x.res.malus) if x.res else []) %} · {{ mm.label }} {{ mm.points }}{% endfor %}">{{ x.opponent }}{% if x.poste != j.poste %} ({{ x.poste }}){% endif %} {% if x.cumul %}<span class="nt-badge nt-na" title="cumulé">cumul</span>{% else %}{{ badge(x.res.note if x.res else none) }}{% endif %}</span>{% endfor %}</span>
             </summary>
             <div class="nt-body">
                 {% if j.forts %}<p><strong>Points forts :</strong> {% for c in j.forts %}{{ c.label }} ({{ c.score }}){{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
                 {% if j.faibles %}<p><strong>À travailler :</strong> {% for c in j.faibles %}{{ c.label }} ({{ c.score }}){{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
+                {% if j.ajustements %}<p><strong>Bonus et fautes (total sur les matchs notés) :</strong> {% for e in j.ajustements %}{{ e.label }} {{ '%+.1f'|format(e.points) }} ({{ e.n }}){{ ' · ' if not loop.last }}{% endfor %}</p>{% endif %}
                 {% if j.criteres %}<table class="bil-table notes-table notes-detail"><thead><tr><th>Critère</th><th>Note /10</th><th>Poids</th><th>Valeur /80 min</th></tr></thead>
                     {% for c in j.criteres %}<tr><td>{{ c.label }}</td><td>{{ c.score }}</td><td>{{ c.poids }}</td><td>{{ c.valeur }}</td></tr>{% endfor %}</table>
                 {% else %}<p>Pas de note : {% for x in j.matchs %}{{ x.opponent }} ({{ x.raison }}){{ ', ' if not loop.last }}{% endfor %}.</p>{% endif %}
