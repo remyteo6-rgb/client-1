@@ -55,6 +55,7 @@ def _x_soutien(r):
 def _x_passes(r):       return _v(r["attack"], "passes"), 0
 def _x_tackle(r):       return _v(r["defense"], "plaquage_tentes"), 0
 def _x_recup(r):        return _v(r["defense"], "ballons_recuperes", "combattant_total"), 0
+def _x_aerien(r):       return _v(r["ruck"], "duels_aer_total"), 0
 def _x_jap(r):          return _v(r["ruck"], "jap"), 0
 def _x_sauteur(r):      return _v(r["ruck"], "sauteur"), 0
 def _x_lifteur(r):      return _v(r["ruck"], "lifteur"), 0
@@ -139,6 +140,7 @@ CRITERES = {
     "plaquage_dom": ("Plaquages dominants (%)", "pct", _p_tackle_dom),
     "recup":        ("Ballons récupérés / combat", "vol", _x_recup),
     "jap":          ("Jeu au pied (volume)", "vol", _x_jap),
+    "aerien":       ("Duels aériens (volume)", "vol", _x_aerien),
     "sauteur":      ("Sauteur (volume)", "vol", _x_sauteur),
     "sauteur_pct":  ("Sauteur : touches gagnées (%)", "pct", _p_sauteur),
     "lifteur":      ("Lifteur (volume)", "vol", _x_lifteur),
@@ -177,7 +179,7 @@ _CIBLES = {
                "offload": (3, 0), "offload_pct": (100, 50), "jap": (8, 0), "soutien": (8, 0)},
     "Ailier/Arrière": {"break": (4, 0), "def_battu": (5, 0), "contact_dom": (65, 30), "contact": (9, 0),
                        "plaquage_pct": (95, 70), "plaquage": (8, 0), "plaquage_dom": (50, 10), "jap": (5, 0), "rce_pct": (75, 25),
-                       "aerien_pct": (80, 30), "offload": (3, 0), "offload_pct": (100, 50), "passes": (6, 0), "recup": (4, 0),
+                       "aerien_pct": (80, 30), "aerien": (3, 0), "offload": (3, 0), "offload_pct": (100, 50), "passes": (6, 0), "recup": (4, 0),
                        "soutien": (7, 0)},
 }
 
@@ -246,7 +248,7 @@ PROFILS = {
     ],
     "11-14": [
         ("Duel / franchissement", {"contact_dom": 8, "break": 16, "def_battu": 14}),
-        ("Réception / duel aérien", {"rce_pct": 10, "aerien_pct": 10}),
+        ("Réception / duel aérien", {"rce_pct": 8, "aerien": 8, "aerien_pct": 10}),
         ("Plaquer / lecture défense", {"plaquage_dom": 4, "plaquage": 5, "plaquage_pct": 5, "recup": 4}),
         ("Soutien / ruck offensif", {"soutien": 4}),
         ("Habileté technique (mains / pied)", {"offload": 3, "offload_pct": 3, "passes": 4}),
@@ -254,7 +256,7 @@ PROFILS = {
     "15": [
         ("1 contre 1 défensif", {"plaquage": 6, "plaquage_pct": 6, "plaquage_dom": 6}),
         ("Duel / franchissement", {"break": 14, "def_battu": 12, "contact_dom": 6}),
-        ("Réception / duel aérien", {"rce_pct": 10, "aerien_pct": 10}),
+        ("Réception / duel aérien", {"rce_pct": 8, "aerien": 8, "aerien_pct": 10}),
         ("Habileté technique", {"offload": 2, "offload_pct": 2, "passes": 4}),
     ],
 }
