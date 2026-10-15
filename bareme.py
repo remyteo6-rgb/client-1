@@ -203,7 +203,7 @@ PROFILS = {
         ("Plaquer / contest", {"plaquage_dom": 4, "plaquage": 4, "plaquage_pct": 4, "recup": 7}),
         ("Soutenir / rucker", {"soutien": 5}),
         ("Duel off", {"contact_dom": 6, "contact": 4}),
-        ("Habileté technique", {"offload": 3, "offload_pct": 2, "passes": 3}),
+        ("Habileté technique", {"offload": 5, "offload_pct": 3, "passes": 1}),
     ],
     "Talonneur": [
         ("Lancer", {"lancer_pct": 17, "lanceur": 7}),
@@ -211,7 +211,7 @@ PROFILS = {
         ("Plaquer / contest", {"plaquage_dom": 4, "plaquage": 4, "plaquage_pct": 4, "recup": 7}),
         ("Soutenir / rucker", {"soutien": 5}),
         ("Duel off", {"contact_dom": 6, "contact": 4}),
-        ("Habileté technique", {"offload": 3, "offload_pct": 2, "passes": 3}),
+        ("Habileté technique", {"offload": 5, "offload_pct": 3, "passes": 1}),
     ],
     "2ème ligne": [
         ("Sauter / lifter / touche, CE et CR", {"sauteur_pct": 9, "sauteur": 6, "lifteur_pct": 5, "lifteur": 4}),
@@ -219,12 +219,13 @@ PROFILS = {
         ("Plaquer / contest / défendre", {"plaquage_dom": 4, "plaquage": 4, "plaquage_pct": 4, "recup": 7}),
         ("Soutenir / rucker", {"soutien": 5}),
         ("Duel off / porteur de balle", {"contact_dom": 5, "contact": 3}),
+        ("Habileté technique", {"offload": 5, "offload_pct": 3, "passes": 1}),
     ],
     "3ème ligne": [
         ("Duel off / franchissement", {"contact_dom": 7, "break": 7, "def_battu": 5, "contact": 3}),
         ("Soutenir / rucker", {"soutien": 8}),
         ("Plaquer / contest / défendre", {"plaquage": 5, "plaquage_pct": 5, "recup": 8, "plaquage_dom": 4}),
-        ("Assurer la continuité", {"offload": 3, "passes": 4}),
+        ("Assurer la continuité", {"offload": 5, "passes": 2}),
         ("Sauter / lifter / lecture touche", {"sauteur_pct": 5, "sauteur": 3, "lifteur_pct": 2, "lifteur": 2}),
         ("Habileté technique", {"offload_pct": 6}),
     ],
