@@ -3431,6 +3431,14 @@ def _notes_saison(selected, bar=None):
                             "valeur": round(v["v"] / v["w"], 1)}
                            for v in crit.values()], key=lambda d: -d["poids"])
         malus = round(-sum(sum(mm["points"] for mm in x["res"]["malus"]) for x in notes) / len(notes), 1)
+        notes_crit = {d["critere"] for x in notes for d in x["res"]["detail"]}
+        manq = {}
+        for x in notes:
+            for mq in x["res"].get("manquants") or []:
+                if mq["critere"] not in notes_crit:
+                    e = manq.setdefault(mq["critere"], {"label": mq["label"], "poids": mq["poids"], "n": 0})
+                    e["n"] += mq["n"]
+        manquants = sorted(manq.values(), key=lambda e: -e["poids"])
         ajust = {}
         for x in notes:
             for kind, lst in (("bonus", x["res"].get("bonus") or []), ("malus", x["res"].get("malus") or [])):
@@ -3444,7 +3452,7 @@ def _notes_saison(selected, bar=None):
         faibles = [c for c in sorted(criteres, key=lambda d: d["score"]) if c["score"] < 5][:2]
         out.append({**j, "note": round(note, 1), "minutes": mins, "poste": poste_princ, "criteres": criteres,
                     "malus": malus, "postes": par_poste, "forts": forts, "faibles": faibles,
-                    "ajustements": ajustements})
+                    "ajustements": ajustements, "manquants": manquants})
     ordre = {p: i for i, p in enumerate(bareme.POSTES)}
     out.sort(key=lambda j: (ordre.get(j["poste"], 99), -(j["note"] if j["note"] is not None else -1), j["name"].casefold()))
     return out

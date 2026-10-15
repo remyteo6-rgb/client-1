@@ -48,6 +48,7 @@
                 {% if j.forts %}<p><strong>Points forts :</strong> {% for c in j.forts %}{{ c.label }} ({{ c.score }}){{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
                 {% if j.faibles %}<p><strong>À travailler :</strong> {% for c in j.faibles %}{{ c.label }} ({{ c.score }}){{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
                 {% if j.ajustements %}<p><strong>Bonus et fautes (total sur les matchs notés) :</strong> {% for e in j.ajustements %}{{ e.label }} {{ '%+.1f'|format(e.points) }} ({{ e.n }}){{ ' · ' if not loop.last }}{% endfor %}</p>{% endif %}
+                {% if j.manquants %}<p><strong>Non notés (pas assez d'actions codées) :</strong> {% for e in j.manquants %}{{ e.label }} ({{ e.n }} action{{ 's' if e.n != 1 }}, poids {{ e.poids }}){{ ' · ' if not loop.last }}{% endfor %}. Leur poids est reporté sur les autres critères.</p>{% endif %}
                 {% if j.criteres %}<table class="bil-table notes-table notes-detail"><thead><tr><th>Critère</th><th>Note /10</th><th>Poids</th><th>Valeur /80 min</th></tr></thead>
                     {% for c in j.criteres %}<tr><td>{{ c.label }}</td><td>{{ c.score }}</td><td>{{ c.poids }}</td><td>{{ c.valeur }}</td></tr>{% endfor %}</table>
                 {% else %}<p>Pas de note : {% for x in j.matchs %}{{ x.opponent }} ({{ x.raison }}){{ ', ' if not loop.last }}{% endfor %}.</p>{% endif %}

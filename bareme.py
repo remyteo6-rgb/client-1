@@ -310,7 +310,7 @@ def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
     if minutes < MIN_MINUTES or poste not in POSTES:
         return None
     reglages = (bareme or BAREME_DEFAUT).get(poste) or {}
-    detail, tot_w, tot_s = [], 0.0, 0.0
+    detail, tot_w, tot_s, manquants = [], 0.0, 0.0, []
     for crit, (poids, cible, plancher) in reglages.items():
         if poids <= 0 or crit not in CRITERES:
             continue
@@ -320,6 +320,7 @@ def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
         except Exception:
             val, n = None, 0
         if val is None:
+            manquants.append({"critere": crit, "label": label, "poids": poids, "n": n})
             continue
         if kind == "vol":
             # Rythme par minute lissé : un court passage n'est pas multiplié tel quel jusqu'à 80 min.
@@ -376,4 +377,4 @@ def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
     total_malus = min(sum(-m["points"] for m in malus), MALUS["total_max"])
     note = _clamp(base - total_malus + bonus_pts)
     return {"note": round(note, 1), "base": round(base, 1), "malus": malus, "bonus": bonus,
-            "detail": sorted(detail, key=lambda d: -d["poids"]), "minutes": minutes, "poste": poste}
+            "detail": sorted(detail, key=lambda d: -d["poids"]), "manquants": manquants, "minutes": minutes, "poste": poste}
