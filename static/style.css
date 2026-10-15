@@ -2996,3 +2996,6 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
 .nt-board .nt-chip .nt-badge { min-width:40px; font-size:16px; padding:2px 8px; }
 .nt-body { padding:12px 4px 4px; font-size:16px; line-height:1.55; }
 .nt-board .notes-table td, .nt-board .notes-table th { font-size:16px; }
+
+.landing-choice-link { display:block; text-align:center; margin:-4px 0 10px; font-size:15px; font-weight:700; color:#9b3a5e; text-decoration:none; letter-spacing:.4px; text-transform:uppercase; }
+.landing-choice-link:hover { text-decoration:underline; }
