@@ -20,7 +20,11 @@
     <div class="sf-layout">
         {% for half in (1, 2) %}
         <div class="sf-half" id="sf-half-{{ half }}-wrap">
-            <div class="sf-half-head"><span>{{ '1ÈRE' if half == 1 else '2ND' }} MI-TEMPS</span><span class="sf-score">{{ scores_mt[half] or '' }}{% if half == 2 and score_final and scores_mt[2] and score_final != scores_mt[2] %}<small class="sf-final" title="Score final du match"> · final {{ score_final }}</small>{% endif %}</span></div>
+            <div class="sf-half-head"><span>{{ '1ÈRE' if half == 1 else '2ND' }} MI-TEMPS</span><span class="sf-score">
+                    <img class="sf-score-crest" src="{{ assets.own_crest }}" alt="{{ match['own_team'] }}">
+                    <span>{{ scores_mt[half] or '' }}</span>
+                    {% if assets.adverse_crest %}<img class="sf-score-crest" src="{{ assets.adverse_crest }}" alt="{{ match['opponent'] }}">{% else %}<span class="sf-score-crest sf-score-ini" title="{{ match['opponent'] }}">{{ (match['opponent'] or '?')[:3]|upper }}</span>{% endif %}
+                </span></div>
             <div class="sf-field" data-half="{{ half }}">
                 <svg viewBox="0 0 300 560" preserveAspectRatio="none" class="sf-svg" role="img" aria-label="Terrain, {{ half }}{{ 'ère' if half == 1 else 'nde' }} mi-temps">
                     <rect x="0" y="0" width="300" height="560" fill="#4f9a55"/>

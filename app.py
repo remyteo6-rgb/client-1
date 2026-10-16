@@ -2206,7 +2206,7 @@ def match_surfeurs(match_id):
     couleurs = _surfeur_couleurs(joueurs, [t["player"] for t in touches])
     return render_template("match_surfeurs.html", match=match, touches=touches, couleurs=couleurs,
                            types=SURFEUR_TYPES, joueurs=joueurs, suivi=suivi, scores_mt=scores_mt,
-                           score_final=(f"{own_points} – {adverse_points}" if own_points is not None and adverse_points is not None else None),
+                           assets=_review_assets(match),
                            editable=bool(session.get("is_admin")))
 
 

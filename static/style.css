@@ -3079,3 +3079,7 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
 .sf-type:hover { background:#7b1b46; }
 .sf-sw { display:inline-block; width:14px; height:14px; border-radius:50%; background:#8a8a8a; vertical-align:-2px; margin-right:2px; border:1px solid rgba(0,0,0,.2); }
 .sf-table td.sf-name .sf-sw { margin-right:6px; }
+
+.sf-score { display:flex; align-items:center; gap:10px; font-size:22px; }
+.sf-score-crest { width:34px; height:34px; object-fit:contain; }
+.sf-score-ini { display:inline-flex; align-items:center; justify-content:center; background:#eee; color:#555; border-radius:50%; font-size:11px; font-weight:800; }
