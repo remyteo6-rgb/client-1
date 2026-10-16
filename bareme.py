@@ -213,13 +213,13 @@ PROFILS = {
         ("Duel off", {"contact_dom": 6, "contact": 4}),
         ("Habileté technique", {"offload": 5, "offload_pct": 3, "passes": 1}),
     ],
+    # Mêlée fermée retirée : non quantifiée dans les XML. Son poids est reporté sur la touche, le ruck, le plaquage et le duel.
     "2ème ligne": [
-        ("Sauter / lifter / touche, CE et CR", {"sauteur_pct": 9, "sauteur": 6, "lifteur_pct": 5, "lifteur": 4}),
-        ("Mêlée fermée", {"melee_off_pct": 11, "melee_def_pct": 8}),
-        ("Plaquer / contest / défendre", {"plaquage_dom": 4, "plaquage": 4, "plaquage_pct": 4, "recup": 7}),
-        ("Soutenir / rucker", {"soutien": 5}),
-        ("Duel off / porteur de balle", {"contact_dom": 5, "contact": 3}),
-        ("Habileté technique", {"offload": 5, "offload_pct": 3, "passes": 1}),
+        ("Sauter / lifter / touche, CE et CR", {"sauteur_pct": 11, "sauteur": 7, "lifteur_pct": 6, "lifteur": 5}),
+        ("Plaquer / contest / défendre", {"plaquage_dom": 5, "plaquage": 5, "plaquage_pct": 5, "recup": 9}),
+        ("Soutenir / rucker", {"soutien": 9}),
+        ("Duel off / porteur de balle", {"contact_dom": 6, "contact": 5}),
+        ("Habileté technique", {"offload": 6, "offload_pct": 3, "passes": 2}),
     ],
     "3ème ligne": [
         ("Duel off / franchissement", {"contact_dom": 7, "break": 7, "def_battu": 5, "contact": 3}),
