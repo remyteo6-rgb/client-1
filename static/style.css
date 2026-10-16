@@ -3083,3 +3083,6 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
 .sf-score { display:flex; align-items:center; gap:10px; font-size:22px; }
 .sf-score-crest { width:34px; height:34px; object-fit:contain; }
 .sf-score-ini { display:inline-flex; align-items:center; justify-content:center; background:#eee; color:#555; border-radius:50%; font-size:11px; font-weight:800; }
+
+/* Légende : lettres simples, sans pastille sombre */
+.sf-dot { background:none !important; color:#530d34; min-width:44px; justify-content:flex-end; font-size:15px; }
