@@ -345,12 +345,41 @@ X_NB = 3      # le facteur X est la moyenne des X_NB meilleurs atouts hors poste
 X_SEUIL = 3.0  # note minimale d'un critère hors poste pour compter comme atout
 
 
+# Facteur X propre à un poste : liste de critères retenus (moyenne de tous les critères évaluables),
+# au lieu de la règle générale « meilleurs atouts hors profil ».
+X_PROFILS = {
+    # 3ème ligne : dominance dans ce qu'ils font (contacts +/-, plaquages +/-, défenseurs battus)
+    # et volume de jeu de touche (sauteur, lifteur).
+    "3ème ligne": ["contact_dom", "plaquage_dom", "def_battu", "sauteur", "lifteur"],
+}
+
+
+def _facteur_x_profil(poste, rows, minutes, reglages):
+    atouts = []
+    for crit in X_PROFILS[poste]:
+        r = reglages.get(crit)
+        ref = (r[1], r[2]) if r and r[1] else _cible_hors_poste(crit)
+        if not ref:
+            continue
+        ev = evaluer_critere(crit, ref[0], ref[1], rows, minutes)
+        if ev["valeur"] is None:
+            continue
+        atouts.append({"critere": crit, "label": ev["label"], "type": ev["type"], "valeur": ev["valeur"],
+                       "cible": ref[0], "score": round(ev["score"], 1), "actions": ev["actions"]})
+    if not atouts:
+        return None
+    atouts.sort(key=lambda a: -a["score"])
+    return {"note": round(sum(a["score"] for a in atouts) / len(atouts), 1), "atouts": atouts}
+
+
 def facteur_x(poste, rows, minutes, bareme=None):
     """Facteur X : ce que le joueur apporte HORS des attentes de son poste (franchissements pour un
     pilier, jeu au pied pour un centre, etc.). Note /10 = moyenne de ses X_NB meilleurs atouts (critères hors
     profil notés au moins X_SEUIL), chacun noté comme sur la page Notes. Une valeur basse est normale : elle ne pénalise pas
     la note au poste. Renvoie None s'il n'y a rien d'évaluable."""
     reglages = (bareme or BAREME_DEFAUT).get(poste) or {}
+    if poste in X_PROFILS:
+        return _facteur_x_profil(poste, rows, minutes, reglages)
     dans_profil = {c for c, r in reglages.items() if r[0] > 0}
     atouts = []
     for crit in CRITERES:
