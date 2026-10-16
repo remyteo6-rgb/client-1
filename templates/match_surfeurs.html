@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
+{% block title %}Surfeurs — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
+{% set active = 'surfeurs' %}
+{% block content %}
+<div class="page-header no-print">
+    <div>
+        <h1>{{ icons.rugby() }} Surfeurs — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
+        <p class="subtitle">{% if editable %}Clique sur le terrain pour noter où un joueur a touché le ballon, puis choisis le type de ballon. Clique sur un point pour le modifier ou le supprimer.{% else %}Où les joueurs ont touché les ballons et de quel type. La saisie est réservée à l'administrateur.{% endif %}</p>
+    </div>
+</div>
+
+<div class="report-board sf-board">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">ATTAQUE</span>
+        <span class="report-subtitle">NOS SURFEURS{% if match['competition'] %} · {{ match['competition'] }}{% endif %}</span>
+    </div>
+
+    <div class="sf-layout">
+        {% for half in (1, 2) %}
+        <div class="sf-half" id="sf-half-{{ half }}-wrap">
+            <div class="sf-half-head"><span>{{ '1ÈRE' if half == 1 else '2ND' }} MI-TEMPS</span><span class="sf-score">{% if half == 1 %}{{ score_ht or '' }}{% else %}{{ score_final or '' }}{% endif %}</span></div>
+            <div class="sf-field" data-half="{{ half }}">
+                <svg viewBox="0 0 300 560" preserveAspectRatio="none" class="sf-svg" role="img" aria-label="Terrain, {{ half }}{{ 'ère' if half == 1 else 'nde' }} mi-temps">
+                    <rect x="0" y="0" width="300" height="560" fill="#4f9a55"/>
+                    <rect x="0" y="0" width="300" height="30" fill="#3d7f43"/><rect x="0" y="530" width="300" height="30" fill="#3d7f43"/>
+                    <rect x="0" y="140" width="300" height="140" fill="#559f5b"/><rect x="0" y="420" width="300" height="110" fill="#5aa860"/>
+                    <g stroke="#fff" stroke-width="2" fill="none">
+                        <line x1="0" y1="30" x2="300" y2="30"/><line x1="0" y1="530" x2="300" y2="530"/>
+                        <line x1="0" y1="140" x2="300" y2="140"/><line x1="0" y1="420" x2="300" y2="420"/>
+                        <line x1="0" y1="280" x2="300" y2="280"/>
+                        <line x1="0" y1="230" x2="300" y2="230" stroke-dasharray="7 6"/><line x1="0" y1="330" x2="300" y2="330" stroke-dasharray="7 6"/>
+                    </g>
+                    <g fill="#fff" font-size="11" font-weight="700" opacity=".85">
+                        <text x="6" y="136">22</text><text x="6" y="226">40</text><text x="6" y="276">50</text><text x="6" y="326">40</text><text x="6" y="416">22</text>
+                        <text x="294" y="136" text-anchor="end">22</text><text x="294" y="226" text-anchor="end">40</text><text x="294" y="276" text-anchor="end">50</text><text x="294" y="326" text-anchor="end">40</text><text x="294" y="416" text-anchor="end">22</text>
+                    </g>
+                </svg>
+                <div class="sf-marks"></div>
+            </div>
+        </div>
+        {% if half == 1 %}
+        <div class="sf-center">
+            <div class="sf-panel-row">
+                <div class="sf-panel sf-legend">
+                    <div class="sf-panel-head">LÉGENDE</div>
+                    <ul>{% for code, label, color in types %}<li><span class="sf-dot" style="background:{{ color }}">{{ code }}</span> = {{ label }}</li>{% endfor %}</ul>
+                </div>
+                <div class="sf-panel sf-suivi">
+                    <div class="sf-panel-head">SUIVI · TOTAL SURFEURS</div>
+                    <div id="sf-suivi">
+                        {% set mx = (suivi|map(attribute='total')|max) if suivi else 0 %}
+                        {% for s in suivi %}
+                        <div class="sf-bar-row" data-id="{{ s.id }}" data-courant="{{ 1 if s.courant else 0 }}">
+                            {% if s.crest %}<img src="{{ s.crest }}" alt="" class="sf-crest">{% else %}<span class="sf-crest sf-crest-txt">{{ s.opponent[:3]|upper }}</span>{% endif %}
+                            <span class="sf-bar" style="width: {{ (s.total / (mx or 1) * 100)|round|int }}%;" data-base="{{ s.total }}"><b>{{ s.total }}</b></span>
+                            <span class="sf-bar-name">{{ s.opponent }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <div class="sf-panel sf-impl">
+                <div class="sf-panel-head">IMPLICATIONS</div>
+                <table class="sf-table"><thead><tr><th>Joueur</th><th>1ère MT</th><th>2nde MT</th><th>Total</th></tr></thead><tbody id="sf-impl"></tbody></table>
+                <p class="sf-empty" id="sf-impl-empty">Aucune touche notée pour l'instant.</p>
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+</div>
+
+{% if editable %}
+<div id="sf-pop" class="sf-pop" hidden>
+    <div class="sf-pop-title" id="sf-pop-title">Type de ballon</div>
+    <label class="sf-pop-player">Joueur
+        <select id="sf-pop-player"><option value="">—</option>{% for j in joueurs %}<option value="{{ j }}">{{ j }}</option>{% endfor %}</select>
+    </label>
+    <div class="sf-pop-types">{% for code, label, color in types %}<button type="button" class="sf-type" data-type="{{ code }}" style="background:{{ color }}" title="{{ label }}">{{ code }}</button>{% endfor %}</div>
+    <div class="sf-pop-actions"><button type="button" id="sf-pop-del" class="sf-link sf-del" hidden>Supprimer</button><button type="button" id="sf-pop-cancel" class="sf-link">Annuler</button></div>
+</div>
+{% endif %}
+
+<script>
+(function () {
+    var EDIT = {{ 'true' if editable else 'false' }};
+    var SAVE_URL = {{ url_for('match_surfeurs_save', match_id=match['id'])|tojson }};
+    var TYPES = {{ (types|map('list')|list)|tojson }};   // [code, libellé, couleur]
+    var color = {}, label = {};
+    TYPES.forEach(function (t) { color[t[0]] = t[2]; label[t[0]] = t[1]; });
+    var touches = {{ touches|tojson }};
+    var pop = document.getElementById('sf-pop');
+    var current = null;          // {half, x, y, id?, wrap}
+    var lastPlayer = '';
+    var saveTimer = null;
+
+    function uid() { return 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+    function render() {
+        [1, 2].forEach(function (h) {
+            var box = document.querySelector('.sf-field[data-half="' + h + '"] .sf-marks');
+            box.innerHTML = '';
+            touches.filter(function (t) { return t.half === h; }).forEach(function (t) {
+                var d = document.createElement('button');
+                d.type = 'button'; d.className = 'sf-mark'; d.textContent = t.type;
+                d.style.left = (t.x * 100) + '%'; d.style.top = (t.y * 100) + '%';
+                d.style.background = color[t.type] || '#555';
+                d.title = (label[t.type] || t.type) + (t.player ? ' · ' + t.player : '');
+                d.addEventListener('click', function (ev) {
+                    ev.stopPropagation();
+                    if (EDIT) openPop({half: h, x: t.x, y: t.y, id: t.id}, d.closest('.sf-field'));
+                });
+                box.appendChild(d);
+            });
+        });
+        renderImpl();
+        renderSuivi();
+    }
+
+    function renderImpl() {
+        var by = {};
+        touches.forEach(function (t) {
+            var k = t.player || 'Joueur non précisé';
+            by[k] = by[k] || {1: 0, 2: 0};
+            by[k][t.half]++;
+        });
+        var names = Object.keys(by).sort(function (a, b) { return (by[b][1] + by[b][2]) - (by[a][1] + by[a][2]); });
+        var tb = document.getElementById('sf-impl');
+        tb.innerHTML = '';
+        names.forEach(function (n) {
+            var tr = document.createElement('tr');
+            [n, by[n][1] || '-', by[n][2] || '-', by[n][1] + by[n][2]].forEach(function (v, i) {
+                var td = document.createElement('td'); td.textContent = v; if (i === 0) td.className = 'sf-name'; tr.appendChild(td);
+            });
+            tb.appendChild(tr);
+        });
+        document.getElementById('sf-impl-empty').hidden = names.length > 0;
+    }
+
+    function renderSuivi() {
+        // Le match courant reflète les touches en cours de saisie ; les autres matchs restent figés.
+        var rows = document.querySelectorAll('#sf-suivi .sf-bar-row');
+        var vals = [];
+        rows.forEach(function (r) {
+            var v = r.getAttribute('data-courant') === '1' ? touches.length : parseInt(r.querySelector('.sf-bar').getAttribute('data-base'), 10) || 0;
+            vals.push(v);
+        });
+        var mx = Math.max.apply(null, vals.concat([1]));
+        rows.forEach(function (r, i) {
+            var bar = r.querySelector('.sf-bar');
+            bar.style.width = Math.max(4, vals[i] / mx * 100) + '%';
+            bar.querySelector('b').textContent = vals[i];
+            r.classList.toggle('sf-courant', r.getAttribute('data-courant') === '1');
+        });
+    }
+
+    function save() {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(function () {
+            fetch(SAVE_URL, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({touches: touches})})
+                .then(function (r) { if (!r.ok) throw new Error(r.status); })
+                .catch(function () { alert("La saisie n'a pas pu être enregistrée. Recharge la page et réessaie."); });
+        }, 250);
+    }
+
+    function openPop(c, field) {
+        current = c; current.field = field;
+        var existing = c.id ? touches.filter(function (t) { return t.id === c.id; })[0] : null;
+        document.getElementById('sf-pop-title').textContent = existing ? 'Modifier : ' + (label[existing.type] || '') : 'Type de ballon';
+        document.getElementById('sf-pop-player').value = existing ? existing.player : lastPlayer;
+        document.getElementById('sf-pop-del').hidden = !existing;
+        var wrap = field.getBoundingClientRect();
+        pop.hidden = false;
+        var pw = pop.offsetWidth, ph = pop.offsetHeight;
+        var left = wrap.left + c.x * wrap.width + 14, top = wrap.top + c.y * wrap.height - 10;
+        left = Math.min(Math.max(8, left), window.innerWidth - pw - 8);
+        top = Math.min(Math.max(8, top), window.innerHeight - ph - 8);
+        pop.style.left = (left + window.scrollX) + 'px'; pop.style.top = (top + window.scrollY) + 'px';
+    }
+    function closePop() { if (pop) pop.hidden = true; current = null; }
+
+    if (EDIT) {
+        document.querySelectorAll('.sf-field').forEach(function (f) {
+            f.addEventListener('click', function (ev) {
+                var r = f.getBoundingClientRect();
+                openPop({half: parseInt(f.getAttribute('data-half'), 10), x: (ev.clientX - r.left) / r.width, y: (ev.clientY - r.top) / r.height}, f);
+            });
+        });
+        pop.querySelectorAll('.sf-type').forEach(function (b) {
+            b.addEventListener('click', function () {
+                if (!current) return;
+                var player = document.getElementById('sf-pop-player').value;
+                lastPlayer = player;
+                var type = b.getAttribute('data-type');
+                var ex = current.id ? touches.filter(function (t) { return t.id === current.id; })[0] : null;
+                if (ex) { ex.type = type; ex.player = player; }
+                else touches.push({id: uid(), half: current.half, x: Math.min(1, Math.max(0, current.x)), y: Math.min(1, Math.max(0, current.y)), type: type, player: player});
+                closePop(); render(); save();
+            });
+        });
+        document.getElementById('sf-pop-del').addEventListener('click', function () {
+            if (!current || !current.id) return;
+            touches = touches.filter(function (t) { return t.id !== current.id; });
+            closePop(); render(); save();
+        });
+        document.getElementById('sf-pop-cancel').addEventListener('click', closePop);
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closePop(); });
+        document.addEventListener('mousedown', function (e) { if (!pop.hidden && !pop.contains(e.target) && !e.target.closest('.sf-field')) closePop(); });
+    }
+    render();
+})();
+</script>
+{% endblock %}

@@ -2093,6 +2093,70 @@ def match_bilan_attaque(match_id):
     )
 
 
+# ---- Surfeurs : où et comment les joueurs touchent le ballon (saisie sur le terrain) -----
+# (code, libellé, couleur). Pour ajouter un type de ballon : une ligne ici.
+SURFEUR_TYPES = [
+    ("E", "Essai", "#e08b2c"), ("P", "Passe", "#7b1b46"), ("J", "Jeu au pied", "#2f5d8a"),
+    ("C", "Contact", "#1c4586"), ("O", "Offload", "#2f6b39"), ("DA", "Duel aérien", "#5b5b5b"),
+    ("TO", "Turnover", "#d9463c"), ("CE", "Réception CE", "#8a5a1b"), ("EN-A", "En avant", "#a5305f"),
+    ("R", "Rebond", "#4a8f8f"),
+]
+
+
+def _surfeurs_touches(manual):
+    """Touches enregistrées d'un match : [{id, half, x, y, type, player}] (x, y entre 0 et 1 :
+    0 = en-but adverse en haut, 1 = notre en-but en bas)."""
+    out = []
+    codes = {c for c, _l, _k in SURFEUR_TYPES}
+    for t in ((manual or {}).get("surfeurs") or {}).get("touches") or []:
+        try:
+            if t.get("type") in codes and int(t.get("half")) in (1, 2):
+                out.append({"id": str(t.get("id") or "")[:24], "half": int(t["half"]),
+                            "x": min(1.0, max(0.0, float(t["x"]))), "y": min(1.0, max(0.0, float(t["y"]))),
+                            "type": t["type"], "player": str(t.get("player") or "")[:60]})
+        except (TypeError, ValueError, KeyError, AttributeError):
+            continue
+    return out
+
+
+@app.route("/match/<int:match_id>/surfeurs")
+def match_surfeurs(match_id):
+    match = _get_match_or_404(match_id)
+    own_points, adverse_points, _, _, _ = _resolve_match_score(match)
+    joueurs = [c for c in (match.get("composition") or []) if c]
+    # Suivi : nombre de touches saisies sur chaque match (barres à droite de la légende).
+    suivi = []
+    for r in get_db().execute("SELECT id, opponent, match_date, manual_stats_json FROM matches "
+                              "ORDER BY COALESCE(match_date, created_at), id").fetchall():
+        try:
+            n = len(_surfeurs_touches(json.loads(r["manual_stats_json"] or "{}")))
+        except ValueError:
+            n = 0
+        if n or r["id"] == match_id:
+            suivi.append({"id": r["id"], "opponent": r["opponent"] or "?", "total": n, "courant": r["id"] == match_id,
+                          "crest": _club_crest_url(r["opponent"])})
+    return render_template("match_surfeurs.html", match=match, touches=_surfeurs_touches(match.get("manual_stats")),
+                           types=SURFEUR_TYPES, joueurs=joueurs, suivi=suivi, score_ht=match.get("score_ht"),
+                           score_final=(f"{own_points} – {adverse_points}" if own_points is not None and adverse_points is not None else None),
+                           editable=bool(session.get("is_admin")))
+
+
+@app.route("/match/<int:match_id>/surfeurs/saisie", methods=["POST"])
+@admin_required
+def match_surfeurs_save(match_id):
+    """Enregistre la liste complète des touches posées sur le terrain (la page renvoie tout
+    à chaque ajout, déplacement ou suppression : la liste reste petite)."""
+    match = _get_match_or_404(match_id)
+    payload = request.get_json(silent=True) or {}
+    touches = _surfeurs_touches({"surfeurs": {"touches": (payload.get("touches") or [])[:600]}})
+    manual = match.get("manual_stats") or {}
+    manual["surfeurs"] = {"touches": touches}
+    db = get_db()
+    db.execute("UPDATE matches SET manual_stats_json = %s WHERE id = %s", (json.dumps(manual), match_id))
+    db.commit()
+    return jsonify({"ok": True, "total": len(touches)})
+
+
 @app.route("/match/<int:match_id>/bilan-defense")
 def match_bilan_defense(match_id):
     """Page "Defense" du rapport vidéo."""

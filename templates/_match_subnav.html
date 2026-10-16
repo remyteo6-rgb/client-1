@@ -87,7 +87,7 @@
         {% endif %}
 
         {% if match is defined %}
-        {% set page_labels = {'overview': "Vue d'ensemble", 'bilan_attaque': 'Bilan attaque', 'bilan_defense': 'Bilan défense', 'csc': 'CSC', 'discipline': 'Discipline', 'touches': 'Touches', 'possessions': 'Nos possessions', 'zone_gold': 'Zone Gold', 'joueurs': 'Joueurs', 'composition': 'Composition', 'tableaux': 'Tableaux'} %}
+        {% set page_labels = {'overview': "Vue d'ensemble", 'bilan_attaque': 'Bilan attaque', 'surfeurs': 'Surfeurs', 'bilan_defense': 'Bilan défense', 'csc': 'CSC', 'discipline': 'Discipline', 'touches': 'Touches', 'possessions': 'Nos possessions', 'zone_gold': 'Zone Gold', 'joueurs': 'Joueurs', 'composition': 'Composition', 'tableaux': 'Tableaux'} %}
         {# Ordre des onglets = ordre du rapport (demande de Téo), Composition à la suite.
            « Nos possessions » retiré du menu à sa demande. Une seule liste pour la barre
            et le menu déroulant. En mode saison : mêmes onglets, versions « moyenne par
@@ -112,6 +112,7 @@
         {% set match_tabs = [
             ('overview', 'match_detail', "Vue d'ensemble"),
             ('bilan_attaque', 'match_bilan_attaque', 'Bilan attaque'),
+            ('surfeurs', 'match_surfeurs', 'Surfeurs'),
             ('zone_gold', 'match_zone_gold', 'Zone Gold'),
             ('bilan_defense', 'match_bilan_defense', 'Bilan défense'),
             ('csc', 'match_csc', 'CSC'),
