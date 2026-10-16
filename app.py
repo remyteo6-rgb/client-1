@@ -3119,7 +3119,7 @@ def _compare_radar(selected, name_a, name_b, poste=None):
         profils.append([{"nom": a["label"], "score": a["scores"][i]} for a in forts])
     # Géométrie du radar (SVG calculé ici)
     n = len(out_axes)
-    cx, cy, R = 260, 250, 170
+    cx, cy, R = 300, 275, 215
     def pt(i, frac):
         ang = -math.pi / 2 + 2 * math.pi * i / n
         return round(cx + R * frac * math.cos(ang), 1), round(cy + R * frac * math.sin(ang), 1)
@@ -3130,8 +3130,12 @@ def _compare_radar(selected, name_a, name_b, poste=None):
     poly_moy = poly("moy_score")
     for i, a in enumerate(out_axes):
         a["axis_end"] = pt(i, 1)
-        lx, ly = pt(i, 1.17)
+        lx, ly = pt(i, 1.12)
         a["label_pos"] = (lx, ly)
+        # Libellé long : coupé en deux lignes sur « / » pour rester lisible sans réduire le radar.
+        parts = a["label"].split(" / ")
+        a["label_lines"] = [" / ".join(parts[:(len(parts) + 1) // 2]) + (" /" if len(parts) > 1 else "")] + \
+                           ([" / ".join(parts[(len(parts) + 1) // 2:])] if len(parts) > 1 else [])
         a["anchor"] = "middle" if abs(lx - cx) < 20 else ("start" if lx > cx else "end")
         a["points"] = [pt(i, (a["scores"][j] or 0) / 100) for j in (0, 1)]
     rings = [" ".join(f"{x},{y}" for x, y in (pt(i, f) for i in range(n))) for f in (0.25, 0.5, 0.75, 1)]

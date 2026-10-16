@@ -60,11 +60,11 @@
         <div class="bil-panel">
             <div class="bil-panel-head">Radar</div>
             <div style="padding:8px 8px 4px; text-align:center;">
-                <svg viewBox="-190 0 940 500" width="760" style="max-width:100%; height:auto;" role="img" aria-label="Radar de comparaison">
+                <svg viewBox="-70 0 740 550" width="820" style="max-width:100%; height:auto;" role="img" aria-label="Radar de comparaison">
                     {% for ring in radar.rings %}<polygon points="{{ ring }}" fill="none" stroke="#d9d3cf" stroke-width="1"/>{% endfor %}
                     {% for ax in radar.axes %}
                     <line x1="{{ radar.cx }}" y1="{{ radar.cy }}" x2="{{ ax.axis_end[0] }}" y2="{{ ax.axis_end[1] }}" stroke="#d9d3cf" stroke-width="1"/>
-                    <text x="{{ ax.label_pos[0] }}" y="{{ ax.label_pos[1] }}" text-anchor="{{ ax.anchor }}" font-size="14" font-weight="700" fill="#530d34">{{ ax.label }}</text>
+                    <text x="{{ ax.label_pos[0] }}" y="{{ ax.label_pos[1] }}" text-anchor="{{ ax.anchor }}" font-size="14" font-weight="700" fill="#530d34">{% for ln in ax.label_lines %}<tspan x="{{ ax.label_pos[0] }}" dy="{{ 0 if loop.first else 16 }}">{{ ln }}</tspan>{% endfor %}</text>
                     {% endfor %}
                     <polygon points="{{ radar.poly_moy }}" fill="rgba(110,110,110,.10)" stroke="#6e6e6e" stroke-width="2" stroke-dasharray="6 4"/>
                     <polygon points="{{ radar.polys[0] }}" fill="rgba(47,93,138,.28)" stroke="#2f5d8a" stroke-width="2.5"/>
