@@ -3135,18 +3135,23 @@ def _compare_radar(selected, name_a, name_b, poste=None):
         mx = max(valeurs) if valeurs else 0
         mn_ = min(valeurs) if valeurs else 0
         row = {"key": key, "label": label, "sens": sens, "vals": [], "scores": []}
+
+        def score(v):
+            if v is None:
+                return None
+            if sens == "pct":
+                return max(0, min(100, v))
+            if sens == "lo":
+                return 100 if mx <= 0 else max(0, min(100, 100 * (1 - v / mx)))
+            return 0 if mx <= 0 else max(0, min(100, 100 * v / mx))
         for nom in (name_a, name_b):
             v = val(nom, fn)
-            if v is None:
-                sc = None
-            elif sens == "pct":
-                sc = max(0, min(100, v))
-            elif sens == "lo":
-                sc = 100 if mx <= 0 else max(0, min(100, 100 * (1 - v / mx)))
-            else:
-                sc = 0 if mx <= 0 else max(0, min(100, 100 * v / mx))
             row["vals"].append(v)
-            row["scores"].append(sc)
+            row["scores"].append(score(v))
+        # Moyenne au poste : moyenne des valeurs des joueurs de la référence, sur la même échelle
+        moy = sum(valeurs) / len(valeurs) if valeurs else None
+        row["moy"] = moy
+        row["moy_score"] = score(moy)
         out_axes.append(row)
     # Profils : familles d'axes classées par moyenne de notes. Un profil est relatif au poste comparé, pas absolu.
     profils = []
@@ -3175,13 +3180,14 @@ def _compare_radar(selected, name_a, name_b, poste=None):
     for j in (0, 1):
         pts = [pt(i, (a["scores"][j] or 0) / 100) for i, a in enumerate(out_axes)]
         polys.append(" ".join(f"{x},{y}" for x, y in pts))
+    poly_moy = " ".join(f"{x},{y}" for x, y in (pt(i, (a["moy_score"] or 0) / 100) for i, a in enumerate(out_axes)))
     for i, a in enumerate(out_axes):
         a["axis_end"] = pt(i, 1)
         lx, ly = pt(i, 1.17)
         a["label_pos"] = (lx, ly)
         a["anchor"] = "middle" if abs(lx - cx) < 20 else ("start" if lx > cx else "end")
     rings = [" ".join(f"{x},{y}" for x, y in (pt(i, f) for i in range(n))) for f in (0.25, 0.5, 0.75, 1)]
-    return {"poste": poste, "axes": out_axes, "polys": polys, "rings": rings, "profils": profils,
+    return {"poste": poste, "axes": out_axes, "polys": polys, "poly_moy": poly_moy, "rings": rings, "profils": profils,
             "mode": "par 80 min", "minutes": (ma, mb), "matchs": (da[2], db_[2]),
             "pool": len(pool), "cx": cx, "cy": cy}
 

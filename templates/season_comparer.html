@@ -66,6 +66,7 @@
                     <line x1="{{ radar.cx }}" y1="{{ radar.cy }}" x2="{{ ax.axis_end[0] }}" y2="{{ ax.axis_end[1] }}" stroke="#d9d3cf" stroke-width="1"/>
                     <text x="{{ ax.label_pos[0] }}" y="{{ ax.label_pos[1] }}" text-anchor="{{ ax.anchor }}" font-size="12" font-weight="700" fill="#530d34">{{ ax.label }}</text>
                     {% endfor %}
+                    <polygon points="{{ radar.poly_moy }}" fill="rgba(110,110,110,.10)" stroke="#6e6e6e" stroke-width="2" stroke-dasharray="6 4"/>
                     <polygon points="{{ radar.polys[0] }}" fill="rgba(47,93,138,.28)" stroke="#2f5d8a" stroke-width="2.5"/>
                     <polygon points="{{ radar.polys[1] }}" fill="rgba(165,48,95,.25)" stroke="#a5305f" stroke-width="2.5"/>
                 </svg>
@@ -77,16 +78,18 @@
                 <div class="cmp-legend">
                     <p class="cmp-a"><span class="cmp-sq" style="background:#2f5d8a;"></span><strong>{{ display_name(a) }}</strong> — {{ radar.minutes[0] }} min ({{ radar.matchs[0] }} match{{ 's' if radar.matchs[0] != 1 else '' }} à ce poste) · {% for p in radar.profils[0] %}{{ p.nom }} ({{ p.score }}){{ ' · ' if not loop.last }}{% else %}—{% endfor %}</p>
                     <p class="cmp-b"><span class="cmp-sq" style="background:#a5305f;"></span><strong>{{ display_name(b) }}</strong> — {{ radar.minutes[1] }} min ({{ radar.matchs[1] }} match{{ 's' if radar.matchs[1] != 1 else '' }} à ce poste) · {% for p in radar.profils[1] %}{{ p.nom }} ({{ p.score }}){{ ' · ' if not loop.last }}{% else %}—{% endfor %}</p>
+                    <p class="cmp-moy"><span class="cmp-sq" style="background:#6e6e6e;"></span><strong>Moyenne au poste</strong> — {{ radar.pool }} joueurs (trait pointillé)</p>
                 </div>
                 <p class="gp-note" style="padding-top:2px; color:#6a6a6a;">Référence : {{ radar.pool }} joueurs ayant tenu ce poste au moins 40 min (seuls les matchs joués à ce poste comptent). 100 = le meilleur du poste, 0 = le moins élevé ; pourcentages : valeur réelle.</p>
             </div>
             <div class="bil-panel">
                 <div class="bil-panel-head">Critères (pour 80 min)</div>
                 <table class="bil-table bil-table-quad">
-                    <thead><tr><th></th><th class="cmp-a">{{ display_name(a) }}</th><th class="cmp-b">{{ display_name(b) }}</th></tr></thead>
+                    <thead><tr><th></th><th class="cmp-a">{{ display_name(a) }}</th><th class="cmp-b">{{ display_name(b) }}</th><th>Moy. poste</th></tr></thead>
                     <tbody>
                     {% for ax in radar.axes %}<tr><th>{{ ax.label }}{{ ' (moins = mieux)' if ax.sens == 'lo' else '' }}</th>
-                        {% for v in ax.vals %}<td>{% if v is none %}—{% elif ax.sens == 'pct' %}{{ v|round(0)|int }} %{% else %}{{ v|round(1) }}{% endif %}</td>{% endfor %}</tr>{% endfor %}
+                        {% for v in ax.vals %}<td>{% if v is none %}—{% elif ax.sens == 'pct' %}{{ v|round(0)|int }} %{% else %}{{ v|round(1) }}{% endif %}</td>{% endfor %}
+                        <td>{% if ax.moy is none %}—{% elif ax.sens == 'pct' %}{{ ax.moy|round(0)|int }} %{% else %}{{ ax.moy|round(1) }}{% endif %}</td></tr>{% endfor %}
                     </tbody>
                 </table>
             </div>
