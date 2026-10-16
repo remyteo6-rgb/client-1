@@ -3070,3 +3070,5 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
 .sf-crest { width:36px; height:36px; }
 .sf-bar { background:#3d6a9e; font-size:17px; font-weight:700; padding:5px 10px; border-radius:2px; transition: width .2s; }
 .sf-courant .sf-bar { background:#3d6a9e; outline:3px solid #f9a240; }
+
+.sf-final { font-size:13px; font-weight:600; opacity:.8; }

@@ -21,7 +21,7 @@ from parser import (
     compute_team_discipline_counts,
     parse_sportscode_xml, aggregate_match_stats, aggregate_zones, CATEGORY_SECTIONS,
     SECTION_ICONS, SECTION_HELP, CATEGORY_HELP, generate_highlights, compute_radar_metrics,
-    compute_score, compute_phase_timing,
+    compute_score, compute_phase_timing, compute_points_par_quart,
     compute_player_attack_table, compute_player_defense_table, compute_player_ruck_table,
     compute_player_bilan_table, compute_player_activity, _new_convention_player_names,
     compute_overview_dashboard, compute_squad_season_stats,
@@ -2146,8 +2146,18 @@ def match_surfeurs(match_id):
     # Comme la maquette : le match en cours et les 5 précédents (les plus anciens restent en base).
     idx = next((i for i, s in enumerate(suivi) if s["courant"]), len(suivi) - 1)
     suivi = suivi[max(0, idx - 5): idx + 1]
+    # Score de chaque mi-temps : points marqués pendant la période (0-40 puis 40-80 min), d'après
+    # les codes de score du XML ; à défaut, le score à la mi-temps saisi à l'import.
+    scores_mt = {1: None, 2: None}
+    own_q = compute_points_par_quart(match["instances"], "own")
+    adv_q = compute_points_par_quart(match["instances"], "adverse")
+    if own_q is not None and adv_q is not None:
+        for h, qs in ((1, ("0-20", "20-40")), (2, ("40-60", "60-80"))):
+            scores_mt[h] = f"{sum(own_q[q] for q in qs)} – {sum(adv_q[q] for q in qs)}"
+    elif match.get("score_ht"):
+        scores_mt[1] = str(match["score_ht"]).replace("-", " – ")
     return render_template("match_surfeurs.html", match=match, touches=_surfeurs_touches(match.get("manual_stats")),
-                           types=SURFEUR_TYPES, joueurs=joueurs, suivi=suivi, score_ht=match.get("score_ht"),
+                           types=SURFEUR_TYPES, joueurs=joueurs, suivi=suivi, scores_mt=scores_mt,
                            score_final=(f"{own_points} – {adverse_points}" if own_points is not None and adverse_points is not None else None),
                            editable=bool(session.get("is_admin")))
 
