@@ -64,7 +64,7 @@
         </details>
         <img src="{{ url_for('static', filename='logo.png') }}" class="subnav-logo" alt="{{ club_full_name }}">
         {% if match is defined %}
-        {% if season_mode %}<span class="subnav-context">{{ icons.rugby() }} Saison · moyenne sur {{ season_selected_count }} match{{ 's' if season_selected_count != 1 else '' }}</span>{% else %}<span class="subnav-context" title="{{ match['own_team'] }} vs {{ match['opponent'] }}{% if match['match_date'] %} · {{ match['match_date'] }}{% endif %}">{{ icons.rugby() }} {{ match['own_team'] }} vs {{ match['opponent'] }}{% if match['match_date'] %} · {{ match['match_date'] }}{% endif %}</span>{% endif %}
+        {% if season_mode %}<span class="subnav-context">{{ icons.rugby() }} Saison · moyenne sur {{ season_selected_count }} match{{ 's' if season_selected_count != 1 else '' }}</span>{% else %}{% set _opts = match_nav_options() %}<select class="subnav-context subnav-match-select" aria-label="Changer de match" title="Changer de match" onchange="if (this.value) location.href = this.value;">{% for o in _opts %}<option value="{{ o.url }}"{% if o.id == match['id'] %} selected{% endif %}>{{ o.label }}</option>{% endfor %}{% if not _opts %}<option>{{ match['own_team'] }} vs {{ match['opponent'] }}</option>{% endif %}</select>{% endif %}
         {% endif %}
 
         {% if nav_players %}

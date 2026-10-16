@@ -247,6 +247,26 @@ def admin_required(view):
     return wrapped
 
 
+def _match_nav_options():
+    """Liste déroulante de la barre du haut : tous les matchs (du plus ancien au plus récent), chacun
+    avec le lien vers la MÊME page pour ce match, pour passer d'un match à l'autre sans repasser par l'accueil."""
+    try:
+        rows = get_db().execute("SELECT id, own_team, opponent, match_date FROM matches "
+                                "ORDER BY COALESCE(match_date, created_at), id").fetchall()
+    except Exception:
+        return []
+    endpoint, args = request.endpoint, dict(request.view_args or {})
+    out = []
+    for r in rows:
+        try:
+            url = url_for(endpoint, **{**args, "match_id": r["id"]})
+        except Exception:
+            url = url_for("match_detail", match_id=r["id"])
+        label = f"{r['own_team'] or ''} vs {r['opponent'] or '?'}".strip() + (f" · {r['match_date']}" if r["match_date"] else "")
+        out.append({"id": r["id"], "label": label, "url": url})
+    return out
+
+
 @app.context_processor
 def inject_logged_in():
     ctx = {
@@ -258,6 +278,7 @@ def inject_logged_in():
         "user_email": session.get("user_email", ""),
         "club_name": CLUB_NAME, "club_full_name": CLUB_FULL_NAME,
         "asset_version": ASSET_VERSION,
+        "match_nav_options": _match_nav_options,
     }
     # Liste légère (id + nom) de tous les joueurs, pour la recherche rapide dans la barre
     # du haut (voir _match_subnav.html) — disponible sur toutes les pages plutôt que la

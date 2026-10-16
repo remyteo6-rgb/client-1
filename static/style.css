@@ -3089,3 +3089,10 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
 
 .sf-import { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:0 0 12px; padding:10px 14px; background:#f6efe9; border:1px solid #d9c9bb; border-radius:8px; font-size:14px; }
 .sf-import select { padding:4px 8px; }
+
+/* Liste déroulante des matchs dans la barre du haut : texte blanc */
+select.subnav-match-select { color:#fff; cursor:pointer; appearance:none; -webkit-appearance:none; padding-right:26px; max-width:300px; font-family:inherit;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23fff'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 10px center; }
+select.subnav-match-select:hover, select.subnav-match-select:focus { background-color:rgba(255,255,255,0.14); outline:none; }
+select.subnav-match-select option { color:#222; background:#fff; }
