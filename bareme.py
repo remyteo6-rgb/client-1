@@ -341,13 +341,14 @@ def _cible_hors_poste(crit):
     return min(cands, key=lambda x: x[0]) if cands else None
 
 
-X_NB = 3  # le facteur X est la moyenne des X_NB meilleurs critères hors poste
+X_NB = 3      # le facteur X est la moyenne des X_NB meilleurs atouts hors poste
+X_SEUIL = 3.0  # note minimale d'un critère hors poste pour compter comme atout
 
 
 def facteur_x(poste, rows, minutes, bareme=None):
     """Facteur X : ce que le joueur apporte HORS des attentes de son poste (franchissements pour un
-    pilier, jeu au pied pour un centre, etc.). Note /10 = moyenne de ses X_NB meilleurs critères hors
-    profil, chacun noté comme sur la page Notes. Une valeur basse est normale : elle ne pénalise pas
+    pilier, jeu au pied pour un centre, etc.). Note /10 = moyenne de ses X_NB meilleurs atouts (critères hors
+    profil notés au moins X_SEUIL), chacun noté comme sur la page Notes. Une valeur basse est normale : elle ne pénalise pas
     la note au poste. Renvoie None s'il n'y a rien d'évaluable."""
     reglages = (bareme or BAREME_DEFAUT).get(poste) or {}
     dans_profil = {c for c, r in reglages.items() if r[0] > 0}
@@ -366,7 +367,9 @@ def facteur_x(poste, rows, minutes, bareme=None):
     if not atouts:
         return None
     atouts.sort(key=lambda a: -a["score"])
-    top = atouts[:X_NB]
+    # Seuls les vrais atouts comptent (note >= X_SEUIL) : un critère à zéro ne dilue pas un atout réel.
+    reels = [a for a in atouts if a["score"] >= X_SEUIL][:X_NB]
+    top = reels or atouts[:1]
     return {"note": round(sum(a["score"] for a in top) / len(top), 1), "atouts": atouts}
 
 
