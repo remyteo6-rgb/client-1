@@ -3448,7 +3448,8 @@ def _notes_saison_calc(selected, bar=None):
                 j["cumul_min"] = mins_c
         if not notes:
             out.append({**j, "note": None, "minutes": sum(x["minutes"] for x in j["matchs"]),
-                        "poste": (j["matchs"][0]["poste"] if j["matchs"] else None), "criteres": [], "malus": 0})
+                        "poste": (j["matchs"][0]["poste"] if j["matchs"] else None), "criteres": [], "malus": 0,
+                        "x_note": None, "x_atouts": []})
             continue
         mins = sum(x["minutes"] for x in notes)
         note = sum(x["res"]["note"] * x["minutes"] for x in notes) / mins
