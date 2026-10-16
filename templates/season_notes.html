@@ -7,53 +7,71 @@
 <div class="page-header no-print">
     <div>
         <h1>{{ icons.chart() }} Notes des joueurs</h1>
-        <p class="subtitle">Note au poste sur 10 par match, comparée à la cible du poste, et note facteur X (ce qu'il apporte hors de son poste). <a href="{{ url_for('season_bareme') }}">Voir le barème</a></p>
+        <p class="subtitle">Une note sur 10 par joueur, jugée sur les attentes de son poste. Clique sur un joueur pour voir le détail. <a href="{{ url_for('season_bareme') }}">Voir le barème</a></p>
     </div>
 </div>
 {% include "_season_select.html" %}
 <div class="report-board nt-board board-free">
     <div class="report-head"><span class="report-title">NOTES SAISON</span></div>
 
-    <div class="bil-panel" style="margin-bottom:16px;">
-        <div class="bil-panel-head bil-head-blue">Comment lire une note</div>
-        <div class="nt-legend">
-            <span><span class="nt-badge nt-top">6,5+</span> très bon match pour son poste</span>
-            <span><span class="nt-badge nt-ok">5–6,5</span> solide</span>
-            <span><span class="nt-badge nt-mid">3,5–5</span> en dessous des attentes</span>
-            <span><span class="nt-badge nt-low">&lt; 3,5</span> match à revoir</span>
-        </div>
-        <p class="gp-note">10 = toutes les cibles du poste atteintes. Chaque critère est noté de 0 à 10 selon sa cible, puis pondéré. On retire ensuite les fautes (pénalité −{{ malus.penalite }}, jaune −{{ malus.jaune }}, rouge −{{ malus.rouge }}) et on ajoute les essais. Pas de note sous {{ min_minutes }} min jouées. La note de saison pèse chaque match par ses minutes. <strong>« Écart »</strong> = note du joueur moins la moyenne de son poste. <strong>« X » (facteur X)</strong> = note /10 sur les stats codées <em>hors</em> des attentes de son poste (franchissements d'un pilier, jeu au pied d'un centre, etc.) : moyenne de ses 3 meilleurs atouts (critères hors poste notés au moins 3/10, un critère à zéro ne dilue pas un atout réel), chacun noté sur la cible la plus basse demandée à un poste qui l'attend. Une valeur basse est normale et ne retire rien à la note au poste.</p>
+    <div class="nt-key">
+        <span><span class="nt-badge nt-top">6,5+</span> très bon</span>
+        <span><span class="nt-badge nt-ok">5 à 6,5</span> solide</span>
+        <span><span class="nt-badge nt-mid">3,5 à 5</span> sous les attentes</span>
+        <span><span class="nt-badge nt-low">&lt; 3,5</span> à revoir</span>
     </div>
+    <details class="nt-how">
+        <summary>Comment sont calculées les notes ?</summary>
+        <ul>
+            <li><strong>Note au poste</strong> : chaque critère des attentes du club pour le poste est noté de 0 à 10 selon sa cible, puis pondéré. 10 = toutes les cibles atteintes.</li>
+            <li><strong>Fautes et essais</strong> : pénalité −{{ malus.penalite }}, jaune −{{ malus.jaune }}, rouge −{{ malus.rouge }} ; les essais ajoutent des points.</li>
+            <li><strong>Facteur X</strong> : note sur ce que le joueur apporte <em>en dehors</em> des attentes de son poste (par exemple un pilier qui franchit). Une valeur basse est normale et ne retire rien à la note au poste.</li>
+                        <li>Pas de note sous {{ min_minutes }} minutes jouées. La note de saison compte chaque match en proportion des minutes jouées.</li>
+        </ul>
+    </details>
 
     {% if approx %}
-    <div class="bil-panel" style="margin-bottom:16px;"><div class="bil-panel-head" style="background:#e0912f;">Poste précis à régler</div>
-        <div class="gp-note">Pour {% for n in approx %}{{ n }}{{ ', ' if not loop.last }}{% endfor %}, le poste précis n'est pas réglé : un charnière est noté comme demi de mêlée (9) et un ailier/arrière comme ailier (11-14). Règle-le dans ☰ → Administration → Joueurs et accès (champ poste).</div></div>
+    <details class="nt-how nt-warn">
+        <summary>Poste précis à régler pour {{ approx|length }} joueur{{ 's' if approx|length != 1 }}</summary>
+        <p>{% for n in approx %}{{ n }}{{ ', ' if not loop.last }}{% endfor %} : un charnière est noté comme demi de mêlée (9) et un ailier/arrière comme ailier (11-14). À régler dans ☰ → Administration → Joueurs et accès (champ poste).</p>
+    </details>
     {% endif %}
     {% if not groupes %}
     <div class="bil-panel"><div class="gp-note">Aucune note : renseigne les minutes dans la page Composition de chaque match.</div></div>
     {% endif %}
     {% for g in groupes %}
-    <div class="bil-panel" style="margin-bottom:16px;">
+    <div class="bil-panel" style="margin-bottom:18px;">
         <div class="bil-panel-head">{{ libelles.get(g.poste, g.poste) }}{% if g.moyenne is not none %} · moyenne du poste {{ g.moyenne }}{% endif %}</div>
+        <div class="nt-cols"><span>Joueur</span><span class="nt-c">Note</span><span class="nt-c">Facteur X</span><span class="nt-c">Minutes</span><span>Ce qu'on retient</span></div>
         {% for j in g.joueurs %}
         <details class="nt-card">
-            <summary>
+            <summary class="nt-row">
                 <span class="nt-name">{{ display_name(j.name) }}</span>
-                {{ badge(j.note) }}
-                <span class="nt-x" title="Note facteur X : ce qu'il apporte hors des attentes de son poste">X {{ badge(j.x_note) }}</span>
-                <span class="nt-ecart {{ 'pos' if j.ecart and j.ecart > 0 else ('neg' if j.ecart and j.ecart < 0 else '') }}">{% if j.ecart is not none %}{{ '%+.1f'|format(j.ecart) }} vs poste{% endif %}</span>
-                <span class="nt-min">{{ j.minutes }} min{% if j.cumul_min %} (dont {{ j.cumul_min }} en courtes entrées, cumulées){% endif %}{% if j.malus %} · fautes −{{ j.malus }}/match{% endif %}</span>
-                <span class="nt-matchs">{% for x in j.matchs %}<span class="nt-chip" title="{{ x.poste }} · {{ x.minutes }} min{% if x.raison %} · {{ x.raison }}{% endif %}{% for mm in ((x.res.bonus + x.res.malus) if x.res else []) %} · {{ mm.label }} {{ mm.points }}{% endfor %}">{{ x.opponent }}{% if x.poste != j.poste %} ({{ x.poste }}){% endif %} {% if x.cumul %}<span class="nt-badge nt-na" title="cumulé">cumul</span>{% else %}{{ badge(x.res.note if x.res else none) }}{% endif %}</span>{% endfor %}</span>
+                <span class="nt-c">{{ badge(j.note) }}</span>
+                <span class="nt-c">{{ badge(j.x_note) }}</span>
+                <span class="nt-c nt-min">{{ j.minutes }}</span>
+                <span class="nt-resume">
+                    {% if j.note is none %}<span class="nt-na-txt">Pas de note (peu de minutes ou de stats)</span>{% endif %}
+                    {% if j.forts %}<span class="nt-fort">▲ {{ j.forts[0].label }}</span>{% endif %}
+                    {% if j.faibles %}<span class="nt-faible">▼ {{ j.faibles[0].label }}</span>{% endif %}
+                </span>
             </summary>
             <div class="nt-body">
-                {% if j.forts %}<p><strong>Points forts :</strong> {% for c in j.forts %}{{ c.label }} ({{ c.score }}){{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
-                {% if j.x_atouts %}<p><strong>Facteur X (hors poste, note {{ j.x_note }}) :</strong> {% for c in j.x_atouts[:3] %}{{ c.label }} {{ c.valeur|round(0)|int if c.type == 'pct' else c.valeur }}{{ ' %' if c.type == 'pct' else ' /80 min' }} (note {{ c.score }}, cible {{ c.cible }}{{ ' %' if c.type == 'pct' else '' }}){{ ' · ' if not loop.last }}{% endfor %}</p>{% endif %}
-                {% if j.faibles %}<p><strong>À travailler :</strong> {% for c in j.faibles %}{{ c.label }} ({{ c.score }}){{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
-                {% if j.ajustements %}<p><strong>Bonus et fautes (total sur les matchs notés) :</strong> {% for e in j.ajustements %}{{ e.label }} {{ '%+.1f'|format(e.points) }} ({{ e.n }}){{ ' · ' if not loop.last }}{% endfor %}</p>{% endif %}
-                {% if j.manquants %}<p><strong>Non notés (pas assez d'actions codées) :</strong> {% for e in j.manquants %}{{ e.label }} ({{ e.n }} action{{ 's' if e.n != 1 }}, poids {{ e.poids }}){{ ' · ' if not loop.last }}{% endfor %}. Leur poids est reporté sur les autres critères.</p>{% endif %}
-                {% if j.criteres %}<table class="bil-table notes-table notes-detail"><thead><tr><th>Critère</th><th>Note /10</th><th>Poids</th><th>Valeur /80 min</th></tr></thead>
+                {% if j.ecart is not none %}<p class="nt-sub" style="margin-top:2px;"><strong>Écart avec la moyenne du poste :</strong> {{ '%+.1f'|format(j.ecart) }}{% if j.malus %} · fautes −{{ j.malus }} par match{% endif %}</p>{% endif %}
+                <h4>Match par match</h4>
+                <p class="nt-matchs">{% for x in j.matchs %}<span class="nt-chip" title="{{ x.poste }} · {{ x.minutes }} min{% if x.raison %} · {{ x.raison }}{% endif %}">{{ x.opponent }}{% if x.poste != j.poste %} ({{ x.poste }}){% endif %} · {{ x.minutes }} min {% if x.cumul %}<span class="nt-badge nt-na" title="Courte entrée, cumulée dans la note de saison">cumul</span>{% else %}{{ badge(x.res.note if x.res else none) }}{% endif %}</span>{% endfor %}</p>
+                {% if j.cumul_min %}<p class="nt-sub">{{ j.cumul_min }} min en courtes entrées (moins de {{ min_minutes }} min), cumulées et notées ensemble.</p>{% endif %}
+                {% if j.criteres %}
+                <h4>Détail de la note au poste</h4>
+                <table class="bil-table notes-table notes-detail"><thead><tr><th>Critère</th><th>Note /10</th><th>Poids</th><th>Valeur /80 min</th></tr></thead>
                     {% for c in j.criteres %}<tr><td>{{ c.label }}</td><td>{{ c.score }}</td><td>{{ c.poids }}</td><td>{{ c.valeur }}</td></tr>{% endfor %}</table>
-                {% else %}<p>Pas de note : {% for x in j.matchs %}{{ x.opponent }} ({{ x.raison }}){{ ', ' if not loop.last }}{% endfor %}.</p>{% endif %}
+                {% if j.ajustements %}<p class="nt-sub"><strong>Bonus et fautes :</strong> {% for e in j.ajustements %}{{ e.label }} {{ '%+.1f'|format(e.points) }} ({{ e.n }}){{ ' · ' if not loop.last }}{% endfor %}</p>{% endif %}
+                {% if j.manquants %}<p class="nt-sub"><strong>Non notés (pas assez d'actions codées) :</strong> {% for e in j.manquants %}{{ e.label }}{{ ' · ' if not loop.last }}{% endfor %}. Leur poids est reporté sur les autres critères.</p>{% endif %}
+                {% endif %}
+                {% if j.x_atouts %}
+                <h4>Facteur X : ce qu'il apporte hors de son poste</h4>
+                <p class="nt-sub">{% for c in j.x_atouts[:3] %}{{ c.label }} : {{ c.valeur|round(0)|int if c.type == 'pct' else c.valeur }}{{ ' %' if c.type == 'pct' else ' /80 min' }} (note {{ c.score }}){{ ' · ' if not loop.last }}{% endfor %}</p>
+                {% endif %}
             </div>
         </details>
         {% endfor %}

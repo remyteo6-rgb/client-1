@@ -3001,3 +3001,29 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
 .landing-choice-link:hover { text-decoration:underline; }
 
 .nt-x { font-size: 0.95rem; color: #6a6a6a; white-space: nowrap; }
+
+/* Page Notes : une ligne par joueur, détail au clic */
+.nt-key { display:flex; flex-wrap:wrap; gap:8px 22px; padding:4px 4px 14px; font-size:16px; align-items:center; }
+.nt-how { margin:0 0 14px; background:rgba(80,20,50,.05); border-radius:10px; padding:10px 16px; font-size:16px; line-height:1.5; }
+.nt-how summary { cursor:pointer; font-weight:700; }
+.nt-how ul { margin:8px 0 2px 18px; padding:0; } .nt-how li { margin:4px 0; } .nt-how p { margin:8px 0 2px; }
+.nt-warn { background:rgba(224,145,47,.15); }
+.nt-cols, .nt-row { display:grid; grid-template-columns: minmax(150px,1.3fr) 80px 100px 80px minmax(220px,3fr); gap:10px; align-items:center; }
+.nt-cols { padding:8px 16px 4px; font-size:13px; text-transform:uppercase; letter-spacing:.4px; color:#6a6a6a; font-weight:700; }
+.nt-c { text-align:center; }
+.nt-card { padding:10px 16px; }
+.nt-card summary.nt-row { display:grid; }
+.nt-card summary.nt-row::-webkit-details-marker { display:none; }
+.nt-row .nt-name { min-width:0; font-size:19px; }
+.nt-resume { display:flex; flex-direction:column; gap:2px; font-size:15px; line-height:1.35; }
+.nt-fort { color:#2f6b39; font-weight:700; } .nt-faible { color:#b9392f; font-weight:700; } .nt-na-txt { color:#777; }
+.nt-body h4 { margin:14px 0 6px; font-size:15px; text-transform:uppercase; letter-spacing:.4px; color:#530d34; }
+.nt-body h4:first-child { margin-top:2px; }
+.nt-sub { margin:8px 0 0; }
+.nt-body .nt-matchs { flex-basis:auto; }
+@media (max-width: 760px) {
+    .nt-cols { display:none; }
+    .nt-card summary.nt-row { grid-template-columns: 1fr auto auto auto; }
+    .nt-resume { grid-column: 1 / -1; }
+    .nt-row .nt-min { display:none; }
+}
