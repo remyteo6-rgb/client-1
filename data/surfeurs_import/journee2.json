@@ -1,0 +1,340 @@
+{
+ "label": "Journée 2 — SUA (saisie sur visuel)",
+ "joueurs": {
+  "bordeaux": "Lee",
+  "blanc": "Bohn",
+  "bleu": "Janiec",
+  "orange": "Baronnet"
+ },
+ "touches": [
+  {
+   "half": 1,
+   "couleur": "blanc",
+   "type": "EN-A",
+   "x": 0.0957,
+   "y": 0.1258
+  },
+  {
+   "half": 1,
+   "couleur": "blanc",
+   "type": "C",
+   "x": 0.0474,
+   "y": 0.1754
+  },
+  {
+   "half": 1,
+   "couleur": "blanc",
+   "type": "C",
+   "x": 0.9504,
+   "y": 0.1605
+  },
+  {
+   "half": 1,
+   "couleur": "bleu",
+   "type": "O",
+   "x": 0.904,
+   "y": 0.225
+  },
+  {
+   "half": 1,
+   "couleur": "blanc",
+   "type": "C",
+   "x": 0.9616,
+   "y": 0.2052
+  },
+  {
+   "half": 1,
+   "couleur": "orange",
+   "type": "C",
+   "x": 0.2425,
+   "y": 0.2544
+  },
+  {
+   "half": 1,
+   "couleur": "bleu",
+   "type": "C",
+   "x": 0.1422,
+   "y": 0.2977
+  },
+  {
+   "half": 1,
+   "couleur": "orange",
+   "type": "O",
+   "x": 0.0474,
+   "y": 0.3102
+  },
+  {
+   "half": 1,
+   "couleur": "orange",
+   "type": "P",
+   "x": 0.1682,
+   "y": 0.3307
+  },
+  {
+   "half": 1,
+   "couleur": "orange",
+   "type": "P",
+   "x": 0.772,
+   "y": 0.3307
+  },
+  {
+   "half": 1,
+   "couleur": "blanc",
+   "type": "P",
+   "x": 0.9225,
+   "y": 0.366
+  },
+  {
+   "half": 1,
+   "couleur": "orange",
+   "type": "P",
+   "x": 0.354,
+   "y": 0.4356
+  },
+  {
+   "half": 1,
+   "couleur": "bleu",
+   "type": "C",
+   "x": 0.9021,
+   "y": 0.4334
+  },
+  {
+   "half": 1,
+   "couleur": "orange",
+   "type": "C",
+   "x": 0.1663,
+   "y": 0.5058
+  },
+  {
+   "half": 1,
+   "couleur": "bleu",
+   "type": "P",
+   "x": 0.2555,
+   "y": 0.5267
+  },
+  {
+   "half": 1,
+   "couleur": "bleu",
+   "type": "J",
+   "x": 0.4543,
+   "y": 0.5212
+  },
+  {
+   "half": 1,
+   "couleur": "blanc",
+   "type": "DA",
+   "x": 0.8092,
+   "y": 0.5168
+  },
+  {
+   "half": 1,
+   "couleur": "bleu",
+   "type": "O",
+   "x": 0.904,
+   "y": 0.5971
+  },
+  {
+   "half": 1,
+   "couleur": "blanc",
+   "type": "C",
+   "x": 0.9579,
+   "y": 0.5994
+  },
+  {
+   "half": 1,
+   "couleur": "blanc",
+   "type": "O",
+   "x": 0.629,
+   "y": 0.6684
+  },
+  {
+   "half": 1,
+   "couleur": "blanc",
+   "type": "P",
+   "x": 0.8594,
+   "y": 0.6842
+  },
+  {
+   "half": 1,
+   "couleur": "bleu",
+   "type": "C",
+   "x": 0.1422,
+   "y": 0.6808
+  },
+  {
+   "half": 1,
+   "couleur": "blanc",
+   "type": "J",
+   "x": 0.0957,
+   "y": 0.7125
+  },
+  {
+   "half": 1,
+   "couleur": "bleu",
+   "type": "P",
+   "x": 0.7981,
+   "y": 0.7764
+  },
+  {
+   "half": 1,
+   "couleur": "orange",
+   "type": "O",
+   "x": 0.2555,
+   "y": 0.8131
+  },
+  {
+   "half": 2,
+   "couleur": "bordeaux",
+   "type": "E",
+   "x": 0.0391,
+   "y": 0.1291
+  },
+  {
+   "half": 2,
+   "couleur": "bordeaux",
+   "type": "E",
+   "x": 0.0447,
+   "y": 0.2151
+  },
+  {
+   "half": 2,
+   "couleur": "bordeaux",
+   "type": "CE",
+   "x": 0.0261,
+   "y": 0.7136
+  },
+  {
+   "half": 2,
+   "couleur": "bordeaux",
+   "type": "CE",
+   "x": 0.0279,
+   "y": 0.7476
+  },
+  {
+   "half": 2,
+   "couleur": "orange",
+   "type": "CE",
+   "x": 0.0298,
+   "y": 0.8014
+  },
+  {
+   "half": 2,
+   "couleur": "bordeaux",
+   "type": "CE",
+   "x": 0.0614,
+   "y": 0.8031
+  },
+  {
+   "half": 2,
+   "couleur": "bordeaux",
+   "type": "CE",
+   "x": 0.0372,
+   "y": 0.8564
+  },
+  {
+   "half": 2,
+   "couleur": "bordeaux",
+   "type": "C",
+   "x": 0.6207,
+   "y": 0.7431
+  },
+  {
+   "half": 2,
+   "couleur": "blanc",
+   "type": "C",
+   "x": 0.4553,
+   "y": 0.144
+  },
+  {
+   "half": 2,
+   "couleur": "blanc",
+   "type": "C",
+   "x": 0.8696,
+   "y": 0.2234
+  },
+  {
+   "half": 2,
+   "couleur": "blanc",
+   "type": "C",
+   "x": 0.9532,
+   "y": 0.5453
+  },
+  {
+   "half": 2,
+   "couleur": "blanc",
+   "type": "C",
+   "x": 0.8901,
+   "y": 0.5683
+  },
+  {
+   "half": 2,
+   "couleur": "bleu",
+   "type": "C",
+   "x": 0.21,
+   "y": 0.144
+  },
+  {
+   "half": 2,
+   "couleur": "bleu",
+   "type": "P",
+   "x": 0.1301,
+   "y": 0.23
+  },
+  {
+   "half": 2,
+   "couleur": "bleu",
+   "type": "P",
+   "x": 0.2862,
+   "y": 0.3443
+  },
+  {
+   "half": 2,
+   "couleur": "bleu",
+   "type": "E",
+   "x": 0.8715,
+   "y": 0.5288
+  },
+  {
+   "half": 2,
+   "couleur": "bleu",
+   "type": "P",
+   "x": 0.8882,
+   "y": 0.7001
+  },
+  {
+   "half": 2,
+   "couleur": "bleu",
+   "type": "J",
+   "x": 0.7024,
+   "y": 0.7204
+  },
+  {
+   "half": 2,
+   "couleur": "bleu",
+   "type": "J",
+   "x": 0.2565,
+   "y": 0.7864
+  },
+  {
+   "half": 2,
+   "couleur": "bleu",
+   "type": "J",
+   "x": 0.8715,
+   "y": 0.7948
+  },
+  {
+   "half": 2,
+   "couleur": "orange",
+   "type": "O",
+   "x": 0.3327,
+   "y": 0.1125
+  },
+  {
+   "half": 2,
+   "couleur": "orange",
+   "type": "P",
+   "x": 0.8046,
+   "y": 0.5047
+  }
+ ]
+}

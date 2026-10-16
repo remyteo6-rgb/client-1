@@ -1,0 +1,192 @@
+{
+ "label": "Journée 1 — Bayonne (saisie sur visuel)",
+ "joueurs": {
+  "blanc": "Avogadro",
+  "bleu": "Janiec",
+  "orange": "Baronnet"
+ },
+ "touches": [
+  {
+   "half": 1,
+   "couleur": "bleu",
+   "type": "C",
+   "x": 0.5287,
+   "y": 0.2706
+  },
+  {
+   "half": 1,
+   "couleur": "orange",
+   "type": "P",
+   "x": 0.8146,
+   "y": 0.2706
+  },
+  {
+   "half": 1,
+   "couleur": "bleu",
+   "type": "E",
+   "x": 0.9409,
+   "y": 0.265
+  },
+  {
+   "half": 1,
+   "couleur": "blanc",
+   "type": "O",
+   "x": 0.2429,
+   "y": 0.2989
+  },
+  {
+   "half": 1,
+   "couleur": "bleu",
+   "type": "O",
+   "x": 0.1296,
+   "y": 0.3837
+  },
+  {
+   "half": 1,
+   "couleur": "bleu",
+   "type": "C",
+   "x": 0.2429,
+   "y": 0.3893
+  },
+  {
+   "half": 1,
+   "couleur": "bleu",
+   "type": "O",
+   "x": 0.8146,
+   "y": 0.3893
+  },
+  {
+   "half": 1,
+   "couleur": "orange",
+   "type": "C",
+   "x": 0.9242,
+   "y": 0.4006
+  },
+  {
+   "half": 1,
+   "couleur": "blanc",
+   "type": "C",
+   "x": 0.1834,
+   "y": 0.4503
+  },
+  {
+   "half": 1,
+   "couleur": "bleu",
+   "type": "C",
+   "x": 0.1407,
+   "y": 0.4601
+  },
+  {
+   "half": 1,
+   "couleur": "blanc",
+   "type": "C",
+   "x": 0.1426,
+   "y": 0.5314
+  },
+  {
+   "half": 1,
+   "couleur": "blanc",
+   "type": "C",
+   "x": 0.2948,
+   "y": 0.7883
+  },
+  {
+   "half": 2,
+   "couleur": "orange",
+   "type": "P",
+   "x": 0.1545,
+   "y": 0.2021
+  },
+  {
+   "half": 2,
+   "couleur": "blanc",
+   "type": "C",
+   "x": 0.1322,
+   "y": 0.2503
+  },
+  {
+   "half": 2,
+   "couleur": "blanc",
+   "type": "C",
+   "x": 0.1842,
+   "y": 0.2966
+  },
+  {
+   "half": 2,
+   "couleur": "blanc",
+   "type": "P",
+   "x": 0.2863,
+   "y": 0.3249
+  },
+  {
+   "half": 2,
+   "couleur": "bleu",
+   "type": "C",
+   "x": 0.6873,
+   "y": 0.3317
+  },
+  {
+   "half": 2,
+   "couleur": "bleu",
+   "type": "P",
+   "x": 0.1526,
+   "y": 0.378
+  },
+  {
+   "half": 2,
+   "couleur": "orange",
+   "type": "O",
+   "x": 0.73,
+   "y": 0.4097
+  },
+  {
+   "half": 2,
+   "couleur": "orange",
+   "type": "J",
+   "x": 0.8339,
+   "y": 0.436
+  },
+  {
+   "half": 2,
+   "couleur": "blanc",
+   "type": "EN-A",
+   "x": 0.1322,
+   "y": 0.4766
+  },
+  {
+   "half": 2,
+   "couleur": "bleu",
+   "type": "P",
+   "x": 0.4181,
+   "y": 0.5686
+  },
+  {
+   "half": 2,
+   "couleur": "blanc",
+   "type": "O",
+   "x": 0.0264,
+   "y": 0.6143
+  },
+  {
+   "half": 2,
+   "couleur": "orange",
+   "type": "P",
+   "x": 1,
+   "y": 0.6166
+  },
+  {
+   "half": 2,
+   "couleur": "bleu",
+   "type": "EN-A",
+   "x": 0.1118,
+   "y": 0.8216
+  },
+  {
+   "half": 2,
+   "couleur": "orange",
+   "type": "C",
+   "x": 0.9379,
+   "y": 0.8282
+  }
+ ]
+}

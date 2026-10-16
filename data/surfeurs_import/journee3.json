@@ -1,0 +1,249 @@
+{
+ "label": "Journée 3 — USC (saisie sur visuel)",
+ "joueurs": {
+  "bordeaux": "Lee",
+  "blanc": "Bohn",
+  "bleu": "Janiec",
+  "orange": "Baronnet"
+ },
+ "touches": [
+  {
+   "half": 1,
+   "couleur": "bleu",
+   "type": "C",
+   "x": 0.086,
+   "y": 0.1073
+  },
+  {
+   "half": 1,
+   "couleur": "blanc",
+   "type": "C",
+   "x": 0.1641,
+   "y": 0.1073
+  },
+  {
+   "half": 1,
+   "couleur": "orange",
+   "type": "E",
+   "x": 0.7666,
+   "y": 0.1602
+  },
+  {
+   "half": 1,
+   "couleur": "blanc",
+   "type": "EN-A",
+   "x": 0.9414,
+   "y": 0.1536
+  },
+  {
+   "half": 1,
+   "couleur": "orange",
+   "type": "P",
+   "x": 0.9935,
+   "y": 0.152
+  },
+  {
+   "half": 1,
+   "couleur": "blanc",
+   "type": "P",
+   "x": 0.8577,
+   "y": 0.2
+  },
+  {
+   "half": 1,
+   "couleur": "orange",
+   "type": "C",
+   "x": 0.3426,
+   "y": 0.2132
+  },
+  {
+   "half": 1,
+   "couleur": "orange",
+   "type": "P",
+   "x": 0.4542,
+   "y": 0.3044
+  },
+  {
+   "half": 1,
+   "couleur": "blanc",
+   "type": "O",
+   "x": 0.5137,
+   "y": 0.2964
+  },
+  {
+   "half": 1,
+   "couleur": "blanc",
+   "type": "C",
+   "x": 0.88,
+   "y": 0.2964
+  },
+  {
+   "half": 1,
+   "couleur": "orange",
+   "type": "C",
+   "x": 0.1306,
+   "y": 0.4126
+  },
+  {
+   "half": 1,
+   "couleur": "bleu",
+   "type": "C",
+   "x": 0.2069,
+   "y": 0.4576
+  },
+  {
+   "half": 1,
+   "couleur": "bleu",
+   "type": "O",
+   "x": 0.2757,
+   "y": 0.4576
+  },
+  {
+   "half": 1,
+   "couleur": "bleu",
+   "type": "O",
+   "x": 0.3445,
+   "y": 0.4576
+  },
+  {
+   "half": 1,
+   "couleur": "blanc",
+   "type": "DA",
+   "x": 0.8577,
+   "y": 0.4653
+  },
+  {
+   "half": 1,
+   "couleur": "bleu",
+   "type": "DA",
+   "x": 0.2403,
+   "y": 0.5417
+  },
+  {
+   "half": 1,
+   "couleur": "bleu",
+   "type": "P",
+   "x": 0.1418,
+   "y": 0.5754
+  },
+  {
+   "half": 1,
+   "couleur": "blanc",
+   "type": "C",
+   "x": 0.5565,
+   "y": 0.5689
+  },
+  {
+   "half": 1,
+   "couleur": "blanc",
+   "type": "P",
+   "x": 0.8466,
+   "y": 0.5602
+  },
+  {
+   "half": 1,
+   "couleur": "blanc",
+   "type": "P",
+   "x": 1,
+   "y": 0.5569
+  },
+  {
+   "half": 1,
+   "couleur": "bleu",
+   "type": "EN-A",
+   "x": 0.0581,
+   "y": 0.6431
+  },
+  {
+   "half": 1,
+   "couleur": "bleu",
+   "type": "EN-A",
+   "x": 0.9637,
+   "y": 0.6282
+  },
+  {
+   "half": 1,
+   "couleur": "bleu",
+   "type": "J",
+   "x": 0.9079,
+   "y": 0.6909
+  },
+  {
+   "half": 2,
+   "couleur": "blanc",
+   "type": "P",
+   "x": 0.3494,
+   "y": 0.4115
+  },
+  {
+   "half": 2,
+   "couleur": "blanc",
+   "type": "C",
+   "x": 0.4889,
+   "y": 0.4126
+  },
+  {
+   "half": 2,
+   "couleur": "bleu",
+   "type": "C",
+   "x": 0.2415,
+   "y": 0.4675
+  },
+  {
+   "half": 2,
+   "couleur": "bordeaux",
+   "type": "C",
+   "x": 0.937,
+   "y": 0.5645
+  },
+  {
+   "half": 2,
+   "couleur": "blanc",
+   "type": "C",
+   "x": 0.4982,
+   "y": 0.5841
+  },
+  {
+   "half": 2,
+   "couleur": "orange",
+   "type": "P",
+   "x": 0.8143,
+   "y": 0.6157
+  },
+  {
+   "half": 2,
+   "couleur": "bordeaux",
+   "type": "P",
+   "x": 0.7455,
+   "y": 0.6431
+  },
+  {
+   "half": 2,
+   "couleur": "blanc",
+   "type": "C",
+   "x": 0.117,
+   "y": 0.6806
+  },
+  {
+   "half": 2,
+   "couleur": "orange",
+   "type": "C",
+   "x": 0.2285,
+   "y": 0.716
+  },
+  {
+   "half": 2,
+   "couleur": "blanc",
+   "type": "J",
+   "x": 0.2285,
+   "y": 0.8235
+  },
+  {
+   "half": 2,
+   "couleur": "blanc",
+   "type": "P",
+   "x": 0.6823,
+   "y": 0.7985
+  }
+ ]
+}
