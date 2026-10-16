@@ -370,6 +370,14 @@ def facteur_x(poste, rows, minutes, bareme=None):
     return {"note": round(sum(a["score"] for a in top) / len(top), 1), "atouts": atouts}
 
 
+def _facteur_x_sur(poste, rows, minutes, bareme):
+    """Le facteur X est un complément : une erreur de calcul ne doit jamais bloquer la note au poste."""
+    try:
+        return facteur_x(poste, rows, minutes, bareme)
+    except Exception:
+        return None
+
+
 def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
     """Note /10 d'un joueur sur un match. `rows` = {"attack", "defense", "ruck"} (lignes du joueur
     pour ce match, éventuellement None). Renvoie None si pas assez de minutes ou de matière."""
@@ -426,4 +434,4 @@ def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
     note = _clamp(base - total_malus + bonus_pts)
     return {"note": round(note, 1), "base": round(base, 1), "malus": malus, "bonus": bonus,
             "detail": sorted(detail, key=lambda d: -d["poids"]), "manquants": manquants, "minutes": minutes, "poste": poste,
-            "x": facteur_x(poste, rows, minutes, bareme)}
+            "x": _facteur_x_sur(poste, rows, minutes, bareme)}

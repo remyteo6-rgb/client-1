@@ -479,10 +479,20 @@ def page_introuvable(error):
 
 @app.errorhandler(500)
 def erreur_serveur(error):
-    return render_template("erreur.html", code=500,
-                           titre="Une erreur est survenue",
-                           message="Le site n'a pas réussi à afficher cette page. "
-                                   "Réessaie dans un instant ; si ça se reproduit, signale-le."), 500
+    message = ("Le site n'a pas réussi à afficher cette page. "
+               "Réessaie dans un instant ; si ça se reproduit, signale-le.")
+    exc = getattr(error, "original_exception", None) or error
+    try:
+        import traceback
+        tb = traceback.extract_tb(exc.__traceback__)
+        app.logger.error("Erreur 500 sur %s : %r", request.path, exc, exc_info=exc)
+        if session.get("is_admin"):
+            # Aide au diagnostic : seul un administrateur connecté voit la cause technique.
+            fin = tb[-1] if tb else None
+            message += f" [Détail admin : {type(exc).__name__}: {str(exc)[:300]}" + (f" — {fin.filename.split('/')[-1]}:{fin.lineno} dans {fin.name}" if fin else "") + "]"
+    except Exception:
+        pass
+    return render_template("erreur.html", code=500, titre="Une erreur est survenue", message=message), 500
 
 
 @app.errorhandler(413)
