@@ -45,7 +45,7 @@
             <div class="sf-panel-row">
                 <div class="sf-panel sf-legend">
                     <div class="sf-panel-head">LÉGENDE</div>
-                    <ul>{% for code, label, color in types %}<li><span class="sf-dot" style="background:{{ color }}">{{ code }}</span> = {{ label }}</li>{% endfor %}</ul>
+                    <ul>{% for code, label, color in types %}<li><span class="sf-dot">{{ code }}</span> = {{ label }}</li>{% endfor %}</ul>
                 </div>
                 <div class="sf-panel sf-suivi">
                     <div class="sf-panel-head">SUIVI · TOTAL SURFEURS</div>
@@ -74,10 +74,10 @@
 {% if editable %}
 <div id="sf-pop" class="sf-pop" hidden>
     <div class="sf-pop-title" id="sf-pop-title">Type de ballon</div>
-    <label class="sf-pop-player">Joueur
+    <label class="sf-pop-player">Joueur <span id="sf-pop-sw" class="sf-sw"></span>
         <select id="sf-pop-player"><option value="">—</option>{% for j in joueurs %}<option value="{{ j.nom }}">{{ j.numero }} · {{ j.nom }}</option>{% endfor %}</select>
     </label>
-    <div class="sf-pop-types">{% for code, label, color in types %}<button type="button" class="sf-type" data-type="{{ code }}" style="background:{{ color }}" title="{{ label }}">{{ code }}</button>{% endfor %}</div>
+    <div class="sf-pop-types">{% for code, label, color in types %}<button type="button" class="sf-type" data-type="{{ code }}" title="{{ label }}">{{ code }}</button>{% endfor %}</div>
     <div class="sf-pop-actions"><button type="button" id="sf-pop-del" class="sf-link sf-del" hidden>Supprimer</button><button type="button" id="sf-pop-cancel" class="sf-link">Annuler</button></div>
 </div>
 {% endif %}
@@ -87,8 +87,10 @@
     var EDIT = {{ 'true' if editable else 'false' }};
     var SAVE_URL = {{ url_for('match_surfeurs_save', match_id=match['id'])|tojson }};
     var TYPES = {{ (types|map('list')|list)|tojson }};   // [code, libellé, couleur]
-    var color = {}, label = {};
-    TYPES.forEach(function (t) { color[t[0]] = t[2]; label[t[0]] = t[1]; });
+    var label = {};
+    TYPES.forEach(function (t) { label[t[0]] = t[1]; });
+    var COULEURS = {{ couleurs|tojson }};   // une couleur par joueur, toujours la même
+    function couleur(p) { return COULEURS[p] || '#8a8a8a'; }
     var touches = {{ touches|tojson }};
     var pop = document.getElementById('sf-pop');
     var current = null;          // {half, x, y, id?, wrap}
@@ -104,8 +106,8 @@
             touches.filter(function (t) { return t.half === h; }).forEach(function (t) {
                 var d = document.createElement('button');
                 d.type = 'button'; d.className = 'sf-mark'; d.textContent = t.type;
-                d.style.left = (t.x * 100) + '%'; d.style.top = (t.y * 100) + '%';
-                d.style.background = color[t.type] || '#555';
+                d.style.left = Math.min(95, Math.max(5, t.x * 100)) + '%'; d.style.top = Math.min(97, Math.max(3, t.y * 100)) + '%';
+                d.style.background = couleur(t.player);
                 d.title = (label[t.type] || t.type) + (t.player ? ' · ' + t.player : '');
                 d.addEventListener('click', function (ev) {
                     ev.stopPropagation();
@@ -131,7 +133,7 @@
         names.forEach(function (n) {
             var tr = document.createElement('tr');
             [n, by[n][1] || '-', by[n][2] || '-', by[n][1] + by[n][2]].forEach(function (v, i) {
-                var td = document.createElement('td'); td.textContent = v; if (i === 0) td.className = 'sf-name'; tr.appendChild(td);
+                var td = document.createElement('td'); if (i === 0) { td.className = 'sf-name'; var sw = document.createElement('span'); sw.className = 'sf-sw'; sw.style.background = couleur(n === 'Joueur non précisé' ? '' : n); td.appendChild(sw); td.appendChild(document.createTextNode(' ' + v)); } else { td.textContent = v; } tr.appendChild(td);
             });
             tb.appendChild(tr);
         });
@@ -169,6 +171,7 @@
         var existing = c.id ? touches.filter(function (t) { return t.id === c.id; })[0] : null;
         document.getElementById('sf-pop-title').textContent = existing ? 'Modifier : ' + (label[existing.type] || '') : 'Type de ballon';
         document.getElementById('sf-pop-player').value = existing ? existing.player : lastPlayer;
+        majSw();
         document.getElementById('sf-pop-del').hidden = !existing;
         var wrap = field.getBoundingClientRect();
         pop.hidden = false;
@@ -178,6 +181,7 @@
         top = Math.min(Math.max(8, top), window.innerHeight - ph - 8);
         pop.style.left = (left + window.scrollX) + 'px'; pop.style.top = (top + window.scrollY) + 'px';
     }
+    function majSw() { document.getElementById('sf-pop-sw').style.background = couleur(document.getElementById('sf-pop-player').value); }
     function closePop() { if (pop) pop.hidden = true; current = null; }
 
     if (EDIT) {
@@ -204,6 +208,7 @@
             touches = touches.filter(function (t) { return t.id !== current.id; });
             closePop(); render(); save();
         });
+        document.getElementById('sf-pop-player').addEventListener('change', majSw);
         document.getElementById('sf-pop-cancel').addEventListener('click', closePop);
         document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closePop(); });
         document.addEventListener('mousedown', function (e) { if (!pop.hidden && !pop.contains(e.target) && !e.target.closest('.sf-field')) closePop(); });

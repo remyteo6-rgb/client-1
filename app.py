@@ -896,6 +896,13 @@ def init_db():
             PRIMARY KEY (poste, critere)
         )
     """)
+    # Couleur attribuée à chaque joueur sur la page Surfeurs (toujours la même, d'un match à l'autre).
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS surfeur_couleurs (
+            nom TEXT PRIMARY KEY,
+            couleur TEXT NOT NULL
+        )
+    """)
     # Une ligne = un point d'étape (3 à 4 par saison, comme sur le cahier papier) : notes
     # + commentaires par catégorie technique (JSON en texte plutôt qu'une colonne par
     # catégorie, pour ne pas avoir à migrer le schéma si les catégories évoluent un jour),
@@ -2103,6 +2110,33 @@ SURFEUR_TYPES = [
 ]
 
 
+SURFEUR_PALETTE = ["#7b1b46", "#2f5d8a", "#e08b2c", "#2f6b39", "#6a3fa0", "#d9463c", "#1f8a8a",
+                   "#8a5a1b", "#c2185b", "#3f51b5", "#558b2f", "#00838f", "#ad8b00", "#455a64"]
+
+
+def _surfeur_couleurs(noms):
+    """Couleur de chaque joueur ({nom: #hex}). Attribuée à la première apparition parmi les
+    couleurs encore inutilisées, puis mémorisée : un joueur garde sa couleur sur tous les matchs."""
+    noms = [n for n in dict.fromkeys(noms) if n]
+    db = get_db()
+    rows = db.execute("SELECT nom, couleur FROM surfeur_couleurs").fetchall()
+    connues = {r["nom"]: r["couleur"] for r in rows}
+    changed = False
+    for n in noms:
+        if n in connues:
+            continue
+        utilisees = list(connues.values())
+        libre = next((c for c in SURFEUR_PALETTE if c not in utilisees), None)
+        # Palette épuisée : on repart du début en équilibrant l'usage.
+        couleur = libre or min(SURFEUR_PALETTE, key=lambda c: utilisees.count(c))
+        db.execute("INSERT INTO surfeur_couleurs (nom, couleur) VALUES (%s, %s) ON CONFLICT (nom) DO NOTHING", (n, couleur))
+        connues[n] = couleur
+        changed = True
+    if changed:
+        db.commit()
+    return {n: connues[n] for n in noms}
+
+
 def _surfeurs_touches(manual):
     """Touches enregistrées d'un match : [{id, half, x, y, type, player}] (x, y entre 0 et 1 :
     0 = en-but adverse en haut, 1 = notre en-but en bas)."""
@@ -2156,7 +2190,9 @@ def match_surfeurs(match_id):
             scores_mt[h] = f"{sum(own_q[q] for q in qs)} – {sum(adv_q[q] for q in qs)}"
     elif match.get("score_ht"):
         scores_mt[1] = str(match["score_ht"]).replace("-", " – ")
-    return render_template("match_surfeurs.html", match=match, touches=_surfeurs_touches(match.get("manual_stats")),
+    touches = _surfeurs_touches(match.get("manual_stats"))
+    couleurs = _surfeur_couleurs([j["nom"] for j in joueurs] + [t["player"] for t in touches])
+    return render_template("match_surfeurs.html", match=match, touches=touches, couleurs=couleurs,
                            types=SURFEUR_TYPES, joueurs=joueurs, suivi=suivi, scores_mt=scores_mt,
                            score_final=(f"{own_points} – {adverse_points}" if own_points is not None and adverse_points is not None else None),
                            editable=bool(session.get("is_admin")))
