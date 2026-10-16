@@ -2110,31 +2110,43 @@ SURFEUR_TYPES = [
 ]
 
 
-SURFEUR_PALETTE = ["#7b1b46", "#2f5d8a", "#e08b2c", "#2f6b39", "#6a3fa0", "#d9463c", "#1f8a8a",
-                   "#8a5a1b", "#c2185b", "#3f51b5", "#558b2f", "#00838f", "#ad8b00", "#455a64"]
+# Couleur par numéro de maillot (titulaires 9 à 15) : la même sur tous les matchs.
+SURFEUR_COULEUR_NUMERO = {9: "#7b1b46", 10: "#2f6b39", 11: "#2f5d8a", 12: "#6a3fa0", 13: "#1f8a8a",
+                          14: "#d9463c", 15: "#e08b2c"}
+# Remplaçants (et joueur hors des numéros 9 à 15) : une couleur propre à chaque joueur, mémorisée.
+SURFEUR_PALETTE_BANC = ["#ad8b00", "#455a64", "#c2185b", "#3f51b5", "#558b2f", "#8a5a1b"]
 
 
-def _surfeur_couleurs(noms):
-    """Couleur de chaque joueur ({nom: #hex}). Attribuée à la première apparition parmi les
-    couleurs encore inutilisées, puis mémorisée : un joueur garde sa couleur sur tous les matchs."""
-    noms = [n for n in dict.fromkeys(noms) if n]
+def _surfeur_couleurs(joueurs, autres=()):
+    """Couleur de chaque joueur ({nom: #hex}) : celle de son numéro pour les 9 à 15 ; les autres
+    reçoivent à leur première apparition une couleur libre de la palette du banc, mémorisée en base."""
+    out, banc = {}, []
+    for j in joueurs:
+        if j["numero"] in SURFEUR_COULEUR_NUMERO:
+            out[j["nom"]] = SURFEUR_COULEUR_NUMERO[j["numero"]]
+        else:
+            banc.append(j["nom"])
+    banc = [n for n in dict.fromkeys(banc + [n for n in autres if n and n not in out]) if n]
+    if not banc:
+        return out
     db = get_db()
-    rows = db.execute("SELECT nom, couleur FROM surfeur_couleurs").fetchall()
-    connues = {r["nom"]: r["couleur"] for r in rows}
+    connues = {r["nom"]: r["couleur"] for r in db.execute("SELECT nom, couleur FROM surfeur_couleurs").fetchall()}
     changed = False
-    for n in noms:
-        if n in connues:
+    for n in banc:
+        if connues.get(n) in SURFEUR_PALETTE_BANC:
             continue
-        utilisees = list(connues.values())
-        libre = next((c for c in SURFEUR_PALETTE if c not in utilisees), None)
-        # Palette épuisée : on repart du début en équilibrant l'usage.
-        couleur = libre or min(SURFEUR_PALETTE, key=lambda c: utilisees.count(c))
-        db.execute("INSERT INTO surfeur_couleurs (nom, couleur) VALUES (%s, %s) ON CONFLICT (nom) DO NOTHING", (n, couleur))
+        utilisees = [c for k, c in connues.items() if k != n and c in SURFEUR_PALETTE_BANC]
+        couleur = next((c for c in SURFEUR_PALETTE_BANC if c not in utilisees), None) or \
+            min(SURFEUR_PALETTE_BANC, key=lambda c: utilisees.count(c))
+        db.execute("INSERT INTO surfeur_couleurs (nom, couleur) VALUES (%s, %s) "
+                   "ON CONFLICT (nom) DO UPDATE SET couleur = EXCLUDED.couleur", (n, couleur))
         connues[n] = couleur
         changed = True
     if changed:
         db.commit()
-    return {n: connues[n] for n in noms}
+    for n in banc:
+        out[n] = connues[n]
+    return out
 
 
 def _surfeurs_touches(manual):
@@ -2191,7 +2203,7 @@ def match_surfeurs(match_id):
     elif match.get("score_ht"):
         scores_mt[1] = str(match["score_ht"]).replace("-", " – ")
     touches = _surfeurs_touches(match.get("manual_stats"))
-    couleurs = _surfeur_couleurs([j["nom"] for j in joueurs] + [t["player"] for t in touches])
+    couleurs = _surfeur_couleurs(joueurs, [t["player"] for t in touches])
     return render_template("match_surfeurs.html", match=match, touches=touches, couleurs=couleurs,
                            types=SURFEUR_TYPES, joueurs=joueurs, suivi=suivi, scores_mt=scores_mt,
                            score_final=(f"{own_points} – {adverse_points}" if own_points is not None and adverse_points is not None else None),
