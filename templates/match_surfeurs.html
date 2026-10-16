@@ -76,7 +76,7 @@
 <div id="sf-pop" class="sf-pop" hidden>
     <div class="sf-pop-title" id="sf-pop-title">Type de ballon</div>
     <label class="sf-pop-player">Joueur
-        <select id="sf-pop-player"><option value="">—</option>{% for j in joueurs %}<option value="{{ j }}">{{ j }}</option>{% endfor %}</select>
+        <select id="sf-pop-player"><option value="">—</option>{% for j in joueurs %}<option value="{{ j.nom }}">{{ j.numero }} · {{ j.nom }}</option>{% endfor %}</select>
     </label>
     <div class="sf-pop-types">{% for code, label, color in types %}<button type="button" class="sf-type" data-type="{{ code }}" style="background:{{ color }}" title="{{ label }}">{{ code }}</button>{% endfor %}</div>
     <div class="sf-pop-actions"><button type="button" id="sf-pop-del" class="sf-link sf-del" hidden>Supprimer</button><button type="button" id="sf-pop-cancel" class="sf-link">Annuler</button></div>

@@ -2123,7 +2123,16 @@ def _surfeurs_touches(manual):
 def match_surfeurs(match_id):
     match = _get_match_or_404(match_id)
     own_points, adverse_points, _, _, _ = _resolve_match_score(match)
-    joueurs = [c for c in (match.get("composition") or []) if c]
+    # Seuls les trois-quarts sont proposés : n° 9 à 15 titulaires, et sur le banc ceux dont le
+    # poste (saisi sur la Composition, sinon habituel) est charnière, centre ou ailier/arrière.
+    trois_quarts = {"Charnière", "Centre", "Ailier/Arrière"}
+    joueurs = []
+    for i, nom in enumerate((match.get("composition") or [])[:23]):
+        if not nom:
+            continue
+        poste = ((match.get("player_match_stats") or {}).get(nom) or {}).get("poste") or _poste_effectif(nom)
+        if 9 <= i + 1 <= 15 or (i + 1 > 15 and poste in trois_quarts):
+            joueurs.append({"nom": nom, "numero": i + 1})
     # Suivi : nombre de touches saisies sur chaque match (barres à droite de la légende).
     suivi = []
     for r in get_db().execute("SELECT id, opponent, match_date, manual_stats_json FROM matches "
