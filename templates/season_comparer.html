@@ -6,7 +6,7 @@
 <div class="page-header no-print">
     <div>
         <h1>{{ icons.users() }} Comparer deux joueurs</h1>
-        <p class="subtitle">Deux joueurs du même poste, valeurs ramenées à 80 minutes de jeu sur {{ season_selected_count }} match{{ 's' if season_selected_count != 1 else '' }}. Sur le radar, 100 = le meilleur du poste, 0 = le moins élevé (pourcentages : valeur réelle).</p>
+        <p class="subtitle">Deux joueurs du même poste, valeurs ramenées à 80 minutes de jeu sur {{ season_selected_count }} match{{ 's' if season_selected_count != 1 else '' }}. Chaque axe du radar est une attente du club pour le poste, notée de 0 à 100 avec le barème de la page Notes : 100 = la cible du poste atteinte.</p>
     </div>
 </div>
 {% include "_season_select.html" %}
@@ -21,7 +21,7 @@
     <label style="display:flex; align-items:center; gap:6px;"><input type="checkbox" name="tous" value="1" id="cmp-tous" {{ 'checked' if tous else '' }}> Tous les joueurs (hors poste habituel)</label>
     <button class="btn" type="submit">Comparer</button>
 </form>
-<p class="subtitle no-print">Le poste choisi décide des critères du radar et de la référence (100 = le meilleur du poste). Coche « Tous les joueurs » pour comparer, par exemple, un talonneur qui joue 3e ligne avec les autres 3e lignes.</p>
+<p class="subtitle no-print">Le poste choisi décide des attentes du radar (barème du club) et de la moyenne au poste. Coche « Tous les joueurs » pour comparer, par exemple, un talonneur qui joue 3e ligne avec les autres 3e lignes.</p>
 <script>
 (function () {
     var poste = document.getElementById('cmp-poste'), tous = document.getElementById('cmp-tous'),
@@ -54,21 +54,25 @@
     <div class="report-head">
         <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
         <span class="report-title">COMPARER</span>
-        <span class="report-subtitle">{{ radar.poste }} · par 80 min</span>
+        <span class="report-subtitle">{{ radar.poste }} · barème du club</span>
     </div>
     <div class="bil-board" style="grid-template-columns: minmax(340px, 1.1fr) 1fr;">
         <div class="bil-panel">
             <div class="bil-panel-head">Radar</div>
             <div style="padding:8px 8px 4px; text-align:center;">
-                <svg viewBox="-90 0 700 500" width="640" style="max-width:100%; height:auto;" role="img" aria-label="Radar de comparaison">
+                <svg viewBox="-190 0 940 500" width="760" style="max-width:100%; height:auto;" role="img" aria-label="Radar de comparaison">
                     {% for ring in radar.rings %}<polygon points="{{ ring }}" fill="none" stroke="#d9d3cf" stroke-width="1"/>{% endfor %}
                     {% for ax in radar.axes %}
                     <line x1="{{ radar.cx }}" y1="{{ radar.cy }}" x2="{{ ax.axis_end[0] }}" y2="{{ ax.axis_end[1] }}" stroke="#d9d3cf" stroke-width="1"/>
-                    <text x="{{ ax.label_pos[0] }}" y="{{ ax.label_pos[1] }}" text-anchor="{{ ax.anchor }}" font-size="12" font-weight="700" fill="#530d34">{{ ax.label }}</text>
+                    <text x="{{ ax.label_pos[0] }}" y="{{ ax.label_pos[1] }}" text-anchor="{{ ax.anchor }}" font-size="14" font-weight="700" fill="#530d34">{{ ax.label }}</text>
                     {% endfor %}
                     <polygon points="{{ radar.poly_moy }}" fill="rgba(110,110,110,.10)" stroke="#6e6e6e" stroke-width="2" stroke-dasharray="6 4"/>
                     <polygon points="{{ radar.polys[0] }}" fill="rgba(47,93,138,.28)" stroke="#2f5d8a" stroke-width="2.5"/>
                     <polygon points="{{ radar.polys[1] }}" fill="rgba(165,48,95,.25)" stroke="#a5305f" stroke-width="2.5"/>
+                    {% for ax in radar.axes %}
+                    <circle cx="{{ ax.points[0][0] }}" cy="{{ ax.points[0][1] }}" r="5" fill="#2f5d8a"><title>{{ display_name(a) }} — {{ ax.label }} : {{ ax.scores[0] if ax.scores[0] is not none else '—' }}/100</title></circle>
+                    <circle cx="{{ ax.points[1][0] }}" cy="{{ ax.points[1][1] }}" r="5" fill="#a5305f"><title>{{ display_name(b) }} — {{ ax.label }} : {{ ax.scores[1] if ax.scores[1] is not none else '—' }}/100</title></circle>
+                    {% endfor %}
                 </svg>
             </div>
         </div>
@@ -80,16 +84,20 @@
                     <p class="cmp-b"><span class="cmp-sq" style="background:#a5305f;"></span><strong>{{ display_name(b) }}</strong> — {{ radar.minutes[1] }} min ({{ radar.matchs[1] }} match{{ 's' if radar.matchs[1] != 1 else '' }} à ce poste) · {% for p in radar.profils[1] %}{{ p.nom }} ({{ p.score }}){{ ' · ' if not loop.last }}{% else %}—{% endfor %}</p>
                     <p class="cmp-moy"><span class="cmp-sq" style="background:#6e6e6e;"></span><strong>Moyenne au poste</strong> — {{ radar.pool }} joueurs (trait pointillé)</p>
                 </div>
-                <p class="gp-note" style="padding-top:2px; color:#6a6a6a;">Référence : {{ radar.pool }} joueurs ayant tenu ce poste au moins 40 min (seuls les matchs joués à ce poste comptent). 100 = le meilleur du poste, 0 = le moins élevé ; pourcentages : valeur réelle.</p>
+                <p class="gp-note" style="padding-top:2px; color:#6a6a6a;">Chaque axe regroupe les critères de l'attente du club (page Barème), pondérés comme dans la note. 100 = la cible du poste atteinte, sans dépasser. Discipline : 100 = aucune pénalité, 0 = 3 pénalités ou plus par 80 min. Moyenne au poste : {{ radar.pool }} joueurs ayant tenu ce poste au moins 40 min. Passe la souris sur un point pour voir sa note.</p>
             </div>
             <div class="bil-panel">
-                <div class="bil-panel-head">Critères (pour 80 min)</div>
+                <div class="bil-panel-head">Critères (volumes pour 80 min)</div>
                 <table class="bil-table bil-table-quad">
-                    <thead><tr><th></th><th class="cmp-a">{{ display_name(a) }}</th><th class="cmp-b">{{ display_name(b) }}</th><th>Moy. poste</th></tr></thead>
+                    <thead><tr><th></th><th class="cmp-a">{{ display_name(a) }}</th><th class="cmp-b">{{ display_name(b) }}</th><th>Moy. poste</th><th>Cible</th></tr></thead>
                     <tbody>
-                    {% for ax in radar.axes %}<tr><th>{{ ax.label }}{{ ' (moins = mieux)' if ax.sens == 'lo' else '' }}</th>
-                        {% for v in ax.vals %}<td>{% if v is none %}—{% elif ax.sens == 'pct' %}{{ v|round(0)|int }} %{% else %}{{ v|round(1) }}{% endif %}</td>{% endfor %}
-                        <td>{% if ax.moy is none %}—{% elif ax.sens == 'pct' %}{{ ax.moy|round(0)|int }} %{% else %}{{ ax.moy|round(1) }}{% endif %}</td></tr>{% endfor %}
+                    {% for cr in radar.criteres %}
+                    {% if loop.first or radar.criteres[loop.index0 - 1].attente != cr.attente %}<tr><th colspan="5" style="text-align:left;">{{ cr.attente }}</th></tr>{% endif %}
+                    <tr><th>{{ cr.label }}</th>
+                        {% for v in cr.vals %}<td>{% if v is none %}—{% elif cr.type == 'pct' %}{{ v|round(0)|int }} %{% else %}{{ v|round(1) }}{% endif %}</td>{% endfor %}
+                        <td>{% if cr.moy is none %}—{% elif cr.type == 'pct' %}{{ cr.moy|round(0)|int }} %{% else %}{{ cr.moy|round(1) }}{% endif %}</td>
+                        <td>{% if cr.poids %}{{ cr.cible }}{{ ' %' if cr.type == 'pct' else '' }}{% else %}0{% endif %}</td></tr>
+                    {% endfor %}
                     </tbody>
                 </table>
             </div>

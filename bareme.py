@@ -305,6 +305,35 @@ def _clamp(x, lo=0.0, hi=10.0):
     return max(lo, min(hi, x))
 
 
+def evaluer_critere(crit, cible, plancher, rows, minutes):
+    """Valeur lissée et score /10 d'un critère pour un joueur. Même calcul pour la note de match
+    et pour le radar du comparateur. `valeur` vaut None si le critère n'est pas évaluable
+    (pas assez d'actions)."""
+    label, kind, fn = CRITERES[crit]
+    try:
+        val, n = fn(rows)
+    except Exception:
+        val, n = None, 0
+    out = {"label": label, "type": kind, "valeur": None, "actions": n, "score": None}
+    if val is None:
+        return out
+    if kind == "vol":
+        # Rythme par minute lissé : un court passage n'est pas multiplié tel quel jusqu'à 80 min.
+        # On ajoute SHRINK_MIN minutes virtuelles jouées à demi-cible.
+        prior = 0.5 * cible * SHRINK_MIN / 80.0
+        val80 = (val + prior) / (minutes + SHRINK_MIN) * 80.0
+        out["score"] = _clamp(10 * val80 / cible) if cible else 0.0
+        out["valeur"] = round(val80, 1)
+    else:
+        span = (cible - plancher) or 1
+        if n:
+            prior = plancher + 0.7 * span
+            val = (val * n + prior * SHRINK_K) / (n + SHRINK_K)
+        out["score"] = _clamp(10 * (val - plancher) / span)
+        out["valeur"] = round(val)
+    return out
+
+
 def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
     """Note /10 d'un joueur sur un match. `rows` = {"attack", "defense", "ruck"} (lignes du joueur
     pour ce match, éventuellement None). Renvoie None si pas assez de minutes ou de matière."""
@@ -315,32 +344,14 @@ def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
     for crit, (poids, cible, plancher) in reglages.items():
         if poids <= 0 or crit not in CRITERES:
             continue
-        label, kind, fn = CRITERES[crit]
-        try:
-            val, n = fn(rows)
-        except Exception:
-            val, n = None, 0
-        if val is None:
-            manquants.append({"critere": crit, "label": label, "poids": poids, "n": n})
+        ev = evaluer_critere(crit, cible, plancher, rows, minutes)
+        if ev["valeur"] is None:
+            manquants.append({"critere": crit, "label": ev["label"], "poids": poids, "n": ev["actions"]})
             continue
-        if kind == "vol":
-            # Rythme par minute lissé : un court passage n'est pas multiplié tel quel jusqu'à 80 min.
-            # On ajoute SHRINK_MIN minutes virtuelles jouées à demi-cible.
-            prior = 0.5 * cible * SHRINK_MIN / 80.0
-            val80 = (val + prior) / (minutes + SHRINK_MIN) * 80.0
-            score = _clamp(10 * val80 / cible) if cible else 0.0
-            shown = round(val80, 1)
-        else:
-            span = (cible - plancher) or 1
-            if n:
-                prior = plancher + 0.7 * span
-                val = (val * n + prior * SHRINK_K) / (n + SHRINK_K)
-            score = _clamp(10 * (val - plancher) / span)
-            shown = round(val)
-        detail.append({"critere": crit, "label": label, "type": kind, "valeur": shown, "actions": n,
-                       "score": round(score, 1), "poids": poids})
+        detail.append({"critere": crit, "label": ev["label"], "type": ev["type"], "valeur": ev["valeur"],
+                       "actions": ev["actions"], "score": round(ev["score"], 1), "poids": poids})
         tot_w += poids
-        tot_s += poids * score
+        tot_s += poids * ev["score"]
     if not detail:
         return None
     base = _clamp(tot_s / tot_w * CALAGE.get(PROFIL_FAMILLE.get(poste), 1.0))

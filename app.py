@@ -2987,62 +2987,9 @@ def _pct_choix(ruck, g_exp, p_exp, g_auto, p_auto, minimum=3):
     return None if g + p < minimum else 100 * g / (g + p)
 
 
-COMPARE_COMMUN = [
-    ("contact", "Contact (volume)", lambda r, b: _v(r["attack"], "contact_total") * b, "hi"),
-    ("contact_pct", "Contact (% positifs)", lambda r, b: (r["attack"] or {}).get("contact_pct") if _v(r["attack"], "contact_total") >= 3 else None, "pct"),
-    ("offload", "Offload (volume)", lambda r, b: _v(r["attack"], "offload_total") * b, "hi"),
-    ("offload_pct", "Offload (% réussis)", lambda r, b: (r["attack"] or {}).get("offload_pct") if _v(r["attack"], "offload_total") >= 3 else None, "pct"),
-    ("franchi", "Franchissement", lambda r, b: _v(r["attack"], "def_battu", "break") * b, "hi"),
-    ("soutien", "Soutien", lambda r, b: _v(r["attack"], "soutien_total") * b, "hi"),
-    ("plaquage", "Plaquage (volume)", lambda r, b: _v(r["defense"], "plaquage_tentes") * b, "hi"),
-    ("plaquage_pct", "Sniper (% plaquages réussis)", lambda r, b: (r["defense"] or {}).get("plaquage_pct") if _v(r["defense"], "plaquage_tentes") >= 5 else None, "pct"),
-    ("plaquage_dom", "Plaquage dominant (%)", lambda r, b: None if _v(r["defense"], "plaquage_dominant", "plaquage_neutre", "plaquage_passif") < 5 else 100 * _v(r["defense"], "plaquage_dominant") / _v(r["defense"], "plaquage_dominant", "plaquage_neutre", "plaquage_passif"), "pct"),
-    ("plaquage_bas", "Plaquage bas (%)", lambda r, b: None if _v(r["defense"], "plaquage_bas", "plaquage_haut") < 5 else 100 * _v(r["defense"], "plaquage_bas") / _v(r["defense"], "plaquage_bas", "plaquage_haut"), "pct"),
-    ("combat", "Combat / ballons gagnés", lambda r, b: _v(r["defense"], "combattant_total", "chasseur_total", "ballons_recuperes") * b, "hi"),
-    ("discipline", "Discipline", lambda r, b: _v(r["attack"], "penalite_off", "penalite_def") * b, "lo"),
-    ("activite", "Activité", lambda r, b: _v(r["bilan"], "actions_codees") * b, "hi"),
-]
-# Axes propres à chaque poste (conquête, passes, jeu au pied). Pour ajouter un descripteur
-# (ex. mêlée gagnée / pénalisée du pilier, lancer réussi du talonneur) : ajouter une ligne ici
-# une fois le label tagué dans le XML et compté dans parser.compute_player_ruck_table.
-COMPARE_POSTE = {
-    "Pilier": [("melee", "Mêlée", lambda r, b: _v(r["ruck"], "melee_conquete") * b, "hi"),
-               ("melee_off_pct", "Mêlée off (% gagnées)", lambda r, b: _pct_choix(r["ruck"], "melee_off_gagnee", "melee_off_perdue", "melee_gagne_auto", "melee_perdu_auto"), "pct"),
-               ("melee_def_pct", "Mêlée def (% gagnées)", lambda r, b: None if _v(r["ruck"], "melee_def_gagnee", "melee_def_perdue") < 3 else 100 * _v(r["ruck"], "melee_def_gagnee") / _v(r["ruck"], "melee_def_gagnee", "melee_def_perdue"), "pct"),
-               ("lifteur_pct", "Lifteur (% touches gagnées)", lambda r, b: _pct_choix(r["ruck"], "x_", "x_", "lifteur_gagne_auto", "lifteur_perdu_auto"), "pct")],
-    "Talonneur": [("lanceur", "Lancer en touche", lambda r, b: _v(r["ruck"], "lanceur") * b, "hi"),
-                  ("lancer_pct", "Lancer (% touches gagnées)", lambda r, b: _pct_choix(r["ruck"], "lancer_gagne", "lancer_perdu", "lanceur_gagne_auto", "lanceur_perdu_auto"), "pct"),
-                  ("melee_off_pct", "Mêlée off (% gagnées)", lambda r, b: _pct_choix(r["ruck"], "melee_off_gagnee", "melee_off_perdue", "melee_gagne_auto", "melee_perdu_auto"), "pct"),
-                  ("melee_def_pct", "Mêlée def (% gagnées)", lambda r, b: None if _v(r["ruck"], "melee_def_gagnee", "melee_def_perdue") < 3 else 100 * _v(r["ruck"], "melee_def_gagnee") / _v(r["ruck"], "melee_def_gagnee", "melee_def_perdue"), "pct")],
-    "2ème ligne": [("sauteur", "Sauteur", lambda r, b: _v(r["ruck"], "sauteur") * b, "hi"),
-                   ("sauteur_pct", "Sauteur (% touches gagnées)", lambda r, b: _pct_choix(r["ruck"], "x_", "x_", "sauteur_gagne_auto", "sauteur_perdu_auto"), "pct"),
-                   ("lifteur_pct", "Lifteur (% touches gagnées)", lambda r, b: _pct_choix(r["ruck"], "x_", "x_", "lifteur_gagne_auto", "lifteur_perdu_auto"), "pct")],
-    "3ème ligne": [("sauteur", "Sauteur", lambda r, b: _v(r["ruck"], "sauteur") * b, "hi"),
-                   ("sauteur_pct", "Sauteur (% touches gagnées)", lambda r, b: _pct_choix(r["ruck"], "x_", "x_", "sauteur_gagne_auto", "sauteur_perdu_auto"), "pct"),
-                   ("lifteur_pct", "Lifteur (% touches gagnées)", lambda r, b: _pct_choix(r["ruck"], "x_", "x_", "lifteur_gagne_auto", "lifteur_perdu_auto"), "pct")],
-    "Charnière": [("passes", "Passes (volume)", lambda r, b: _v(r["attack"], "passe_total") * b, "hi"),
-                  ("passes_pct", "Passes (% propres)", lambda r, b: (r["attack"] or {}).get("passe_pct") if _v(r["attack"], "passe_total") >= 5 else None, "pct"),
-                  ("jap", "Jeu au pied", lambda r, b: _v(r["ruck"], "jap") * b, "hi")],
-    "Centre": [("jap", "Jeu au pied", lambda r, b: _v(r["ruck"], "jap") * b, "hi")],
-    "Ailier/Arrière": [("jap", "Jeu au pied", lambda r, b: _v(r["ruck"], "jap") * b, "hi"),
-                       ("aerien", "Jeu aérien", lambda r, b: _v(r["ruck"], "duels_aer_total", "recep_ce") * b, "hi")],
-}
-# Familles servant à nommer le profil du joueur (moyenne des axes normalisés de la famille).
-COMPARE_FAMILLES = [
-    ("Percuteur", ("contact", "franchi")),
-    ("Joueur de continuité", ("offload", "offload_pct")),
-    ("Fiable au contact", ("contact_pct",)),
-    ("Plaqueur", ("plaquage", "plaquage_pct")),
-    ("Plaqueur dominant", ("plaquage_dom", "plaquage_bas")),
-    ("Récupérateur", ("combat",)),
-    ("Soutien / nettoyeur", ("soutien",)),
-    ("Moteur", ("activite",)),
-    ("Passeur", ("passes", "passes_pct")),
-    ("Homme de mêlée", ("melee", "melee_off_pct", "melee_def_pct")),
-    ("Homme de touche", ("lanceur", "lancer_pct", "sauteur", "sauteur_pct", "lifteur_pct")),
-    ("Jeu au pied", ("jap",)),
-    ("Joueur aérien", ("aerien",)),
-]
+# Poste de comparaison -> profil du barème (page Notes) dont on reprend les attentes et les cibles.
+COMPARE_PROFIL = {"Pilier": "Pilier", "Talonneur": "Talonneur", "2ème ligne": "2ème ligne", "3ème ligne": "3ème ligne",
+                  "Charnière": "9", "Centre": "12-13", "Ailier/Arrière": "11-14"}
 
 
 def _fusion_lignes(lignes):
@@ -3106,89 +3053,90 @@ def _compare_radar(selected, name_a, name_b, poste=None):
         return memo[cle(nom)]
 
     poste = poste or _poste_effectif(name_a) or _poste_effectif(name_b)
-    axes = COMPARE_COMMUN + COMPARE_POSTE.get(poste, [])
+    profil = COMPARE_PROFIL.get(poste)
     da, db_ = donnees(name_a), donnees(name_b)
     ma, mb = da[1], db_[1]
     mode_80 = ma >= 40 and mb >= 40
-    if not mode_80:
+    if not mode_80 or not profil:
         # Tout est ramené à 80 minutes de jeu : il faut les minutes (page Composition de chaque match).
         return {"manque_minutes": True, "minutes": (ma, mb), "poste": poste}
-    # Joueurs ayant tenu ce poste (au moins 40 min à ce poste) = référence (0 = pire, 100 = meilleur).
-    pool = []
-    for nom in tous_noms:
-        by, mn, _n = donnees(nom)
-        if mn >= 40 or cle(nom) in (cle(name_a), cle(name_b)):
-            pool.append((nom, 80 / mn if mn else None))
+    bar = _bareme_courant()
+    reglages = {c: r for c, r in bar[profil].items() if r[0] > 0 and c in bareme.CRITERES}
+    attentes = [(nom, {c: p for c, p in crits.items() if c in reglages}) for nom, crits in bareme.PROFILS[profil]]
+    attentes = [(nom, crits) for nom, crits in attentes if crits]
+    # Référence : joueurs ayant tenu ce poste au moins 40 min (+ les deux comparés).
+    pool = [nom for nom in tous_noms if donnees(nom)[1] >= 40 or cle(nom) in (cle(name_a), cle(name_b))]
 
-    def val(nom, fn):
+    def evaluer(nom):
+        """{critère: évaluation} + pénalités par 80 min, avec le calcul de la page Notes."""
         by, mn, _n = donnees(nom)
-        if mn <= 0:
+        rows = {t: by[t].get(cle(nom)) for t in by}
+        ev = {c: bareme.evaluer_critere(c, r[1], r[2], rows, mn) for c, r in reglages.items()}
+        pen = _v(rows.get("attack"), "penalite_off", "penalite_def") * 80 / mn
+        return ev, pen
+
+    evals = {nom: evaluer(nom) for nom in pool}
+
+    def score_attente(ev, crits):
+        tot = sum(p for c, p in crits.items() if ev[c]["score"] is not None)
+        if not tot:
             return None
-        try:
-            return fn({t: by[t].get(cle(nom)) for t in by}, 80 / mn)
-        except Exception:
-            return None
+        return round(10 * sum(p * ev[c]["score"] for c, p in crits.items() if ev[c]["score"] is not None) / tot)
+
+    def moyenne(valeurs):
+        v = [x for x in valeurs if x is not None]
+        return sum(v) / len(v) if v else None
+
     out_axes = []
-    for key, label, fn, sens in axes:
-        valeurs = [val(n, fn) for n, _b in pool]
-        valeurs = [v for v in valeurs if v is not None]
-        mx = max(valeurs) if valeurs else 0
-        mn_ = min(valeurs) if valeurs else 0
-        row = {"key": key, "label": label, "sens": sens, "vals": [], "scores": []}
-
-        def score(v):
-            if v is None:
-                return None
-            if sens == "pct":
-                return max(0, min(100, v))
-            if sens == "lo":
-                return 100 if mx <= 0 else max(0, min(100, 100 * (1 - v / mx)))
-            return 0 if mx <= 0 else max(0, min(100, 100 * v / mx))
-        for nom in (name_a, name_b):
-            v = val(nom, fn)
-            row["vals"].append(v)
-            row["scores"].append(score(v))
-        # Moyenne au poste : moyenne des valeurs des joueurs de la référence, sur la même échelle
-        moy = sum(valeurs) / len(valeurs) if valeurs else None
-        row["moy"] = moy
-        row["moy_score"] = score(moy)
-        out_axes.append(row)
-    # Profils : familles d'axes classées par moyenne de notes. Un profil est relatif au poste comparé, pas absolu.
+    for nom_att, crits in attentes:
+        sc = [score_attente(evals[n][0], crits) for n in (name_a, name_b)]
+        out_axes.append({"key": nom_att, "label": nom_att, "scores": sc,
+                         "moy_score": moyenne([score_attente(evals[n][0], crits) for n in pool])})
+    # Discipline : pénalités concédées par 80 min (0 = 100, 3 ou plus = 0), hors barème car c'est un malus.
+    def sc_disc(pen):
+        return round(max(0, min(100, 100 * (1 - pen / 3))))
+    out_axes.append({"key": "discipline", "label": "Discipline", "scores": [sc_disc(evals[n][1]) for n in (name_a, name_b)],
+                     "moy_score": moyenne([sc_disc(evals[n][1]) for n in pool])})
+    # Détail par critère (valeurs réelles, cible du poste et moyenne du poste).
+    criteres = []
+    for nom_att, crits in attentes:
+        for c in sorted(crits, key=lambda c: -crits[c]):
+            r = reglages[c]
+            vals = [evals[n][0][c]["valeur"] for n in (name_a, name_b)]
+            moy = moyenne([evals[n][0][c]["valeur"] for n in pool])
+            kind = bareme.CRITERES[c][1]
+            criteres.append({"attente": nom_att, "label": bareme.CRITERES[c][0], "type": kind, "vals": vals,
+                             "moy": moy, "cible": r[1], "poids": r[0],
+                             "scores": [evals[n][0][c]["score"] for n in (name_a, name_b)]})
+    pen_vals = [evals[n][1] for n in (name_a, name_b)]
+    criteres.append({"attente": "Discipline", "label": "Pénalités concédées (/80 min)", "type": "vol", "vals": pen_vals,
+                     "moy": moyenne([evals[n][1] for n in pool]), "cible": 0, "poids": 0, "scores": [None, None]})
+    # Lecture rapide : les attentes du club où chaque joueur est à 75 ou plus.
     profils = []
     for i in (0, 1):
-        scores = []
-        for nom_f, keys in COMPARE_FAMILLES:
-            sc = [a["scores"][i] for a in out_axes if a["key"] in keys and a["scores"][i] is not None]
-            if sc:
-                scores.append((nom_f, round(sum(sc) / len(sc))))
-        scores.sort(key=lambda x: -x[1])
-        # Tous les profils à 75+ (4 au plus) : un joueur peut être à la fois plaqueur et homme de
-        # touche. À défaut, le meilleur, et le 2e s'il atteint 50.
-        gardes = [x for x in scores if x[1] >= 75][:4]
-        if not gardes:
-            gardes = [x for k, x in enumerate(scores[:2]) if k == 0 or x[1] >= 50]
-        elif len(gardes) == 1 and len(scores) > 1 and scores[1][1] >= 50:
-            gardes.append(scores[1])
-        profils.append([{"nom": n, "score": v} for n, v in gardes])
+        forts = sorted([a for a in out_axes[:-1] if a["scores"][i] is not None and a["scores"][i] >= 75],
+                       key=lambda a: -a["scores"][i])
+        profils.append([{"nom": a["label"], "score": a["scores"][i]} for a in forts])
     # Géométrie du radar (SVG calculé ici)
     n = len(out_axes)
     cx, cy, R = 260, 250, 170
     def pt(i, frac):
         ang = -math.pi / 2 + 2 * math.pi * i / n
         return round(cx + R * frac * math.cos(ang), 1), round(cy + R * frac * math.sin(ang), 1)
-    polys = []
-    for j in (0, 1):
-        pts = [pt(i, (a["scores"][j] or 0) / 100) for i, a in enumerate(out_axes)]
-        polys.append(" ".join(f"{x},{y}" for x, y in pts))
-    poly_moy = " ".join(f"{x},{y}" for x, y in (pt(i, (a["moy_score"] or 0) / 100) for i, a in enumerate(out_axes)))
+    def poly(cle_score, j=None):
+        pts = [pt(i, ((a["scores"][j] if j is not None else a[cle_score]) or 0) / 100) for i, a in enumerate(out_axes)]
+        return " ".join(f"{x},{y}" for x, y in pts)
+    polys = [poly(None, 0), poly(None, 1)]
+    poly_moy = poly("moy_score")
     for i, a in enumerate(out_axes):
         a["axis_end"] = pt(i, 1)
         lx, ly = pt(i, 1.17)
         a["label_pos"] = (lx, ly)
         a["anchor"] = "middle" if abs(lx - cx) < 20 else ("start" if lx > cx else "end")
+        a["points"] = [pt(i, (a["scores"][j] or 0) / 100) for j in (0, 1)]
     rings = [" ".join(f"{x},{y}" for x, y in (pt(i, f) for i in range(n))) for f in (0.25, 0.5, 0.75, 1)]
-    return {"poste": poste, "axes": out_axes, "polys": polys, "poly_moy": poly_moy, "rings": rings, "profils": profils,
-            "mode": "par 80 min", "minutes": (ma, mb), "matchs": (da[2], db_[2]),
+    return {"poste": poste, "profil": profil, "axes": out_axes, "criteres": criteres, "polys": polys, "poly_moy": poly_moy,
+            "rings": rings, "profils": profils, "mode": "par 80 min", "minutes": (ma, mb), "matchs": (da[2], db_[2]),
             "pool": len(pool), "cx": cx, "cy": cy}
 
 
