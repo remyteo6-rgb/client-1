@@ -3086,3 +3086,6 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
 
 /* Légende : lettres simples, sans pastille sombre */
 .sf-dot { background:none !important; color:#530d34; min-width:44px; justify-content:flex-end; font-size:15px; }
+
+.sf-import { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:0 0 12px; padding:10px 14px; background:#f6efe9; border:1px solid #d9c9bb; border-radius:8px; font-size:14px; }
+.sf-import select { padding:4px 8px; }

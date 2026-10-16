@@ -2207,6 +2207,8 @@ def match_surfeurs(match_id):
     return render_template("match_surfeurs.html", match=match, touches=touches, couleurs=couleurs,
                            types=SURFEUR_TYPES, joueurs=joueurs, suivi=suivi, scores_mt=scores_mt,
                            assets=_review_assets(match),
+                           imports=([(k, v.get("label") or k) for k, v in _surfeurs_imports().items()]
+                                    if session.get("is_admin") and not touches else []),
                            editable=bool(session.get("is_admin")))
 
 
@@ -2219,6 +2221,57 @@ def match_surfeurs_save(match_id):
     payload = request.get_json(silent=True) or {}
     touches = _surfeurs_touches({"surfeurs": {"touches": (payload.get("touches") or [])[:600]}})
     manual = match.get("manual_stats") or {}
+    manual["surfeurs"] = {"touches": touches}
+    db = get_db()
+    db.execute("UPDATE matches SET manual_stats_json = %s WHERE id = %s", (json.dumps(manual), match_id))
+    db.commit()
+    return jsonify({"ok": True, "total": len(touches)})
+
+
+SURFEURS_IMPORT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "surfeurs_import")
+
+
+def _surfeurs_imports():
+    """Saisies de touches déjà faites ailleurs (fichiers data/surfeurs_import/*.json) : {clé: contenu}."""
+    out = {}
+    try:
+        for fn in sorted(os.listdir(SURFEURS_IMPORT_DIR)):
+            if fn.endswith(".json"):
+                with open(os.path.join(SURFEURS_IMPORT_DIR, fn), encoding="utf-8") as f:
+                    out[fn[:-5]] = json.load(f)
+    except (OSError, ValueError):
+        pass
+    return out
+
+
+@app.route("/match/<int:match_id>/surfeurs/importer", methods=["POST"])
+@admin_required
+def match_surfeurs_import(match_id):
+    """Reprend une saisie existante (positions + types) : chaque couleur du visuel d'origine est
+    rattachée au joueur de ce match dont le nom correspond. Refuse d'écraser une saisie en cours."""
+    match = _get_match_or_404(match_id)
+    payload = request.get_json(silent=True) or {}
+    data = _surfeurs_imports().get(str(payload.get("cle") or ""))
+    if not data:
+        return jsonify({"ok": False, "erreur": "Saisie introuvable."}), 404
+    manual = match.get("manual_stats") or {}
+    if _surfeurs_touches(manual) and not payload.get("remplacer"):
+        return jsonify({"ok": False, "erreur": "Ce match a déjà des touches saisies."}), 409
+    compo = [n for n in (match.get("composition") or [])[:23] if n]
+    noms, manquants = {}, []
+    for couleur, nom in (data.get("joueurs") or {}).items():
+        cible = _normalize_name(nom)
+        trouve = next((n for n in compo if cible and cible in _normalize_name(n)), None)
+        if trouve:
+            noms[couleur] = trouve
+        else:
+            manquants.append(nom)
+    if manquants:
+        return jsonify({"ok": False, "erreur": "Joueur introuvable dans la composition de ce match : "
+                        + ", ".join(manquants)}), 422
+    brut = [{"id": f"i{k}", "half": t.get("half"), "x": t.get("x"), "y": t.get("y"), "type": t.get("type"),
+             "player": noms.get(t.get("couleur"), "")} for k, t in enumerate(data.get("touches") or [])]
+    touches = _surfeurs_touches({"surfeurs": {"touches": brut}})
     manual["surfeurs"] = {"touches": touches}
     db = get_db()
     db.execute("UPDATE matches SET manual_stats_json = %s WHERE id = %s", (json.dumps(manual), match_id))

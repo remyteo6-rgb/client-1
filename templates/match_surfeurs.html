@@ -10,6 +10,26 @@
     </div>
 </div>
 
+{% if imports %}
+<div class="sf-import no-print">
+    <span>Reprendre une saisie déjà faite sur visuel :</span>
+    <select id="sf-import-cle">{% for k, l in imports %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select>
+    <button type="button" id="sf-import-go" class="btn">Importer dans ce match</button>
+    <span id="sf-import-msg"></span>
+</div>
+<script>
+document.getElementById('sf-import-go').addEventListener('click', function () {
+    var msg = document.getElementById('sf-import-msg');
+    msg.textContent = 'Import…';
+    fetch({{ url_for('match_surfeurs_import', match_id=match['id'])|tojson }}, {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({cle: document.getElementById('sf-import-cle').value})})
+        .then(function (r) { return r.json(); })
+        .then(function (d) { if (d.ok) location.reload(); else msg.textContent = d.erreur || 'Échec de l\'import.'; })
+        .catch(function () { msg.textContent = 'Échec de l\'import.'; });
+});
+</script>
+{% endif %}
+
 <div class="report-board sf-board">
     <div class="report-head">
         <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
