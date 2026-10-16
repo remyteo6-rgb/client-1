@@ -52,10 +52,9 @@
                     <div id="sf-suivi">
                         {% set mx = (suivi|map(attribute='total')|max) if suivi else 0 %}
                         {% for s in suivi %}
-                        <div class="sf-bar-row" data-id="{{ s.id }}" data-courant="{{ 1 if s.courant else 0 }}">
-                            {% if s.crest %}<img src="{{ s.crest }}" alt="" class="sf-crest">{% else %}<span class="sf-crest sf-crest-txt">{{ s.opponent[:3]|upper }}</span>{% endif %}
-                            <span class="sf-bar" style="width: {{ (s.total / (mx or 1) * 100)|round|int }}%;" data-base="{{ s.total }}"><b>{{ s.total }}</b></span>
-                            <span class="sf-bar-name">{{ s.opponent }}</span>
+                        <div class="sf-bar-row" data-id="{{ s.id }}" data-courant="{{ 1 if s.courant else 0 }}" title="{{ s.opponent }}">
+                            {% if s.crest %}<img src="{{ s.crest }}" alt="" class="sf-crest">{% else %}<span class="sf-crest sf-crest-txt" title="{{ s.opponent }}">{{ s.opponent[:3]|upper }}</span>{% endif %}
+                            <span class="sf-bar" style="width: {{ [(s.total / (mx or 1) * 100)|round|int, 4]|max }}%;" data-base="{{ s.total }}" title="{{ s.opponent }}"><b>{{ s.total }}</b></span>
                         </div>
                         {% endfor %}
                     </div>

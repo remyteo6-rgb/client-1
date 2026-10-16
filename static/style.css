@@ -3063,3 +3063,10 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
 .sf-type { border:0; color:#fff; font-weight:800; font-size:13px; padding:10px 0; border-radius:8px; cursor:pointer; }
 .sf-pop-actions { display:flex; justify-content:space-between; margin-top:10px; }
 .sf-link { background:none; border:0; color:#555; cursor:pointer; font-size:14px; text-decoration:underline; } .sf-del { color:#d9463c; }
+
+/* Suivi surfeurs : barres sobres, une par match (comme la maquette) */
+#sf-suivi { gap:12px; padding:14px 16px; }
+.sf-bar-row { grid-template-columns: 40px 1fr; grid-template-areas: "c b"; }
+.sf-crest { width:36px; height:36px; }
+.sf-bar { background:#3d6a9e; font-size:17px; font-weight:700; padding:5px 10px; border-radius:2px; transition: width .2s; }
+.sf-courant .sf-bar { background:#3d6a9e; outline:3px solid #f9a240; }

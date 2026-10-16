@@ -2133,7 +2133,7 @@ def match_surfeurs(match_id):
         poste = ((match.get("player_match_stats") or {}).get(nom) or {}).get("poste") or _poste_effectif(nom)
         if 9 <= i + 1 <= 15 or (i + 1 > 15 and poste in trois_quarts):
             joueurs.append({"nom": nom, "numero": i + 1})
-    # Suivi : nombre de touches saisies sur chaque match (barres à droite de la légende).
+    # Suivi de saison : nombre de touches saisies sur chaque match, dans l'ordre des matchs.
     suivi = []
     for r in get_db().execute("SELECT id, opponent, match_date, manual_stats_json FROM matches "
                               "ORDER BY COALESCE(match_date, created_at), id").fetchall():
@@ -2141,9 +2141,11 @@ def match_surfeurs(match_id):
             n = len(_surfeurs_touches(json.loads(r["manual_stats_json"] or "{}")))
         except ValueError:
             n = 0
-        if n or r["id"] == match_id:
-            suivi.append({"id": r["id"], "opponent": r["opponent"] or "?", "total": n, "courant": r["id"] == match_id,
-                          "crest": _club_crest_url(r["opponent"])})
+        suivi.append({"id": r["id"], "opponent": r["opponent"] or "?", "total": n, "courant": r["id"] == match_id,
+                      "crest": _club_crest_url(r["opponent"])})
+    # Comme la maquette : le match en cours et les 5 précédents (les plus anciens restent en base).
+    idx = next((i for i, s in enumerate(suivi) if s["courant"]), len(suivi) - 1)
+    suivi = suivi[max(0, idx - 5): idx + 1]
     return render_template("match_surfeurs.html", match=match, touches=_surfeurs_touches(match.get("manual_stats")),
                            types=SURFEUR_TYPES, joueurs=joueurs, suivi=suivi, score_ht=match.get("score_ht"),
                            score_final=(f"{own_points} – {adverse_points}" if own_points is not None and adverse_points is not None else None),
