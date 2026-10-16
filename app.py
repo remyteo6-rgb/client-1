@@ -3484,11 +3484,24 @@ def _notes_saison_calc(selected, bar=None):
                     e["n"] += it.get("n") or 0
         ajustements = sorted(({**e, "points": round(e["points"], 1)} for e in ajust.values()),
                              key=lambda e: (e["kind"] != "bonus", -abs(e["points"])))
+        # Facteur X : note moyenne (pondérée par les minutes) et atouts hors poste.
+        xs = [x for x in notes if x["res"].get("x")]
+        x_note, x_atouts = None, []
+        if xs:
+            xm = sum(x["minutes"] for x in xs)
+            x_note = round(sum(x["res"]["x"]["note"] * x["minutes"] for x in xs) / xm, 1)
+            agr = {}
+            for x in xs:
+                for t in x["res"]["x"]["atouts"]:
+                    e = agr.setdefault(t["critere"], {"label": t["label"], "type": t["type"], "cible": t["cible"], "w": 0.0, "s": 0.0, "v": 0.0})
+                    e["w"] += x["minutes"]; e["s"] += t["score"] * x["minutes"]; e["v"] += t["valeur"] * x["minutes"]
+            x_atouts = sorted(({"label": e["label"], "type": e["type"], "cible": e["cible"], "score": round(e["s"] / e["w"], 1),
+                                "valeur": round(e["v"] / e["w"], 1)} for e in agr.values()), key=lambda e: -e["score"])[:5]
         forts = [c for c in sorted(criteres, key=lambda d: -d["score"]) if c["score"] >= 6][:2]
         faibles = [c for c in sorted(criteres, key=lambda d: d["score"]) if c["score"] < 5][:2]
         out.append({**j, "note": round(note, 1), "minutes": mins, "poste": poste_princ, "criteres": criteres,
                     "malus": malus, "postes": par_poste, "forts": forts, "faibles": faibles,
-                    "ajustements": ajustements, "manquants": manquants})
+                    "ajustements": ajustements, "manquants": manquants, "x_note": x_note, "x_atouts": x_atouts})
     ordre = {p: i for i, p in enumerate(bareme.POSTES)}
     out.sort(key=lambda j: (ordre.get(j["poste"], 99), -(j["note"] if j["note"] is not None else -1), j["name"].casefold()))
     return out

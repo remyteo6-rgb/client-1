@@ -334,6 +334,42 @@ def evaluer_critere(crit, cible, plancher, rows, minutes):
     return out
 
 
+def _cible_hors_poste(crit):
+    """Cible et plancher d'un critère hors du profil du joueur : le plus bas niveau demandé à un
+    poste qui l'a dans ses attentes (le réaliser hors de son poste est déjà un apport)."""
+    cands = [v[crit] for v in _CIBLES.values() if crit in v and v[crit][0] > 0]
+    return min(cands, key=lambda x: x[0]) if cands else None
+
+
+X_NB = 3  # le facteur X est la moyenne des X_NB meilleurs critères hors poste
+
+
+def facteur_x(poste, rows, minutes, bareme=None):
+    """Facteur X : ce que le joueur apporte HORS des attentes de son poste (franchissements pour un
+    pilier, jeu au pied pour un centre, etc.). Note /10 = moyenne de ses X_NB meilleurs critères hors
+    profil, chacun noté comme sur la page Notes. Une valeur basse est normale : elle ne pénalise pas
+    la note au poste. Renvoie None s'il n'y a rien d'évaluable."""
+    reglages = (bareme or BAREME_DEFAUT).get(poste) or {}
+    dans_profil = {c for c, r in reglages.items() if r[0] > 0}
+    atouts = []
+    for crit in CRITERES:
+        if crit in dans_profil or crit == "jap":  # jap : volume de jeu au pied, qualité non notée
+            continue
+        ref = _cible_hors_poste(crit)
+        if not ref:
+            continue
+        ev = evaluer_critere(crit, ref[0], ref[1], rows, minutes)
+        if ev["valeur"] is None:
+            continue
+        atouts.append({"critere": crit, "label": ev["label"], "type": ev["type"], "valeur": ev["valeur"],
+                       "cible": ref[0], "score": round(ev["score"], 1), "actions": ev["actions"]})
+    if not atouts:
+        return None
+    atouts.sort(key=lambda a: -a["score"])
+    top = atouts[:X_NB]
+    return {"note": round(sum(a["score"] for a in top) / len(top), 1), "atouts": atouts}
+
+
 def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
     """Note /10 d'un joueur sur un match. `rows` = {"attack", "defense", "ruck"} (lignes du joueur
     pour ce match, éventuellement None). Renvoie None si pas assez de minutes ou de matière."""
@@ -389,4 +425,5 @@ def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
     total_malus = min(sum(-m["points"] for m in malus), MALUS["total_max"])
     note = _clamp(base - total_malus + bonus_pts)
     return {"note": round(note, 1), "base": round(base, 1), "malus": malus, "bonus": bonus,
-            "detail": sorted(detail, key=lambda d: -d["poids"]), "manquants": manquants, "minutes": minutes, "poste": poste}
+            "detail": sorted(detail, key=lambda d: -d["poids"]), "manquants": manquants, "minutes": minutes, "poste": poste,
+            "x": facteur_x(poste, rows, minutes, bareme)}

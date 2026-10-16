@@ -2999,3 +2999,5 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
 
 .landing-choice-link { display:block; text-align:center; margin:-4px 0 10px; font-size:15px; font-weight:700; color:#9b3a5e; text-decoration:none; letter-spacing:.4px; text-transform:uppercase; }
 .landing-choice-link:hover { text-decoration:underline; }
+
+.nt-x { font-size: 0.95rem; color: #6a6a6a; white-space: nowrap; }
