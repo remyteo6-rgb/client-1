@@ -1,0 +1,337 @@
+{
+ "label": "Journée 4 — Biarritz (saisie sur visuel)",
+ "sections": {
+  "touches": {
+   "h1": [
+    {
+     "cote": "G GOLD",
+     "option": "61 TANK",
+     "resultat": "PÉNALITÉ POUR",
+     "ton": "pos",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "2"
+    },
+    {
+     "cote": "G GOLD",
+     "option": "61 TANK",
+     "resultat": "PERTE DE BALLE",
+     "ton": "neg",
+     "qb": "ko",
+     "mom": "ko",
+     "ph": "1"
+    },
+    {
+     "cote": "D COP",
+     "option": "40 JAB",
+     "resultat": "JAP",
+     "ton": "neu",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "2"
+    }
+   ],
+   "h2": [
+    {
+     "cote": "G RUMBLE",
+     "option": "61 TANK",
+     "resultat": "ESSAI",
+     "ton": "pos",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "6"
+    },
+    {
+     "cote": "D COP",
+     "option": "50 100 SKODA",
+     "resultat": "TOUCHE PERDU",
+     "ton": "neg",
+     "qb": "ko",
+     "mom": "ko",
+     "ph": "1"
+    },
+    {
+     "cote": "D GOLD",
+     "option": "61 TANK",
+     "resultat": "TOUCHE PERDU",
+     "ton": "neg",
+     "qb": "ko",
+     "mom": "ko",
+     "ph": "1"
+    },
+    {
+     "cote": "G COP",
+     "option": "50 100 SKODA",
+     "resultat": "PERTE DE BALLE",
+     "ton": "neg",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "7"
+    },
+    {
+     "cote": "D RUMBLE",
+     "option": "51 TANK",
+     "resultat": "PERTE DE BALLE",
+     "ton": "neg",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "2"
+    },
+    {
+     "cote": "D ROUGE",
+     "option": "20",
+     "resultat": "JAP",
+     "ton": "neu",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "2"
+    }
+   ]
+  },
+  "melees": {
+   "h1": [
+    {
+     "cote": "G RUMBLE",
+     "option": "BMW DÉCALÉ",
+     "resultat": "PERTE DE BALLE",
+     "ton": "neg",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "3"
+    },
+    {
+     "cote": "M GOLD",
+     "option": "SKODA 10",
+     "resultat": "ESSAI",
+     "ton": "pos",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "2"
+    },
+    {
+     "cote": "G COP",
+     "option": "FERMÉ",
+     "resultat": "PERTE DE BALLE",
+     "ton": "neg",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "2"
+    },
+    {
+     "cote": "G COP",
+     "option": "100 SKODA",
+     "resultat": "PERTE DE BALLE",
+     "ton": "neg",
+     "qb": "ko",
+     "mom": "ko",
+     "ph": "1"
+    },
+    {
+     "cote": "M COP",
+     "option": "SCUD 12",
+     "resultat": "JAP",
+     "ton": "neu",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "1"
+    },
+    {
+     "cote": "M GOLD",
+     "option": "DÉPART 8",
+     "resultat": "PÉNALITÉ POUR",
+     "ton": "pos",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "8"
+    }
+   ],
+   "h2": [
+    {
+     "cote": "D RUMBLE",
+     "option": "PEUGEOT GARDE",
+     "resultat": "ESSAI",
+     "ton": "pos",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "1"
+    },
+    {
+     "cote": "G ROUGE",
+     "option": "DÉPART 8",
+     "resultat": "JAP",
+     "ton": "neu",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "2"
+    },
+    {
+     "cote": "D RUMBLE",
+     "option": "ESPAGNE",
+     "resultat": "ESSAI",
+     "ton": "pos",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "8"
+    }
+   ]
+  },
+  "ca": {
+   "h1": [
+    {
+     "cote": "G RUMBLE",
+     "option": "COURT",
+     "resultat": "PÉNALITÉ CONTRE",
+     "ton": "neg",
+     "ph": "1"
+    },
+    {
+     "cote": "D COP",
+     "option": "LONG",
+     "resultat": "EN AVANT",
+     "ton": "neg",
+     "ph": "1"
+    },
+    {
+     "cote": "D COP",
+     "option": "LONG",
+     "resultat": "EN AVANT",
+     "ton": "neg",
+     "ph": "3"
+    },
+    {
+     "cote": "G COP",
+     "option": "LONG",
+     "resultat": "JAP",
+     "ton": "neu",
+     "ph": "1"
+    },
+    {
+     "cote": "D COP",
+     "option": "LONG",
+     "resultat": "PÉNALITÉ CONTRE",
+     "ton": "neg",
+     "ph": "1"
+    }
+   ],
+   "h2": [
+    {
+     "cote": "G COP",
+     "option": "LONG",
+     "resultat": "ARRÊT DU JEU",
+     "ton": "neu",
+     "ph": "2"
+    },
+    {
+     "cote": "D COP",
+     "option": "LONG",
+     "resultat": "PÉNALITÉ POUR",
+     "ton": "pos",
+     "ph": "1"
+    },
+    {
+     "cote": "G RUMBLE",
+     "option": "COURT",
+     "resultat": "PÉNALITÉ POUR",
+     "ton": "pos"
+    }
+   ]
+  },
+  "clics": {
+   "h1": [
+    {
+     "cote": "G RUMBLE",
+     "option": "EN AVANT",
+     "resultat": "PERTE DE BALLE",
+     "ton": "neg",
+     "ph": "2"
+    },
+    {
+     "cote": "D RUMBLE",
+     "option": "EN AVANT",
+     "resultat": "MÊLÉE ZONE GOLD",
+     "ton": "pos",
+     "ph": "5"
+    },
+    {
+     "cote": "D COP",
+     "option": "EN AVANT",
+     "resultat": "JAP",
+     "ton": "neu",
+     "ph": "2"
+    },
+    {
+     "cote": "D COP",
+     "option": "EN AVANT",
+     "resultat": "JAP DIRECT EN TOUCHE",
+     "ton": "neg",
+     "ph": "1"
+    },
+    {
+     "cote": "M ROUGE",
+     "option": "EN AVANT",
+     "resultat": "JAP",
+     "ton": "neu",
+     "ph": "3"
+    },
+    {
+     "cote": "G COP",
+     "option": "TOUCHE",
+     "resultat": "EN AVANT",
+     "ton": "neg",
+     "ph": "1"
+    },
+    {
+     "cote": "M ROUGE",
+     "option": "EN AVANT",
+     "resultat": "JAP",
+     "ton": "neu",
+     "ph": "1"
+    },
+    {
+     "cote": "D COP",
+     "option": "TOUCHE",
+     "resultat": "PÉNALITÉ POUR",
+     "ton": "pos",
+     "ph": "2"
+    }
+   ],
+   "h2": [
+    {
+     "cote": "D RUMBLE",
+     "option": "PASSE RATÉ",
+     "resultat": "JAP",
+     "ton": "neu",
+     "ph": "1"
+    },
+    {
+     "cote": "D ROUGE",
+     "option": "TOUCHE",
+     "resultat": "JAP",
+     "ton": "neu",
+     "ph": "3"
+    },
+    {
+     "cote": "D COP",
+     "option": "RUCK",
+     "resultat": "50/22",
+     "ton": "pos",
+     "ph": "2"
+    },
+    {
+     "cote": "D COP",
+     "option": "INTERCEPTION",
+     "resultat": "JAP",
+     "ton": "neu",
+     "ph": "1"
+    },
+    {
+     "cote": "G ROUGE",
+     "option": "EN AVANT",
+     "resultat": "EN TOUCHE",
+     "ton": "neg",
+     "ph": "1"
+    }
+   ]
+  }
+ }
+}
