@@ -47,7 +47,7 @@ document.getElementById('ps-import-go').addEventListener('click', function () {
             {% if (loop.first and row.half == 2) or (not loop.first and row.half == 2 and sec.rows[loop.index0 - 1].half == 1) %}
             <tr class="ps-half"><td colspan="{{ sec.cols|length }}">Mi-temps</td></tr>
             {% endif %}
-            <tr data-section="{{ sec.key }}" data-key="{{ row.key }}">
+            <tr data-section="{{ sec.key }}" data-key="{{ row.key }}"{% if row.manuel %} class="ps-manuel"{% endif %}>
             {% for f, label, kind in sec.cols %}
                 {% set v = row.vals.get(f, '') %}
                 {% if kind == 'tick' %}
@@ -56,15 +56,17 @@ document.getElementById('ps-import-go').addEventListener('click', function () {
                 {% elif kind == 'res' %}
                 <td class="ps-res{% if row.tone %} ps-res-{{ row.tone }}{% endif %}">{% if is_admin %}<input class="ps-in ps-in-res" data-field="{{ f }}" maxlength="60" value="{{ v }}" placeholder="—" aria-label="{{ label }}"><button type="button" class="ps-ton no-print" data-state="{{ row.vals.get('ton', '') }}" title="Couleur du résultat : automatique → vert → ambre → rouge">●</button>{% else %}{{ v or '—' }}{% endif %}</td>
                 {% else %}
-                <td class="ps-c-{{ f }}">{% if is_admin %}<input class="ps-in{% if kind == 'num' %} ps-in-num{% endif %}" data-field="{{ f }}" maxlength="{{ 3 if kind == 'num' else 60 }}" value="{{ v }}" placeholder="—" aria-label="{{ label }}">{% else %}{{ v or '—' }}{% endif %}</td>
+                <td class="ps-c-{{ f }}">{% if is_admin and row.manuel and loop.first %}<button type="button" class="ps-del no-print" title="Supprimer cette ligne">×</button>{% endif %}{% if is_admin %}<input class="ps-in{% if kind == 'num' %} ps-in-num{% endif %}" data-field="{{ f }}" maxlength="{{ 3 if kind == 'num' else 60 }}" value="{{ v }}" placeholder="—" aria-label="{{ label }}">{% else %}{{ v or '—' }}{% endif %}</td>
                 {% endif %}
             {% endfor %}
             </tr>
         {% else %}
-            <tr><td colspan="{{ sec.cols|length }}" class="ps-empty">Aucune action taguée.</td></tr>
+            <tr><td colspan="{{ sec.cols|length }}" class="ps-empty">{{ 'Aucune action : ajoute-en avec les boutons ci-dessous.' if is_admin else 'Aucune action.' }}</td></tr>
         {% endfor %}
         </tbody>
     </table>
+    {% if is_admin %}<div class="ps-add no-print" data-section="{{ sec.key }}">+ Ajouter une action :
+        <button type="button" data-half="1">1ère mi-temps</button><button type="button" data-half="2">2ème mi-temps</button></div>{% endif %}
 </div>
 {% endmacro %}
 {% set by = {} %}{% for sec in board %}{% set _ = by.update({sec.key: sec}) %}{% endfor %}
@@ -215,6 +217,22 @@ function preparePrint() { setTimeout(() => window.print(), 100); }
         }
         input.addEventListener('change', commit);
         input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
+    });
+    function ligne(body) {
+        say('Enregistrement…');
+        fetch({{ url_for('match_possessions_ligne', match_id=match['id'])|tojson }}, { method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+            .then(function (r) { if (!r.ok) throw new Error(r.status); location.reload(); })
+            .catch(function () { say("L'ajout n'a pas abouti : recharge la page et réessaie.", true); });
+    }
+    document.querySelectorAll('.ps-add button').forEach(function (b) {
+        b.addEventListener('click', function () { ligne({ section: b.parentNode.dataset.section, action: 'add', half: b.dataset.half }); });
+    });
+    document.querySelectorAll('button.ps-del').forEach(function (b) {
+        b.addEventListener('click', function () {
+            var tr = b.closest('tr');
+            if (confirm('Supprimer cette ligne ?')) ligne({ section: tr.dataset.section, action: 'delete', key: tr.dataset.key });
+        });
     });
     document.querySelectorAll('button.ps-ton').forEach(function (btn) {
         btn.addEventListener('click', function () {

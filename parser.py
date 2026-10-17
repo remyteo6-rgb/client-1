@@ -4039,12 +4039,18 @@ def compute_possession_board(instances, overrides=None):
         half = (2 if (inst.get("start") or 0) >= half_time else 1) if half_time is not None \
             else (2 if period_of(inst) in ("40-60", "60-80") else 1)
         rows[sec].append({"key": key, "start": inst.get("start") or 0, "half": half, "vals": dict(saved),
-                          "tone": saved.get("ton") or possession_tone(saved.get("resultat"))})
-    if not any(rows.values()):
-        return None
+                          "manuel": False, "tone": saved.get("ton") or possession_tone(saved.get("resultat"))})
+    # Lignes ajoutées à la main (action non codée dans le XML) : clés « m<mi-temps>-<n> ».
+    for sec, _t, _c in POSSESSION_BOARD:
+        for key, saved in ((overrides or {}).get(sec) or {}).items():
+            m = re.fullmatch(r"m([12])-(\d+)", str(key))
+            if m:
+                rows[sec].append({"key": key, "start": 1e9 + int(m.group(2)), "half": int(m.group(1)),
+                                  "vals": dict(saved), "manuel": True,
+                                  "tone": saved.get("ton") or possession_tone(saved.get("resultat"))})
     sections = []
     for sec, title, cols in POSSESSION_BOARD:
-        rs = sorted(rows[sec], key=lambda r: r["start"])
+        rs = sorted(rows[sec], key=lambda r: (r["half"], r["start"]))
         sections.append({"key": sec, "title": title, "cols": cols, "rows": rs})
     return sections
 

@@ -2345,7 +2345,7 @@ def match_possessions_save(match_id):
     cols = {sec: {c[0]: c[2] for c in cs} for sec, _t, cs in POSSESSION_BOARD}
     for sec in cols:
         cols[sec]["ton"] = "ton"       # couleur du résultat choisie à la main
-    if section not in cols or field not in cols[section] or not re.fullmatch(r"\d+(\.\d+)?", key):
+    if section not in cols or field not in cols[section] or not re.fullmatch(r"\d+(\.\d+)?|m[12]-\d+", key):
         abort(400)
     value = str(payload.get("value") or "").strip()[:60]
     kind = cols[section][field]
@@ -2365,6 +2365,33 @@ def match_possessions_save(match_id):
     db.execute("UPDATE matches SET manual_stats_json = %s WHERE id = %s", (json.dumps(manual), match_id))
     db.commit()
     return jsonify({"ok": True, "value": value, "tone": entry.get("ton") or possession_tone(entry.get("resultat"))})
+
+
+@app.route("/match/<int:match_id>/possessions/ligne", methods=["POST"])
+@admin_required
+def match_possessions_ligne(match_id):
+    """Ajoute (ou supprime) une ligne à la main dans un tableau de « Nos possessions », pour une
+    action que le XML ne code pas (ex. un jeu rapide). Seules les lignes ajoutées se suppriment."""
+    match = _get_match_or_404(match_id)
+    payload = request.get_json(silent=True) or {}
+    section, action = payload.get("section"), payload.get("action")
+    if section not in {sec for sec, _t, _c in POSSESSION_BOARD} or action not in ("add", "delete"):
+        abort(400)
+    manual = match.get("manual_stats") or {}
+    store = manual.setdefault("possessions", {}).setdefault(section, {})
+    if action == "add":
+        half = 2 if str(payload.get("half")) == "2" else 1
+        n = 1 + max([int(k.split("-")[1]) for k in store if re.fullmatch(r"m[12]-\d+", k)] or [0])
+        store[f"m{half}-{n}"] = {}
+    else:
+        key = str(payload.get("key") or "")
+        if not re.fullmatch(r"m[12]-\d+", key):
+            abort(400)
+        store.pop(key, None)
+    db = get_db()
+    db.execute("UPDATE matches SET manual_stats_json = %s WHERE id = %s", (json.dumps(manual), match_id))
+    db.commit()
+    return jsonify({"ok": True})
 
 
 POSSESSIONS_IMPORT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "possessions_import")
@@ -2400,6 +2427,23 @@ def match_possessions_import(match_id):
     faits, ecarts = [], []
     for sec in board:
         src = (data.get("sections") or {}).get(sec["key"]) or {}
+        if not sec["rows"] and (src.get("h1") or src.get("h2")):
+            # Action non codée dans le XML (ex. jeu rapide) : on crée les lignes à la main.
+            tab = store.setdefault(sec["key"], {})
+            n = 0
+            for h in (1, 2):
+                for vals in src.get(f"h{h}") or []:
+                    n += 1
+                    entry = {}
+                    for f, v in vals.items():
+                        if f in cols[sec["key"]] and v not in ("", None):
+                            v = str(v).strip()[:60]
+                            entry[f] = v.upper() if cols[sec["key"]][f] in ("txt", "res") else v
+                        elif f == "ton" and v in ("pos", "neu", "neg"):
+                            entry["ton"] = v
+                    tab[f"m{h}-{n}"] = entry
+            faits.append(sec["title"])
+            continue
         for h in (1, 2):
             xml_n = sum(1 for r in sec["rows"] if r["half"] == h)
             src_n = len(src.get(f"h{h}") or [])

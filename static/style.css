@@ -3141,3 +3141,11 @@ select.subnav-match-select option { color:#222; background:#fff; }
 .ps-table td { overflow: hidden; text-overflow: ellipsis; }
 .ps-in-res { font-size: .72rem; padding-right: 12px; }
 .ps-in-num { width: 100%; }
+
+.ps-add { padding:6px 10px; font-size:.7rem; color:#777; border-top:1px solid rgba(0,0,0,.06); display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+.ps-add button { border:1px solid #c9bfb2; background:#fff; border-radius:999px; padding:1px 10px; font:inherit; cursor:pointer; color:#3d5a80; }
+.ps-add button:hover { background:#3d5a80; color:#fff; }
+.ps-table td:first-child { position:relative; }
+.ps-del { position:absolute; left:-1px; top:50%; transform:translateY(-50%); border:0; background:transparent; color:#d63b30; font-size:.95rem; line-height:1; cursor:pointer; padding:0 3px; opacity:.55; z-index:2; }
+.ps-del:hover { opacity:1; }
+.ps-manuel td:first-child .ps-in { padding-left:12px; }
