@@ -2329,8 +2329,10 @@ def match_possessions(match_id):
     possessions = compute_possession_log(match["instances"])
     possession_summary = compute_possession_summary(match["instances"])
     board = compute_possession_board(match["instances"], (match.get("manual_stats") or {}).get("possessions"))
+    imports = ([(k, v.get("label") or k) for k, v in _possessions_imports().items()]
+               if session.get("is_admin") and board and not (match.get("manual_stats") or {}).get("possessions") else [])
     return render_template("match_possessions.html", match=match, data=possessions,
-                           summary=possession_summary, board=board)
+                           summary=possession_summary, board=board, imports=imports)
 
 
 @app.route("/match/<int:match_id>/possessions/saisie", methods=["POST"])
@@ -2341,11 +2343,15 @@ def match_possessions_save(match_id):
     payload = request.get_json(silent=True) or {}
     section, key, field = payload.get("section"), str(payload.get("key") or ""), payload.get("field")
     cols = {sec: {c[0]: c[2] for c in cs} for sec, _t, cs in POSSESSION_BOARD}
+    for sec in cols:
+        cols[sec]["ton"] = "ton"       # couleur du résultat choisie à la main
     if section not in cols or field not in cols[section] or not re.fullmatch(r"\d+(\.\d+)?", key):
         abort(400)
     value = str(payload.get("value") or "").strip()[:60]
     kind = cols[section][field]
     if kind == "tick" and value not in ("", "ok", "ko"):
+        abort(400)
+    if kind == "ton" and value not in ("", "pos", "neu", "neg"):
         abort(400)
     if kind in ("txt", "res"):
         value = value.upper()
@@ -2358,7 +2364,66 @@ def match_possessions_save(match_id):
     db = get_db()
     db.execute("UPDATE matches SET manual_stats_json = %s WHERE id = %s", (json.dumps(manual), match_id))
     db.commit()
-    return jsonify({"ok": True, "value": value, "tone": possession_tone(entry.get("resultat"))})
+    return jsonify({"ok": True, "value": value, "tone": entry.get("ton") or possession_tone(entry.get("resultat"))})
+
+
+POSSESSIONS_IMPORT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "possessions_import")
+
+
+def _possessions_imports():
+    out = {}
+    try:
+        for fn in sorted(os.listdir(POSSESSIONS_IMPORT_DIR)):
+            if fn.endswith(".json"):
+                with open(os.path.join(POSSESSIONS_IMPORT_DIR, fn), encoding="utf-8") as f:
+                    out[fn[:-5]] = json.load(f)
+    except (OSError, ValueError):
+        pass
+    return out
+
+
+@app.route("/match/<int:match_id>/possessions/importer", methods=["POST"])
+@admin_required
+def match_possessions_import(match_id):
+    """Reprend un tableau déjà saisi sur visuel : les valeurs sont posées dans l'ordre sur les lignes
+    créées d'après le XML, section par section. Une section n'est importée que si le nombre de lignes
+    de chaque mi-temps est EXACTEMENT le même (sinon tout serait décalé) ; le reste est signalé."""
+    match = _get_match_or_404(match_id)
+    payload = request.get_json(silent=True) or {}
+    data = _possessions_imports().get(str(payload.get("cle") or ""))
+    if not data:
+        return jsonify({"ok": False, "erreur": "Saisie introuvable."}), 404
+    board = compute_possession_board(match["instances"], None) or []
+    cols = {sec: {c[0]: c[2] for c in cs} for sec, _t, cs in POSSESSION_BOARD}
+    manual = match.get("manual_stats") or {}
+    store = manual.setdefault("possessions", {})
+    faits, ecarts = [], []
+    for sec in board:
+        src = (data.get("sections") or {}).get(sec["key"]) or {}
+        for h in (1, 2):
+            xml_n = sum(1 for r in sec["rows"] if r["half"] == h)
+            src_n = len(src.get(f"h{h}") or [])
+            if xml_n != src_n:
+                ecarts.append(f"{sec['title']} mi-temps {h} : {xml_n} dans le XML, {src_n} sur le visuel")
+        if any(f"{sec['title']} " in e for e in ecarts):
+            continue
+        for h in (1, 2):
+            rows = [r for r in sec["rows"] if r["half"] == h]
+            for r, vals in zip(rows, src.get(f"h{h}") or []):
+                entry = {}
+                for f, v in vals.items():
+                    if f in cols[sec["key"]] and v not in ("", None):
+                        v = str(v).strip()[:60]
+                        entry[f] = v.upper() if cols[sec["key"]][f] in ("txt", "res") else v
+                    elif f == "ton" and v in ("pos", "neu", "neg"):
+                        entry["ton"] = v
+                store.setdefault(sec["key"], {})[r["key"]] = entry
+        faits.append(sec["title"])
+    if faits:
+        db = get_db()
+        db.execute("UPDATE matches SET manual_stats_json = %s WHERE id = %s", (json.dumps(manual), match_id))
+        db.commit()
+    return jsonify({"ok": bool(faits), "importes": faits, "ecarts": ecarts})
 
 
 @app.route("/match/<int:match_id>/zone-gold")

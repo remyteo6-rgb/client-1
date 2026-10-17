@@ -13,6 +13,30 @@
 </div>
 
 {% if board %}
+{% if imports %}
+<div class="sf-import no-print">
+    <span>Reprendre un tableau déjà saisi sur visuel :</span>
+    <select id="ps-import-cle">{% for k, l in imports %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select>
+    <button type="button" id="ps-import-go" class="btn">Importer dans ce match</button>
+    <span id="ps-import-msg"></span>
+</div>
+<script>
+document.getElementById('ps-import-go').addEventListener('click', function () {
+    var msg = document.getElementById('ps-import-msg');
+    msg.textContent = 'Import…';
+    fetch({{ url_for('match_possessions_import', match_id=match['id'])|tojson }}, {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({cle: document.getElementById('ps-import-cle').value})})
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            if (d.ok && !(d.ecarts || []).length) { location.reload(); return; }
+            msg.textContent = (d.ok ? 'Importé : ' + d.importes.join(', ') + '. ' : 'Rien d\'importé. ') +
+                ((d.ecarts || []).length ? 'Nombre de lignes différent — ' + d.ecarts.join(' ; ') : '');
+            if (d.ok) setTimeout(function () { location.reload(); }, 6000);
+        })
+        .catch(function () { msg.textContent = 'Échec de l\'import.'; });
+});
+</script>
+{% endif %}
 {% macro tableau(sec) %}
 <div class="ps-panel">
     <div class="ps-panel-head">{{ sec.title }} <span class="ps-count">{{ sec.rows|length }}</span></div>
@@ -30,7 +54,7 @@
                 <td class="ps-tick-cell">{% if is_admin %}<button type="button" class="ps-tick" data-field="{{ f }}" data-state="{{ v }}" aria-label="{{ label }}">{{ '✓' if v == 'ok' else ('✗' if v == 'ko' else '·') }}</button>
                     {% else %}<span class="ps-tick" data-state="{{ v }}">{{ '✓' if v == 'ok' else ('✗' if v == 'ko' else '') }}</span>{% endif %}</td>
                 {% elif kind == 'res' %}
-                <td class="ps-res{% if row.tone %} ps-res-{{ row.tone }}{% endif %}">{% if is_admin %}<input class="ps-in ps-in-res" data-field="{{ f }}" maxlength="60" value="{{ v }}" placeholder="—" aria-label="{{ label }}">{% else %}{{ v or '—' }}{% endif %}</td>
+                <td class="ps-res{% if row.tone %} ps-res-{{ row.tone }}{% endif %}">{% if is_admin %}<input class="ps-in ps-in-res" data-field="{{ f }}" maxlength="60" value="{{ v }}" placeholder="—" aria-label="{{ label }}"><button type="button" class="ps-ton no-print" data-state="{{ row.vals.get('ton', '') }}" title="Couleur du résultat : automatique → vert → ambre → rouge">●</button>{% else %}{{ v or '—' }}{% endif %}</td>
                 {% else %}
                 <td class="ps-c-{{ f }}">{% if is_admin %}<input class="ps-in{% if kind == 'num' %} ps-in-num{% endif %}" data-field="{{ f }}" maxlength="{{ 3 if kind == 'num' else 60 }}" value="{{ v }}" placeholder="—" aria-label="{{ label }}">{% else %}{{ v or '—' }}{% endif %}</td>
                 {% endif %}
@@ -191,6 +215,17 @@ function preparePrint() { setTimeout(() => window.print(), 100); }
         }
         input.addEventListener('change', commit);
         input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
+    });
+    document.querySelectorAll('button.ps-ton').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var next = { '': 'pos', 'pos': 'neu', 'neu': 'neg', 'neg': '' }[btn.dataset.state || ''];
+            save(btn.closest('tr'), 'ton', next, function (res) {
+                btn.dataset.state = next;
+                var cell = btn.closest('td');
+                cell.classList.remove('ps-res-pos', 'ps-res-neg', 'ps-res-neu');
+                if (res.tone) cell.classList.add('ps-res-' + res.tone);
+            });
+        });
     });
     document.querySelectorAll('button.ps-tick').forEach(function (btn) {
         btn.addEventListener('click', function () {

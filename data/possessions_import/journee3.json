@@ -1,0 +1,266 @@
+{
+ "label": "Journée 3 — USC (saisie sur visuel)",
+ "sections": {
+  "touches": {
+   "h1": [
+    {
+     "cote": "G RUMBLE",
+     "option": "61 TANK",
+     "resultat": "PERTE DE BALLES",
+     "ton": "neg",
+     "qb": "ko",
+     "mom": "ko",
+     "ph": "2"
+    },
+    {
+     "cote": "G RUMBLE",
+     "option": "59 100 SKODA",
+     "resultat": "PÉNALITÉ POUR",
+     "ton": "pos",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "1"
+    },
+    {
+     "cote": "G ROUGE",
+     "option": "40 JAB",
+     "resultat": "PERTES DE BALLES",
+     "ton": "neg",
+     "qb": "ko",
+     "mom": "ko",
+     "ph": "1"
+    }
+   ],
+   "h2": [
+    {
+     "cote": "D COP",
+     "option": "50",
+     "resultat": "TOUCHE PERDUE",
+     "ton": "neg",
+     "qb": "ko",
+     "mom": "ko",
+     "ph": "1"
+    },
+    {
+     "cote": "D ROUGE",
+     "option": "20 MIG",
+     "resultat": "JAP TOUCHE",
+     "ton": "pos",
+     "qb": "ko",
+     "mom": "ko",
+     "ph": "2"
+    },
+    {
+     "cote": "G GOLD",
+     "option": "61 TANK",
+     "resultat": "ESSAI",
+     "ton": "pos",
+     "qb": "ko",
+     "mom": "ok",
+     "ph": "5"
+    },
+    {
+     "cote": "D RUMBLE",
+     "option": "51 TANK",
+     "resultat": "TOUCHE PERDUE",
+     "ton": "neg",
+     "qb": "ko",
+     "mom": "ko",
+     "ph": "1"
+    }
+   ]
+  },
+  "melees": {
+   "h1": [],
+   "h2": [
+    {
+     "cote": "M COP",
+     "option": "PORT SKODA",
+     "resultat": "PERTE DE BALLES",
+     "ton": "neg",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "4"
+    }
+   ]
+  },
+  "ca": {
+   "h1": [
+    {
+     "cote": "G COP",
+     "option": "COURTE",
+     "resultat": "JAP",
+     "ton": "neu",
+     "ph": "2"
+    },
+    {
+     "cote": "D COP",
+     "option": "LONG",
+     "resultat": "ESSAI",
+     "ton": "pos",
+     "ph": "4"
+    }
+   ],
+   "h2": [
+    {
+     "cote": "D COP",
+     "option": "COURTE",
+     "resultat": "JAP RASANT",
+     "ton": "neg",
+     "ph": "3"
+    },
+    {
+     "cote": "G RUMBLE",
+     "option": "COURTE",
+     "resultat": "EN AVANT",
+     "ton": "neg",
+     "ph": "3"
+    },
+    {
+     "cote": "G ROUGE",
+     "option": "LONG",
+     "resultat": "JAP",
+     "ton": "neu"
+    }
+   ]
+  },
+  "rapide": {
+   "h1": [
+    {
+     "cote": "G COP",
+     "option": "Pénalité",
+     "resultat": "JAP TOUCHE",
+     "ton": "neg",
+     "ph": "4"
+    }
+   ],
+   "h2": [
+    {
+     "cote": "D COP",
+     "option": "Pénalité",
+     "resultat": "PÉNALITÉ CONTRE",
+     "ton": "neg",
+     "ph": "7"
+    }
+   ]
+  },
+  "clics": {
+   "h1": [
+    {
+     "cote": "G RUMBLE",
+     "option": "Ballon au sol",
+     "resultat": "PÉNALITÉ CONTRE",
+     "ton": "neg",
+     "ph": "8"
+    },
+    {
+     "cote": "G RUMBLE",
+     "option": "Touche gagnée",
+     "resultat": "BALLON PERDU AU CONTACT",
+     "ton": "neg",
+     "ph": "4"
+    },
+    {
+     "cote": "M COP",
+     "option": "Contre Ruck",
+     "resultat": "JAP",
+     "ton": "neu",
+     "ph": "3"
+    },
+    {
+     "cote": "G RUMBLE",
+     "option": "Ballon gratté",
+     "resultat": "EN AVANT",
+     "ton": "neg",
+     "ph": "2"
+    },
+    {
+     "cote": "D RUMBLE",
+     "option": "Duel aérien",
+     "resultat": "ESSAI",
+     "ton": "pos",
+     "ph": "5"
+    },
+    {
+     "cote": "M RUMBLE",
+     "option": "Contre ruck",
+     "resultat": "PÉNALITÉ CONTRE",
+     "ton": "neg",
+     "ph": "1"
+    },
+    {
+     "cote": "G COP",
+     "option": "Ballon gratté",
+     "resultat": "JAP",
+     "ton": "pos",
+     "ph": "1"
+    },
+    {
+     "cote": "D GOLD",
+     "option": "Ballon gratté",
+     "resultat": "EN AVANT",
+     "ton": "neg",
+     "ph": "1"
+    },
+    {
+     "cote": "D COP",
+     "option": "Touche gagnée",
+     "resultat": "BALLON ARRACHÉ",
+     "ton": "neg",
+     "ph": "3"
+    },
+    {
+     "cote": "G RUMBLE",
+     "option": "Ballon gratté",
+     "resultat": "EN AVANT",
+     "ton": "neg",
+     "ph": "1"
+    }
+   ],
+   "h2": [
+    {
+     "cote": "G COP",
+     "option": "En avant",
+     "resultat": "RETOUR AVANTAGE",
+     "ton": "neu",
+     "ph": "1"
+    },
+    {
+     "cote": "D COP",
+     "option": "Ballon gratté",
+     "resultat": "BALLON ARRACHÉ",
+     "ton": "neg",
+     "ph": "2"
+    },
+    {
+     "cote": "D ROUGE",
+     "option": "Touche gagnée",
+     "resultat": "JAP",
+     "ton": "neu",
+     "ph": "1"
+    },
+    {
+     "cote": "D COP",
+     "option": "Interception",
+     "resultat": "JAP",
+     "ton": "neu",
+     "ph": "2"
+    },
+    {
+     "cote": "D COP",
+     "option": "Ballon gratté",
+     "resultat": "PÉNALITÉ POUR",
+     "ton": "pos",
+     "ph": "1"
+    },
+    {
+     "cote": "G RUMBLE",
+     "option": "Touche gagnée",
+     "resultat": "PÉNALITÉ CONTRE",
+     "ton": "neg",
+     "ph": "6"
+    }
+   ]
+  }
+ }
+}

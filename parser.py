@@ -4039,7 +4039,7 @@ def compute_possession_board(instances, overrides=None):
         half = (2 if (inst.get("start") or 0) >= half_time else 1) if half_time is not None \
             else (2 if period_of(inst) in ("40-60", "60-80") else 1)
         rows[sec].append({"key": key, "start": inst.get("start") or 0, "half": half, "vals": dict(saved),
-                          "tone": possession_tone(saved.get("resultat"))})
+                          "tone": saved.get("ton") or possession_tone(saved.get("resultat"))})
     if not any(rows.values()):
         return None
     sections = []
