@@ -25,7 +25,8 @@ from parser import (
     compute_player_attack_table, compute_player_defense_table, compute_player_ruck_table,
     compute_player_bilan_table, compute_player_activity, _new_convention_player_names,
     compute_overview_dashboard, compute_squad_season_stats,
-    compute_possession_log, compute_possession_summary,
+    compute_possession_log, compute_possession_summary, compute_possession_board, possession_tone,
+    POSSESSION_BOARD,
     SQUAD_ROSTER, SQUAD_POSITION_ORDER, is_jiff,
     compute_player_comparison,
     TRAINING_TAXONOMY, group_training_sessions_by_period,
@@ -2327,8 +2328,37 @@ def match_possessions(match_id):
         return redirect(url_for("match_detail", match_id=match_id))
     possessions = compute_possession_log(match["instances"])
     possession_summary = compute_possession_summary(match["instances"])
+    board = compute_possession_board(match["instances"], (match.get("manual_stats") or {}).get("possessions"))
     return render_template("match_possessions.html", match=match, data=possessions,
-                           summary=possession_summary)
+                           summary=possession_summary, board=board)
+
+
+@app.route("/match/<int:match_id>/possessions/saisie", methods=["POST"])
+@admin_required
+def match_possessions_save(match_id):
+    """Enregistre une case d'un tableau de « Nos possessions » (section, ligne, champ, valeur)."""
+    match = _get_match_or_404(match_id)
+    payload = request.get_json(silent=True) or {}
+    section, key, field = payload.get("section"), str(payload.get("key") or ""), payload.get("field")
+    cols = {sec: {c[0]: c[2] for c in cs} for sec, _t, cs in POSSESSION_BOARD}
+    if section not in cols or field not in cols[section] or not re.fullmatch(r"\d+(\.\d+)?", key):
+        abort(400)
+    value = str(payload.get("value") or "").strip()[:60]
+    kind = cols[section][field]
+    if kind == "tick" and value not in ("", "ok", "ko"):
+        abort(400)
+    if kind in ("txt", "res"):
+        value = value.upper()
+    manual = match.get("manual_stats") or {}
+    entry = manual.setdefault("possessions", {}).setdefault(section, {}).setdefault(key, {})
+    if value:
+        entry[field] = value
+    else:
+        entry.pop(field, None)
+    db = get_db()
+    db.execute("UPDATE matches SET manual_stats_json = %s WHERE id = %s", (json.dumps(manual), match_id))
+    db.commit()
+    return jsonify({"ok": True, "value": value, "tone": possession_tone(entry.get("resultat"))})
 
 
 @app.route("/match/<int:match_id>/zone-gold")

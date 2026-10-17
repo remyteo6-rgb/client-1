@@ -3096,3 +3096,30 @@ select.subnav-match-select { color:#fff; cursor:pointer; appearance:none; -webki
     background-repeat:no-repeat; background-position:right 10px center; }
 select.subnav-match-select:hover, select.subnav-match-select:focus { background-color:rgba(255,255,255,0.14); outline:none; }
 select.subnav-match-select option { color:#222; background:#fff; }
+
+/* ---- Nos possessions : tableaux à remplir ---- */
+.ps-board { display:grid; grid-template-columns: 1.05fr 1fr 1.05fr; gap:16px; align-items:start; margin-top:8px; }
+.ps-col { display:flex; flex-direction:column; gap:16px; }
+.ps-panel { background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,.14); color:#1b1b1b; }
+.ps-panel-head { background:#3d5a80; color:#fff; padding:8px 14px; font-size:1.05rem; font-weight:800; letter-spacing:1.5px; text-transform:uppercase; display:flex; justify-content:space-between; align-items:center; }
+.ps-count { background:rgba(255,255,255,.2); border-radius:999px; padding:0 9px; font-size:.8rem; }
+.ps-table { width:100%; border-collapse:collapse; font-size:.78rem; }
+.ps-table thead th { background:#ede6dc; color:#555; font-weight:700; font-size:.64rem; letter-spacing:.4px; text-transform:uppercase; text-align:left; padding:5px 6px; }
+.ps-table td { padding:4px 6px; border-top:1px solid rgba(0,0,0,.06); vertical-align:middle; }
+.ps-table tbody tr:nth-child(even) td { background:#f7f2ec; }
+.ps-table td.ps-res { text-align:center; font-weight:700; width:30%; }
+.ps-table td.ps-res.ps-res-pos { background:#dcf2df; color:#2e8b3c; }
+.ps-table td.ps-res.ps-res-neg { background:#fbe0df; color:#d63b30; }
+.ps-table td.ps-res.ps-res-neu { background:#fbf0d6; color:#c78a12; }
+.ps-table tbody tr.ps-half td { background:#1d1414; color:#fff; text-align:center; font-size:.62rem; font-weight:700; letter-spacing:2px; text-transform:uppercase; padding:3px 6px; }
+.ps-empty { text-align:center; color:#777; font-style:italic; }
+.ps-in { border:0; background:transparent; font:inherit; color:inherit; width:100%; padding:2px 0; min-width:0; }
+.ps-in-res { text-align:center; font-weight:700; text-transform:uppercase; }
+.ps-in-num { width:30px; text-align:center; }
+.ps-in::placeholder { color:#b5aca0; }
+.ps-in:focus-visible, .ps-tick:focus-visible { outline:2px solid var(--accent-gold); outline-offset:1px; }
+.ps-tick-cell { text-align:center; width:34px; }
+.ps-tick { border:0; background:transparent; font:inherit; font-size:1rem; font-weight:800; cursor:pointer; color:#b5aca0; width:100%; }
+.ps-tick[data-state="ok"] { color:#2e8b3c; } .ps-tick[data-state="ko"] { color:#d63b30; }
+@media (max-width: 1100px) { .ps-board { grid-template-columns:1fr; } }
+@media print { .ps-in::placeholder { color:transparent; } .ps-tick[data-state=""] { visibility:hidden; } }

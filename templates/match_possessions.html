@@ -12,6 +12,60 @@
     <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
 
+{% if board %}
+{% macro tableau(sec) %}
+<div class="ps-panel">
+    <div class="ps-panel-head">{{ sec.title }} <span class="ps-count">{{ sec.rows|length }}</span></div>
+    <table class="ps-table ps-{{ sec.key }}">
+        <thead><tr>{% for f, label, kind in sec.cols %}<th class="ps-c-{{ f }}">{{ label }}</th>{% endfor %}</tr></thead>
+        <tbody>
+        {% for row in sec.rows %}
+            {% if (loop.first and row.half == 2) or (not loop.first and row.half == 2 and sec.rows[loop.index0 - 1].half == 1) %}
+            <tr class="ps-half"><td colspan="{{ sec.cols|length }}">Mi-temps</td></tr>
+            {% endif %}
+            <tr data-section="{{ sec.key }}" data-key="{{ row.key }}">
+            {% for f, label, kind in sec.cols %}
+                {% set v = row.vals.get(f, '') %}
+                {% if kind == 'tick' %}
+                <td class="ps-tick-cell">{% if is_admin %}<button type="button" class="ps-tick" data-field="{{ f }}" data-state="{{ v }}" aria-label="{{ label }}">{{ '✓' if v == 'ok' else ('✗' if v == 'ko' else '·') }}</button>
+                    {% else %}<span class="ps-tick" data-state="{{ v }}">{{ '✓' if v == 'ok' else ('✗' if v == 'ko' else '') }}</span>{% endif %}</td>
+                {% elif kind == 'res' %}
+                <td class="ps-res{% if row.tone %} ps-res-{{ row.tone }}{% endif %}">{% if is_admin %}<input class="ps-in ps-in-res" data-field="{{ f }}" maxlength="60" value="{{ v }}" placeholder="—" aria-label="{{ label }}">{% else %}{{ v or '—' }}{% endif %}</td>
+                {% else %}
+                <td class="ps-c-{{ f }}">{% if is_admin %}<input class="ps-in{% if kind == 'num' %} ps-in-num{% endif %}" data-field="{{ f }}" maxlength="{{ 3 if kind == 'num' else 60 }}" value="{{ v }}" placeholder="—" aria-label="{{ label }}">{% else %}{{ v or '—' }}{% endif %}</td>
+                {% endif %}
+            {% endfor %}
+            </tr>
+        {% else %}
+            <tr><td colspan="{{ sec.cols|length }}" class="ps-empty">Aucune action taguée.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endmacro %}
+{% set by = {} %}{% for sec in board %}{% set _ = by.update({sec.key: sec}) %}{% endfor %}
+<div class="report-board ps-board-wrap">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">ATTAQUE</span>
+        <span class="zg-heading">
+            <span class="zg-heading-title">NOS POSSESSIONS</span>
+            <span class="zg-heading-sub">{{ (match['competition'] or '')|upper }}</span>
+        </span>
+    </div>
+    <div class="ps-board">
+        <div class="ps-col">{{ tableau(by.touches) }}{{ tableau(by.rapide) }}</div>
+        <div class="ps-col">{{ tableau(by.melees) }}{{ tableau(by.ca) }}</div>
+        <div class="ps-col">{{ tableau(by.clics) }}</div>
+    </div>
+</div>
+{% if is_admin %}
+<p class="subtitle no-print" style="margin:10px 0 18px;">{{ icons.edit() }} Les lignes sont créées d'après ton XML (une par action, rangées par mi-temps). Remplis les cases directement
+    (Entrée ou clic ailleurs pour enregistrer) ; QB et Mom. : clique pour passer de ✓ à ✗. Le résultat se colore tout seul (vert : essai, pénalité pour ; rouge : perte, en avant, pénalité contre ;
+    ambre : le reste). <span id="psStatus" class="zg-status" role="status"></span></p>
+{% endif %}
+{% endif %}
+
 {% if summary %}
 <div class="card" style="margin-bottom:20px;">
     <table class="stat-table">
@@ -99,7 +153,7 @@
 </div>
 {% endfor %}
 
-{% else %}
+{% elif not board %}
 <div class="card empty-state">
     <p>{{ icons.receipt() }} Ce match n'a pas été tagué avec un système de suivi des possessions reconnu.</p>
     <p class="subtitle">Cette page s'active automatiquement dès qu'un XML contenant les codes « UBB POSSESSION » / « ADV POSSESSION » est importé.</p>
@@ -108,5 +162,46 @@
 
 <script>
 function preparePrint() { setTimeout(() => window.print(), 100); }
+{% if is_admin and board %}
+(function () {
+    var url = {{ url_for('match_possessions_save', match_id=match['id'])|tojson }};
+    var status = document.getElementById('psStatus');
+    function say(txt, err) { if (!status) return; status.textContent = txt; status.classList.toggle('zg-status-err', !!err); }
+    function save(tr, field, value, done) {
+        say('Enregistrement…');
+        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+                     body: JSON.stringify({ section: tr.dataset.section, key: tr.dataset.key, field: field, value: value }) })
+            .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+            .then(function (res) { say('Enregistré.'); if (done) done(res); })
+            .catch(function () { say("L'enregistrement n'a pas abouti : recharge la page et réessaie.", true); });
+    }
+    document.querySelectorAll('.ps-in').forEach(function (input) {
+        var last = input.value;
+        function commit() {
+            if (input.value.trim() === last.trim()) return;
+            last = input.value;
+            var tr = input.closest('tr'), cell = input.closest('td');
+            save(tr, input.dataset.field, input.value, function (res) {
+                if (!input.classList.contains('ps-in-num') && !input.dataset.free) input.value = res.value;
+                if (cell.classList.contains('ps-res')) {
+                    cell.classList.remove('ps-res-pos', 'ps-res-neg', 'ps-res-neu');
+                    if (res.tone) cell.classList.add('ps-res-' + res.tone);
+                }
+            });
+        }
+        input.addEventListener('change', commit);
+        input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
+    });
+    document.querySelectorAll('button.ps-tick').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var next = { '': 'ok', 'ok': 'ko', 'ko': '' }[btn.dataset.state || ''];
+            save(btn.closest('tr'), btn.dataset.field, next, function () {
+                btn.dataset.state = next; btn.textContent = next === 'ok' ? '✓' : (next === 'ko' ? '✗' : '·');
+            });
+        });
+    });
+})();
+{% else %}
+{% endif %}
 </script>
 {% endblock %}

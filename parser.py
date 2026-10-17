@@ -3976,6 +3976,79 @@ def compute_possession_summary(instances):
     }
 
 
+# ---- Nos possessions : tableaux à remplir (touches, mêlées, contre-attaques, jeu rapide, clics) ----
+# Le XML donne seulement CE QU'IL Y A EU (une ligne par action de UBB, rangée par mi-temps) ;
+# le détail (côté, option, QB, momentum, phases, résultat) se saisit sur la page, comme l'origine
+# des entrées en Zone Gold. Chaque ligne est retrouvée par le début de l'instance (gold_entry_key).
+POSSESSION_BOARD = [
+    # clé, titre, colonnes [(champ, intitulé, type)]
+    ("touches", "Touches", [("cote", "Touches", "txt"), ("option", "Options", "txt"), ("qb", "QB", "tick"),
+                            ("mom", "Mom.", "tick"), ("ph", "Ph.", "num"), ("resultat", "Résultat", "res")]),
+    ("melees", "Mêlées", [("cote", "Côtés", "txt"), ("option", "Options", "txt"), ("qb", "QB", "tick"),
+                          ("mom", "Mom.", "tick"), ("ph", "Ph.", "num"), ("resultat", "Résultat", "res")]),
+    ("ca", "Contre attaque", [("cote", "Côtés", "txt"), ("option", "CA", "txt"), ("ph", "Ph.", "num"),
+                              ("resultat", "Résultats", "res")]),
+    ("rapide", "Jeu rapide", [("cote", "Côtés", "txt"), ("option", "Récup", "free"), ("ph", "Ph.", "num"),
+                              ("resultat", "Résultats", "res")]),
+    ("clics", "Clics", [("cote", "Côtés", "txt"), ("option", "Récup", "free"), ("ph", "Ph.", "num"),
+                        ("resultat", "Résultats", "res")]),
+]
+# Codes UBB reconnus pour chaque tableau (mots normalisés après « UBB »).
+POSSESSION_BOARD_CODES = {
+    "touches": {"TOUCHES"},
+    "melees": {"JEU MELEES"},
+    "ca": {"CA", "CONTRE ATTAQUE"},
+    "rapide": {"JEU RAPIDE", "PENALITE JOUEE VITE", "PENALITES JOUEE VITE", "PENALITE JOUE VITE",
+               "PENALITE RAPIDE", "JEU VITE"},
+    "clics": {"CLIC", "CLICS"},
+}
+
+
+def possession_tone(text):
+    """Couleur d'un résultat saisi à la main : pos (vert), neg (rouge), neu (ambre) ou None."""
+    t = _normalize_tag(text)
+    if not t:
+        return None
+    if "ESSAI" in t or "PENALITE POUR" in t:
+        return "pos"
+    if any(w in t for w in ("PERDU", "PERTE", "CONTRE", "EN AVANT", "ARRACH", "TURNOVER")):
+        return "neg"
+    return "neu"
+
+
+def compute_possession_board(instances, overrides=None):
+    """Lignes pré-créées des tableaux de la page « Nos possessions » (une par action UBB),
+    avec les valeurs déjà saisies (overrides[section][clé][champ]). None si le match n'a aucune
+    de ces actions."""
+    half_time = detect_half_time(instances)
+    period_of = _period_lookup(instances)
+    wanted = {}
+    for sec, codes in POSSESSION_BOARD_CODES.items():
+        for c in codes:
+            wanted[c] = sec
+    rows = {sec: [] for sec, _t, _c in POSSESSION_BOARD}
+    for inst in instances:
+        tokens = _normalize_tag(inst.get("code_raw")).split()
+        if len(tokens) < 2 or tokens[0] != "UBB":
+            continue
+        sec = wanted.get(" ".join(tokens[1:]))
+        if sec is None:
+            continue
+        key = gold_entry_key(inst.get("start"))
+        saved = ((overrides or {}).get(sec) or {}).get(key) or {}
+        half = (2 if (inst.get("start") or 0) >= half_time else 1) if half_time is not None \
+            else (2 if period_of(inst) in ("40-60", "60-80") else 1)
+        rows[sec].append({"key": key, "start": inst.get("start") or 0, "half": half, "vals": dict(saved),
+                          "tone": possession_tone(saved.get("resultat"))})
+    if not any(rows.values()):
+        return None
+    sections = []
+    for sec, title, cols in POSSESSION_BOARD:
+        rs = sorted(rows[sec], key=lambda r: r["start"])
+        sections.append({"key": sec, "title": title, "cols": cols, "rows": rs})
+    return sections
+
+
 # ---- Zone Gold (entrées en zone des 22m, nouvelle convention de tagging) -----
 # Même logique que "Nos possessions" : on relit le code brut et les labels
 # directement (rien ne dépend du classificateur catégorie/côté de l'ancienne
