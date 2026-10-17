@@ -1,0 +1,270 @@
+{
+ "label": "Journée 1 — Bayonne (saisie sur visuel)",
+ "sections": {
+  "touches": {
+   "h1": [
+    {
+     "cote": "D GOLD",
+     "option": "6+1 TANK",
+     "resultat": "ESSAI",
+     "ton": "pos",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "1"
+    },
+    {
+     "cote": "G GOLD",
+     "option": "6+1 TANK",
+     "resultat": "TOUCHE PAS DROITE",
+     "ton": "neg",
+     "qb": "ko",
+     "mom": "ko",
+     "ph": "1"
+    },
+    {
+     "cote": "G ROUGE",
+     "option": "50",
+     "resultat": "EN AVANT",
+     "ton": "neg",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "1"
+    },
+    {
+     "cote": "G RUMBLE",
+     "option": "50",
+     "resultat": "JAP DIRECT EN TOUCHE",
+     "ton": "neg",
+     "qb": "ko",
+     "mom": "ko",
+     "ph": "1"
+    },
+    {
+     "cote": "D RUMBLE",
+     "option": "50 - 100 SKODA",
+     "resultat": "EN AVANT",
+     "ton": "neg",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "1"
+    }
+   ],
+   "h2": [
+    {
+     "cote": "D COP",
+     "option": "61 TANK",
+     "resultat": "BALLON PERDU SUR RUCK",
+     "ton": "neg",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "5"
+    },
+    {
+     "cote": "G ROUGE",
+     "option": "21",
+     "resultat": "JAP",
+     "ton": "neu",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "3"
+    },
+    {
+     "cote": "D GOLD",
+     "option": "51 TANK",
+     "resultat": "SAUTEUR CAPTE PAS LE BALLON",
+     "ton": "neg",
+     "qb": "ko",
+     "mom": "ko",
+     "ph": "1"
+    },
+    {
+     "cote": "D RUMBLE",
+     "option": "61 TANK",
+     "resultat": "LANCÉ TROP HAUT",
+     "ton": "neg",
+     "qb": "ko",
+     "mom": "ko",
+     "ph": "1"
+    },
+    {
+     "cote": "G GOLD",
+     "option": "61 TANK",
+     "resultat": "ESSAI",
+     "ton": "pos",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "1"
+    },
+    {
+     "cote": "D RUMBLE",
+     "option": "50",
+     "resultat": "PERDU CONTEST EN TOUCHE",
+     "ton": "neg",
+     "qb": "ko",
+     "mom": "ko"
+    }
+   ]
+  },
+  "melees": {
+   "h1": [
+    {
+     "cote": "D COP",
+     "option": "100",
+     "resultat": "INTERCEPTION",
+     "ton": "neg",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "1"
+    }
+   ],
+   "h2": [
+    {
+     "cote": "M COP",
+     "option": "3-1-2",
+     "resultat": "JAP DIRECT EN TOUCHE",
+     "ton": "neg",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "1"
+    }
+   ]
+  },
+  "ca": {
+   "h1": [
+    {
+     "cote": "G",
+     "option": "LONG",
+     "resultat": "PÉNALITÉ POUR",
+     "ton": "pos",
+     "ph": "7"
+    },
+    {
+     "cote": "G",
+     "option": "LONG",
+     "resultat": "ESSAI",
+     "ton": "pos",
+     "ph": "6"
+    },
+    {
+     "cote": "G",
+     "option": "LONG",
+     "resultat": "PÉNALITÉ POUR",
+     "ton": "pos",
+     "ph": "3"
+    },
+    {
+     "cote": "G",
+     "option": "LONG",
+     "resultat": "PÉNALITÉ POUR",
+     "ton": "pos",
+     "ph": "4"
+    }
+   ],
+   "h2": [
+    {
+     "cote": "D",
+     "option": "LONG",
+     "resultat": "BALLON GARDÉ AU SOL",
+     "ton": "neg",
+     "ph": "3"
+    },
+    {
+     "cote": "M",
+     "option": "COURT",
+     "resultat": "JAP PAR DESSUS",
+     "ton": "neg",
+     "ph": "1"
+    }
+   ]
+  },
+  "rapide": {
+   "h1": [
+    {
+     "cote": "D GOLD",
+     "option": "Pénalité rapide",
+     "resultat": "ESSAI",
+     "ton": "pos",
+     "ph": "3"
+    }
+   ],
+   "h2": [
+    {
+     "cote": "G GOLD",
+     "option": "Pénalité rapide",
+     "resultat": "EN AVANT",
+     "ton": "neg",
+     "ph": "3"
+    }
+   ]
+  },
+  "clics": {
+   "h1": [
+    {
+     "cote": "M COP",
+     "option": "En avant",
+     "resultat": "BALLON GARDÉ AU SOL",
+     "ton": "neg",
+     "ph": "4"
+    },
+    {
+     "cote": "G COP",
+     "option": "Ballon arraché",
+     "resultat": "JAP",
+     "ton": "neu",
+     "ph": "1"
+    },
+    {
+     "cote": "G ROUGE",
+     "option": "Ballon arraché",
+     "resultat": "ESSAI",
+     "ton": "pos",
+     "ph": "2"
+    },
+    {
+     "cote": "M COP",
+     "option": "Ruck gagné",
+     "resultat": "EN AVANT",
+     "ton": "neg",
+     "ph": "6"
+    }
+   ],
+   "h2": [
+    {
+     "cote": "M COP",
+     "option": "En avant",
+     "resultat": "ACTION ARRÊTÉ",
+     "ton": "neu",
+     "ph": "1"
+    },
+    {
+     "cote": "G RUMBLE",
+     "option": "Interception",
+     "resultat": "PÉNALITÉ POUR",
+     "ton": "pos",
+     "ph": "3"
+    },
+    {
+     "cote": "G COP",
+     "option": "Ballon arraché",
+     "resultat": "EN AVANT",
+     "ton": "neg",
+     "ph": "1"
+    },
+    {
+     "cote": "D ROUGE",
+     "option": "Interception",
+     "resultat": "PÉNALITÉ POUR",
+     "ton": "pos",
+     "ph": "2"
+    },
+    {
+     "cote": "D COP",
+     "option": "Touches gagné",
+     "resultat": "EN AVANT",
+     "ton": "neg",
+     "ph": "2"
+    }
+   ]
+  }
+ }
+}
