@@ -1,0 +1,313 @@
+{
+ "label": "Journée 2 — SUA (saisie sur visuel)",
+ "sections": {
+  "touches": {
+   "h1": [
+    {
+     "cote": "G GOLD",
+     "option": "61 TANK",
+     "resultat": "EN AVANT",
+     "ton": "neg",
+     "qb": "ko",
+     "mom": "ko",
+     "ph": "2"
+    },
+    {
+     "cote": "G GOLD",
+     "option": "61 TANK",
+     "resultat": "ESSAI",
+     "ton": "pos",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "1"
+    },
+    {
+     "cote": "D GOLD",
+     "option": "61 TANK",
+     "resultat": "TOUCHE PERDUE",
+     "ton": "neg",
+     "qb": "ko",
+     "mom": "ko",
+     "ph": "1"
+    },
+    {
+     "cote": "G RUMBLE",
+     "option": "50 100 SKODA",
+     "resultat": "EN AVANT",
+     "ton": "neg",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "1"
+    }
+   ],
+   "h2": [
+    {
+     "cote": "D RUMBLE",
+     "option": "69 RAFALE",
+     "resultat": "ESSAI",
+     "ton": "pos",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "2"
+    },
+    {
+     "cote": "G COP",
+     "option": "50 100 SKODA",
+     "resultat": "ESSAI",
+     "ton": "pos",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "1"
+    },
+    {
+     "cote": "G ROUGE",
+     "option": "40",
+     "resultat": "PÉNALITÉ CONTRE",
+     "ton": "neg",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "2"
+    },
+    {
+     "cote": "G GOLD",
+     "option": "61 TANK PEOGEOT -",
+     "resultat": "ESSAI",
+     "ton": "pos",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "1"
+    },
+    {
+     "cote": "D RUMBLE",
+     "option": "50 MIG",
+     "resultat": "PÉNALITÉ CONTRE",
+     "ton": "neg",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "4"
+    },
+    {
+     "cote": "D RUMBLE",
+     "option": "69 RAFALE",
+     "resultat": "PÉNALITÉ POUR",
+     "ton": "pos",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "5"
+    },
+    {
+     "cote": "G GOLD",
+     "option": "61 TANK",
+     "resultat": "ESSAI",
+     "ton": "pos",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "3"
+    },
+    {
+     "cote": "D GOLD",
+     "option": "61 TANK",
+     "resultat": "ESSAI",
+     "ton": "pos",
+     "qb": "ko",
+     "mom": "ko",
+     "ph": "10"
+    }
+   ]
+  },
+  "melees": {
+   "h1": [
+    {
+     "cote": "D RUMBLE",
+     "option": "BMW TUNNEL",
+     "resultat": "PÉNALITÉ CONTRE",
+     "ton": "neg",
+     "qb": "ok",
+     "mom": "ok",
+     "ph": "1"
+    }
+   ],
+   "h2": [
+    {
+     "cote": "M COP",
+     "option": "SKODA",
+     "resultat": "ESSAI",
+     "ton": "pos",
+     "qb": "ok",
+     "mom": "ok"
+    }
+   ]
+  },
+  "ca": {
+   "h1": [
+    {
+     "cote": "G COP",
+     "option": "LONG",
+     "resultat": "JEU AU PIED",
+     "ton": "neu",
+     "ph": "1"
+    },
+    {
+     "cote": "D RUMBLE",
+     "option": "COURT",
+     "resultat": "PÉNALITÉ POUR",
+     "ton": "pos",
+     "ph": "7"
+    },
+    {
+     "cote": "G COP",
+     "option": "LONG",
+     "resultat": "JEU AU PIED",
+     "ton": "neu",
+     "ph": "1"
+    },
+    {
+     "cote": "M RUMBLE",
+     "option": "COURT",
+     "resultat": "EN AVANT",
+     "ton": "neg",
+     "ph": "2"
+    },
+    {
+     "cote": "G ROUGE",
+     "option": "COURT",
+     "resultat": "JEU AU PIED",
+     "ton": "neu",
+     "ph": "3"
+    },
+    {
+     "cote": "D ROUGE",
+     "option": "LONG",
+     "resultat": "JEU AU PIED",
+     "ton": "neu",
+     "ph": "1"
+    },
+    {
+     "cote": "M RUMBLE",
+     "option": "COURT",
+     "resultat": "BALLON PERDU SUR RUCK",
+     "ton": "neg",
+     "ph": "2"
+    }
+   ],
+   "h2": [
+    {
+     "cote": "G ROUGE",
+     "option": "LONG",
+     "resultat": "JEU AU PIED",
+     "ton": "neu",
+     "ph": "1"
+    },
+    {
+     "cote": "D ROUGE",
+     "option": "LONG",
+     "resultat": "JEU AU PIED",
+     "ton": "neu",
+     "ph": "1"
+    }
+   ]
+  },
+  "rapide": {
+   "h1": [
+    {
+     "cote": "D RUMBLE",
+     "option": "Bras cassé",
+     "resultat": "ESSAI",
+     "ton": "pos",
+     "ph": "3"
+    }
+   ],
+   "h2": []
+  },
+  "clics": {
+   "h1": [
+    {
+     "cote": "D COP",
+     "option": "Duel aérien",
+     "resultat": "PÉNALITÉ CONTRE",
+     "ton": "neg",
+     "ph": "2"
+    },
+    {
+     "cote": "G RUMBLE",
+     "option": "Ballon arraché",
+     "resultat": "JEU AU PIED",
+     "ton": "neu",
+     "ph": "1"
+    },
+    {
+     "cote": "D GOLD",
+     "option": "Touche gagné",
+     "resultat": "BALLON ARRACHÉ",
+     "ton": "neg",
+     "ph": "1"
+    },
+    {
+     "cote": "D ROUGE",
+     "option": "Ballon arraché maul",
+     "resultat": "PÉNALITÉ POUR",
+     "ton": "pos",
+     "ph": "3"
+    },
+    {
+     "cote": "D GOLD",
+     "option": "Ruck gagné",
+     "resultat": "ESSAI",
+     "ton": "pos",
+     "ph": "1"
+    },
+    {
+     "cote": "G COP",
+     "option": "Ruck gagné",
+     "resultat": "ESSAI",
+     "ton": "pos",
+     "ph": "1"
+    },
+    {
+     "cote": "G RUMBLE",
+     "option": "CE Récupéré",
+     "resultat": "EN AVANT",
+     "ton": "neg",
+     "ph": "3"
+    }
+   ],
+   "h2": [
+    {
+     "cote": "D RUMBLE",
+     "option": "Ruck gagné",
+     "resultat": "CONTRE RUCK",
+     "ton": "neg",
+     "ph": "1"
+    },
+    {
+     "cote": "G COP",
+     "option": "Touche gagné",
+     "resultat": "JEU AU PIED",
+     "ton": "neu",
+     "ph": "1"
+    },
+    {
+     "cote": "D RUMBLE",
+     "option": "Ruck gagné",
+     "resultat": "PASSAGE EN TOUCHE",
+     "ton": "neg",
+     "ph": "1"
+    },
+    {
+     "cote": "D RUMBLE",
+     "option": "Touche rapide",
+     "resultat": "ESSAI",
+     "ton": "pos",
+     "ph": "2"
+    },
+    {
+     "cote": "D RUMBLE",
+     "option": "En avant adverse",
+     "resultat": "JEU ARRÊTÉ",
+     "ton": "neu",
+     "ph": "2"
+    }
+   ]
+  }
+ }
+}
