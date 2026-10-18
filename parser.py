@@ -3218,6 +3218,7 @@ def compute_player_ruck_table(instances):
                       "melee_off_gagnee": 0, "melee_off_perdue": 0,
                       "melee_def_gagnee": 0, "melee_def_perdue": 0,
                       "melee_off_penalisee": 0, "melee_def_penalisee": 0,
+                      "melee_off_obtenue": 0, "melee_def_obtenue": 0,
                       "lancer_gagne": 0, "lancer_perdu": 0,
                       "sauteur_plus": 0, "sauteur_moins": 0, "tqb": 0, "tqb_plus": 0, "tqb_moins": 0,
                       "lifteur_def": 0, "sauteur_def": 0, "sauteur_def_plus": 0, "sauteur_def_moins": 0,
@@ -3287,7 +3288,9 @@ def compute_player_ruck_table(instances):
                 pref = "lancer_"
             else:
                 continue
-            if "GAGN" in txt or txt == "+":
+            if txt == "GAGNE" and pref != "lancer_":
+                row[pref + "obtenue"] += 1   # « Gagné » en mêlée = pénalité obtenue
+            elif "GAGN" in txt or txt == "+":
                 row[pref + ("gagne" if pref == "lancer_" else "gagnee")] += 1
             elif "PENALIS" in txt and pref != "lancer_":
                 row[pref + "penalisee"] += 1
@@ -3662,6 +3665,7 @@ def _zero_ruck_row(name):
         "name": name, "melee_conquete": 0, "lifteur": 0, "sauteur": 0, "lanceur": 0, "touche_total": 0,
         "melee_off_gagnee": 0, "melee_off_perdue": 0, "melee_def_gagnee": 0, "melee_def_perdue": 0,
         "melee_off_penalisee": 0, "melee_def_penalisee": 0,
+        "melee_off_obtenue": 0, "melee_def_obtenue": 0,
         "lancer_gagne": 0, "lancer_perdu": 0,
         "sauteur_plus": 0, "sauteur_moins": 0, "tqb": 0, "tqb_plus": 0, "tqb_moins": 0,
         "lifteur_def": 0, "sauteur_def": 0, "sauteur_def_plus": 0, "sauteur_def_moins": 0,
