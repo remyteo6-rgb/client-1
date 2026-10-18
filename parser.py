@@ -998,11 +998,13 @@ def compute_new_convention_overview(instances):
         },
         "touches": {"own": _pct(touches["own"]), "adverse": _pct(touches["adverse"])},
         "melees": {"own": _pct(melees["own"]), "adverse": _pct(melees["adverse"])},
-        # Côté UBB, les fautes sont recensées joueur par joueur (source qui fait foi
-        # dans le rapport) ; le code "UBB DISCIPLINES" sert de repli s'il n'y en a pas.
+        # Côté UBB : le code « UBB DISCIPLINES » (une faute = un code) fait foi, comme sur la page
+        # Discipline. Avant, les labels « Pénalité » des joueurs passaient en premier : sur un XML où
+        # seules quelques fautes portent aussi ce label, la Review affichait 3 au lieu de 13. Ces
+        # labels ne servent plus que de repli pour les fichiers sans code « UBB DISCIPLINES ».
         # Côté adverse, seul le code existe : les joueurs d'en face ne sont pas tagués.
         "discipline": {
-            "own": penalties_own or disciplines["own"],
+            "own": disciplines["own"] or penalties_own,
             "adverse": disciplines["adverse"],
         },
         "break": breaks,
