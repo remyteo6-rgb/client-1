@@ -1536,10 +1536,8 @@ JOUEURS_SLIDES = [
             {"key": "cartouche", "label": "Cartouches", "kind": "num"}]},
         {"label": "Déchet", "cols": [
             {"key": "pdb", "label": "Ball. perdus", "kind": "neg"},
-            {"key": "penalite_off", "label": "Fautes off.", "kind": "neg"},
-            {"key": "penalite_def", "label": "Fautes déf.", "kind": "neg"},
-            {"key": "melee_off_penalisee", "label": "Mêlée off. pén.", "kind": "neg"},
-            {"key": "melee_def_penalisee", "label": "Mêlée déf. pén.", "kind": "neg"}]},
+            {"key": "penalite_off", "label": "Pén. off.", "kind": "neg"},
+            {"key": "penalite_def", "label": "Pén. déf.", "kind": "neg"}]},
     ]},
     {"key": "defense", "title": "DÉFENSE", "table": "defense", "groups": [
         {"label": "Plaquages", "cols": [
@@ -1612,6 +1610,16 @@ JOUEURS_SLIDES = [
             {"key": "drop_txt", "label": "Drops", "kind": "num"},
             {"key": "points", "label": "Points", "kind": "pos", "cmp": ("ruck", "points_total")}]},
     ]},
+    {"key": "discipline", "title": "DISCIPLINE", "table": "ruck", "groups": [
+        {"label": "Fautes jeu", "cols": [
+            {"key": "faute_off", "label": "Off.", "kind": "neg"},
+            {"key": "faute_def", "label": "Déf.", "kind": "neg"}]},
+        {"label": "Fautes mêlée", "cols": [
+            {"key": "melee_off_penalisee", "label": "Off.", "kind": "neg"},
+            {"key": "melee_def_penalisee", "label": "Déf.", "kind": "neg"}]},
+        {"label": "Fautes conquête", "cols": [
+            {"key": "faute_conquete", "label": "Touche / mêlée", "kind": "neg"}]},
+    ]},
 ]
 _SLIDE_GROUP_COLORS = ("navy", "wine", "plum")
 
@@ -1625,17 +1633,12 @@ def _joueurs_detail_slides(bilan_slide, player_cards, tables, avg=False):
     le même ordre et avec les mêmes n° / poste / nom que la diapo BILAN. Un joueur sans
     action dans un secteur garde sa ligne (cases « · »)."""
     slides = []
-    ruck_by_name = {r["name"]: r for r in tables["ruck"]["rows"]}
     for spec in JOUEURS_SLIDES:
         by_name = {r["name"]: r for r in tables[spec["table"]]["rows"]}
         cols = [c for g in spec["groups"] for c in g["cols"]]
         rows = []
         for meta, card in zip(bilan_slide["rows"], player_cards):
             src = dict(by_name.get(card["name"]) or {})
-            if spec["table"] == "attack":
-                ru = ruck_by_name.get(card["name"]) or {}
-                src["melee_off_penalisee"] = ru.get("melee_off_penalisee", 0)
-                src["melee_def_penalisee"] = ru.get("melee_def_penalisee", 0)
             if spec["table"] == "defense":
                 src["plaquage_reussis"] = (src.get("plaquage_dominant", 0) + src.get("plaquage_neutre", 0)
                                            + src.get("plaquage_passif", 0))
