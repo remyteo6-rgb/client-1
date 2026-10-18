@@ -104,7 +104,7 @@ def _p_lancer(r):
 
 
 def _p_sauteur(r):
-    return _pct_expl_auto(r["ruck"], None, None, "sauteur_gagne_auto", "sauteur_perdu_auto", 4)
+    return _pct_expl_auto(r["ruck"], "sauteur_plus", "sauteur_moins", "sauteur_gagne_auto", "sauteur_perdu_auto", 4)
 
 
 def _p_lifteur(r):

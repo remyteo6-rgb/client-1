@@ -3218,6 +3218,8 @@ def compute_player_ruck_table(instances):
                       "melee_off_gagnee": 0, "melee_off_perdue": 0,
                       "melee_def_gagnee": 0, "melee_def_perdue": 0,
                       "lancer_gagne": 0, "lancer_perdu": 0,
+                      "sauteur_plus": 0, "sauteur_moins": 0, "tqb": 0, "tqb_plus": 0, "tqb_moins": 0,
+                      "lifteur_def": 0, "sauteur_def": 0, "sauteur_def_plus": 0, "sauteur_def_moins": 0,
                       "lanceur_gagne_auto": auto.get(name, {}).get("lanceur_gagne_auto", 0), "lanceur_perdu_auto": auto.get(name, {}).get("lanceur_perdu_auto", 0), "sauteur_gagne_auto": auto.get(name, {}).get("sauteur_gagne_auto", 0), "sauteur_perdu_auto": auto.get(name, {}).get("sauteur_perdu_auto", 0), "lifteur_gagne_auto": auto.get(name, {}).get("lifteur_gagne_auto", 0), "lifteur_perdu_auto": auto.get(name, {}).get("lifteur_perdu_auto", 0), "melee_gagne_auto": auto.get(name, {}).get("melee_gagne_auto", 0), "melee_perdu_auto": auto.get(name, {}).get("melee_perdu_auto", 0), 
                       "jap": 0, "coup_envoi": 0, "recep_ce": 0,
                       "rce_plus": 0, "rce_neutre": 0, "rce_minus": 0,
@@ -3232,7 +3234,8 @@ def compute_player_ruck_table(instances):
             continue
         row = rows[code]
         off_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "JOUEURS OFF"}
-        if "MELEES" in off_vals:
+        melee_grp_txt = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "MELEE DEF"}
+        if "MELEES" in off_vals or "MELEES OFF" in off_vals or "MELEES DEF" in melee_grp_txt:
             row["melee_conquete"] += 1
         if "LIFTEUR" in off_vals:
             row["lifteur"] += 1
@@ -3244,6 +3247,36 @@ def compute_player_ruck_table(instances):
         # « Mêlée Def » (Gagné / Perdu), « Lancer » (Touche gagnée / Touche perdue).
         for l in i["labels"]:
             grp, txt = _normalize_tag(l["group"]), _normalize_tag(l["text"])
+            # Grille de codage 2026-27 : rôles et résultats de touche saisis par le joueur.
+            if grp == "TOUCHES OFF":
+                if txt == "LANCE":
+                    row["lanceur"] += 1
+                elif txt == "PRISE EN TOUCHE":
+                    row["sauteur"] += 1
+                elif txt == "TQB":
+                    row["tqb"] += 1
+                continue
+            if grp == "TOUCHES":
+                if txt == "LIFTEUR OFF":
+                    row["lifteur"] += 1
+                continue
+            if grp == "TOUCHES DEF":
+                if txt == "LIFTEUR DEF":
+                    row["lifteur_def"] += 1
+                elif txt == "SAUTEUR DEF":
+                    row["sauteur_def"] += 1
+                continue
+            qual = "plus" if txt in ("+", "GAGNE") else ("moins" if txt in ("-", "PERDU") else None)
+            if qual and grp in ("TOUCHES OFF LANCE", "TOUCHES OFF SAUTEUR", "TOUCHES OFF TQB", "TOUCHES DEF SAUTEUR"):
+                if grp == "TOUCHES OFF LANCE":
+                    row["lancer_gagne" if qual == "plus" else "lancer_perdu"] += 1
+                elif grp == "TOUCHES OFF SAUTEUR":
+                    row["sauteur_" + qual] += 1
+                elif grp == "TOUCHES OFF TQB":
+                    row["tqb_" + qual] += 1
+                else:
+                    row["sauteur_def_" + qual] += 1
+                continue
             if grp.startswith("MELEE") and "OFF" in grp:
                 pref = "melee_off_"
             elif grp.startswith("MELEE") and "DEF" in grp:
@@ -3252,9 +3285,9 @@ def compute_player_ruck_table(instances):
                 pref = "lancer_"
             else:
                 continue
-            if "GAGN" in txt:
+            if "GAGN" in txt or txt == "+":
                 row[pref + ("gagne" if pref == "lancer_" else "gagnee")] += 1
-            elif "PERD" in txt:
+            elif "PERD" in txt or "PENALIS" in txt or txt == "-":
                 row[pref + ("perdu" if pref == "lancer_" else "perdue")] += 1
         if "JAP" in off_vals:
             row["jap"] += 1
@@ -3616,6 +3649,8 @@ def _zero_ruck_row(name):
         "name": name, "melee_conquete": 0, "lifteur": 0, "sauteur": 0, "lanceur": 0, "touche_total": 0,
         "melee_off_gagnee": 0, "melee_off_perdue": 0, "melee_def_gagnee": 0, "melee_def_perdue": 0,
         "lancer_gagne": 0, "lancer_perdu": 0,
+        "sauteur_plus": 0, "sauteur_moins": 0, "tqb": 0, "tqb_plus": 0, "tqb_moins": 0,
+        "lifteur_def": 0, "sauteur_def": 0, "sauteur_def_plus": 0, "sauteur_def_moins": 0,
         "jap": 0, "coup_envoi": 0, "recep_ce": 0, "coup_envoi_recep_total": 0,
         "rce_plus": 0, "rce_neutre": 0, "rce_minus": 0, "rce_total": 0,
         "duels_aer_plus": 0, "duels_aer_neutre": 0, "duels_aer_total": 0,
