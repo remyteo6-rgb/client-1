@@ -61,7 +61,7 @@
                     <th class="sep-l">Passes +/=/-</th><th>Total / % propres</th>
                     <th class="sep-l">Offload +/=/-</th><th>Total / %</th>
                     <th class="sep-l">Soutien 1er/2e/3e+</th><th>Cartouches</th>
-                    <th class="sep-l">Ball. perdus</th><th>Pén. off.</th><th>Pén. déf.</th>
+                    <th class="sep-l">Ball. perdus</th><th>Fautes off.</th><th>Fautes déf.</th><th>Mêlée off. pén.</th><th>Mêlée déf. pén.</th>
                 </tr>
             </thead>
             <tbody>
@@ -77,18 +77,10 @@
                     <td class="sep-l"><span class="stat-neg">{{ attack.pdb }}</span></td>
                     <td><span class="stat-neg">{{ attack.penalite_off }}</span></td>
                     <td><span class="stat-neg">{{ attack.penalite_def }}</span></td>
+                    <td><span class="stat-neg">{{ ruck.melee_off_penalisee }}</span></td>
+                    <td><span class="stat-neg">{{ ruck.melee_def_penalisee }}</span></td>
                 </tr>
             </tbody>
-        </table>
-
-        <h3 style="font-size:13px; margin:16px 0 8px; color:var(--text-secondary);">Fautes</h3>
-        <table class="stat-table zebra-table">
-            <thead><tr><th>Fautes off.</th><th>Fautes déf.</th><th class="sep-l">Mêlée off. pénalisée</th><th>Mêlée déf. pénalisée</th><th class="sep-l">Conquête (touche / mêlée)</th></tr></thead>
-            <tbody><tr>
-                <td><span class="stat-neg">{{ ruck.faute_off }}</span></td><td><span class="stat-neg">{{ ruck.faute_def }}</span></td>
-                <td class="sep-l"><span class="stat-neg">{{ ruck.melee_off_penalisee }}</span></td><td><span class="stat-neg">{{ ruck.melee_def_penalisee }}</span></td>
-                <td class="sep-l"><span class="stat-neg">{{ ruck.faute_conquete }}</span></td>
-            </tr></tbody>
         </table>
 
         <h3 style="font-size:13px; margin:16px 0 8px; color:var(--text-secondary);">{{ icons.handshake() }} Conquête, jeu au pied et marque</h3>
