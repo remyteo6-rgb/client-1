@@ -85,9 +85,9 @@
         <table class="stat-table zebra-table">
             <thead>
                 <tr>
-                    <th>Lancé (+/−)</th><th>Sauteur (+/−)</th><th>TQB (+/−)</th><th>Lifteur</th>
-                    <th class="sep-l">Lifteur déf.</th><th>Sauteur déf. (+/−)</th>
-                    <th class="sep-l">Mêlées off (+/−)</th><th>Mêlées déf. (+/−)</th>
+                    <th>Lancé + / −</th><th>Sauteur + / −</th><th>TQB + / −</th><th>Lifteur</th>
+                    <th class="sep-l">Lifteur déf.</th><th>Sauteur déf. + / −</th>
+                    <th class="sep-l">Mêlées off + / −</th><th>Mêlées déf. + / −</th>
                     <th class="sep-l">JAP</th><th>Coups d'envoi</th><th>Récep. CE</th><th>RCE +/=/-</th>
                     <th class="sep-l">Duels aér. +/=</th>
                     <th class="sep-l">Essais</th><th>Transfo. (réus./tent.)</th><th>Pénalités (réus./tent.)</th><th>Drops (réus./tent.)</th><th>Points</th>
@@ -95,12 +95,12 @@
             </thead>
             <tbody>
                 <tr>
-                    <td>{{ ruck.lanceur }} (<span class="stat-pos">{{ ruck.lancer_gagne }}</span>/<span class="stat-neg">{{ ruck.lancer_perdu }}</span>)</td>
-                    <td>{{ ruck.sauteur }} (<span class="stat-pos">{{ ruck.sauteur_plus }}</span>/<span class="stat-neg">{{ ruck.sauteur_moins }}</span>)</td>
-                    <td>{{ ruck.tqb }} (<span class="stat-pos">{{ ruck.tqb_plus }}</span>/<span class="stat-neg">{{ ruck.tqb_moins }}</span>)</td>
+                    <td><span class="stat-pos">{{ ruck.lancer_gagne }}</span> / <span class="stat-neg">{{ ruck.lancer_perdu }}</span></td>
+                    <td><span class="stat-pos">{{ ruck.sauteur_plus }}</span> / <span class="stat-neg">{{ ruck.sauteur_moins }}</span></td>
+                    <td><span class="stat-pos">{{ ruck.tqb_plus }}</span> / <span class="stat-neg">{{ ruck.tqb_moins }}</span></td>
                     <td>{{ ruck.lifteur }}</td>
                     <td class="sep-l">{{ ruck.lifteur_def }}</td>
-                    <td>{{ ruck.sauteur_def }} (<span class="stat-pos">{{ ruck.sauteur_def_plus }}</span>/<span class="stat-neg">{{ ruck.sauteur_def_moins }}</span>)</td>
+                    <td><span class="stat-pos">{{ ruck.sauteur_def_plus }}</span> / <span class="stat-neg">{{ ruck.sauteur_def_moins }}</span></td>
                     <td class="sep-l"><span class="stat-pos">{{ ruck.melee_off_gagnee }}</span>/<span class="stat-neg">{{ ruck.melee_off_perdue }}</span></td>
                     <td><span class="stat-pos">{{ ruck.melee_def_gagnee }}</span>/<span class="stat-neg">{{ ruck.melee_def_perdue }}</span></td>
                     <td class="sep-l">{{ ruck.jap }}</td><td>{{ ruck.coup_envoi }}</td><td>{{ ruck.recep_ce }}</td>
