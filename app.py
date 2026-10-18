@@ -1610,6 +1610,16 @@ JOUEURS_SLIDES = [
             {"key": "drop_txt", "label": "Drops", "kind": "num"},
             {"key": "points", "label": "Points", "kind": "pos", "cmp": ("ruck", "points_total")}]},
     ]},
+    {"key": "fautes", "title": "FAUTES", "table": "ruck", "groups": [
+        {"label": "Fautes jeu", "cols": [
+            {"key": "faute_off", "label": "Off.", "kind": "neg"},
+            {"key": "faute_def", "label": "Déf.", "kind": "neg"}]},
+        {"label": "Fautes mêlée", "cols": [
+            {"key": "melee_off_penalisee", "label": "Off.", "kind": "neg"},
+            {"key": "melee_def_penalisee", "label": "Déf.", "kind": "neg"}]},
+        {"label": "Fautes conquête", "cols": [
+            {"key": "faute_conquete", "label": "Touche / mêlée", "kind": "neg"}]},
+    ]},
 ]
 _SLIDE_GROUP_COLORS = ("navy", "wine", "plum")
 

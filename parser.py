@@ -3219,6 +3219,7 @@ def compute_player_ruck_table(instances):
                       "melee_def_gagnee": 0, "melee_def_perdue": 0,
                       "melee_off_penalisee": 0, "melee_def_penalisee": 0,
                       "melee_off_obtenue": 0, "melee_def_obtenue": 0,
+                      "faute_off": 0, "faute_def": 0, "faute_conquete": 0,
                       "lancer_gagne": 0, "lancer_perdu": 0,
                       "sauteur_plus": 0, "sauteur_moins": 0, "tqb": 0, "tqb_plus": 0, "tqb_moins": 0,
                       "lifteur_def": 0, "sauteur_def": 0, "sauteur_def_plus": 0, "sauteur_def_moins": 0,
@@ -3296,6 +3297,13 @@ def compute_player_ruck_table(instances):
                 row[pref + "penalisee"] += 1
             elif "PERD" in txt or txt == "-":
                 row[pref + ("perdu" if pref == "lancer_" else "perdue")] += 1
+        disc_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "DISCIPLINES"}
+        if "DISCIPLINES OFF" in disc_vals:
+            row["faute_off"] += 1
+        if "DISCIPLINES DEF" in disc_vals:
+            row["faute_def"] += 1
+        if "CONQUETE" in disc_vals:
+            row["faute_conquete"] += 1
         jap_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "JAP"}
         if "JAP" in off_vals or jap_vals:
             row["jap"] += 1
@@ -3666,6 +3674,7 @@ def _zero_ruck_row(name):
         "melee_off_gagnee": 0, "melee_off_perdue": 0, "melee_def_gagnee": 0, "melee_def_perdue": 0,
         "melee_off_penalisee": 0, "melee_def_penalisee": 0,
         "melee_off_obtenue": 0, "melee_def_obtenue": 0,
+        "faute_off": 0, "faute_def": 0, "faute_conquete": 0,
         "lancer_gagne": 0, "lancer_perdu": 0,
         "sauteur_plus": 0, "sauteur_moins": 0, "tqb": 0, "tqb_plus": 0, "tqb_moins": 0,
         "lifteur_def": 0, "sauteur_def": 0, "sauteur_def_plus": 0, "sauteur_def_moins": 0,

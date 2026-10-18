@@ -81,6 +81,16 @@
             </tbody>
         </table>
 
+        <h3 style="font-size:13px; margin:16px 0 8px; color:var(--text-secondary);">Fautes</h3>
+        <table class="stat-table zebra-table">
+            <thead><tr><th>Fautes off.</th><th>Fautes déf.</th><th class="sep-l">Mêlée off. pénalisée</th><th>Mêlée déf. pénalisée</th><th class="sep-l">Conquête (touche / mêlée)</th></tr></thead>
+            <tbody><tr>
+                <td><span class="stat-neg">{{ ruck.faute_off }}</span></td><td><span class="stat-neg">{{ ruck.faute_def }}</span></td>
+                <td class="sep-l"><span class="stat-neg">{{ ruck.melee_off_penalisee }}</span></td><td><span class="stat-neg">{{ ruck.melee_def_penalisee }}</span></td>
+                <td class="sep-l"><span class="stat-neg">{{ ruck.faute_conquete }}</span></td>
+            </tr></tbody>
+        </table>
+
         <h3 style="font-size:13px; margin:16px 0 8px; color:var(--text-secondary);">{{ icons.handshake() }} Conquête, jeu au pied et marque</h3>
         <table class="stat-table zebra-table">
             <thead>
