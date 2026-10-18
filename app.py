@@ -1617,8 +1617,6 @@ JOUEURS_SLIDES = [
         {"label": "Fautes mêlée", "cols": [
             {"key": "melee_off_penalisee", "label": "Off.", "kind": "neg"},
             {"key": "melee_def_penalisee", "label": "Déf.", "kind": "neg"}]},
-        {"label": "Fautes conquête", "cols": [
-            {"key": "faute_conquete", "label": "Touche / mêlée", "kind": "neg"}]},
     ]},
 ]
 _SLIDE_GROUP_COLORS = ("navy", "wine", "plum")
