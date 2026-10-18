@@ -1565,12 +1565,24 @@ JOUEURS_SLIDES = [
             {"key": "ballons_recuperes", "label": "Ballons", "kind": "pos"}]},
     ]},
     {"key": "conquete", "title": "CONQUÊTE & JEU AU PIED", "table": "ruck", "groups": [
-        {"label": "Mêlée", "cols": [
-            {"key": "melee_conquete", "label": "Mêlées", "kind": "num"}]},
-        {"label": "Touche", "cols": [
-            {"key": "sauteur", "label": "Sauteur", "kind": "num"},
-            {"key": "lifteur", "label": "Lifteur", "kind": "num"},
-            {"key": "lanceur", "label": "Lanceur", "kind": "num"}]},
+        {"label": "Mêlée off.", "cols": [
+            {"key": "melee_off_gagnee", "label": "+", "kind": "pos"},
+            {"key": "melee_off_perdue", "label": "−", "kind": "neg"}]},
+        {"label": "Mêlée déf.", "cols": [
+            {"key": "melee_def_gagnee", "label": "+", "kind": "pos"},
+            {"key": "melee_def_perdue", "label": "−", "kind": "neg"}]},
+        {"label": "Touche off.", "cols": [
+            {"key": "lancer_gagne", "label": "Lancé +", "kind": "pos"},
+            {"key": "lancer_perdu", "label": "Lancé −", "kind": "neg"},
+            {"key": "sauteur_plus", "label": "Sauteur +", "kind": "pos"},
+            {"key": "sauteur_moins", "label": "Sauteur −", "kind": "neg"},
+            {"key": "tqb_plus", "label": "TQB +", "kind": "pos"},
+            {"key": "tqb_moins", "label": "TQB −", "kind": "neg"},
+            {"key": "lifteur", "label": "Lifteur", "kind": "num"}]},
+        {"label": "Touche déf.", "cols": [
+            {"key": "sauteur_def_plus", "label": "Sauteur +", "kind": "pos"},
+            {"key": "sauteur_def_moins", "label": "Sauteur −", "kind": "neg"},
+            {"key": "lifteur_def", "label": "Lifteur", "kind": "num"}]},
         {"label": "Jeu au pied", "cols": [
             {"key": "jap", "label": "JAP", "kind": "num"},
             {"key": "coup_envoi", "label": "Coups d'envoi", "kind": "num"},
