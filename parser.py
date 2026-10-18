@@ -3223,7 +3223,8 @@ def compute_player_ruck_table(instances):
                       "lanceur_gagne_auto": auto.get(name, {}).get("lanceur_gagne_auto", 0), "lanceur_perdu_auto": auto.get(name, {}).get("lanceur_perdu_auto", 0), "sauteur_gagne_auto": auto.get(name, {}).get("sauteur_gagne_auto", 0), "sauteur_perdu_auto": auto.get(name, {}).get("sauteur_perdu_auto", 0), "lifteur_gagne_auto": auto.get(name, {}).get("lifteur_gagne_auto", 0), "lifteur_perdu_auto": auto.get(name, {}).get("lifteur_perdu_auto", 0), "melee_gagne_auto": auto.get(name, {}).get("melee_gagne_auto", 0), "melee_perdu_auto": auto.get(name, {}).get("melee_perdu_auto", 0), 
                       "jap": 0, "coup_envoi": 0, "recep_ce": 0,
                       "rce_plus": 0, "rce_neutre": 0, "rce_minus": 0,
-                      "duels_aer_plus": 0, "duels_aer_neutre": 0,
+                      "duels_aer_plus": 0, "duels_aer_neutre": 0, "duels_aer_moins": 0,
+                      "jap_plus": 0, "jap_neutre": 0, "jap_moins": 0,
                       "essai": 0, "transfo_reussies": 0, "transfo_tentees": 0,
                       "penalite_reussies": 0, "penalite_tentees": 0,
                       "drop_reussis": 0, "drop_tentes": 0}
@@ -3289,8 +3290,15 @@ def compute_player_ruck_table(instances):
                 row[pref + ("gagne" if pref == "lancer_" else "gagnee")] += 1
             elif "PERD" in txt or "PENALIS" in txt or txt == "-":
                 row[pref + ("perdu" if pref == "lancer_" else "perdue")] += 1
-        if "JAP" in off_vals:
+        jap_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "JAP"}
+        if "JAP" in off_vals or jap_vals:
             row["jap"] += 1
+            if "+" in jap_vals:
+                row["jap_plus"] += 1
+            elif "-" in jap_vals:
+                row["jap_moins"] += 1
+            elif "=" in jap_vals:
+                row["jap_neutre"] += 1
         if "ESSAIS" in off_vals:
             row["essai"] += 1
         specifiques = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "SPECIFIQUES"}
@@ -3346,6 +3354,8 @@ def compute_player_ruck_table(instances):
                 row["duels_aer_plus"] += 1
             elif "=" in aeriens_vals:
                 row["duels_aer_neutre"] += 1
+            elif "-" in aeriens_vals:
+                row["duels_aer_moins"] += 1
 
     result = []
     totals = defaultdict(int)
@@ -3354,7 +3364,7 @@ def compute_player_ruck_table(instances):
             continue
         touche_total = r["lifteur"] + r["sauteur"] + r["lanceur"]
         rce_total = r["rce_plus"] + r["rce_neutre"] + r["rce_minus"]
-        duels_aer_total = r["duels_aer_plus"] + r["duels_aer_neutre"]
+        duels_aer_total = r["duels_aer_plus"] + r["duels_aer_neutre"] + r["duels_aer_moins"]
         points = r["essai"] * 5 + r["transfo_reussies"] * 2 + r["penalite_reussies"] * 3 + r["drop_reussis"] * 3
         row_out = {
             "name": name, **r,
@@ -3432,16 +3442,16 @@ def compute_player_bilan_table(instances, attack_table=None, defense_table=None,
                      + a["def_battu"] + a["soutien_1er"] + a["break"]
                      + d["plaquage_dominant"] + d["combattant_plus"] + d["chasseur_plus"]
                      + d["ballons_recuperes"]
-                     + u["rce_plus"] + u["duels_aer_plus"]
+                     + u["rce_plus"] + u["duels_aer_plus"] + u.get("jap_plus", 0)
                      + u["essai"] + u["transfo_reussies"])
         neutres = (a["contact_neutre"] + a["passe_neutre"] + a["offload_neutre"]
                    + a["soutien_2eme"]
                    + d["plaquage_neutre"] + d["combattant_neutre"] + d["chasseur_neutre"]
-                   + u["rce_neutre"] + u["duels_aer_neutre"])
+                   + u["rce_neutre"] + u["duels_aer_neutre"] + u.get("jap_neutre", 0))
         negatives = (a["contact_minus"] + a["passe_minus"] + a["offload_minus"]
                      + a["pdb"] + a["penalite_off"] + a["penalite_def"]
                      + d["plaquage_rate"] + d["combattant_minus"] + d["chasseur_minus"]
-                     + u["transfo_tentees"] - u["transfo_reussies"])
+                     + u["transfo_tentees"] - u["transfo_reussies"] + u.get("jap_moins", 0))
 
         actions_codees = raw_actions.get(name, 0)
         if actions_codees == 0:
@@ -3653,7 +3663,8 @@ def _zero_ruck_row(name):
         "lifteur_def": 0, "sauteur_def": 0, "sauteur_def_plus": 0, "sauteur_def_moins": 0,
         "jap": 0, "coup_envoi": 0, "recep_ce": 0, "coup_envoi_recep_total": 0,
         "rce_plus": 0, "rce_neutre": 0, "rce_minus": 0, "rce_total": 0,
-        "duels_aer_plus": 0, "duels_aer_neutre": 0, "duels_aer_total": 0,
+        "duels_aer_plus": 0, "duels_aer_neutre": 0, "duels_aer_moins": 0, "duels_aer_total": 0,
+        "jap_plus": 0, "jap_neutre": 0, "jap_moins": 0,
         "essai": 0, "transfo_reussies": 0, "transfo_tentees": 0,
         "penalite_reussies": 0, "penalite_tentees": 0, "drop_reussis": 0, "drop_tentes": 0,
         "points": 0,

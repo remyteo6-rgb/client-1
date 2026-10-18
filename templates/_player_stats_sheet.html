@@ -95,8 +95,8 @@
                     <th>Lancé + / −</th><th>Sauteur + / −</th><th>TQB + / −</th><th>Lifteur off.</th>
                     <th class="sep-l">Lifteur déf.</th><th>Sauteur déf. + / −</th>
                     <th class="sep-l">+ / −</th><th>+ / −</th>
-                    <th class="sep-l">JAP</th><th>Coups d'envoi</th><th>Récep. CE</th><th>RCE +/=/-</th>
-                    <th class="sep-l">Duels aér. +/=</th>
+                    <th class="sep-l">JAP + / = / −</th><th>Coups d'envoi</th><th>Récep. CE</th><th>RCE +/=/-</th>
+                    <th class="sep-l">Duels aér. + / = / −</th>
                     <th class="sep-l">Essais</th><th>Transfo. (réus./tent.)</th><th>Pénalités (réus./tent.)</th><th>Drops (réus./tent.)</th><th>Points</th>
                 </tr>
             </thead>
@@ -110,9 +110,9 @@
                     <td><span class="stat-pos">{{ ruck.sauteur_def_plus }}</span> / <span class="stat-neg">{{ ruck.sauteur_def_moins }}</span></td>
                     <td class="sep-l"><span class="stat-pos">{{ ruck.melee_off_gagnee }}</span>/<span class="stat-neg">{{ ruck.melee_off_perdue }}</span></td>
                     <td><span class="stat-pos">{{ ruck.melee_def_gagnee }}</span>/<span class="stat-neg">{{ ruck.melee_def_perdue }}</span></td>
-                    <td class="sep-l">{{ ruck.jap }}</td><td>{{ ruck.coup_envoi }}</td><td>{{ ruck.recep_ce }}</td>
+                    <td class="sep-l"><span class="stat-pos">{{ ruck.jap_plus }}</span> / {{ ruck.jap_neutre }} / <span class="stat-neg">{{ ruck.jap_moins }}</span></td><td>{{ ruck.coup_envoi }}</td><td>{{ ruck.recep_ce }}</td>
                     <td><span class="stat-pos">{{ ruck.rce_plus }}</span> / {{ ruck.rce_neutre }} / <span class="stat-neg">{{ ruck.rce_minus }}</span></td>
-                    <td class="sep-l"><span class="stat-pos">{{ ruck.duels_aer_plus }}</span> / {{ ruck.duels_aer_neutre }}</td>
+                    <td class="sep-l"><span class="stat-pos">{{ ruck.duels_aer_plus }}</span> / {{ ruck.duels_aer_neutre }} / <span class="stat-neg">{{ ruck.duels_aer_moins }}</span></td>
                     <td class="sep-l stat-pos">{{ ruck.essai }}</td>
                     <td>{{ ruck.transfo_reussies }} / {{ ruck.transfo_tentees }}</td>
                     <td>{{ ruck.penalite_reussies }} / {{ ruck.penalite_tentees }}</td>

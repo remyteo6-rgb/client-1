@@ -1584,7 +1584,9 @@ JOUEURS_SLIDES = [
             {"key": "sauteur_def_moins", "label": "Sauteur −", "kind": "neg"},
             {"key": "lifteur_def", "label": "Lifteur", "kind": "num"}]},
         {"label": "Jeu au pied", "cols": [
-            {"key": "jap", "label": "JAP", "kind": "num"},
+            {"key": "jap_plus", "label": "JAP +", "kind": "pos"},
+            {"key": "jap_neutre", "label": "JAP =", "kind": "num"},
+            {"key": "jap_moins", "label": "JAP −", "kind": "neg"},
             {"key": "coup_envoi", "label": "Coups d'envoi", "kind": "num"},
             {"key": "recep_ce", "label": "Récep. CE", "kind": "num"}]},
         {"label": "Réception", "cols": [
@@ -1593,7 +1595,8 @@ JOUEURS_SLIDES = [
             {"key": "rce_minus", "label": "−", "kind": "neg"}]},
         {"label": "Aérien", "cols": [
             {"key": "duels_aer_plus", "label": "+", "kind": "pos"},
-            {"key": "duels_aer_neutre", "label": "=", "kind": "num"}]},
+            {"key": "duels_aer_neutre", "label": "=", "kind": "num"},
+            {"key": "duels_aer_moins", "label": "−", "kind": "neg"}]},
         {"label": "Marque", "cols": [
             {"key": "essai", "label": "Essais", "kind": "pos"},
             {"key": "transfo_txt", "label": "Transfo.", "kind": "num"},
