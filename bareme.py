@@ -92,11 +92,15 @@ def _p_tackle_dom(r):
 
 
 def _p_melee_off(r):
-    return _pct_expl_auto(r["ruck"], "melee_off_gagnee", "melee_off_perdue", "melee_gagne_auto", "melee_perdu_auto", 3)
+    ru = dict(r["ruck"] or {})
+    ru["melee_off_perdue"] = _v(ru, "melee_off_perdue", "melee_off_penalisee")  # une mêlée pénalisée est perdue
+    return _pct_expl_auto(ru, "melee_off_gagnee", "melee_off_perdue", "melee_gagne_auto", "melee_perdu_auto", 3)
 
 
 def _p_melee_def(r):
-    return _pct_expl_auto(r["ruck"], "melee_def_gagnee", "melee_def_perdue", None, None, 3)
+    ru = dict(r["ruck"] or {})
+    ru["melee_def_perdue"] = _v(ru, "melee_def_perdue", "melee_def_penalisee")
+    return _pct_expl_auto(ru, "melee_def_gagnee", "melee_def_perdue", None, None, 3)
 
 
 def _p_lancer(r):

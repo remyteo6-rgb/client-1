@@ -1567,10 +1567,12 @@ JOUEURS_SLIDES = [
     {"key": "conquete", "title": "CONQUÊTE", "table": "ruck", "groups": [
         {"label": "Mêlée off.", "cols": [
             {"key": "melee_off_gagnee", "label": "+", "kind": "pos"},
-            {"key": "melee_off_perdue", "label": "−", "kind": "neg"}]},
+            {"key": "melee_off_perdue", "label": "−", "kind": "neg"},
+            {"key": "melee_off_penalisee", "label": "Pénal.", "kind": "neg"}]},
         {"label": "Mêlée déf.", "cols": [
             {"key": "melee_def_gagnee", "label": "+", "kind": "pos"},
-            {"key": "melee_def_perdue", "label": "−", "kind": "neg"}]},
+            {"key": "melee_def_perdue", "label": "−", "kind": "neg"},
+            {"key": "melee_def_penalisee", "label": "Pénal.", "kind": "neg"}]},
         {"label": "Touche off.", "cols": [
             {"key": "lancer_gagne", "label": "Lancé +", "kind": "pos"},
             {"key": "lancer_perdu", "label": "Lancé −", "kind": "neg"},
