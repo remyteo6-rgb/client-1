@@ -1208,6 +1208,21 @@ def _roster_position(name):
     return next((p for p, n in flat if n == hit), None) if hit else None
 
 
+def _fautes_premiere_mi_temps(instances, par_periode, team):
+    """Nos fautes en 1re mi-temps. D'après les labels Chrono quand ils couvrent TOUTES les fautes ;
+    sinon (XML sans Chrono, ou posé sur quelques instances seulement : le chiffre tombait à 0 ou
+    à 3 au lieu de 13 sur le total) d'après la pause du match, repérée dans la vidéo."""
+    chrono = sum(par_periode["own"].get(q, 0) for q in ("0-20", "20-40"))
+    total_own = (team or {}).get("own")
+    if total_own is not None and sum(par_periode["own"].values()) == total_own:
+        return chrono
+    half_time = detect_half_time(instances)
+    if half_time is None:
+        return chrono
+    return sum(1 for i in instances
+               if _normalize_tag(i.get("code_raw")) == "UBB DISCIPLINES" and (i.get("start") or 0) < half_time)
+
+
 def compute_discipline(instances, row_order=None, cards=None, composition=None, manual=None):
     """Page "DISCIPLINE" du rapport : fautes par joueur (raison, carton), par période
     (nous / eux), par catégorie (Attack / Defence / Set Piece / Other), avec les
@@ -1412,7 +1427,7 @@ def compute_discipline(instances, row_order=None, cards=None, composition=None, 
         "team": team or {"own": None, "adverse": None},
         "par_periode": {side: {q: par_periode[side].get(q, 0) for q in POSSESSION_QUARTER_ORDER}
                         for side in ("own", "adverse")},
-        "premiere_mi_temps": sum(par_periode["own"].get(q, 0) for q in ("0-20", "20-40")),
+        "premiere_mi_temps": _fautes_premiere_mi_temps(instances, par_periode, team),
         "rows": rows,
         "avants": sum(r["fautes"] for r in rows if r["groupe"] == "avants"),
         "trois_quarts": sum(r["fautes"] for r in rows if r["groupe"] == "3/4"),
