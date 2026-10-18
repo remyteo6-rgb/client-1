@@ -1564,7 +1564,7 @@ JOUEURS_SLIDES = [
         {"label": "Récup.", "cols": [
             {"key": "ballons_recuperes", "label": "Ballons", "kind": "pos"}]},
     ]},
-    {"key": "conquete", "title": "CONQUÊTE & JEU AU PIED", "table": "ruck", "groups": [
+    {"key": "conquete", "title": "CONQUÊTE", "table": "ruck", "groups": [
         {"label": "Mêlée off.", "cols": [
             {"key": "melee_off_gagnee", "label": "+", "kind": "pos"},
             {"key": "melee_off_perdue", "label": "−", "kind": "neg"}]},
@@ -1583,6 +1583,8 @@ JOUEURS_SLIDES = [
             {"key": "sauteur_def_plus", "label": "Sauteur +", "kind": "pos"},
             {"key": "sauteur_def_moins", "label": "Sauteur −", "kind": "neg"},
             {"key": "lifteur_def", "label": "Lifteur", "kind": "num"}]},
+    ]},
+    {"key": "jeu_au_pied", "title": "JEU AU PIED & MARQUE", "table": "ruck", "groups": [
         {"label": "Jeu au pied", "cols": [
             {"key": "jap_plus", "label": "JAP +", "kind": "pos"},
             {"key": "jap_neutre", "label": "JAP =", "kind": "num"},
