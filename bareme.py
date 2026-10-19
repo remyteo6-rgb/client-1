@@ -64,6 +64,8 @@ def _x_sauteur(r):      return _v(r["ruck"], "sauteur"), 0
 def _x_lifteur(r):      return _v(r["ruck"], "lifteur"), 0
 def _x_lanceur(r):      return _v(r["ruck"], "lanceur"), 0
 def _x_melee(r):        return _v(r["ruck"], "melee_conquete"), 0
+def _x_pdb(r):          return _v(r["attack"], "pdb"), 0     # ballons perdus (moins = mieux, voir INVERSES)
+def _x_essai(r):        return _v(r["ruck"], "essai"), 0
 
 
 def _p_ratio(num_keys, den_keys, table, min_n):
@@ -117,6 +119,12 @@ def _p_lifteur(r):
     return _pct_expl_auto(r["ruck"], None, None, "lifteur_gagne_auto", "lifteur_perdu_auto", 4)
 
 
+def _p_jap(r):
+    """Qualité du jeu au pied : JAP codés + (plein) et = (demi) sur le total des JAP qualifiés."""
+    tot = _v(r["ruck"], "jap_plus", "jap_neutre", "jap_moins")
+    return (100 * (_v(r["ruck"], "jap_plus") + 0.5 * _v(r["ruck"], "jap_neutre")) / tot, tot) if tot >= 4 else (None, tot)
+
+
 def _p_rce(r):
     tot = _v(r["ruck"], "rce_plus", "rce_neutre", "rce_minus")
     return (100 * (_v(r["ruck"], "rce_plus") + 0.5 * _v(r["ruck"], "rce_neutre")) / tot, tot) if tot >= 3 else (None, tot)
@@ -162,7 +170,13 @@ CRITERES = {
     "rce_pct":      ("Réception coup d'envoi (%)", "pct", _p_rce),
     "aerien_pct":   ("Duels aériens (%)", "pct", _p_aerien),
     "kicks_pct":    ("Coups de pied au but réussis (%)", "pct", _p_kicks),
+    "jap_pct":      ("Jeu au pied : qualité (%)", "pct", _p_jap),
+    "pdb":          ("Ballons perdus (moins = mieux)", "vol", _x_pdb),
+    "essai":        ("Essais (volume)", "vol", _x_essai),
 }
+
+# Critères « inversés » : plus la valeur est basse, meilleure est la note (10/10 à zéro, 0/10 à la cible).
+INVERSES = {"pdb"}
 
 # --- Cibles de référence (valeur donnant 10/10, plancher donnant 0/10) par famille de poste -----
 # Calées sur ce qui est réellement codé dans les XML (par 80 min pour un volume).
@@ -328,7 +342,10 @@ def evaluer_critere(crit, cible, plancher, rows, minutes):
         # On ajoute SHRINK_MIN minutes virtuelles jouées à demi-cible.
         prior = 0.5 * cible * SHRINK_MIN / 80.0
         val80 = (val + prior) / (minutes + SHRINK_MIN) * 80.0
-        out["score"] = _clamp(10 * val80 / cible) if cible else 0.0
+        if crit in INVERSES:
+            out["score"] = _clamp(10 * (1 - val80 / cible)) if cible else 0.0
+        else:
+            out["score"] = _clamp(10 * val80 / cible) if cible else 0.0
         out["valeur"] = round(val80, 1)
     else:
         span = (cible - plancher) or 1
@@ -363,17 +380,25 @@ X_SEUIL = 3.0  # note minimale d'un critère hors poste pour compter comme atout
 # Facteur X propre à un poste : liste de critères retenus (moyenne de tous les critères évaluables),
 # au lieu de la règle générale « meilleurs atouts hors profil ».
 X_PROFILS = {
+    # Ailiers / arrière (octobre 2026, demande de Téo) : qualité du jeu au pied, passes propres,
+    # sécurité du ballon (ballons perdus, ballons récupérés) et finition (essais).
+    "11-14": ["jap_pct", "passes_pct", "pdb", "recup", "essai"],
+    "15": ["jap_pct", "passes_pct", "pdb", "recup", "essai"],
     # 3ème ligne : dominance dans ce qu'ils font (contacts +/-, plaquages +/-, défenseurs battus)
     # et volume de jeu de touche (sauteur, lifteur).
     "3ème ligne": ["contact_dom", "plaquage_dom", "def_battu", "sauteur", "lifteur"],
 }
 
 
+# Cibles propres aux listes X_PROFILS quand le critère n'est pas dans les attentes du poste.
+X_CIBLES_PROFIL = {"jap_pct": (75, 25), "passes_pct": (98, 70), "pdb": (3, 0), "essai": (0.5, 0)}
+
+
 def _facteur_x_profil(poste, rows, minutes, reglages):
     atouts = []
     for crit in X_PROFILS[poste]:
         r = reglages.get(crit)
-        ref = (r[1], r[2]) if r and r[1] else _cible_hors_poste(crit)
+        ref = (r[1], r[2]) if r and r[1] else (X_CIBLES_PROFIL.get(crit) or _cible_hors_poste(crit))
         if not ref:
             continue
         ev = evaluer_critere(crit, ref[0], ref[1], rows, minutes)
