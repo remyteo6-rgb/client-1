@@ -2785,6 +2785,67 @@ def match_notes(match_id):
                            assets=_review_assets(match))
 
 
+# Indicateurs de la page « Essentiel » : (libellé, extracteur, unité, plus haut = mieux ?)
+def _ess_val(ov, path):
+    cur = ov
+    for k in path:
+        cur = (cur or {}).get(k) if isinstance(cur, dict) else None
+    return cur if isinstance(cur, (int, float)) else None
+
+
+ESSENTIEL_INDICATEURS = [
+    ("Possession", ("possession", "own_pct"), "%", True),
+    ("Occupation", ("occupation", "own_pct"), "%", True),
+    ("Touches gagnées", ("touches", "own", "pct"), "%", True),
+    ("Mêlées gagnées", ("melees", "own", "pct"), "%", True),
+    ("Plaquages réussis", ("plaquage", "pct"), "%", True),
+    ("Franchissements", ("break", "own"), "", True),
+    ("Offloads", ("offload", "own"), "", True),
+    ("Ballons perdus", ("pdb", "own"), "", False),
+    ("Fautes (pénalités)", ("discipline", "own"), "", False),
+]
+
+
+@app.route("/match/<int:match_id>/essentiel")
+def match_essentiel(match_id):
+    """ESSAI — résumé d'une page : score, indicateurs clés comparés à la moyenne des autres matchs,
+    points forts / à travailler, meilleures et moins bonnes notes du match."""
+    match = _get_match_or_404(match_id)
+    if _no_instances_guard(match):
+        flash("Ce match n'a pas de détail par secteur : réimporte le fichier XML.", "error")
+        return redirect(url_for("match_detail", match_id=match_id))
+    own_pts, adv_pts, _src, own_tries, adv_tries = _resolve_match_score(match)
+    ov = compute_new_convention_overview(match["instances"]) or {}
+    autres = []
+    all_matches = _season_context()[0]
+    for m in all_matches:
+        if m["id"] != match_id and m.get("instances"):
+            o = compute_new_convention_overview(m["instances"])
+            if o:
+                autres.append(o)
+    lignes = []
+    for label, path, unite, haut in ESSENTIEL_INDICATEURS:
+        v = _ess_val(ov, path)
+        ref = [x for x in (_ess_val(o, path) for o in autres) if x is not None]
+        moy = round(sum(ref) / len(ref), 1) if ref else None
+        ecart = round(v - moy, 1) if (v is not None and moy is not None) else None
+        bon = None if ecart is None or abs(ecart) < 0.05 else ((ecart > 0) == haut)
+        base = abs(moy) if moy else 1
+        lignes.append({"label": label, "v": v, "moy": moy, "unite": unite, "ecart": ecart, "bon": bon,
+                       "rel": abs(ecart) / base if ecart is not None else 0})
+    mesures = [l for l in lignes if l["bon"] is not None]
+    forts = sorted([l for l in mesures if l["bon"]], key=lambda l: -l["rel"])[:3]
+    faibles = sorted([l for l in mesures if not l["bon"]], key=lambda l: -l["rel"])[:3]
+    zg = compute_zone_gold_log(match["instances"], own_points=own_pts, adverse_points=adv_pts,
+                               overrides=(match.get("manual_stats") or {}).get("zone_gold")) or {}
+    joueurs = [j for j in _notes_saison_calc([match]) if j["note"] is not None]
+    joueurs.sort(key=lambda j: -j["note"])
+    return render_template("match_essentiel.html", match=match, own_pts=own_pts, adv_pts=adv_pts, lignes=lignes,
+                           forts=forts, faibles=faibles, zg=zg, n_ref=len(autres),
+                           top=joueurs[:3], bas=joueurs[-3:][::-1] if len(joueurs) > 3 else [],
+                           display_name=_joueur_nom_affiche)
+
+
 @app.route("/match/<int:match_id>/discipline")
 def match_discipline(match_id):
     """Page "DISCIPLINE" du rapport vidéo : fautes par joueur, par période, par
