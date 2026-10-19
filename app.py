@@ -1128,13 +1128,15 @@ def init_db():
 
 @app.route("/")
 def landing():
-    last = None
+    last, todo = None, []
     if session.get("logged_in") and not session.get("is_player") and not session.get("demo_forced"):
         try:
             last = get_db().execute("SELECT * FROM matches ORDER BY COALESCE(match_date, created_at) DESC, id DESC LIMIT 1").fetchone()
+            if last is not None and session.get("is_admin"):
+                todo = [t["label"] for t in match_todo(_row_to_match(last)) if not t["ok"]]
         except Exception:
             last = None
-    return render_template("landing.html", last_match=last)
+    return render_template("landing.html", last_match=last, last_todo=todo)
 
 
 @app.route("/matchs")

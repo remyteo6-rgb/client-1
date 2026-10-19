@@ -13,14 +13,20 @@
 
 {% include "_match_subnav.html" %}
 
-<div class="landing-screen">
+<div class="landing-screen landing-home">
     <img src="{{ url_for('static', filename='logo.png') }}" class="landing-logo" alt="{{ club_full_name }}">
 
     {% include "_backup_banner.html" %}
     {% if last_match %}
     <div class="landing-quick">
-        <a href="{{ url_for('match_detail', match_id=last_match['id']) }}"><small>Dernier match</small><strong>{{ match_title(last_match) }}</strong></a>
-        <a href="{{ url_for('season_review') }}"><small>Stats saison</small><strong>Moyennes de toute la saison</strong></a>
+        <a href="{{ url_for('match_detail', match_id=last_match['id']) }}" class="lq-wide">
+            <small>Dernier match</small><strong>{{ match_title(last_match) }}</strong>
+            {% if last_todo %}<em class="lq-todo">⚠ {{ last_todo|length }} à compléter : {{ last_todo|join(', ') }}</em>{% endif %}
+        </a>
+        <a href="{{ url_for('season_review') }}"><small>Saison</small><strong>Stats saison</strong></a>
+        <a href="{{ url_for('season_notes') }}"><small>Joueurs</small><strong>Notes</strong></a>
+        <a href="{{ url_for('index') }}"><small>Historique</small><strong>Tous les matchs</strong></a>
+        <a href="{{ url_for('season_joueurs') }}"><small>Effectif</small><strong>Stats joueurs</strong></a>
     </div>
     {% endif %}
     <div class="landing-choice-row">

@@ -3161,7 +3161,10 @@ select.subnav-match-select option { color:#222; background:#fff; }
 .match-edit-btn:hover { background: rgba(42,23,18,0.1); opacity: 1; }
 @media (hover: none) { .match-edit-btn { opacity: .5; } }
 
-.backup-banner { border-left: 4px solid #e8a33d; font-size: 14px; margin-bottom: 14px; }
+.backup-banner { border-left: 4px solid #e8a33d; font-size: 14px; margin-bottom: 14px; padding: 8px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.backup-actions { display: flex; align-items: center; gap: 12px; }
+.backup-actions .btn { padding: 6px 14px; font-size: 13px; }
+.backup-actions a:not(.btn) { text-decoration: underline; color: var(--text-secondary); font-size: 13px; }
 .backup-banner a { font-weight: 600; }
 
 .match-todo { border-left: 4px solid #e8a33d; padding: 10px 16px; }
@@ -3182,13 +3185,27 @@ select.subnav-match-select option { color:#222; background:#fff; }
     .page-actions .btn { width: 100%; font-size: 12px; padding: 10px 8px; white-space: normal; }
 }
 
-/* Accueil : raccourcis dernier match / saison */
-.landing-quick { display: flex; flex-direction: column; gap: 8px; width: 100%; margin: 0 0 14px; }
-.landing-quick a { display: flex; flex-direction: column; gap: 2px; padding: 10px 16px; text-align: center;
+/* Accueil : tout tient sur un écran (sans défiler) */
+.landing-body:has(.landing-home) { padding-top: 64px; padding-bottom: 20px; align-items: flex-start; }
+.landing-home { max-width: 760px; gap: 12px; }
+.landing-home .landing-logo { width: min(26vw, 120px); margin-bottom: 0; }
+.landing-quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; margin: 0; }
+.landing-quick a { display: flex; flex-direction: column; gap: 1px; padding: 9px 12px; text-align: center; justify-content: center;
     background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: var(--radius); text-decoration: none; color: var(--text-primary); }
 .landing-quick a:hover { background: rgba(42,23,18,0.08); }
-.landing-quick small { color: var(--text-secondary); font-size: 12px; }
+.landing-quick .lq-wide { grid-column: 1 / -1; padding: 12px 14px; }
+.landing-quick small { color: var(--text-secondary); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
 .landing-quick strong { font-size: 14px; }
+.landing-quick .lq-wide strong { font-size: 16px; }
+.lq-todo { font-style: normal; font-size: 12px; color: #9a6410; margin-top: 2px; }
+.landing-home .landing-choice-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.landing-home .landing-choice-btn { padding: 20px 12px; font-size: 15px; letter-spacing: 1px; }
+.landing-home .backup-banner { width: 100%; margin: 0; }
+@media (max-width: 600px) {
+    .landing-quick { grid-template-columns: 1fr 1fr; }
+    .landing-home .landing-choice-btn { padding: 16px 8px; font-size: 13px; letter-spacing: .5px; }
+    .landing-home .landing-logo { width: 84px; }
+}
 
 /* Liste des matchs : recherche + tri */
 .match-tools { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; }

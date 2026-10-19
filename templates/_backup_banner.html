@@ -1,7 +1,6 @@
 {% if is_admin %}{% set _bs = backup_status() %}{% if _bs.alert %}
 <div class="card backup-banner no-print">
-    ⚠ {% if _bs.never_downloaded %}Aucune sauvegarde n'a encore été téléchargée.{% else %}Dernière sauvegarde téléchargée il y a {{ _bs.download_days }} jours.{% endif %}
-    Les données (matchs, composition, saisies manuelles) ne sont gardées qu'à un seul endroit.
-    <a href="{{ url_for('export_data') }}">Télécharger maintenant</a> · <a href="{{ url_for('admin_backups') }}">Voir les instantanés</a>
+    <span>⚠ {% if _bs.never_downloaded %}Aucune sauvegarde téléchargée{% else %}Dernière sauvegarde téléchargée il y a {{ _bs.download_days }} jours{% endif %}</span>
+    <span class="backup-actions"><a class="btn" href="{{ url_for('export_data') }}">Télécharger</a><a href="{{ url_for('admin_backups') }}">Détails</a></span>
 </div>
 {% endif %}{% endif %}
