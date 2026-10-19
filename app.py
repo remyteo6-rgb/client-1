@@ -327,7 +327,10 @@ def match_todo(match):
     add("Minutes jouées", bool(comp) and not sans,
         "" if not sans else (f"{len(sans)} joueur(s) sans minutes — leurs notes manquent" if comp else "après la composition"),
         "match_composition")
-    score_ok = manual.get("score_own_manual") is not None and manual.get("score_adverse_manual") is not None
+    try:
+        score_ok = bool(_resolve_match_score(match)[2])   # saisi à la main OU reconstruit depuis le XML
+    except Exception:
+        score_ok = True
     add("Score du match", score_ok, "" if score_ok else "à saisir (le XML ne donne pas le score complet)", "match_detail")
     add("Lancements des touches", bool(manual.get("touches")), "" if manual.get("touches") else "non renseignés", "match_touches")
     try:
