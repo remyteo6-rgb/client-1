@@ -3109,6 +3109,26 @@ def match_replace_xml(match_id):
     return redirect(url_for("match_detail", match_id=match_id))
 
 
+@app.route("/match/<int:match_id>/modifier", methods=["POST"])
+@admin_required
+def match_edit_info(match_id):
+    db = get_db()
+    own = (request.form.get("own_team") or "").strip()
+    opp = (request.form.get("opponent") or "").strip()
+    if not own or not opp:
+        flash("Les deux équipes sont obligatoires.", "error")
+        return redirect(request.referrer or url_for("index"))
+    db.execute(
+        "UPDATE matches SET own_team = %s, opponent = %s, match_date = %s, competition = %s, venue = %s WHERE id = %s",
+        (own, opp, (request.form.get("match_date") or "").strip() or None,
+         (request.form.get("competition") or "").strip() or None,
+         (request.form.get("venue") or "").strip() or None, match_id),
+    )
+    db.commit()
+    flash("Match modifié.", "success")
+    return redirect(request.referrer or url_for("match_detail", match_id=match_id))
+
+
 @app.route("/match/<int:match_id>/delete", methods=["POST"])
 @admin_required
 def delete_match(match_id):

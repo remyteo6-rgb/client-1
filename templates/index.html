@@ -4,6 +4,7 @@
 <h1>Historique des matchs</h1>
 <p class="subtitle">Importe tes exports Sportscode (XML) pour suivre tes stats de saison et celles de tes adversaires.</p>
 
+{% include "_match_edit.html" %}
 {% if matches %}
 <div class="match-list">
     {% for m in matches %}
@@ -17,6 +18,7 @@
             </div>
         </div>
         <div class="match-actions">
+            {% if is_admin %}<button class="btn btn-secondary" type="button" title="Modifier le titre" data-action="{{ url_for('match_edit_info', match_id=m['id']) }}" data-own="{{ m['own_team'] }}" data-opp="{{ m['opponent'] }}" data-date="{{ m['match_date'] or '' }}" data-comp="{{ m['competition'] or '' }}" data-venue="{{ m['venue'] or '' }}" onclick="openMatchEdit(this, event)">✎</button>{% endif %}
             {% if m['competition'] %}<span class="badge badge-comp">{{ m['competition'] }}</span>{% endif %}
         </div>
     </a>

@@ -1,0 +1,27 @@
+{# Modifier le titre / infos d'un match (admin). Ouvrir avec openMatchEdit(btn) ; le bouton porte data-* #}
+{% if is_admin %}
+<dialog id="match-edit-dialog" class="momentum-dialog replace-xml-dialog">
+    <div class="momentum-dialog-header">
+        <h2>Modifier le match</h2>
+        <button class="btn btn-secondary" type="button" onclick="document.getElementById('match-edit-dialog').close()">Fermer</button>
+    </div>
+    <form method="post" id="match-edit-form" class="replace-xml-form">
+        <div class="form-group"><label>Équipe</label><input type="text" name="own_team" required></div>
+        <div class="form-group"><label>Adversaire</label><input type="text" name="opponent" required></div>
+        <div class="form-group"><label>Date</label><input type="text" name="match_date" placeholder="2026-09-26"></div>
+        <div class="form-group"><label>Compétition</label><input type="text" name="competition"></div>
+        <div class="form-group"><label>Lieu (Domicile / Extérieur)</label><input type="text" name="venue"></div>
+        <button class="btn" type="submit">Enregistrer</button>
+    </form>
+</dialog>
+<script>
+function openMatchEdit(btn, ev) {
+    if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+    var f = document.getElementById('match-edit-form'), d = btn.dataset;
+    f.action = d.action;
+    f.own_team.value = d.own || ''; f.opponent.value = d.opp || '';
+    f.match_date.value = d.date || ''; f.competition.value = d.comp || ''; f.venue.value = d.venue || '';
+    document.getElementById('match-edit-dialog').showModal();
+}
+</script>
+{% endif %}
