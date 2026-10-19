@@ -53,14 +53,14 @@
         <button class="btn btn-secondary" type="button" onclick="document.getElementById('replace-xml-dialog').close()">Fermer</button>
     </div>
     <form method="post" action="{{ url_for('match_replace_xml', match_id=match['id']) }}" enctype="multipart/form-data" class="replace-xml-form"
-          onsubmit="return confirm('Remplacer le XML de ce match par le nouveau fichier ?');">
+          >
         <p>Fichier actuel : <strong>{{ match['filename'] or '—' }}</strong> ({{ match['total_instances'] }} actions codées).</p>
         <div class="form-group">
             <label>Nouveau fichier XML Sportscode</label>
             <input type="file" name="xml_file" accept=".xml,.XML" required>
         </div>
         <p class="docs-hint">Toutes les stats sont recalculées avec le nouveau fichier. Restent en place : la composition et les minutes, le score corrigé, les origines Zone Gold, les corrections Discipline et les lancements des Touches (pour une action qui garde le même début dans Sportscode).</p>
-        <button class="btn" type="submit">Remplacer</button>
+        <button class="btn" type="submit">Analyser le fichier</button>
     </form>
 </dialog>
 {% endif %}

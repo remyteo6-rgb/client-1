@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Remplacer le XML — aperçu{% endblock %}
+{% block content %}
+<h1>Remplacer le XML — aperçu</h1>
+<p class="subtitle">{{ match_title(match) }} · nouveau fichier : <strong>{{ filename }}</strong>. Rien n'a encore été modifié.</p>
+
+<div class="card">
+    <h2>Actions codées</h2>
+    <p>{{ diff.avant }} → <strong>{{ diff.apres }}</strong> ({{ '%+d'|format(diff.apres - diff.avant) }})</p>
+</div>
+
+{% if diff.lost %}
+<div class="card" style="border-left:4px solid #d9534f;">
+    <h2>⚠ À vérifier : ce qui ne sera plus retrouvé</h2>
+    <ul>
+        {% for l in diff.lost %}<li>{{ l }}</li>{% endfor %}
+    </ul>
+    <p class="docs-hint">Ces saisies resteront stockées mais ne seront plus affichées tant que l'action n'a pas le même début dans le fichier.</p>
+</div>
+{% else %}
+<div class="card" style="border-left:4px solid #5cb85c;">✓ Toutes tes saisies (composition, minutes, score, Zone Gold, Touches) retrouveront leur place.</div>
+{% endif %}
+
+{% if diff.nouveaux or diff.disparus or diff.comp_absents %}
+<div class="card">
+    <h2>Joueurs</h2>
+    {% if diff.nouveaux %}<p>Nouveaux dans le fichier : {{ diff.nouveaux|join(', ') }}</p>{% endif %}
+    {% if diff.comp_absents %}<p>Dans la composition mais sans aucune action dans ce XML : {{ diff.comp_absents|join(', ') }} (normal pour un remplaçant sans action codée, à vérifier sinon).</p>{% endif %}
+    {% if diff.disparus %}<p>N'apparaissent plus : {{ diff.disparus|join(', ') }}</p>{% endif %}
+</div>
+{% endif %}
+
+<div class="card">
+    <h2>Ce qui change dans les stats ({{ diff.n_changes }} ligne{{ 's' if diff.n_changes != 1 else '' }})</h2>
+    {% if diff.changes %}
+    <table class="data-table"><thead><tr><th>Code</th><th></th><th>Avant</th><th>Après</th><th>Écart</th></tr></thead><tbody>
+    {% for c in diff.changes %}<tr><td>{{ c.cat }}</td><td>{{ c.side }}</td><td>{{ c.avant }}</td><td>{{ c.apres }}</td><td>{{ '%+d'|format(c.delta) }}</td></tr>{% endfor %}
+    </tbody></table>
+    {% if diff.n_changes > diff.changes|length %}<p class="docs-hint">Seules les 20 plus grosses variations sont affichées.</p>{% endif %}
+    {% else %}<p>Aucune différence de comptage.</p>{% endif %}
+</div>
+
+<form method="post" action="{{ url_for('match_replace_xml', match_id=match['id']) }}" style="display:flex; gap:10px;">
+    <input type="hidden" name="token" value="{{ token }}">
+    <input type="hidden" name="filename" value="{{ filename }}">
+    <input type="hidden" name="confirmer" value="1">
+    <button class="btn" type="submit">Confirmer le remplacement</button>
+    <a class="btn btn-secondary" href="{{ url_for('match_detail', match_id=match['id']) }}">Annuler</a>
+</form>
+<p class="docs-hint">Un instantané des données est pris automatiquement juste avant le remplacement (Administration → Instantanés automatiques).</p>
+{% endblock %}

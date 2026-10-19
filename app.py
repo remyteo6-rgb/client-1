@@ -2,6 +2,7 @@ import os
 import time
 import re
 import gzip
+import uuid
 import json
 import unicodedata
 import copy
@@ -3214,25 +3215,94 @@ def import_data():
     return redirect(url_for("index"))
 
 
+def _replace_xml_diff(match, parsed):
+    """Aperçu d'un remplacement de XML : ce qui change dans les stats et ce que le nouveau
+    fichier ne permet plus de retrouver (saisies rattachées à une action, joueurs de la compo)."""
+    new_stats, _players = aggregate_match_stats(parsed["instances"])
+    old_stats = match.get("stats") or {}
+    changes = []
+    for cat in sorted(set(old_stats) | set(new_stats)):
+        o, n = old_stats.get(cat) or {}, new_stats.get(cat) or {}
+        for side, lab in (("own", "nous"), ("adverse", "adverse")):
+            a, b = (o.get(side) or {}).get("count", 0), (n.get(side) or {}).get("count", 0)
+            if a != b:
+                changes.append({"cat": cat, "side": lab, "avant": a, "apres": b, "delta": b - a})
+    changes.sort(key=lambda c: -abs(c["delta"]))
+    manual = match.get("manual_stats") or {}
+    lost = []
+    try:
+        z = compute_zone_gold_log(parsed["instances"], overrides=None)
+        keys = {r["key"] for side in ("own", "adverse") for r in (z.get(side) or {}).get("rows", [])}
+        n = sum(1 for side in ("own", "adverse") for k, e in ((manual.get("zone_gold") or {}).get(side) or {}).items()
+                if (e or {}).get("origine") and k not in keys)
+        if n:
+            lost.append(f"{n} origine(s) Zone Gold rattachée(s) à une action qui n'existe plus")
+    except Exception:
+        pass
+    try:
+        t = compute_touches_page(parsed["instances"], {})
+        keys = {r["key"] for r in t["rows"]}
+        n = sum(1 for k, e in (manual.get("touches") or {}).items() if any((e or {}).values()) and k not in keys)
+        if n:
+            lost.append(f"{n} saisie(s) de Touches (lancement, lancer, annonce) rattachée(s) à une action qui n'existe plus")
+    except Exception:
+        pass
+    xml_players = set(_new_convention_player_names(parsed["instances"]))
+    old_players = set(_new_convention_player_names(match.get("instances") or []))
+    xml_keys = {_name_key(n.split(".")[-1]) for n in xml_players}
+    comp_absents = [c for c in (match.get("composition") or []) if c and xml_keys and _name_key(c) not in xml_keys]
+    return {"avant": match.get("total_instances") or 0, "apres": len(parsed["instances"]),
+            "changes": changes[:20], "n_changes": len(changes), "lost": lost,
+            "nouveaux": sorted(xml_players - old_players), "disparus": sorted(old_players - xml_players),
+            "comp_absents": comp_absents}
+
+
+def _apply_replace_xml(match_id, match, parsed, filename):
+    stats, players = aggregate_match_stats(parsed["instances"])
+    zones = aggregate_zones(parsed["instances"])
+    row_order = player_row_order(parsed["instances"], parsed.get("row_order"))
+    db = get_db()
+    make_snapshot("avant remplacement XML")
+    db.execute(
+        """UPDATE matches SET filename = %s, own_team_tag = %s, total_instances = %s,
+           stats_json = %s, players_json = %s, zones_json = %s, instances_json = %s,
+           row_order_json = %s WHERE id = %s""",
+        (filename, parsed["own_team_tag"] or match.get("own_team_tag"), len(parsed["instances"]),
+         json.dumps(stats), json.dumps(players), json.dumps(zones),
+         json.dumps(parsed["instances"]), json.dumps(row_order), match_id),
+    )
+    db.commit()
+
+
 @app.route("/match/<int:match_id>/remplacer-xml", methods=["POST"])
 @admin_required
 def match_replace_xml(match_id):
     """Remplace le fichier XML d'un match déjà importé (version recodée ou complétée dans
-    Sportscode) SANS créer de nouveau match : seules les données lues dans le fichier sont
-    mises à jour. Tout ce qui a été saisi sur le site est conservé — composition et minutes,
-    score corrigé, origines Zone Gold, corrections Discipline, lancements des Touches
-    (manual_stats_json / composition_json / player_match_stats_json ne sont pas touchés).
-    Les saisies rattachées à une action précise (Zone Gold, Touches) se retrouvent tant que
-    l'action garde le même début dans le nouveau fichier."""
+    Sportscode) SANS créer de nouveau match. En deux temps : le fichier est d'abord analysé et
+    un résumé s'affiche (ce qui change, ce qui ne sera plus retrouvé) ; le remplacement n'a lieu
+    qu'après confirmation. Composition, minutes, score, Discipline, Zone Gold et Touches saisis
+    sur le site sont conservés (une saisie rattachée à une action se retrouve tant que l'action
+    garde le même début dans le nouveau fichier). Un instantané est pris juste avant."""
     match = _get_match_or_404(match_id)
-    file = request.files.get("xml_file")
-    if not file or file.filename == "":
-        flash("Merci de sélectionner le nouveau fichier XML Sportscode.", "error")
-        return redirect(url_for("match_detail", match_id=match_id))
     os.makedirs(UPLOAD_DIR, exist_ok=True)
-    ts = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-    save_path = os.path.join(UPLOAD_DIR, f"{ts}_{file.filename}")
-    file.save(save_path)
+    token = (request.form.get("token") or "").strip()
+    if token:
+        if not re.fullmatch(r"[0-9a-f]{32}", token):
+            abort(400)
+        save_path = os.path.join(UPLOAD_DIR, f"pending_{match_id}_{token}.xml")
+        if not os.path.exists(save_path):
+            flash("L'aperçu a expiré : recharge le fichier.", "error")
+            return redirect(url_for("match_detail", match_id=match_id))
+        filename = (request.form.get("filename") or "match.xml")[:200]
+    else:
+        file = request.files.get("xml_file")
+        if not file or file.filename == "":
+            flash("Merci de sélectionner le nouveau fichier XML Sportscode.", "error")
+            return redirect(url_for("match_detail", match_id=match_id))
+        token = uuid.uuid4().hex
+        save_path = os.path.join(UPLOAD_DIR, f"pending_{match_id}_{token}.xml")
+        file.save(save_path)
+        filename = file.filename
     try:
         parsed = parse_sportscode_xml(save_path)
     except Exception as exc:
@@ -3241,23 +3311,15 @@ def match_replace_xml(match_id):
     if not parsed.get("instances"):
         flash("Ce fichier ne contient aucune action codée : l'ancien XML est conservé.", "error")
         return redirect(url_for("match_detail", match_id=match_id))
-    stats, players = aggregate_match_stats(parsed["instances"])
-    zones = aggregate_zones(parsed["instances"])
-    row_order = player_row_order(parsed["instances"], parsed.get("row_order"))
+    if not request.form.get("confirmer"):
+        return render_template("match_replace_preview.html", match=match, diff=_replace_xml_diff(match, parsed),
+                               token=token, filename=filename)
     avant = match.get("total_instances") or 0
-    db = get_db()
-    make_snapshot("avant remplacement XML")
-    db.execute(
-        """UPDATE matches SET filename = %s, own_team_tag = %s, total_instances = %s,
-           stats_json = %s, players_json = %s, zones_json = %s, instances_json = %s,
-           row_order_json = %s WHERE id = %s""",
-        (
-            file.filename, parsed["own_team_tag"] or match.get("own_team_tag"), len(parsed["instances"]),
-            json.dumps(stats), json.dumps(players), json.dumps(zones),
-            json.dumps(parsed["instances"]), json.dumps(row_order), match_id,
-        ),
-    )
-    db.commit()
+    _apply_replace_xml(match_id, match, parsed, filename)
+    try:
+        os.replace(save_path, os.path.join(UPLOAD_DIR, f"{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{filename}"))
+    except OSError:
+        pass
     flash(f"XML remplacé : {len(parsed['instances'])} actions codées (avant : {avant}). "
           "Composition et saisies manuelles conservées.", "success")
     return redirect(url_for("match_detail", match_id=match_id))
