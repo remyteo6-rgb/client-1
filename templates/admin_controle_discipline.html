@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
+{% block title %}Contrôle de la discipline{% endblock %}
+{% block content %}
+<div class="page-header no-print">
+    <div>
+        <h1>{{ icons.criteria() }} Contrôle de la discipline</h1>
+        <p class="subtitle">Pour chaque match : les fautes de la page Discipline (collectif, qui fait foi) face à l'ancien décompte des fiches individuelles (labels « Disciplines Off / Def » sur les codes joueurs). Les fiches individuelles reprennent désormais le collectif.</p>
+    </div>
+</div>
+{% for x in matchs %}
+<div class="card" style="margin-bottom:14px;">
+    <h2><a href="{{ url_for('match_discipline', match_id=x.m['id']) }}">{{ match_title(x.m) }}</a></h2>
+    {% if not x.d %}
+    <p class="subtitle">Pas de pénalités d'équipe codées (« UBB Disciplines ») : les fiches individuelles gardent les labels des joueurs.</p>
+    {% else %}
+    <p>
+        <strong>{{ x.equipe }}</strong> fautes d'équipe ·
+        {% if x.sans_joueur %}<span class="stat-neg">{{ x.sans_joueur }} sans joueur attribué</span>{% else %}toutes attribuées à un joueur{% endif %} ·
+        {% if x.nb_ecarts %}<span class="stat-neg">{{ x.nb_ecarts }} joueur{{ 's' if x.nb_ecarts > 1 }} avec un écart</span>{% else %}aucun écart{% endif %}
+        {% if x.hors_pen %} · {{ x.hors_pen }} label{{ 's' if x.hors_pen > 1 }} joueur sans pénalité d'équipe au même moment (ignoré{{ 's' if x.hors_pen > 1 }}){% endif %}
+    </p>
+    {% if x.lignes %}
+    <table class="stat-table zebra-table">
+        <thead><tr><th>Joueur</th><th>Discipline (collectif)</th><th>Ancienne fiche indiv.</th><th></th></tr></thead>
+        <tbody>
+        {% for l in x.lignes %}
+        <tr><td>{{ l.name }}</td><td>{{ l.collectif }}{% if l.manuel %} <small>(corrigé à la main)</small>{% endif %}</td><td>{{ l.ancien }}</td>
+            <td>{% if l.ecart %}<span class="stat-neg">écart de {{ (l.collectif - l.ancien)|abs }}</span>{% endif %}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+    {% endif %}
+</div>
+{% endfor %}
+{% endblock %}

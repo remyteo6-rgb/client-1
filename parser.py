@@ -1271,9 +1271,16 @@ def compute_discipline(instances, row_order=None, cards=None, composition=None, 
         gs = DISCIPLINE_CATEGORY_GROUPS | ({"DISCIPLINES"} if team_code else set())
         return _discipline_category({_normalize_tag(t) for g in gs for t in groups.get(g, [])})
 
-    def _count_fault(code, groups, reasons):
-        row = players.setdefault(code, {"fautes": 0, "reasons": Counter(), "yellow": 0, "red": 0})
+    def _count_fault(code, groups, reasons, cat=None):
+        row = players.setdefault(code, {"fautes": 0, "reasons": Counter(), "yellow": 0, "red": 0,
+                                        "off": 0, "def": 0, "autre": 0})
         row["fautes"] += 1
+        # Ventilation pour la fiche individuelle : catégorie de la faute d'équipe, à défaut
+        # le label « Disciplines Off / Def » posé sur le joueur ; sinon « autres ».
+        if cat is None:
+            dd = {_normalize_tag(t) for t in groups.get("DISCIPLINES", [])}
+            cat = "Attack" if "DISCIPLINES OFF" in dd else ("Defence" if "DISCIPLINES DEF" in dd else None)
+        row["off" if cat == "Attack" else "def" if cat == "Defence" else "autre"] += 1
         for r in reasons:
             row["reasons"][r] += 1
         for g in DISCIPLINE_CARD_GROUPS:
@@ -1314,8 +1321,9 @@ def compute_discipline(instances, row_order=None, cards=None, composition=None, 
         if fautif:
             team_faults_with_player += 1
             reasons = _reasons_of(groups)
-            _count_fault(fautif, groups, reasons)
-            _count_category(groups, reasons, _category_of(groups, team_code=True))
+            _cat1 = _category_of(groups, team_code=True)
+            _count_fault(fautif, groups, reasons, _cat1)
+            _count_category(groups, reasons, _cat1)
 
     # 2) Sinon (fichiers actuels) : les labels Disciplines posés sur les codes joueurs,
     #    rapprochés UN PAR UN des codes « UBB Disciplines » (le label joueur est posé
@@ -1356,7 +1364,7 @@ def compute_discipline(instances, row_order=None, cards=None, composition=None, 
                     used.add(best)
                     _t, code, groups = candidates[best]
                     reasons = _reasons_of(groups) + treasons
-                    _count_fault(code, groups, reasons)
+                    _count_fault(code, groups, reasons, tcat)
                     _count_category(groups, reasons, tcat)
                 elif tcat:
                     # Faute sans joueur rapproché : sa catégorie compte quand même pour l'équipe.
@@ -1412,8 +1420,19 @@ def compute_discipline(instances, row_order=None, cards=None, composition=None, 
         # Avant / 3/4 corrigeable à la main (joueur qui a joué devant ou derrière ce jour-là).
         if man.get("groupe") in ("avants", "3/4"):
             groupe = man["groupe"]
-        rows.append({"key": key, "name": display, "fautes": fautes, "fautes_auto": fautes_auto,
-                     "raison": raison, "carton": carton, "groupe": groupe})
+        # Ventilation off / déf / autres de la fiche individuelle. Une correction manuelle du total
+        # (page Discipline) pèse sur « autres » en plus, ou retire d'abord autres, puis déf, puis off.
+        split = {"off": (auto or {}).get("off", 0), "def": (auto or {}).get("def", 0), "autre": (auto or {}).get("autre", 0)}
+        delta = fautes - sum(split.values())
+        if delta > 0:
+            split["autre"] += delta
+        else:
+            for k in ("autre", "def", "off"):
+                take = min(split[k], -delta)
+                split[k] -= take
+                delta += take
+        rows.append({"key": key, "name": display, "code": code, "fautes": fautes, "fautes_auto": fautes_auto,
+                     "raison": raison, "carton": carton, "groupe": groupe, "split": split})
 
     cats = []
     for label, _k in DISCIPLINE_CATEGORIES:
@@ -2156,9 +2175,23 @@ def compute_player_attack_table(instances):
                       "passe_plus": 0, "passe_minus": 0, "passe_neutre": 0, "passes": 0,
                       "offload_plus": 0, "offload_minus": 0, "offload_neutre": 0, "offloads": 0,
                       "def_battu": 0, "pdb": 0, "soutien_1er": 0, "soutien_2eme": 0, "soutien_3plus": 0,
-                      "break": 0, "cartouche": 0, "melee_portee": 0, "penalite_off": 0, "penalite_def": 0}
+                      "break": 0, "cartouche": 0, "melee_portee": 0, "penalite_off": 0, "penalite_def": 0,
+                      "penalite_autre": 0}
 
+    # Pénalités : la Discipline collective de chaque match fait foi (voir app._row_to_match, qui
+    # pose le détail {joueur: {off, def, autre}} sur la 1re instance du match). Les labels
+    # « Disciplines Off / Def » des codes joueurs ne servent que si le match n'a pas de
+    # discipline collective.
+    couvert = False
     for i in instances:
+        if "_disc_ind" in i:
+            d_ind = i["_disc_ind"]
+            couvert = d_ind is not None
+            for nom, s in (d_ind or {}).items():
+                if nom in rows:
+                    rows[nom]["penalite_off"] += s.get("off", 0)
+                    rows[nom]["penalite_def"] += s.get("def", 0)
+                    rows[nom]["penalite_autre"] += s.get("autre", 0)
         code = i["code_raw"]
         if code not in rows:
             continue
@@ -2203,10 +2236,11 @@ def compute_player_attack_table(instances):
             if "3+" in off:
                 row["soutien_3plus"] += 1
         disc = groups.get("DISCIPLINES", set())
-        if "DISCIPLINES OFF" in disc:
-            row["penalite_off"] += 1
-        if "DISCIPLINES DEF" in disc:
-            row["penalite_def"] += 1
+        if not couvert:
+            if "DISCIPLINES OFF" in disc:
+                row["penalite_off"] += 1
+            if "DISCIPLINES DEF" in disc:
+                row["penalite_def"] += 1
         # Un label répété sur la même instance (« Def battus » posé deux fois) = deux actions :
         # on compte chaque occurrence, pas seulement les labels distincts.
         for lab in i["labels"]:
@@ -2222,7 +2256,8 @@ def compute_player_attack_table(instances):
         offload_tot = r["offload_plus"] + r["offload_minus"] + r["offload_neutre"]
         soutien_total = r["soutien_1er"] + r["soutien_2eme"] + r["soutien_3plus"]
         if (contact_tot + r["passes"] + offload_tot + soutien_total + r["def_battu"] + r["pdb"]
-                + r["break"] + r["cartouche"] + r["melee_portee"] + r["penalite_off"] + r["penalite_def"]) == 0:
+                + r["break"] + r["cartouche"] + r["melee_portee"] + r["penalite_off"] + r["penalite_def"]
+                + r["penalite_autre"]) == 0:
             continue
         passe_pct_num = r["passe_plus"] + r["passe_neutre"]
         offload_pct_num = r["offload_plus"] + r["offload_neutre"]
@@ -3468,7 +3503,7 @@ def compute_player_bilan_table(instances, attack_table=None, defense_table=None,
                    + d["plaquage_neutre"] + d["combattant_neutre"] + d["chasseur_neutre"]
                    + u["rce_neutre"] + u["duels_aer_neutre"] + u.get("jap_neutre", 0))
         negatives = (a["contact_minus"] + a["passe_minus"] + a["offload_minus"]
-                     + a["pdb"] + a["penalite_off"] + a["penalite_def"]
+                     + a["pdb"] + a["penalite_off"] + a["penalite_def"] + a.get("penalite_autre", 0)
                      + d["plaquage_rate"] + d["combattant_minus"] + d["chasseur_minus"]
                      + u["transfo_tentees"] - u["transfo_reussies"] + u.get("jap_moins", 0))
 
@@ -3657,7 +3692,7 @@ def _zero_attack_row(name):
         "offload_total": 0, "offload_pct": None,
         "def_battu": 0, "pdb": 0, "soutien_1er": 0, "soutien_2eme": 0, "soutien_3plus": 0,
         "soutien_total": 0, "break": 0, "cartouche": 0,
-        "melee_portee": 0, "penalite_off": 0, "penalite_def": 0,
+        "melee_portee": 0, "penalite_off": 0, "penalite_def": 0, "penalite_autre": 0,
     }
 
 

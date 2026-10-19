@@ -510,7 +510,7 @@ def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
     confiance = min(1.0, minutes / CONFIANCE_MIN)
     base = base * confiance + NOTE_NEUTRE * (1 - confiance)
     attack = rows.get("attack")
-    pen = _v(attack, "penalite_off", "penalite_def")
+    pen = _v(attack, "penalite_off", "penalite_def", "penalite_autre")
     pdb = _v(attack, "pdb")
     rates = _v(attack, "passe_minus")
     rates_t = _v(rows.get("defense"), "plaquage_rate")

@@ -1326,7 +1326,26 @@ def _row_to_match(row):
     m["row_order"] = json.loads(m.pop("row_order_json", None) or "[]")
     m["player_match_stats"] = json.loads(m.pop("player_match_stats_json", None) or "{}")
     m["ubb_overview"] = json.loads(m.pop("ubb_overview_json", None) or "{}")
+    _poser_discipline_indiv(m)
     return m
+
+
+def _poser_discipline_indiv(m):
+    """La Discipline collective du match fait foi pour les pénalités des fiches individuelles : on
+    pose le détail {joueur: {off, def, autre}} sur la 1re instance (lu par
+    parser.compute_player_attack_table). Sans discipline collective : None (labels des joueurs)."""
+    ins = m.get("instances") or []
+    if not ins:
+        return
+    detail = None
+    try:
+        d = compute_discipline(ins, m.get("row_order"), m.get("player_match_stats"), m.get("composition"),
+                               (m.get("manual_stats") or {}).get("discipline"))
+        if d and d.get("team") and (d["team"].get("own") is not None):
+            detail = {r["code"]: r["split"] for r in d["rows"] if r.get("code") and sum(r["split"].values())}
+    except Exception:
+        detail = None
+    ins[0]["_disc_ind"] = detail
 
 
 def _get_match_or_404(match_id):
@@ -1714,7 +1733,8 @@ JOUEURS_SLIDES = [
         {"label": "Déchet", "cols": [
             {"key": "pdb", "label": "Ball. perdus", "kind": "neg"},
             {"key": "penalite_off", "label": "Pén. off.", "kind": "neg"},
-            {"key": "penalite_def", "label": "Pén. déf.", "kind": "neg"}]},
+            {"key": "penalite_def", "label": "Pén. déf.", "kind": "neg"},
+            {"key": "penalite_autre", "label": "Pén. autres", "kind": "neg"}]},
     ]},
     {"key": "defense", "title": "DÉFENSE", "table": "defense", "groups": [
         {"label": "Plaquages", "cols": [
@@ -3931,7 +3951,7 @@ def _compare_radar(selected, name_a, name_b, poste=None):
         by, mn, _n = donnees(nom)
         rows = {t: by[t].get(cle(nom)) for t in by}
         ev = {c: bareme.evaluer_critere(c, r[1], r[2], rows, mn) for c, r in reglages.items()}
-        pen = _v(rows.get("attack"), "penalite_off", "penalite_def") * 80 / mn
+        pen = _v(rows.get("attack"), "penalite_off", "penalite_def", "penalite_autre") * 80 / mn
         return ev, pen
 
     evals = {nom: evaluer(nom) for nom in pool}
@@ -7105,6 +7125,38 @@ def _controle_xml():
 @admin_required
 def admin_controle_xml():
     return render_template("admin_controle_xml.html", c=_controle_xml())
+
+
+@app.route("/admin/controle-discipline")
+@admin_required
+def admin_controle_discipline():
+    """Discipline collective (page Discipline de chaque match) comparée aux anciennes pénalités des
+    fiches individuelles (labels « Disciplines Off / Def » posés sur les codes joueurs)."""
+    out = []
+    for r in get_db().execute("SELECT id FROM matches ORDER BY COALESCE(match_date, created_at), id").fetchall():
+        m = _get_match_or_404(r["id"])
+        ins = m["instances"]
+        if not ins:
+            continue
+        d = compute_discipline(ins, m.get("row_order"), m.get("player_match_stats"), m.get("composition"),
+                               (m.get("manual_stats") or {}).get("discipline"))
+        if not d or not d.get("team"):
+            out.append({"m": m, "d": None})
+            continue
+        brut = [{k: v for k, v in i.items() if k != "_disc_ind"} for i in ins]
+        ancien = {x["name"]: x["penalite_off"] + x["penalite_def"] for x in compute_player_attack_table(brut)["rows"]}
+        lignes = []
+        for row in d["rows"]:
+            c, a_ = row["fautes"] or 0, ancien.get(row.get("code") or "", 0)
+            if c or a_:
+                lignes.append({"name": row["name"], "collectif": c, "ancien": a_, "ecart": c != a_,
+                               "manuel": row["fautes"] != row["fautes_auto"]})
+        total_joueurs = sum(l["collectif"] for l in lignes)
+        out.append({"m": m, "d": d, "lignes": lignes, "equipe": d["team"].get("own"),
+                    "sans_joueur": (d["team"].get("own") or 0) - total_joueurs,
+                    "hors_pen": d.get("labels_hors_penalite") or 0,
+                    "nb_ecarts": sum(1 for l in lignes if l["ecart"])})
+    return render_template("admin_controle_discipline.html", matchs=out)
 
 
 @app.route("/admin/postes-stats")
