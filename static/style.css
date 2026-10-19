@@ -371,6 +371,7 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
     .subnav-links > a,
     .subnav-links > details.subnav-sector-dropdown { display: none; }
     .subnav-page-dropdown { display: block; }
+    .subnav-links { overflow-x: auto; }
     .subnav-links::-webkit-scrollbar { display: none; }
     .subnav-links a { padding: 12px 10px; font-size: 12.5px; }
     .subnav-search-input:focus, .subnav-search.open .subnav-search-input { width: 130px; }
@@ -412,7 +413,7 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
        à la ligne, ce qui doublerait la hauteur du bandeau fixe et ferait chevaucher le
        contenu de la page (padding-top du body figé à 60px). */
     flex-wrap: nowrap;
-    overflow-x: auto;
+    overflow: visible; /* les menus Attaque/Défense débordent du bandeau */
     scrollbar-width: none;
     gap: 4px;
     row-gap: 0;
@@ -482,7 +483,7 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
     border-bottom: none;
 }
 .subnav-sector-menu a:hover { background: rgba(255,255,255,0.08); color: #fff; }
-.subnav-sector-menu a.active { color: var(--accent-gold); }
+.subnav-links .subnav-sector-menu a.active { color: var(--accent-gold); background: rgba(255,255,255,0.08); }
 
 /* Sur mobile, tous les onglets de la ligne (Vue d'ensemble, Secteurs, Joueurs...) se
    replient dans CE SEUL bouton "Page actuelle ▾", pour garder un bandeau fin comme sur

@@ -113,9 +113,9 @@
         {% set match_tabs = [
             ('overview', 'match_detail', "Vue d'ensemble"),
             ('bilan_attaque', 'match_bilan_attaque', 'Bilan attaque'),
+            ('zone_gold', 'match_zone_gold', 'Zone Gold'),
             ('surfeurs', 'match_surfeurs', 'Surfeurs'),
             ('possessions', 'match_possessions', 'Nos possessions'),
-            ('zone_gold', 'match_zone_gold', 'Zone Gold'),
             ('bilan_defense', 'match_bilan_defense', 'Bilan défense'),
             ('csc', 'match_csc', 'CSC'),
             ('discipline', 'match_discipline', 'Discipline'),
@@ -127,8 +127,25 @@
         {% endif %}
         {% macro tab_url(endpoint) %}{% if season_mode %}{{ url_for(endpoint, m=season_selected_ids) }}{% else %}{{ url_for(endpoint, match_id=match['id']) }}{% endif %}{% endmacro %}
         <div class="subnav-links">
+            {# Barre bureau : « Attaque ▾ » et « Défense ▾ » regroupent leurs pages ; les autres
+               onglets restent à plat. Le menu mobile (« page actuelle ▾ ») garde la liste complète. #}
+            {% set _groups = {'bilan_attaque': 'Attaque', 'zone_gold': 'Attaque', 'surfeurs': 'Attaque', 'possessions': 'Attaque', 'bilan_defense': 'Défense', 'csc': 'Défense'} %}
+            {% set _done = [] %}
             {% for key, endpoint, label in match_tabs %}
+            {% set g = _groups.get(key) %}
+            {% if not g %}
             <a href="{{ tab_url(endpoint) }}" class="{{ 'active' if active==key else '' }}">{{ label }}</a>
+            {% elif g not in _done %}
+            {% set _ = _done.append(g) %}
+            <details class="subnav-sector-dropdown">
+                <summary class="{{ 'active' if _groups.get(active)==g else '' }}">{{ g }} ▾</summary>
+                <div class="subnav-sector-menu">
+                    {% for k2, e2, l2 in match_tabs if _groups.get(k2)==g %}
+                    <a href="{{ tab_url(e2) }}" class="{{ 'active' if active==k2 else '' }}">{{ l2 }}</a>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endif %}
             {% endfor %}
             <details class="subnav-page-dropdown">
                 <summary>{{ page_labels.get(active, 'Pages') }} ▾</summary>
