@@ -248,13 +248,18 @@ def admin_required(view):
     return wrapped
 
 
-def match_title(m):
-    """Titre d'un match : « J5 · Équipe vs Adversaire » ; à l'extérieur l'adversaire est cité en premier."""
+def match_parts(m):
+    """(journée, équipe citée en premier, seconde équipe, à l'extérieur ?) — l'adversaire passe devant à l'extérieur."""
     g = (lambda k: (m[k] if k in m.keys() else None)) if not isinstance(m, dict) else m.get
     own, opp = g("own_team") or g("own_team_tag") or "", g("opponent") or "?"
     ext = (g("venue") or "").strip().lower().startswith("ext")
     a, b = (opp, own) if ext else (own, opp)
-    j = (g("journee") or "").strip()
+    return (g("journee") or "").strip(), a, b, ext
+
+
+def match_title(m):
+    """Titre d'un match : « J5 · Équipe vs Adversaire » ; à l'extérieur l'adversaire est cité en premier."""
+    j, a, b, _ = match_parts(m)
     return (f"{j} · " if j else "") + f"{a} vs {b}".strip()
 
 
@@ -289,7 +294,7 @@ def inject_logged_in():
         "user_email": session.get("user_email", ""),
         "club_name": CLUB_NAME, "club_full_name": CLUB_FULL_NAME,
         "asset_version": ASSET_VERSION,
-        "match_nav_options": _match_nav_options, "match_title": match_title,
+        "match_nav_options": _match_nav_options, "match_title": match_title, "match_parts": match_parts,
     }
     # Liste légère (id + nom) de tous les joueurs, pour la recherche rapide dans la barre
     # du haut (voir _match_subnav.html) — disponible sur toutes les pages plutôt que la
