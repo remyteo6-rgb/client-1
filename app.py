@@ -4828,15 +4828,19 @@ def season_surfeurs():
     """Suivi de saison des surfeurs : nombre de touches saisies sur chaque match, en courbe."""
     selected, ctx = _season_common("surfeurs")
     rows = []
+    cut = 14 if len(selected) <= 7 else 8
     for m in selected:
         n = len(_surfeurs_touches(m.get("manual_stats")))
-        j = m.get("journee")
+        j = (m.get("journee") or "").strip()
+        if j and not j.upper().startswith("J"):
+            j = f"J{j}"
         rows.append({"id": m["id"], "total": n, "opponent": m.get("opponent") or "?",
-                     "label": (f"J{j} " if j else "") + (m.get("opponent") or "?")[:16],
+                     "j": j, "name": (m.get("opponent") or "?")[:cut],
+                     "crest": _club_crest_url(m.get("opponent")),
                      "title": match_title(m), "date": m.get("match_date")})
     rows.sort(key=lambda r: (r["date"] or "", r["id"]))
     saisis = [r["total"] for r in rows if r["total"]]
-    W, H, L, R, T, B = 760, 300, 46, 20, 24, 70
+    W, H, L, R, T, B = 900, 380, 46, 20, 30, 96
     mx = max([r["total"] for r in rows] + [1])
     top = ((mx + 4) // 5) * 5 or 5
     PAD = 40  # marge intérieure pour que les points extrêmes ne touchent pas l'axe

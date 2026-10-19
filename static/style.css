@@ -3260,19 +3260,21 @@ select.subnav-match-select option { color:#222; background:#fff; }
 .ess-muted { color: var(--text-secondary); font-weight: 400; font-size: 13px; }
 .ess-table td, .ess-table th { text-align: center; } .ess-table td:first-child, .ess-table th:first-child { text-align: left; }
 
-/* Suivi saison des surfeurs (courbe) */
-.sfs-card { padding: 18px 22px; }
-.sfs-kpis { display: flex; gap: 32px; margin-bottom: 8px; flex-wrap: wrap; }
+/* Suivi saison des surfeurs (courbe) — même langage que les pages rapport */
+.sfs-panel { background: rgba(255,255,255,.55); border-radius: 8px; overflow: hidden; }
+.sfs-kpis { display: flex; gap: 40px; padding: 14px 20px 0; flex-wrap: wrap; }
 .sfs-kpis div { display: flex; flex-direction: column; }
-.sfs-kpis strong { font-family: var(--font-display); font-size: 30px; line-height: 1; }
-.sfs-kpis span { font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; opacity: .65; margin-top: 4px; }
-.sfs-chart { width: 100%; height: auto; display: block; }
-.sfs-grid { stroke: rgba(0,0,0,.09); stroke-width: 1; }
-.sfs-axis, .sfs-x { font-size: 11px; fill: #6b5a58; }
-.sfs-x { font-weight: 600; }
-.sfs-line { fill: none; stroke: var(--accent-gold, #f9a240); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
-.sfs-dot { fill: #4a0f2e; stroke: #fff; stroke-width: 2; }
-.sfs-dot-vide { fill: #bbb; }
-.sfs-val { font-size: 13px; font-weight: 800; fill: #2a1518; }
-.sfs-moy { stroke: #4a0f2e; stroke-width: 1.5; stroke-dasharray: 6 5; opacity: .55; }
-.sfs-moy-txt { font-size: 11px; fill: #4a0f2e; opacity: .8; font-weight: 700; }
+.sfs-kpis strong { font-family: var(--font-display); font-size: 2.4rem; line-height: 1; color: #5b1c2e; font-weight: 700; }
+.sfs-kpis span { font-family: var(--font-display); font-size: .85rem; letter-spacing: 1px; text-transform: uppercase; color: #555; margin-top: 4px; }
+.sfs-chart { width: 100%; height: auto; display: block; padding: 6px 10px 0; box-sizing: border-box; }
+.sfs-chart a { cursor: pointer; }
+.sfs-grid { stroke: rgba(0,0,0,.12); stroke-width: 1; }
+.sfs-axis { font-family: var(--font-display); font-size: 13px; fill: #555; }
+.sfs-x { font-family: var(--font-display); font-size: 14px; font-weight: 600; fill: #2a1518; text-transform: uppercase; letter-spacing: .5px; }
+.sfs-j { font-family: var(--font-display); font-size: 13px; fill: #96591b; font-weight: 700; letter-spacing: 1px; }
+.sfs-line { fill: none; stroke: #5b1c2e; stroke-width: 3.5; stroke-linejoin: round; stroke-linecap: round; }
+.sfs-dot { fill: var(--accent-gold); stroke: #5b1c2e; stroke-width: 3; }
+.sfs-dot-vide { fill: #ddd; stroke: #999; }
+.sfs-val { font-family: var(--font-display); font-size: 20px; font-weight: 700; fill: #5b1c2e; }
+.sfs-moy { stroke: var(--accent-gold); stroke-width: 2; stroke-dasharray: 7 6; }
+.sfs-note { font-size: 12px; color: #666; margin: 0; padding: 0 20px 12px; }

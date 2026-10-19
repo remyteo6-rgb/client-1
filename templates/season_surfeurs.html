@@ -11,33 +11,44 @@
 </div>
 {% include "_season_select.html" %}
 
-<div class="card sfs-card">
-    {% if pts and total %}
-    <div class="sfs-kpis">
-        <div><strong>{{ moyenne|int if moyenne == moyenne|int else moyenne }}</strong><span>moyenne par match (trait pointillé)</span></div>
-        <div><strong>{{ total }}</strong><span>surfeurs au total</span></div>
-        <div><strong>{{ pts|length }}</strong><span>match{{ 's' if pts|length != 1 else '' }}</span></div>
+<div class="report-board sfs-board">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">ATTAQUE</span>
+        <span class="report-subtitle">NOS SURFEURS · SAISON</span>
     </div>
-    <svg class="sfs-chart" viewBox="0 0 {{ W }} {{ H }}" role="img" aria-label="Nombre de surfeurs par match">
-        {% for g in grid %}
-        <line x1="{{ L }}" y1="{{ g.y }}" x2="{{ W - R }}" y2="{{ g.y }}" class="sfs-grid"/>
-        <text x="{{ L - 8 }}" y="{{ g.y + 4 }}" text-anchor="end" class="sfs-axis">{{ g.v }}</text>
-        {% endfor %}
-        {% if ymoy is not none %}
-        <line x1="{{ L }}" y1="{{ ymoy }}" x2="{{ W - R }}" y2="{{ ymoy }}" class="sfs-moy"/>
-        {% endif %}
-        {% if pts|length > 1 %}<polyline class="sfs-line" points="{% for p in pts %}{{ p.x }},{{ p.y }} {% endfor %}"/>{% endif %}
-        {% for p in pts %}
-        <a href="{{ url_for('match_surfeurs', match_id=p.id) }}">
-            <title>{{ p.title }} : {{ p.total }} surfeur{{ 's' if p.total != 1 else '' }}</title>
-            <circle cx="{{ p.x }}" cy="{{ p.y }}" r="6" class="sfs-dot{{ ' sfs-dot-vide' if not p.total else '' }}"/>
-            <text x="{{ p.x }}" y="{{ p.y - 12 }}" text-anchor="middle" class="sfs-val">{{ p.total if p.total else '—' }}</text>
-            <text x="{{ p.x }}" y="{{ H - 44 }}" text-anchor="middle" class="sfs-x" transform="rotate(25 {{ p.x }} {{ H - 44 }})">{{ p.label }}</text>
-        </a>
-        {% endfor %}
-    </svg>
+
+    {% if pts and total %}
+    <div class="sf-panel sfs-panel">
+        <div class="sf-panel-head">NOMBRE DE SURFEURS PAR MATCH</div>
+        <div class="sfs-kpis">
+            <div><strong>{{ moyenne|int if moyenne == moyenne|int else moyenne }}</strong><span>Moyenne / match</span></div>
+            <div><strong>{{ total }}</strong><span>Total saison</span></div>
+            <div><strong>{{ pts|length }}</strong><span>Match{{ 's' if pts|length != 1 else '' }}</span></div>
+        </div>
+        <svg class="sfs-chart" viewBox="0 0 {{ W }} {{ H }}" role="img" aria-label="Nombre de surfeurs par match">
+            {% for g in grid %}
+            <line x1="{{ L }}" y1="{{ g.y }}" x2="{{ W - R }}" y2="{{ g.y }}" class="sfs-grid"/>
+            <text x="{{ L - 8 }}" y="{{ g.y + 4 }}" text-anchor="end" class="sfs-axis">{{ g.v }}</text>
+            {% endfor %}
+            {% if ymoy is not none %}<line x1="{{ L }}" y1="{{ ymoy }}" x2="{{ W - R }}" y2="{{ ymoy }}" class="sfs-moy"/>{% endif %}
+            {% if pts|length > 1 %}<polyline class="sfs-line" points="{% for p in pts %}{{ p.x }},{{ p.y }} {% endfor %}"/>{% endif %}
+            {% for p in pts %}
+            <a href="{{ url_for('match_surfeurs', match_id=p.id) }}">
+                <title>{{ p.title }} : {{ p.total }} surfeur{{ 's' if p.total != 1 else '' }}</title>
+                <circle cx="{{ p.x }}" cy="{{ p.y }}" r="7" class="sfs-dot{{ ' sfs-dot-vide' if not p.total else '' }}"/>
+                <text x="{{ p.x }}" y="{{ p.y - 14 }}" text-anchor="middle" class="sfs-val">{{ p.total if p.total else '—' }}</text>
+                {% if p.crest %}<image href="{{ p.crest }}" x="{{ p.x - 16 }}" y="{{ H - 90 }}" width="32" height="32" preserveAspectRatio="xMidYMid meet"/>{% endif %}
+                <text x="{{ p.x }}" y="{{ H - 44 }}" text-anchor="middle" class="sfs-x">{{ p.name }}</text>
+                {% if p.j %}<text x="{{ p.x }}" y="{{ H - 26 }}" text-anchor="middle" class="sfs-j">{{ p.j }}</text>{% endif %}
+            </a>
+            {% endfor %}
+        </svg>
+        <p class="sfs-note">Trait pointillé : moyenne par match.</p>
+    </div>
     {% else %}
-    <p class="subtitle">Aucun surfeur saisi pour l'instant : ouvre un match, onglet Attaque → Surfeurs, pour placer les touches.</p>
+    <div class="sf-panel sfs-panel"><div class="sf-panel-head">NOMBRE DE SURFEURS PAR MATCH</div>
+        <p class="sfs-note" style="padding:16px;">Aucun surfeur saisi pour l'instant : ouvre un match, Attaque → Surfeurs, pour placer les touches.</p></div>
     {% endif %}
 </div>
 {% endblock %}
