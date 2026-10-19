@@ -340,9 +340,22 @@ def evaluer_critere(crit, cible, plancher, rows, minutes):
     return out
 
 
+# Cibles du Facteur X pour un critère hors profil (octobre 2026, calées sur les 5 premiers matchs de la
+# saison : valeurs ramenées à 80 min, médiane et maximum observés par poste). Elles remplacent « le plus
+# bas niveau demandé à un poste » quand il est trop facile (contacts, soutiens) ou trop dur (franchissements,
+# défenseurs battus, duels aériens, plaquages dominants, dominance au contact). À revoir avec plus de matchs.
+X_CIBLES = {
+    "contact": (6, 0), "soutien": (8, 0), "break": (1, 0),
+    "aerien": (2, 0), "plaquage_dom": (30, 10), "contact_dom": (55, 30),
+}
+
+
 def _cible_hors_poste(crit):
     """Cible et plancher d'un critère hors du profil du joueur : le plus bas niveau demandé à un
-    poste qui l'a dans ses attentes (le réaliser hors de son poste est déjà un apport)."""
+    poste qui l'a dans ses attentes (le réaliser hors de son poste est déjà un apport), sauf les
+    critères recalés dans X_CIBLES."""
+    if crit in X_CIBLES:
+        return X_CIBLES[crit]
     cands = [v[crit] for v in _CIBLES.values() if crit in v and v[crit][0] > 0]
     return min(cands, key=lambda x: x[0]) if cands else None
 
