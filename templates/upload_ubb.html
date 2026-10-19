@@ -5,6 +5,8 @@
 <h1>{{ icons.rugby() }} Importer un match UBB</h1>
 <p class="subtitle">Dépose le fichier XML Sportscode du match ("Équipe - Action"). Le score se saisit à la main (il n'est pas reconstruit depuis le fichier).</p>
 
+<p class="subtitle">{% if compo_prevue_ok %}✔ Une composition prévue est prête : elle sera appliquée automatiquement à cet import. <a href="{{ url_for('compo_prevue') }}">La modifier</a>{% else %}Astuce : tu peux <a href="{{ url_for('compo_prevue') }}">préparer la composition</a> avant le match, elle sera posée toute seule à l'import.{% endif %}</p>
+
 <div class="card">
     <form method="post" enctype="multipart/form-data" action="{{ url_for('upload_ubb') }}" class="upload-form">
         <div class="form-group">

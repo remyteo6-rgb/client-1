@@ -17,6 +17,7 @@
                         <a href="{{ url_for('analyse_video') }}">Vue d'ensemble</a>
                         <a href="{{ url_for('index') }}">{{ icons.chart() }} Matchs</a>
                         {% if is_admin %}
+                        <a href="{{ url_for('compo_prevue') }}">{{ icons.clipboard() }} Composition du prochain match</a>
                         <a href="{{ url_for('upload') }}">+ Importer un match (XML)</a>
                         {% endif %}
                     </div>

@@ -5,6 +5,8 @@
 <p class="subtitle">Une fois ton codage terminé dans Sportscode, exporte le fichier XML (ALL_INSTANCES) et dépose-le ici.</p>
 
 <div class="card">
+<p class="subtitle">{% if compo_prevue_ok %}✔ Une composition prévue est prête : elle sera appliquée automatiquement à cet import. <a href="{{ url_for('compo_prevue') }}">La modifier</a>{% else %}Astuce : tu peux <a href="{{ url_for('compo_prevue') }}">préparer la composition</a> avant le match, elle sera posée toute seule à l'import.{% endif %}</p>
+
     <form class="upload-form" method="post" enctype="multipart/form-data" action="{{ url_for('upload') }}">
         <div class="form-group">
             <label>Fichier XML Sportscode *</label>

@@ -266,6 +266,43 @@ def _kv_set(db, key, value):
                (key, value))
 
 
+COMPO_PREVUE_KEY = "compo_prevue"
+
+
+def _compo_prevue_get(db):
+    try:
+        d = json.loads(_kv_get(db, COMPO_PREVUE_KEY) or "{}")
+    except ValueError:
+        d = {}
+    slots = (d.get("slots") or [])[:23]
+    d["slots"] = slots + [""] * (23 - len(slots))
+    d.setdefault("stats", {})
+    d.setdefault("adversaire", "")
+    return d
+
+
+def _apply_compo_prevue(db, match_id):
+    """À l'import d'un XML : si une composition a été préparée à l'avance, elle est posée sur le
+    nouveau match (minutes à 0 : elles restent « à compléter »), puis la réserve est vidée."""
+    d = _compo_prevue_get(db)
+    if not any(d["slots"]):
+        return False
+    stats = {}
+    for name in d["slots"]:
+        if not name:
+            continue
+        s = {"minutes": 0, "yellow": 0, "red": 0}
+        poste = (d["stats"].get(name) or {}).get("poste")
+        if poste in STATS_POSTES:
+            s["poste"] = poste
+        stats[name] = s
+    db.execute("UPDATE matches SET composition_json = %s, player_match_stats_json = %s WHERE id = %s",
+               (json.dumps(d["slots"]), json.dumps(stats), match_id))
+    db.execute("DELETE FROM app_kv WHERE key = %s", (COMPO_PREVUE_KEY,))
+    db.commit()
+    return True
+
+
 def make_snapshot(kind):
     """Instantané compressé de tous les matchs (même format que « Sauvegarder les données »,
     donc restaurable avec « Restaurer une sauvegarde »). Ne doit jamais bloquer l'action en cours."""
@@ -1155,7 +1192,7 @@ def index():
 @admin_required
 def upload():
     if request.method == "GET":
-        return render_template("upload.html")
+        return render_template("upload.html", compo_prevue_ok=any(_compo_prevue_get(get_db())["slots"]))
     file = request.files.get("xml_file")
     opponent = request.form.get("opponent", "").strip()
     if not file or file.filename == "":
@@ -1205,6 +1242,8 @@ def upload():
     match_id = cur.fetchone()["id"]
     db.commit()
     flash("Match importé avec succès.", "success")
+    if _apply_compo_prevue(db, match_id):
+        flash("La composition préparée à l'avance a été appliquée : il reste à saisir les minutes et les cartons.", "success")
     return redirect(url_for("match_detail", match_id=match_id))
 
 
@@ -1215,7 +1254,7 @@ def upload_ubb():
     différente de celle de Nice, voir parser_ubb.py). Le score se saisit à la main,
     il n'est pas reconstruit depuis le fichier."""
     if request.method == "GET":
-        return render_template("upload_ubb.html")
+        return render_template("upload_ubb.html", compo_prevue_ok=any(_compo_prevue_get(get_db())["slots"]))
     file = request.files.get("xml_file")
     opponent = request.form.get("opponent", "").strip()
     if not file or file.filename == "":
@@ -1271,6 +1310,8 @@ def upload_ubb():
     match_id = cur.fetchone()["id"]
     db.commit()
     flash("Match UBB importé avec succès.", "success")
+    if _apply_compo_prevue(db, match_id):
+        flash("La composition préparée à l'avance a été appliquée : il reste à saisir les minutes et les cartons.", "success")
     return redirect(url_for("match_detail", match_id=match_id))
 
 
@@ -1910,6 +1951,33 @@ def _composition_groups():
             groupes.setdefault(_poste_effectif(nom) or ordre[-1], []).append(nom)
     return [{"position": p, "players": [{"name": n, "jiff": is_jiff(n)} for n in sorted(groupes[p], key=str.casefold)]}
             for p in ordre if groupes.get(p)]
+
+
+@app.route("/composition-prevue", methods=["GET", "POST"])
+def compo_prevue():
+    """Composition du prochain match, saisie avant le match ; appliquée toute seule à l'import du XML."""
+    db = get_db()
+    if request.method == "POST":
+        if not session.get("is_admin"):
+            flash("Connecte-toi pour enregistrer la composition.", "error")
+            return redirect(url_for("login", next=request.path))
+        if request.form.get("action") == "vider":
+            db.execute("DELETE FROM app_kv WHERE key = %s", (COMPO_PREVUE_KEY,))
+            db.commit()
+            flash("Composition prévue effacée.", "success")
+            return redirect(url_for("compo_prevue"))
+        selected = (request.form.getlist("player") + [""] * 23)[:23]
+        postes = (request.form.getlist("poste_joue") + [""] * 23)[:23]
+        stats = {n: {"poste": postes[i]} for i, n in enumerate(selected) if n and postes[i] in STATS_POSTES}
+        _kv_set(db, COMPO_PREVUE_KEY, json.dumps({
+            "adversaire": request.form.get("adversaire", "").strip(), "slots": selected, "stats": stats}))
+        db.commit()
+        flash("Composition prévue enregistrée : elle sera appliquée au prochain import de XML.", "success")
+        return redirect(url_for("compo_prevue"))
+    d = _compo_prevue_get(db)
+    return render_template("compo_prevue.html", slots=d["slots"], adversaire=d["adversaire"],
+                           player_stats=d["stats"], filled_count=sum(1 for s in d["slots"] if s),
+                           all_players=_composition_groups(), stats_postes=list(STATS_POSTES))
 
 
 @app.route("/match/<int:match_id>/composition", methods=["GET", "POST"])

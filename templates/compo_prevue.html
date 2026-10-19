@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
+{% block title %}Composition du prochain match{% endblock %}
+{% block content %}
+<div class="page-header no-print">
+    <div>
+        <h1>{{ icons.clipboard() }} Composition du prochain match</h1>
+        <p class="subtitle">Prépare les 23 avant le match. Quand tu importeras le XML, cette composition sera posée automatiquement sur le nouveau match ; il ne restera qu'à saisir les minutes et les cartons.</p>
+    </div>
+</div>
+
+<form method="post" action="{{ url_for('compo_prevue') }}">
+<div class="card">
+    <label class="subtitle" for="adversaire">Adversaire (pour mémoire)</label>
+    <input type="text" id="adversaire" name="adversaire" value="{{ adversaire }}" placeholder="Ex. : Stade Toulousain" {% if not is_admin %}disabled{% endif %} style="max-width:320px; margin-bottom:10px;">
+    <p class="subtitle" id="compo-count">{{ filled_count }} joueur{{ 's' if filled_count != 1 else '' }} sélectionné{{ 's' if filled_count != 1 else '' }} sur 23.</p>
+    <div class="composition-grid">
+        {% for i in range(23) %}
+        {% set current = player_stats.get(slots[i], {}) if slots[i] else {} %}
+        <div class="composition-row">
+            <span class="composition-number">N°{{ i + 1 }}</span>
+            <select name="player" {% if not is_admin %}disabled{% endif %} onchange="updateCompoCount()">
+                <option value="">— Choisir —</option>
+                {% for group in all_players %}
+                <optgroup label="{{ group.position }}">
+                    {% for p in group.players %}
+                    <option value="{{ p.name }}" {% if slots[i] == p.name %}selected{% endif %}>{{ p.name }}{% if not p.jiff %} (non-JIFF){% endif %}</option>
+                    {% endfor %}
+                </optgroup>
+                {% endfor %}
+            </select>
+            <select name="poste_joue" {% if not is_admin %}disabled{% endif %} style="width:130px;" title="Poste principal tenu ce match (laisser « Poste habituel » sauf changement de poste)">
+                <option value="">Poste habituel</option>
+                {% for po in stats_postes %}<option value="{{ po }}" {% if current.get('poste') == po %}selected{% endif %}>{{ po }}</option>{% endfor %}
+            </select>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% if is_admin %}
+<div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
+    <button type="submit" class="btn">{{ icons.check_circle() }} Enregistrer la composition prévue</button>
+    {% if filled_count %}<button type="submit" name="action" value="vider" class="btn btn-secondary" formnovalidate onclick="return confirm('Effacer la composition prévue ?');">Effacer</button>{% endif %}
+</div>
+{% else %}
+<p class="subtitle" style="margin-top:16px;">Connecte-toi en tant qu'administrateur pour modifier la composition.</p>
+{% endif %}
+</form>
+<script>
+function updateCompoCount() {
+    let count = 0;
+    document.querySelectorAll('select[name="player"]').forEach(s => { if (s.value) count++; });
+    document.getElementById('compo-count').textContent = count + ' joueur' + (count !== 1 ? 's' : '') + ' sélectionné' + (count !== 1 ? 's' : '') + ' sur 23.';
+}
+</script>
+{% endblock %}
