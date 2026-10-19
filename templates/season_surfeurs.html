@@ -38,7 +38,7 @@
                 <title>{{ p.title }} : {{ p.total }} surfeur{{ 's' if p.total != 1 else '' }}</title>
                 <circle cx="{{ p.x }}" cy="{{ p.y }}" r="7" class="sfs-dot{{ ' sfs-dot-vide' if not p.total else '' }}"/>
                 <text x="{{ p.x }}" y="{{ p.y - 14 }}" text-anchor="middle" class="sfs-val">{{ p.total if p.total else '—' }}</text>
-                {% if p.crest %}<image href="{{ p.crest }}" x="{{ p.x - 20 }}" y="{{ H - 88 }}" width="40" height="40" preserveAspectRatio="xMidYMid meet"/>
+                {% if p.crest %}<image data-ini="{{ p.opponent[:3]|upper }}" href="{{ p.crest }}" x="{{ p.x - 20 }}" y="{{ H - 88 }}" width="40" height="40" preserveAspectRatio="xMidYMid meet"/>
                 {% else %}<circle cx="{{ p.x }}" cy="{{ H - 68 }}" r="19" class="sfs-ini-bg"/><text x="{{ p.x }}" y="{{ H - 63 }}" text-anchor="middle" class="sfs-ini">{{ p.opponent[:3]|upper }}</text>{% endif %}
                 {% if p.j %}<text x="{{ p.x }}" y="{{ H - 30 }}" text-anchor="middle" class="sfs-j">{{ p.j }}</text>{% endif %}
             </a>

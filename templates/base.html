@@ -144,5 +144,35 @@ if (window.Chart) { Chart.defaults.color = '#2a1712'; }
     }
 })();
 </script>
+<script>
+/* Blason qui ne se charge pas (image absente ou fichier invalide) : on affiche les initiales du club
+   à la place de l'icône « image cassée » du navigateur. */
+(function () {
+    function ini(el) { return (el.getAttribute('data-ini') || el.getAttribute('alt') || '?').trim().slice(0, 3).toUpperCase(); }
+    window.addEventListener('load', function () {
+        document.querySelectorAll('svg image[href]').forEach(function (el) {
+            var im = new Image();
+            im.onerror = function () {
+                var w = parseFloat(el.getAttribute('width')) || 30, x = parseFloat(el.getAttribute('x')) || 0, y = parseFloat(el.getAttribute('y')) || 0;
+                var NS = 'http://www.w3.org/2000/svg', g = document.createElementNS(NS, 'g');
+                var c = document.createElementNS(NS, 'circle'); c.setAttribute('cx', x + w / 2); c.setAttribute('cy', y + w / 2); c.setAttribute('r', w / 2 - 1);
+                c.setAttribute('fill', '#eee'); c.setAttribute('stroke', '#bbb');
+                var t = document.createElementNS(NS, 'text'); t.setAttribute('x', x + w / 2); t.setAttribute('y', y + w / 2 + 4); t.setAttribute('text-anchor', 'middle');
+                t.setAttribute('font-size', Math.round(w / 3.2)); t.setAttribute('font-weight', '700'); t.setAttribute('fill', '#555'); t.textContent = ini(el);
+                g.appendChild(c); g.appendChild(t); el.parentNode.replaceChild(g, el);
+            };
+            im.src = el.getAttribute('href');
+        });
+        document.querySelectorAll('img[class*="crest"]').forEach(function (el) {
+            function broken() {
+                var s = document.createElement('span'); s.className = el.className; s.textContent = ini(el); s.title = el.getAttribute('alt') || '';
+                s.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;background:#eee;border-radius:50%;font-size:10px;font-weight:800;color:#555;';
+                el.parentNode.replaceChild(s, el);
+            }
+            if (el.complete && el.naturalWidth === 0) broken(); else el.addEventListener('error', broken, {once: true});
+        });
+    });
+})();
+</script>
 </body>
 </html>

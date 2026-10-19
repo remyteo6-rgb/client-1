@@ -107,7 +107,7 @@
                     {% endfor %}
                     {% for m in suivi %}
                     {% if m.crest %}
-                    <image href="{{ m.crest }}" x="{{ 40 + loop.index0 * step - 17 }}" y="138" width="34" height="34" preserveAspectRatio="xMidYMid meet"/>
+                    <image data-ini="{{ m.short }}" href="{{ m.crest }}" x="{{ 40 + loop.index0 * step - 17 }}" y="138" width="34" height="34" preserveAspectRatio="xMidYMid meet"/>
                     {% else %}
                     <text class="dis-suivi-name{{ ' is-current' if m.current else '' }}" x="{{ 40 + loop.index0 * step }}" y="162" text-anchor="middle">{{ m.short }}</text>
                     {% endif %}
