@@ -3267,7 +3267,16 @@ def compute_player_ruck_table(instances):
                       "penalite_reussies": 0, "penalite_tentees": 0,
                       "drop_reussis": 0, "drop_tentes": 0}
 
+    couvert = False  # fautes : la Discipline collective du match fait foi (voir compute_player_attack_table)
     for i in instances:
+        if "_disc_ind" in i:
+            d_ind = i["_disc_ind"]
+            couvert = d_ind is not None
+            for nom, s in (d_ind or {}).items():
+                if nom in rows:
+                    rows[nom]["faute_off"] += s.get("off", 0)
+                    rows[nom]["faute_def"] += s.get("def", 0)
+                    rows[nom]["faute_conquete"] += s.get("autre", 0)
         code = i["code_raw"]
         if code not in rows:
             continue
@@ -3338,12 +3347,13 @@ def compute_player_ruck_table(instances):
             elif "PERD" in txt or txt == "-":
                 row[pref + ("perdu" if pref == "lancer_" else "perdue")] += 1
         disc_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "DISCIPLINES"}
-        if "DISCIPLINES OFF" in disc_vals:
-            row["faute_off"] += 1
-        if "DISCIPLINES DEF" in disc_vals:
-            row["faute_def"] += 1
-        if "CONQUETE" in disc_vals:
-            row["faute_conquete"] += 1
+        if not couvert:
+            if "DISCIPLINES OFF" in disc_vals:
+                row["faute_off"] += 1
+            if "DISCIPLINES DEF" in disc_vals:
+                row["faute_def"] += 1
+            if "CONQUETE" in disc_vals:
+                row["faute_conquete"] += 1
         jap_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "JAP"}
         if "JAP" in off_vals or jap_vals:
             row["jap"] += 1
