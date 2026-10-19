@@ -238,10 +238,9 @@ PROFILS = {
     "Pilier": [
         ("Mêlée fermée", {"melee_off_pct": 14, "melee_def_pct": 10}),
         ("Lift sur touche, CE et renvoi", {"lifteur_pct": 12, "lifteur": 7}),
-        ("Plaquer / contest", {"plaquage_dom": 4, "plaquage": 4, "plaquage_pct": 4, "recup": 7}),
+        ("Plaquer / contest", {"plaquage_dom": 4, "plaquage": 4, "plaquage_pct": 4}),
         ("Soutenir / rucker", {"ruck": 4, "ruck_util": 6}),
         ("Duel off", {"contact_dom": 6, "contact": 4}),
-        ("Habileté technique", {"offload": 5, "offload_pct": 3, "passes": 1}),
         ("Activité", {"activite": 4}),
     ],
     "Talonneur": [
@@ -401,9 +400,11 @@ X_SEUIL = 3.0  # note minimale d'un critère hors poste pour compter comme atout
 X_PROFILS = {
     # Ailiers / arrière (octobre 2026, demande de Téo) : qualité du jeu au pied, passes propres,
     # sécurité du ballon (ballons perdus, ballons récupérés) et finition (essais).
-    # Piliers : mobilité (volumes, à poids égal), finition, et qualité de passe à petit poids.
+    # Piliers : mobilité (défenseurs battus, franchissements, ballons récupérés, offloads), finition (essais),
+    # passes (petit poids).
     # Un critère = (identifiant, poids) ; sans poids = 1.
-    "Pilier": [("def_battu", 3), ("break", 3), ("essai", 3), ("passes_pct", 1)],
+    "Pilier": [("def_battu", 3), ("break", 3), ("essai", 3), ("recup", 3), ("offload", 3), ("offload_pct", 1),
+               ("passes", 1), ("passes_pct", 1)],
     "11-14": ["jap_pct", "passes_pct", "pdb", "recup", "essai"],
     "15": ["jap_pct", "passes_pct", "pdb", "recup", "essai"],
     # 3ème ligne : dominance dans ce qu'ils font (contacts +/-, plaquages +/-, défenseurs battus)
@@ -415,7 +416,8 @@ X_PROFILS = {
 # Cibles propres aux listes X_PROFILS quand le critère n'est pas dans les attentes du poste.
 X_CIBLES_PROFIL = {"jap_pct": (75, 25), "passes_pct": (98, 70), "pdb": (3, 0), "essai": (0.5, 0)}
 # Cibles propres à un poste (prioritaires sur X_CIBLES_PROFIL) : un pilier n'a pas les mêmes volumes qu'un ailier.
-X_CIBLES_POSTE = {"Pilier": {"def_battu": (2, 0), "break": (0.5, 0), "essai": (0.15, 0)}}
+X_CIBLES_POSTE = {"Pilier": {"def_battu": (2, 0), "break": (0.5, 0), "essai": (0.15, 0), "recup": (4, 0),
+                             "offload": (1.5, 0), "offload_pct": (100, 50), "passes": (4, 0), "passes_pct": (98, 70)}}
 
 
 def _facteur_x_profil(poste, rows, minutes, reglages):
