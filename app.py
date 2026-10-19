@@ -1734,7 +1734,7 @@ JOUEURS_SLIDES = [
             {"key": "pdb", "label": "Ball. perdus", "kind": "neg"},
             {"key": "penalite_off", "label": "Pén. off.", "kind": "neg"},
             {"key": "penalite_def", "label": "Pén. déf.", "kind": "neg"},
-            {"key": "penalite_autre", "label": "Pén. autres", "kind": "neg"}]},
+            {"key": "penalite_autre", "label": "Pén. conquête", "kind": "neg"}]},
     ]},
     {"key": "defense", "title": "DÉFENSE", "table": "defense", "groups": [
         {"label": "Plaquages", "cols": [
