@@ -1,0 +1,107 @@
+{
+ "label": "Journée 2 — SU Agen (rapport Zone Gold)",
+ "own": {
+  "h1": [
+   {
+    "origine": "PERTE DE BALLES ADV ZONE ROUGE",
+    "resultat": "PERTE_BALLE"
+   },
+   {
+    "origine": "JEU À LA MAIN",
+    "resultat": "PENALITE_POUR"
+   },
+   {
+    "origine": "TOUCHE",
+    "resultat": "PERTE_BALLE"
+   },
+   {
+    "origine": "TOUCHE",
+    "resultat": "ESSAI"
+   },
+   {
+    "origine": "JEU À LA MAIN",
+    "resultat": "PENALITE_POUR"
+   },
+   {
+    "origine": "TOUCHE",
+    "resultat": "PERTE_BALLE"
+   },
+   {
+    "origine": "PERTE DE BALLES ADV ZONE ROUGE",
+    "resultat": "ESSAI"
+   },
+   {
+    "origine": "CLIC",
+    "resultat": "ESSAI"
+   },
+   {
+    "origine": "LANCEMENTS MÊLÉE",
+    "resultat": "PENALITE_CONTRE"
+   },
+   {
+    "origine": "CLIC",
+    "resultat": "PERTE_BALLE"
+   },
+   {
+    "origine": "LANCEMENTS MÊLÉE",
+    "resultat": "ESSAI"
+   }
+  ],
+  "h2": [
+   {
+    "origine": "LANCEMENTS TOUCHE",
+    "resultat": "ESSAI"
+   },
+   {
+    "origine": "LANCEMENTS TOUCHE",
+    "resultat": "ESSAI"
+   },
+   {
+    "origine": "LANCEMENTS TOUCHE",
+    "resultat": "ESSAI"
+   },
+   {
+    "origine": "LANCEMENTS TOUCHE",
+    "resultat": "PENALITE_POUR"
+   },
+   {
+    "origine": "TOUCHE",
+    "resultat": "ESSAI"
+   },
+   {
+    "origine": "CLIC",
+    "resultat": "ESSAI"
+   },
+   {
+    "origine": "LANCEMENTS MÊLÉE",
+    "resultat": "ESSAI"
+   },
+   {
+    "origine": "JEU COURANT",
+    "resultat": "ESSAI"
+   }
+  ]
+ },
+ "adverse": {
+  "h1": [
+   {
+    "origine": "LANCEMENTS MÊLÉE",
+    "resultat": "ESSAI"
+   },
+   {
+    "origine": "TOUCHE",
+    "resultat": "PERTE_BALLE"
+   },
+   {
+    "origine": "LANCEMENTS MÊLÉE",
+    "resultat": "PERTE_BALLE"
+   }
+  ],
+  "h2": [
+   {
+    "origine": "PÉNALITÉ",
+    "resultat": "ESSAI"
+   }
+  ]
+ }
+}

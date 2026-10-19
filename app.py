@@ -2644,9 +2644,12 @@ def match_zone_gold(match_id):
     own_points, adverse_points, score_source, _, _ = _resolve_match_score(match)
     zone_gold = compute_zone_gold_log(match["instances"], own_points=own_points, adverse_points=adverse_points,
                                       overrides=(match.get("manual_stats") or {}).get("zone_gold"))
+    sans_origine = zone_gold and any(not r.get("origine") for sd in ("own", "adverse") for r in (zone_gold.get(sd) or {}).get("rows", []))
+    imports = ([(k, v.get("label") or k) for k, v in _zonegold_imports().items()]
+               if session.get("is_admin") and sans_origine else [])
     return render_template("match_zone_gold.html", match=match, data=zone_gold,
                            manual=match.get("manual_stats") or {}, score_source=score_source,
-                           gold_choices=ZONE_GOLD_CHOICES)
+                           gold_choices=ZONE_GOLD_CHOICES, imports=imports)
 
 
 def _gold_summary_fmt(zone_gold):
@@ -2662,6 +2665,76 @@ def _gold_summary_fmt(zone_gold):
             "points_par_entree": _fmt_fr(d.get("points_par_entree"), 2) if d.get("points_par_entree") is not None else "—",
         }
     return out
+
+
+ZONEGOLD_IMPORT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "zonegold_import")
+
+
+def _zonegold_imports():
+    out = {}
+    try:
+        for fn in sorted(os.listdir(ZONEGOLD_IMPORT_DIR)):
+            if fn.endswith(".json"):
+                with open(os.path.join(ZONEGOLD_IMPORT_DIR, fn), encoding="utf-8") as f:
+                    out[fn[:-5]] = json.load(f)
+    except (OSError, ValueError):
+        pass
+    return out
+
+
+# Libellés de résultat propres au rapport, rattachés au type de résultat du site.
+_ZG_RESULT_ALIAS = {"RETOUR_ZONE_RUMBLE": "PERTE_BALLE", "BRAS_CASSE": "PENALITE_POUR"}
+
+
+@app.route("/match/<int:match_id>/zone-gold/importer", methods=["POST"])
+@admin_required
+def match_zone_gold_import(match_id):
+    """Reprend les origines d'entrée (« Possession entrée 22m ») d'un rapport Zone Gold déjà établi.
+    Les lignes du rapport sont posées dans l'ordre sur les entrées du XML, mi-temps par mi-temps.
+    Une équipe n'est importée que si le nombre d'entrées de chaque mi-temps ET leurs résultats
+    correspondent exactement (sinon tout serait décalé) ; une origine déjà saisie n'est jamais écrasée."""
+    match = _get_match_or_404(match_id)
+    payload = request.get_json(silent=True) or {}
+    data = _zonegold_imports().get(str(payload.get("cle") or ""))
+    if not data:
+        return jsonify({"ok": False, "erreur": "Rapport introuvable."}), 404
+    manual = match.get("manual_stats") or {}
+    gold = manual.setdefault("zone_gold", {})
+    z = compute_zone_gold_log(match["instances"], overrides=gold) or {}
+    faits, ecarts = [], []
+    for side, nom in (("own", "UBB"), ("adverse", "Adversaire")):
+        rows = (z.get(side) or {}).get("rows") or []
+        src = data.get(side) or {}
+        bloc, probleme = {}, None
+        for h in (1, 2):
+            site = [r for r in rows if r.get("half") == h]
+            rap = src.get(f"h{h}") or []
+            if len(site) != len(rap):
+                probleme = f"{nom}, mi-temps {h} : {len(site)} entrées dans le XML contre {len(rap)} dans le rapport"
+                break
+            for i, (r, x) in enumerate(zip(site, rap), 1):
+                attendu = _ZG_RESULT_ALIAS.get(x.get("resultat"), x.get("resultat"))
+                if attendu and r.get("choice") != attendu:
+                    probleme = f"{nom}, mi-temps {h}, ligne {i} : résultat {r.get('choice')} dans le XML, {x.get('resultat')} dans le rapport"
+                    break
+                bloc[r["key"]] = x.get("origine") or ""
+            if probleme:
+                break
+        if probleme:
+            ecarts.append(probleme)
+            continue
+        n = 0
+        for key, origine in bloc.items():
+            entry = gold.setdefault(side, {}).setdefault(key, {})
+            if origine and not entry.get("origine"):
+                entry["origine"] = origine.strip()[:60].upper()
+                n += 1
+        faits.append(f"{nom} : {n} origine(s)")
+    if faits:
+        db = get_db()
+        db.execute("UPDATE matches SET manual_stats_json = %s WHERE id = %s", (json.dumps(manual), match_id))
+        db.commit()
+    return jsonify({"ok": bool(faits), "importes": faits, "ecarts": ecarts})
 
 
 @app.route("/match/<int:match_id>/zone-gold/entree", methods=["POST"])

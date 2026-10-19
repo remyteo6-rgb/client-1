@@ -19,6 +19,30 @@
 </div>
 {% else %}
 
+{% if imports %}
+<div class="sf-import no-print">
+    <span>Reprendre les origines d'un rapport Zone Gold déjà établi :</span>
+    <select id="zg-import-cle">{% for k, l in imports %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select>
+    <button type="button" id="zg-import-go" class="btn">Importer dans ce match</button>
+    <span id="zg-import-msg"></span>
+</div>
+<script>
+document.getElementById('zg-import-go').addEventListener('click', function () {
+    var msg = document.getElementById('zg-import-msg');
+    msg.textContent = 'Import…';
+    fetch({{ url_for('match_zone_gold_import', match_id=match['id'])|tojson }}, {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({cle: document.getElementById('zg-import-cle').value})})
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            if (d.ok && !(d.ecarts || []).length) { location.reload(); return; }
+            msg.textContent = (d.ok ? 'Importé : ' + d.importes.join(', ') + '. ' : 'Rien d\'importé. ') + (d.ecarts || []).join(' · ');
+            if (d.ok) setTimeout(function () { location.reload(); }, 4000);
+        })
+        .catch(function () { msg.textContent = 'Erreur pendant l\'import.'; });
+});
+</script>
+{% endif %}
+
 {% set own_abbr = 'UBB' %}
 {# Sigle de l'adversaire : son préfixe dans le XML (USC, SUA…), sinon les initiales de
    son nom (« Aviron Bayonnais » → AB) quand le fichier le code « ADV ». #}
