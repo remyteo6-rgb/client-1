@@ -99,6 +99,7 @@
             ('overview', 'season_review', "Vue d'ensemble"),
             ('bilan_attaque', 'season_bilan_attaque', 'Bilan attaque'),
             ('zone_gold', 'season_zone_gold', 'Zone Gold'),
+            ('surfeurs', 'season_surfeurs', 'Surfeurs'),
             ('bilan_defense', 'season_bilan_defense', 'Bilan défense'),
             ('csc', 'season_csc', 'CSC'),
             ('discipline', 'season_discipline', 'Discipline'),
@@ -129,7 +130,7 @@
             {# Barre bureau : « Attaque ▾ » et « Défense ▾ » regroupent leurs pages ; les autres
                onglets restent à plat. Le menu mobile (« page actuelle ▾ ») garde la liste complète. #}
             {% set _groups = {'bilan_attaque': 'Attaque', 'zone_gold': 'Attaque', 'surfeurs': 'Attaque', 'possessions': 'Attaque', 'bilan_defense': 'Défense', 'csc': 'Défense'} %}
-            {% if season_mode %}{% set _groups = {'bilan_attaque': 'Attaque', 'zone_gold': 'Attaque', 'bilan_defense': 'Défense', 'csc': 'Défense', 'joueurs': 'Joueurs', 'notes': 'Joueurs', 'comparer': 'Joueurs', 'bareme': 'Joueurs', 'tableaux': 'Joueurs'} %}{% endif %}
+            {% if season_mode %}{% set _groups = {'bilan_attaque': 'Attaque', 'zone_gold': 'Attaque', 'surfeurs': 'Attaque', 'bilan_defense': 'Défense', 'csc': 'Défense', 'joueurs': 'Joueurs', 'notes': 'Joueurs', 'comparer': 'Joueurs', 'bareme': 'Joueurs', 'tableaux': 'Joueurs'} %}{% endif %}
             {% set _done = [] %}
             {% for key, endpoint, label in match_tabs %}
             {% set g = _groups.get(key) %}

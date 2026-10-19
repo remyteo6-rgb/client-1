@@ -4823,6 +4823,36 @@ def season_touches():
     return render_template("season_touches.html", rows=rows, summary=summary, fmt=_avg_fmt, **ctx)
 
 
+@app.route("/season/surfeurs")
+def season_surfeurs():
+    """Suivi de saison des surfeurs : nombre de touches saisies sur chaque match, en courbe."""
+    selected, ctx = _season_common("surfeurs")
+    rows = []
+    for m in selected:
+        n = len(_surfeurs_touches(m.get("manual_stats")))
+        j = m.get("journee")
+        rows.append({"id": m["id"], "total": n, "opponent": m.get("opponent") or "?",
+                     "label": (f"J{j} " if j else "") + (m.get("opponent") or "?")[:16],
+                     "title": match_title(m), "date": m.get("match_date")})
+    rows.sort(key=lambda r: (r["date"] or "", r["id"]))
+    saisis = [r["total"] for r in rows if r["total"]]
+    W, H, L, R, T, B = 760, 300, 46, 20, 24, 70
+    mx = max([r["total"] for r in rows] + [1])
+    top = ((mx + 4) // 5) * 5 or 5
+    PAD = 40  # marge intérieure pour que les points extrêmes ne touchent pas l'axe
+    step = (W - L - R - 2 * PAD) / max(1, len(rows) - 1) if len(rows) > 1 else 0
+    pts = []
+    for i, r in enumerate(rows):
+        x = L + PAD + (step * i if len(rows) > 1 else (W - L - R - 2 * PAD) / 2)
+        y = T + (H - T - B) * (1 - r["total"] / top)
+        pts.append({**r, "x": round(x, 1), "y": round(y, 1)})
+    moyenne = round(sum(saisis) / len(saisis), 1) if saisis else None
+    ymoy = round(T + (H - T - B) * (1 - moyenne / top), 1) if moyenne is not None else None
+    grid = [{"v": v, "y": round(T + (H - T - B) * (1 - v / top), 1)} for v in range(0, top + 1, max(1, top // 5))]
+    return render_template("season_surfeurs.html", pts=pts, grid=grid, moyenne=moyenne, ymoy=ymoy,
+                           W=W, H=H, L=L, R=R, total=sum(saisis), **ctx)
+
+
 @app.route("/season/discipline")
 def season_discipline():
     selected, ctx = _season_common("discipline")

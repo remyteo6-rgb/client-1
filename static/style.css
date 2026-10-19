@@ -3259,3 +3259,20 @@ select.subnav-match-select option { color:#222; background:#fff; }
 .ess-good { color: #2e7d4f; font-weight: 700; } .ess-bad { color: #c0392b; font-weight: 700; }
 .ess-muted { color: var(--text-secondary); font-weight: 400; font-size: 13px; }
 .ess-table td, .ess-table th { text-align: center; } .ess-table td:first-child, .ess-table th:first-child { text-align: left; }
+
+/* Suivi saison des surfeurs (courbe) */
+.sfs-card { padding: 18px 22px; }
+.sfs-kpis { display: flex; gap: 32px; margin-bottom: 8px; flex-wrap: wrap; }
+.sfs-kpis div { display: flex; flex-direction: column; }
+.sfs-kpis strong { font-family: var(--font-display); font-size: 30px; line-height: 1; }
+.sfs-kpis span { font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; opacity: .65; margin-top: 4px; }
+.sfs-chart { width: 100%; height: auto; display: block; }
+.sfs-grid { stroke: rgba(0,0,0,.09); stroke-width: 1; }
+.sfs-axis, .sfs-x { font-size: 11px; fill: #6b5a58; }
+.sfs-x { font-weight: 600; }
+.sfs-line { fill: none; stroke: var(--accent-gold, #f9a240); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+.sfs-dot { fill: #4a0f2e; stroke: #fff; stroke-width: 2; }
+.sfs-dot-vide { fill: #bbb; }
+.sfs-val { font-size: 13px; font-weight: 800; fill: #2a1518; }
+.sfs-moy { stroke: #4a0f2e; stroke-width: 1.5; stroke-dasharray: 6 5; opacity: .55; }
+.sfs-moy-txt { font-size: 11px; fill: #4a0f2e; opacity: .8; font-weight: 700; }
