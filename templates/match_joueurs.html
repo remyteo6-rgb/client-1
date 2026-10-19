@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% import "_ppid_icons.html" as icons %}
-{% block title %}Joueurs — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
+{% block title %}Joueurs — {{ match_title(match) }}{% endblock %}
 {% set active = 'joueurs' %}
 {% block content %}
 {% from "_kpi_compare.html" import kpi_arrow %}

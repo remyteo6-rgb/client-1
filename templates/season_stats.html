@@ -29,7 +29,7 @@
             {% for m in all_matches %}
             <label style="display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:6px;">
                 <input type="checkbox" name="m" value="{{ m['id'] }}" {% if m['id'] in selected_ids %}checked{% endif %}>
-                {{ m['match_date'] or '—' }} — {{ m['own_team'] }} vs {{ m['opponent'] }}{% if m['competition'] %} ({{ m['competition'] }}){% endif %}
+                {{ m['match_date'] or '—' }} — {{ match_title(m) }}{% if m['competition'] %} ({{ m['competition'] }}){% endif %}
             </label>
             {% endfor %}
         </div>

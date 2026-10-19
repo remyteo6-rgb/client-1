@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% import "_ppid_icons.html" as icons %}
-{% block title %}Composition — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
+{% block title %}Composition — {{ match_title(match) }}{% endblock %}
 {% set active = 'composition' %}
 {% block content %}
 
 <div class="page-header no-print">
     <div>
-        <h1>{{ icons.clipboard() }} Composition — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
+        <h1>{{ icons.clipboard() }} Composition — {{ match_title(match) }}</h1>
         <p class="subtitle">Choisis le joueur qui porte chaque numéro (1 à 23), son poste principal ce match (laisser « Poste habituel » sauf changement de poste), ses minutes jouées et ses cartons pour ce match. Une fois validé, ce match alimente le suivi JIFF et le suivi joueur (minutes/cartons/matchs de suite) de la saison.</p>
     </div>
 </div>

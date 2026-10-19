@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% import "_ppid_icons.html" as icons %}
-{% block title %}Discipline — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
+{% block title %}Discipline — {{ match_title(match) }}{% endblock %}
 {% set active = 'discipline' %}
 {% block content %}
 
 <div class="page-header no-print">
     <div>
-        <h1>{{ icons.warning() }} Discipline — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
+        <h1>{{ icons.warning() }} Discipline — {{ match_title(match) }}</h1>
         <p class="subtitle">{{ match['competition'] or 'Journée' }}{% if match['match_date'] %} · {{ match['match_date'] }}{% endif %}</p>
     </div>
     <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>

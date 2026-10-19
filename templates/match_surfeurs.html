@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% import "_ppid_icons.html" as icons %}
-{% block title %}Surfeurs — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
+{% block title %}Surfeurs — {{ match_title(match) }}{% endblock %}
 {% set active = 'surfeurs' %}
 {% block content %}
 <div class="page-header no-print">
     <div>
-        <h1>{{ icons.rugby() }} Surfeurs — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
+        <h1>{{ icons.rugby() }} Surfeurs — {{ match_title(match) }}</h1>
         <p class="subtitle">{% if editable %}Clique sur le terrain pour noter où un joueur a touché le ballon, puis choisis le type de ballon. Clique sur un point pour le modifier ou le supprimer.{% else %}Où les joueurs ont touché les ballons et de quel type. La saisie est réservée à l'administrateur.{% endif %}</p>
     </div>
 </div>

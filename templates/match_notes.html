@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% import "_ppid_icons.html" as icons %}
 {% set active = 'notes' %}
-{% block title %}Notes — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
+{% block title %}Notes — {{ match_title(match) }}{% endblock %}
 {% macro badge(n) %}{% if n is none %}<span class="nt-badge nt-na">—</span>{% else %}<span class="nt-badge {{ 'nt-top' if n >= 6.5 else ('nt-ok' if n >= 5 else ('nt-mid' if n >= 3.5 else 'nt-low')) }}">{{ n }}</span>{% endif %}{% endmacro %}
 {% block content %}
 <div class="page-header no-print">
     <div>
-        <h1>{{ icons.chart() }} Notes — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
+        <h1>{{ icons.chart() }} Notes — {{ match_title(match) }}</h1>
         <p class="subtitle">Une note sur 10 par joueur, jugée sur les attentes de son poste. Clique sur un joueur pour voir le détail. <a href="{{ url_for('season_bareme') }}">Voir le barème</a></p>
     </div>
 </div>

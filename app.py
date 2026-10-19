@@ -248,11 +248,21 @@ def admin_required(view):
     return wrapped
 
 
+def match_title(m):
+    """Titre d'un match : « J5 · Équipe vs Adversaire » ; à l'extérieur l'adversaire est cité en premier."""
+    g = (lambda k: (m[k] if k in m.keys() else None)) if not isinstance(m, dict) else m.get
+    own, opp = g("own_team") or g("own_team_tag") or "", g("opponent") or "?"
+    ext = (g("venue") or "").strip().lower().startswith("ext")
+    a, b = (opp, own) if ext else (own, opp)
+    j = (g("journee") or "").strip()
+    return (f"{j} · " if j else "") + f"{a} vs {b}".strip()
+
+
 def _match_nav_options():
     """Liste déroulante de la barre du haut : tous les matchs (du plus ancien au plus récent), chacun
     avec le lien vers la MÊME page pour ce match, pour passer d'un match à l'autre sans repasser par l'accueil."""
     try:
-        rows = get_db().execute("SELECT id, own_team, opponent, match_date FROM matches "
+        rows = get_db().execute("SELECT id, own_team, opponent, match_date, venue, journee FROM matches "
                                 "ORDER BY COALESCE(match_date, created_at), id").fetchall()
     except Exception:
         return []
@@ -263,7 +273,7 @@ def _match_nav_options():
             url = url_for(endpoint, **{**args, "match_id": r["id"]})
         except Exception:
             url = url_for("match_detail", match_id=r["id"])
-        label = f"{r['own_team'] or ''} vs {r['opponent'] or '?'}".strip() + (f" · {r['match_date']}" if r["match_date"] else "")
+        label = match_title(r) + (f" · {r['match_date']}" if r["match_date"] else "")
         out.append({"id": r["id"], "label": label, "url": url})
     return out
 
@@ -279,7 +289,7 @@ def inject_logged_in():
         "user_email": session.get("user_email", ""),
         "club_name": CLUB_NAME, "club_full_name": CLUB_FULL_NAME,
         "asset_version": ASSET_VERSION,
-        "match_nav_options": _match_nav_options,
+        "match_nav_options": _match_nav_options, "match_title": match_title,
     }
     # Liste légère (id + nom) de tous les joueurs, pour la recherche rapide dans la barre
     # du haut (voir _match_subnav.html) — disponible sur toutes les pages plutôt que la
@@ -744,6 +754,8 @@ def init_db():
     cols = [r["column_name"] for r in cur.fetchall()]
     if "instances_json" not in cols:
         db.execute("ALTER TABLE matches ADD COLUMN instances_json TEXT")
+    if "journee" not in cols:
+        db.execute("ALTER TABLE matches ADD COLUMN journee TEXT")
     if "manual_stats_json" not in cols:
         db.execute("ALTER TABLE matches ADD COLUMN manual_stats_json TEXT")
     if "composition_json" not in cols:
@@ -3119,10 +3131,11 @@ def match_edit_info(match_id):
         flash("Les deux équipes sont obligatoires.", "error")
         return redirect(request.referrer or url_for("index"))
     db.execute(
-        "UPDATE matches SET own_team = %s, opponent = %s, match_date = %s, competition = %s, venue = %s WHERE id = %s",
+        "UPDATE matches SET own_team = %s, opponent = %s, match_date = %s, competition = %s, venue = %s, journee = %s WHERE id = %s",
         (own, opp, (request.form.get("match_date") or "").strip() or None,
          (request.form.get("competition") or "").strip() or None,
-         (request.form.get("venue") or "").strip() or None, match_id),
+         (request.form.get("venue") or "").strip() or None,
+         (request.form.get("journee") or "").strip() or None, match_id),
     )
     db.commit()
     flash("Match modifié.", "success")

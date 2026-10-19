@@ -6,6 +6,7 @@
         <button class="btn btn-secondary" type="button" onclick="document.getElementById('match-edit-dialog').close()">Fermer</button>
     </div>
     <form method="post" id="match-edit-form" class="replace-xml-form">
+        <div class="form-group"><label>Journée (ex. J5)</label><input type="text" name="journee" placeholder="J5"></div>
         <div class="form-group"><label>Équipe</label><input type="text" name="own_team" required></div>
         <div class="form-group"><label>Adversaire</label><input type="text" name="opponent" required></div>
         <div class="form-group"><label>Date</label><input type="text" name="match_date" placeholder="2026-09-26"></div>
@@ -19,6 +20,7 @@ function openMatchEdit(btn, ev) {
     if (ev) { ev.preventDefault(); ev.stopPropagation(); }
     var f = document.getElementById('match-edit-form'), d = btn.dataset;
     f.action = d.action;
+    f.journee.value = d.journee || '';
     f.own_team.value = d.own || ''; f.opponent.value = d.opp || '';
     f.match_date.value = d.date || ''; f.competition.value = d.comp || ''; f.venue.value = d.venue || '';
     document.getElementById('match-edit-dialog').showModal();

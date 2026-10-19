@@ -10,7 +10,7 @@
     {% for m in matches %}
     <a class="match-row" href="{{ url_for('match_detail', match_id=m['id']) }}">
         <div class="match-main">
-            <div class="match-title">{{ m['own_team'] or m['own_team_tag'] }} vs {{ m['opponent'] }}</div>
+            <div class="match-title">{{ match_title(m) }}</div>
             <div class="match-meta">
                 {{ m['match_date'] or 'Date non renseignée' }}
                 {% if m['venue'] %} · {{ m['venue'] }}{% endif %}
@@ -18,7 +18,7 @@
             </div>
         </div>
         <div class="match-actions">
-            {% if is_admin %}<button class="btn btn-secondary" type="button" title="Modifier le titre" data-action="{{ url_for('match_edit_info', match_id=m['id']) }}" data-own="{{ m['own_team'] }}" data-opp="{{ m['opponent'] }}" data-date="{{ m['match_date'] or '' }}" data-comp="{{ m['competition'] or '' }}" data-venue="{{ m['venue'] or '' }}" onclick="openMatchEdit(this, event)">✎</button>{% endif %}
+            {% if is_admin %}<button class="btn btn-secondary" type="button" title="Modifier le titre" data-action="{{ url_for('match_edit_info', match_id=m['id']) }}" data-journee="{{ m['journee'] or '' }}" data-own="{{ m['own_team'] }}" data-opp="{{ m['opponent'] }}" data-date="{{ m['match_date'] or '' }}" data-comp="{{ m['competition'] or '' }}" data-venue="{{ m['venue'] or '' }}" onclick="openMatchEdit(this, event)">✎</button>{% endif %}
             {% if m['competition'] %}<span class="badge badge-comp">{{ m['competition'] }}</span>{% endif %}
         </div>
     </a>

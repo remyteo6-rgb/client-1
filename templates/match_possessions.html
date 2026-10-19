@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% import "_ppid_icons.html" as icons %}
-{% block title %}Nos possessions — {{ match['own_team'] }} vs {{ match['opponent'] }}{% endblock %}
+{% block title %}Nos possessions — {{ match_title(match) }}{% endblock %}
 {% set active = 'possessions' %}
 {% block content %}
 
 <div class="page-header no-print">
     <div>
-        <h1>{{ icons.receipt() }} Nos possessions — {{ match['own_team'] }} vs {{ match['opponent'] }}</h1>
+        <h1>{{ icons.receipt() }} Nos possessions — {{ match_title(match) }}</h1>
         <p class="subtitle">Nombre de possessions de chaque équipe et leur répartition dans le match.</p>
     </div>
     <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
