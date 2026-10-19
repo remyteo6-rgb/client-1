@@ -340,14 +340,10 @@ def evaluer_critere(crit, cible, plancher, rows, minutes):
     return out
 
 
-# Cibles du Facteur X pour un critère hors profil (octobre 2026, calées sur les 5 premiers matchs de la
-# saison : valeurs ramenées à 80 min, médiane et maximum observés par poste). Elles remplacent « le plus
-# bas niveau demandé à un poste » quand il est trop facile (contacts, soutiens) ou trop dur (franchissements,
-# défenseurs battus, duels aériens, plaquages dominants, dominance au contact). À revoir avec plus de matchs.
-X_CIBLES = {
-    "contact": (6, 0), "soutien": (8, 0), "break": (1, 0),
-    "aerien": (2, 0), "plaquage_dom": (30, 10), "contact_dom": (55, 30),
-}
+# Cibles du Facteur X pour un critère de QUALITÉ hors profil (octobre 2026, calées sur les 5 premiers matchs
+# de la saison). Elles remplacent « le plus bas niveau demandé à un poste » quand il est trop dur
+# (plaquages dominants, dominance au contact). À revoir avec plus de matchs.
+X_CIBLES = {"plaquage_dom": (30, 10), "contact_dom": (55, 30)}
 
 
 def _cible_hors_poste(crit):
@@ -403,6 +399,10 @@ def facteur_x(poste, rows, minutes, bareme=None):
     atouts = []
     for crit in CRITERES:
         if crit in dans_profil or crit == "jap":  # jap : volume de jeu au pied, qualité non notée
+            continue
+        # Le facteur X juge la QUALITÉ de ce que fait le joueur hors de son poste, pas la quantité :
+        # les volumes (contacts, soutiens, plaquages, duels aériens…) relèvent du jeu au poste.
+        if CRITERES[crit][1] == "vol":
             continue
         ref = _cible_hors_poste(crit)
         if not ref:
