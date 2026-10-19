@@ -3,6 +3,7 @@
 {% set active = 'notes' %}
 {% block title %}Notes joueurs — Saison{% endblock %}
 {% macro badge(n) %}{% if n is none %}<span class="nt-badge nt-na">—</span>{% else %}<span class="nt-badge {{ 'nt-top' if n >= 6.5 else ('nt-ok' if n >= 5 else ('nt-mid' if n >= 3.5 else 'nt-low')) }}">{{ n }}</span>{% endif %}{% endmacro %}
+{% macro evo(j) %}{% if j.evo|length > 1 %}<div class="nt-evo" title="Note match par match">{% for e in j.evo %}<div class="nt-evo-col" title="{{ e.label }} · {{ e.minutes }} min · {{ e.note }}"><span class="nt-evo-bar {{ 'nt-top' if e.note >= 6.5 else ('nt-ok' if e.note >= 5 else ('nt-mid' if e.note >= 3.5 else 'nt-low')) }}" style="height: {{ (e.note * 10)|round|int }}%;"></span><span class="nt-evo-val">{{ e.note }}</span><span class="nt-evo-lab">{{ e.label[:9] }}</span></div>{% endfor %}</div>{% endif %}{% endmacro %}
 {% block content %}
 <div class="page-header no-print">
     <div>
@@ -58,6 +59,8 @@
             </summary>
             <div class="nt-body">
                 {% if j.ecart is not none %}<p class="nt-sub" style="margin-top:2px;"><strong>Écart avec la moyenne du poste :</strong> {{ '%+.1f'|format(j.ecart) }}{% if j.malus %} · fautes −{{ j.malus }} par match{% endif %}</p>{% endif %}
+                {{ evo(j) }}
+                <p class="no-print" style="margin:6px 0 10px;"><a href="{{ url_for('season_notes_fiche', key=j.key, m=season_selected_ids) }}" target="_blank">🖨 Fiche A4 de ce joueur</a></p>
                 <h4>Match par match</h4>
                 <p class="nt-matchs">{% for x in j.matchs %}<span class="nt-chip" title="{{ x.poste }} · {{ x.minutes }} min{% if x.raison %} · {{ x.raison }}{% endif %}">{{ x.opponent }}{% if x.poste != j.poste %} ({{ x.poste }}){% endif %} · {{ x.minutes }} min {% if x.cumul %}<span class="nt-badge nt-na" title="Courte entrée, cumulée dans la note de saison">cumul</span>{% else %}{{ badge(x.res.note if x.res else none) }}{% endif %}</span>{% endfor %}</p>
                 {% if j.cumul_min %}<p class="nt-sub">{{ j.cumul_min }} min en courtes entrées (moins de {{ min_minutes }} min), cumulées et notées ensemble.</p>{% endif %}

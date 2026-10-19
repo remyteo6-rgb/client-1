@@ -3194,3 +3194,33 @@ select.subnav-match-select option { color:#222; background:#fff; }
 .match-tools { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; }
 .match-tools input, .match-tools select { padding: 8px 10px; border: 1px solid var(--bg-card-border); border-radius: 8px; background: var(--bg-card); font: inherit; }
 .match-tools input { flex: 1 1 220px; }
+
+/* Notes : évolution match par match */
+.nt-evo { display: flex; align-items: flex-end; gap: 10px; height: 110px; margin: 6px 0 4px; padding: 6px 0 0; }
+.nt-evo-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; width: 46px; position: relative; }
+.nt-evo-bar { display: block; width: 26px; border-radius: 4px 4px 0 0; min-height: 4px; margin-top: auto; }
+.nt-evo-bar.nt-top { background: #2e7d4f; } .nt-evo-bar.nt-ok { background: #6a9e3d; } .nt-evo-bar.nt-mid { background: #e8a33d; } .nt-evo-bar.nt-low { background: #d9534f; }
+.nt-evo-val { font-size: 11px; font-weight: 700; }
+.nt-evo-lab { font-size: 10px; color: var(--text-secondary); white-space: nowrap; }
+
+/* Fiche joueur A4 */
+.fiche-a4 { background: #fff; max-width: 780px; margin: 0 auto 30px; padding: 26px 30px; border: 1px solid var(--bg-card-border); border-radius: var(--radius); color: #1c1412; }
+.fiche-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 3px solid #5a0f35; padding-bottom: 12px; margin-bottom: 10px; }
+.fiche-name { font-size: 28px; font-weight: 800; text-transform: uppercase; }
+.fiche-sub { color: #6b5d58; font-size: 13px; margin: 2px 0; }
+.fiche-notes { display: flex; gap: 18px; }
+.fiche-notes > div { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.fiche-lab { font-size: 11px; text-transform: uppercase; color: #6b5d58; font-weight: 700; }
+.fiche-big { font-size: 26px; padding: 6px 14px; }
+.fiche-a4 h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .5px; margin: 18px 0 6px; color: #5a0f35; }
+.fiche-a4 ul { margin: 0; padding-left: 18px; }
+.fiche-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.fiche-foot { margin-top: 20px; font-size: 11px; color: #8a7d78; }
+@media print {
+    body * { visibility: hidden; }
+    .fiche-a4, .fiche-a4 * { visibility: visible; }
+    .fiche-a4 { position: absolute; left: 0; top: 0; width: 100%; max-width: none; border: none; padding: 0; margin: 0; }
+    @page { size: A4; margin: 14mm; }
+}
+@media (max-width: 600px) { .fiche-head { flex-direction: column; align-items: flex-start; } .fiche-cols { grid-template-columns: 1fr; } }
+.fiche-a4 .nt-badge { color: #fff; }

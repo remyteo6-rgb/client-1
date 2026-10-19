@@ -4160,6 +4160,41 @@ def _notes_saison_calc(selected, bar=None):
     return out
 
 
+def _note_evolution(j):
+    """Note de chaque match du joueur, dans l'ordre des dates (pour le petit graphique)."""
+    pts = [x for x in j.get("matchs") or [] if x.get("res") and x["res"].get("note") is not None]
+    pts.sort(key=lambda x: (x.get("date") or "9999", x.get("id") or 0))
+    return [{"label": x["opponent"], "note": round(x["res"]["note"], 1), "minutes": x["minutes"],
+             "x": (x["res"].get("x") or {}).get("note") if isinstance(x["res"].get("x"), dict) else None} for x in pts]
+
+
+def _notes_joueurs_avec_ecart(joueurs):
+    moy_poste = {}
+    for p in bareme.POSTES:
+        notes = [(j["note"], j["minutes"]) for j in joueurs if j["poste"] == p and j["note"] is not None]
+        tm = sum(m for _n, m in notes)
+        moy_poste[p] = round(sum(n * m for n, m in notes) / tm, 1) if tm else None
+    for j in joueurs:
+        moy = moy_poste.get(j["poste"])
+        j["ecart"] = round(j["note"] - moy, 1) if (moy is not None and j["note"] is not None) else None
+        j["moyenne_poste"] = moy
+        j["evo"] = _note_evolution(j)
+        j["key"] = j["name"].strip().casefold()
+    return joueurs
+
+
+@app.route("/season/notes/fiche/<path:key>")
+def season_notes_fiche(key):
+    """Fiche A4 imprimable d'un joueur : note, Facteur X, évolution, points forts et à travailler."""
+    selected, ctx = _season_common("notes")
+    joueurs = _notes_joueurs_avec_ecart(_notes_saison(selected))
+    j = next((x for x in joueurs if x["key"] == key.strip().casefold()), None)
+    if j is None:
+        abort(404)
+    return render_template("season_notes_fiche.html", j=j, libelles=PROFIL_LIBELLE, display_name=_joueur_nom_affiche,
+                           min_minutes=bareme.MIN_MINUTES, n_matchs=len(selected), **ctx)
+
+
 @app.route("/season/notes")
 def season_notes():
     selected, ctx = _season_common("notes")
@@ -4174,6 +4209,9 @@ def season_notes():
             for j in lst:
                 j["ecart"] = round(j["note"] - moy, 1) if (moy is not None and j["note"] is not None) else None
             groupes.append({"poste": p, "joueurs": lst, "moyenne": moy})
+    for j in joueurs:
+        j["evo"] = _note_evolution(j)
+        j["key"] = j["name"].strip().casefold()
     approx = [_joueur_nom_affiche(j["name"]) for j in joueurs if j.get("approx")]
     return render_template("season_notes.html", groupes=groupes, approx=approx, libelles=PROFIL_LIBELLE, min_minutes=bareme.MIN_MINUTES,
                            malus=bareme.MALUS, display_name=_joueur_nom_affiche, **ctx)
