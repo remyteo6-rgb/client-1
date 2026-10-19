@@ -6,8 +6,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Analyse vidéo — {{ club_full_name }}</title>
 {% include "_pwa_head.html" %}
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-<script src="{{ url_for('static', filename='demo-mode.js') }}"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ asset_version }}">
+<script src="{{ url_for('static', filename='demo-mode.js') }}?v={{ asset_version }}"></script>
 </head>
 <body class="landing-body" data-demo-forced="{{ 'true' if demo_forced else 'false' }}">
 
