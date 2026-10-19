@@ -2551,6 +2551,31 @@ def match_zone_gold_entry(match_id):
     return jsonify({"ok": True, "summary": _gold_summary_fmt(zone_gold)})
 
 
+@app.route("/match/<int:match_id>/notes")
+def match_notes(match_id):
+    """Notes des joueurs sur ce seul match (même barème et mêmes règles que les notes de
+    saison : minutes saisies dans Composition, 30 min minimum)."""
+    match = _get_match_or_404(match_id)
+    if _no_instances_guard(match):
+        flash("Ce match a été importé avant la mise à jour détaillée par secteur : réimporte le fichier XML pour voir cette page.", "error")
+        return redirect(url_for("match_detail", match_id=match_id))
+    joueurs = _notes_saison_calc([match])
+    groupes = []
+    for p in bareme.POSTES:
+        lst = [j for j in joueurs if j["poste"] == p]
+        if lst:
+            notes = [(j["note"], j["minutes"]) for j in lst if j["note"] is not None]
+            tm = sum(m for _n, m in notes)
+            moy = round(sum(n * m for n, m in notes) / tm, 1) if tm else None
+            for j in lst:
+                j["ecart"] = round(j["note"] - moy, 1) if (moy is not None and j["note"] is not None) else None
+            groupes.append({"poste": p, "joueurs": lst, "moyenne": moy})
+    approx = [_joueur_nom_affiche(j["name"]) for j in joueurs if j.get("approx")]
+    return render_template("match_notes.html", match=match, groupes=groupes, approx=approx, libelles=PROFIL_LIBELLE,
+                           min_minutes=bareme.MIN_MINUTES, malus=bareme.MALUS, display_name=_joueur_nom_affiche,
+                           assets=_review_assets(match))
+
+
 @app.route("/match/<int:match_id>/discipline")
 def match_discipline(match_id):
     """Page "DISCIPLINE" du rapport vidéo : fautes par joueur, par période, par
