@@ -29,13 +29,13 @@
     {% set inactifs = bar[p].items()|selectattr('1.0', '<=', 0)|list %}
     <div class="bil-panel" style="margin-bottom:6px;">
         <div class="bil-panel-head">{{ libelles.get(p, p) }} · au poste</div>
-        <table class="bil-table">
+        <table class="bil-table bareme-a">
             <thead><tr><th>Attente du club</th><th>Critère</th><th>Type</th><th>Poids</th><th>Part de la note</th><th>Cible</th><th>Plancher</th></tr></thead>
             <tbody>
             {% for crit, v in actifs %}{{ ligne_poste(p, crit, v, tot) }}{% endfor %}
             {% if inactifs %}
             <tr><td colspan="7"><details><summary style="cursor:pointer;">Autres critères non retenus pour ce poste ({{ inactifs|length }}) : mettre un poids pour les ajouter</summary>
-                <table class="bil-table"><tbody>{% for crit, v in inactifs %}{{ ligne_poste(p, crit, v, tot) }}{% endfor %}</tbody></table></details></td></tr>
+                <table class="bil-table bareme-a"><tbody>{% for crit, v in inactifs %}{{ ligne_poste(p, crit, v, tot) }}{% endfor %}</tbody></table></details></td></tr>
             {% endif %}
             </tbody>
         </table>
@@ -44,7 +44,7 @@
     <div class="bil-panel" style="margin-bottom:20px;">
         <div class="bil-panel-head bil-head-blue">{{ libelles.get(p, p) }} · Facteur X</div>
         {% if xs %}
-        <table class="bil-table">
+        <table class="bil-table bareme-x">
             <thead><tr><th>Critère</th><th>Type</th><th>Poids</th><th>Cible</th><th>Plancher</th></tr></thead>
             <tbody>
             {% for r in xs %}

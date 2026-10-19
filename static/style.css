@@ -3267,3 +3267,12 @@ select.subnav-match-select option { color:#222; background:#fff; }
 .sfs-note { font-size: 12px; color: #666; margin: 0; padding: 0 20px 12px; }
 .sfs-ini-bg { fill: #eee; stroke: #bbb; }
 .sfs-ini { font-family: var(--font-display); font-size: 12px; font-weight: 700; fill: #555; }
+
+/* Barème : colonnes de largeur fixe, mots alignés face aux chiffres (texte à gauche, valeurs centrées) */
+.bareme-a, .bareme-x { table-layout: fixed; }
+.bareme-a th, .bareme-a td, .bareme-x th, .bareme-x td { text-align: center; }
+.bareme-a th:nth-child(-n+2), .bareme-a td:nth-child(-n+2), .bareme-x th:first-child, .bareme-x td:first-child { text-align: left; }
+.bareme-a th:nth-child(1) { width: 23%; } .bareme-a th:nth-child(2) { width: 25%; } .bareme-a th:nth-child(3) { width: 12%; }
+.bareme-a th:nth-child(n+4) { width: 10%; } .bareme-a th:nth-child(5) { width: 12%; }
+.bareme-x th:nth-child(1) { width: 40%; } .bareme-x th:nth-child(2) { width: 20%; } .bareme-x th:nth-child(n+3) { width: 13%; }
+.bareme-a input, .bareme-x input { text-align: center; width: 64px; }
