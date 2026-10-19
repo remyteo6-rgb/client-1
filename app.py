@@ -4401,11 +4401,32 @@ def season_bareme():
                 db.execute("""INSERT INTO bareme_reglages (poste, critere, poids, cible, plancher) VALUES (%s,%s,%s,%s,%s)
                               ON CONFLICT (poste, critere) DO UPDATE SET poids = EXCLUDED.poids, cible = EXCLUDED.cible,
                               plancher = EXCLUDED.plancher""", (poste, crit, poids, cible, plancher))
+
+            # Facteur X du poste : poids (si le poste a une liste dédiée), cible, plancher.
+            for r in bareme.x_defaut(poste):
+                crit = r["crit"]
+                raw = [(request.form.get(f"{k}|{poste}|{crit}") or "").strip().replace(",", ".") for k in ("xw", "xc", "xf")]
+                if not any(raw):
+                    continue
+                try:
+                    poids = float(raw[0]) if raw[0] != "" else float(r["poids"] or 0)
+                    cible, plancher = float(raw[1] or 0), float(raw[2] or 0)
+                except ValueError:
+                    continue
+                if (poids, cible, plancher) == (float(r["poids"] or 0), float(r["cible"]), float(r["plancher"])):
+                    db.execute("DELETE FROM bareme_reglages WHERE poste = %s AND critere = %s", (poste, "x:" + crit))
+                    continue
+                db.execute("""INSERT INTO bareme_reglages (poste, critere, poids, cible, plancher) VALUES (%s,%s,%s,%s,%s)
+                              ON CONFLICT (poste, critere) DO UPDATE SET poids = EXCLUDED.poids, cible = EXCLUDED.cible,
+                              plancher = EXCLUDED.plancher""", (poste, "x:" + crit, poids, cible, plancher))
         db.commit()
         flash("Barème enregistré.", "success")
         return redirect(url_for("season_bareme", m=request.form.getlist("m")))
     selected, ctx = _season_common("bareme")
-    return render_template("season_bareme.html", bar=_bareme_courant(), postes=bareme.POSTES, criteres=bareme.CRITERES,
+    bar_full = _bareme_courant()
+    bar = {p: {c: v for c, v in d.items() if c in bareme.CRITERES} for p, d in bar_full.items()}
+    x_tables = {p: bareme.x_effectif(p, bar_full) for p in bareme.POSTES}
+    return render_template("season_bareme.html", bar=bar, x_tables=x_tables, postes=bareme.POSTES, criteres=bareme.CRITERES,
                            malus=bareme.MALUS, bonus=bareme.BONUS, min_minutes=bareme.MIN_MINUTES,
                            passes_charniere=bareme.PASSES_RATEES["9"][0], attentes=bareme.ATTENTE_DU_CRITERE, non_mesurables=bareme.NON_MESURABLES, libelles=PROFIL_LIBELLE, plaquage_rate=bareme.PLAQUAGE_RATE[0],
                            plaquage_rate_max=bareme.PLAQUAGE_RATE[1], calage=bareme.CALAGE, **ctx)

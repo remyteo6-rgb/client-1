@@ -334,8 +334,8 @@ def bareme_effectif(overrides=None):
     """Barème de départ + réglages enregistrés. overrides = {(poste, critère): (poids, cible, plancher)}."""
     out = {p: dict(c) for p, c in BAREME_DEFAUT.items()}
     for (poste, crit), val in (overrides or {}).items():
-        if poste in out and crit in CRITERES:
-            out[poste][crit] = val
+        if poste in out and (crit in CRITERES or (crit.startswith("x:") and crit[2:] in CRITERES)):
+            out[poste][crit] = val  # « x:<critère> » = réglage du Facteur X de ce poste
     return out
 
 
@@ -425,9 +425,14 @@ def _facteur_x_profil(poste, rows, minutes, reglages):
     poids = {}
     for entree in X_PROFILS[poste]:
         crit, w = entree if isinstance(entree, tuple) else (entree, 1)
-        poids[crit] = w
         r = reglages.get(crit)
         ref = (r[1], r[2]) if r and r[1] else (X_CIBLES_POSTE.get(poste, {}).get(crit) or X_CIBLES_PROFIL.get(crit) or _cible_hors_poste(crit))
+        xr = reglages.get("x:" + crit)  # réglage enregistré sur la page Barème (poids, cible, plancher)
+        if xr:
+            w, ref = xr[0], (xr[1], xr[2])
+            if w <= 0:
+                continue
+        poids[crit] = w
         if not ref:
             continue
         ev = evaluer_critere(crit, ref[0], ref[1], rows, minutes)
@@ -459,7 +464,8 @@ def facteur_x(poste, rows, minutes, bareme=None):
         # les volumes (contacts, soutiens, plaquages, duels aériens…) relèvent du jeu au poste.
         if CRITERES[crit][1] == "vol":
             continue
-        ref = _cible_hors_poste(crit)
+        xr = reglages.get("x:" + crit)
+        ref = (xr[1], xr[2]) if xr else _cible_hors_poste(crit)
         if not ref:
             continue
         ev = evaluer_critere(crit, ref[0], ref[1], rows, minutes)
@@ -474,6 +480,45 @@ def facteur_x(poste, rows, minutes, bareme=None):
     reels = [a for a in atouts if a["score"] >= X_SEUIL][:X_NB]
     top = reels or atouts[:1]
     return {"note": round(sum(a["score"] for a in top) / len(top), 1), "atouts": atouts}
+
+
+def x_defaut(poste):
+    """Lignes du tableau « Facteur X » d'un poste, valeurs de départ : [{crit, label, type, poids, cible,
+    plancher}]. Postes à liste dédiée : critères et poids de X_PROFILS (moyenne pondérée). Autres postes :
+    critères de qualité (%) hors attentes du poste, dont on garde la moyenne des X_NB meilleurs (poids None)."""
+    reglages = BAREME_DEFAUT.get(poste) or {}
+    out = []
+    if poste in X_PROFILS:
+        for entree in X_PROFILS[poste]:
+            crit, w = entree if isinstance(entree, tuple) else (entree, 1)
+            r = reglages.get(crit)
+            ref = (r[1], r[2]) if r and r[1] else (X_CIBLES_POSTE.get(poste, {}).get(crit) or X_CIBLES_PROFIL.get(crit) or _cible_hors_poste(crit))
+            if crit in CRITERES and ref:
+                out.append({"crit": crit, "label": CRITERES[crit][0], "type": CRITERES[crit][1], "poids": w,
+                            "cible": ref[0], "plancher": ref[1]})
+        return out
+    dans_profil = {c for c, r in reglages.items() if r[0] > 0}
+    for crit in CRITERES:
+        if crit in dans_profil or crit == "jap" or CRITERES[crit][1] == "vol":
+            continue
+        ref = _cible_hors_poste(crit)
+        if ref:
+            out.append({"crit": crit, "label": CRITERES[crit][0], "type": CRITERES[crit][1], "poids": None,
+                        "cible": ref[0], "plancher": ref[1]})
+    return out
+
+
+def x_effectif(poste, bareme=None):
+    """x_defaut + réglages enregistrés (clés « x:<critère> » du barème effectif)."""
+    reglages = (bareme or BAREME_DEFAUT).get(poste) or {}
+    rows = x_defaut(poste)
+    for r in rows:
+        v = reglages.get("x:" + r["crit"])
+        if v:
+            if r["poids"] is not None:
+                r["poids"] = v[0]
+            r["cible"], r["plancher"] = v[1], v[2]
+    return rows
 
 
 def _facteur_x_sur(poste, rows, minutes, bareme):

@@ -14,23 +14,51 @@
     <div class="report-head"><span class="report-title">BARÈME</span>
         <span class="report-subtitle">Pénalité −{{ malus.penalite }} · jaune −{{ malus.jaune }} · rouge −{{ malus.rouge }} · essai +{{ bonus.essai }} · passe ratée : −{{ passes_charniere }} au 9/10</span></div>
     <form method="post">
+    {% macro ligne_poste(p, crit, v, tot) %}
+            <tr><td>{{ attentes[p][crit] }}</td><td>{{ criteres[crit][0] }}</td><td>{{ 'volume /80' if criteres[crit][1]=='vol' else '%' }}</td>
+            {% set part = (100*v[0]/tot)|round|int if tot else 0 %}
+            {% if is_admin %}
+                <td><input name="w|{{ p }}|{{ crit }}" value="{{ v[0] }}" size="4"></td><td>{{ part }} %</td>
+                <td><input name="c|{{ p }}|{{ crit }}" value="{{ v[1] }}" size="4"></td>
+                <td><input name="f|{{ p }}|{{ crit }}" value="{{ v[2] }}" size="4"></td>
+            {% else %}<td>{{ v[0] }}</td><td>{{ part }} %</td><td>{{ v[1] }}</td><td>{{ v[2] }}</td>{% endif %}</tr>
+    {% endmacro %}
     {% for p in postes %}
-    <div class="bil-panel" style="margin-bottom:16px;">
-        <div class="bil-panel-head">{{ libelles.get(p, p) }}</div>
+    {% set tot = bar[p].values()|map('first')|sum %}
+    {% set actifs = bar[p].items()|selectattr('1.0', '>', 0)|list|sort(attribute='1.0', reverse=True) %}
+    {% set inactifs = bar[p].items()|selectattr('1.0', '<=', 0)|list %}
+    <div class="bil-panel" style="margin-bottom:6px;">
+        <div class="bil-panel-head">{{ libelles.get(p, p) }} · au poste</div>
         <table class="bil-table">
             <thead><tr><th>Attente du club</th><th>Critère</th><th>Type</th><th>Poids</th><th>Part de la note</th><th>Cible</th><th>Plancher</th></tr></thead>
             <tbody>
-            {% set tot = bar[p].values()|map('first')|sum %}
-            {% for crit, v in bar[p].items()|sort(attribute='1.0', reverse=True) %}
-            <tr><td>{{ attentes[p][crit] }}</td><td>{{ criteres[crit][0] }}</td><td>{{ 'volume /80' if criteres[crit][1]=='vol' else '%' }}</td>
+            {% for crit, v in actifs %}{{ ligne_poste(p, crit, v, tot) }}{% endfor %}
+            {% if inactifs %}
+            <tr><td colspan="7"><details><summary style="cursor:pointer;">Autres critères non retenus pour ce poste ({{ inactifs|length }}) : mettre un poids pour les ajouter</summary>
+                <table class="bil-table"><tbody>{% for crit, v in inactifs %}{{ ligne_poste(p, crit, v, tot) }}{% endfor %}</tbody></table></details></td></tr>
+            {% endif %}
+            </tbody>
+        </table>
+    </div>
+    {% set xs = x_tables[p] %}
+    <div class="bil-panel" style="margin-bottom:20px;">
+        <div class="bil-panel-head bil-head-blue">{{ libelles.get(p, p) }} · Facteur X</div>
+        {% if xs %}
+        <table class="bil-table">
+            <thead><tr><th>Critère</th><th>Type</th><th>Poids</th><th>Cible</th><th>Plancher</th></tr></thead>
+            <tbody>
+            {% for r in xs %}
+            <tr><td>{{ r.label }}</td><td>{{ 'volume /80' if r.type=='vol' else '%' }}</td>
             {% if is_admin %}
-                <td><input name="w|{{ p }}|{{ crit }}" value="{{ v[0] }}" size="4"></td><td>{{ (100*v[0]/tot)|round|int }} %</td>
-                <td><input name="c|{{ p }}|{{ crit }}" value="{{ v[1] }}" size="4"></td>
-                <td><input name="f|{{ p }}|{{ crit }}" value="{{ v[2] }}" size="4"></td>
-            {% else %}<td>{{ v[0] }}</td><td>{{ (100*v[0]/tot)|round|int }} %</td><td>{{ v[1] }}</td><td>{{ v[2] }}</td>{% endif %}</tr>
+                <td>{% if r.poids is not none %}<input name="xw|{{ p }}|{{ r.crit }}" value="{{ r.poids }}" size="4">{% else %}<span title="Pas de poids : on garde la moyenne des 3 meilleurs critères">—</span>{% endif %}</td>
+                <td><input name="xc|{{ p }}|{{ r.crit }}" value="{{ r.cible }}" size="4"></td>
+                <td><input name="xf|{{ p }}|{{ r.crit }}" value="{{ r.plancher }}" size="4"></td>
+            {% else %}<td>{{ r.poids if r.poids is not none else '—' }}</td><td>{{ r.cible }}</td><td>{{ r.plancher }}</td>{% endif %}</tr>
             {% endfor %}
             </tbody>
         </table>
+        <div class="gp-note">{% if xs[0].poids is not none %}Note du Facteur X = moyenne pondérée de ces critères (poids 0 = critère retiré).{% else %}Pas de liste dédiée : le Facteur X est la moyenne des 3 meilleurs de ces critères (notés au moins 3/10), hors attentes du poste.{% endif %} Une valeur basse ne retire rien à la note au poste.</div>
+        {% else %}<div class="gp-note">Aucun critère de Facteur X pour ce poste.</div>{% endif %}
     </div>
     {% endfor %}
     <div class="bil-panel" style="margin-bottom:16px;"><div class="bil-panel-head bil-head-blue">Attentes non mesurables en statistiques</div><div class="gp-note">{{ non_mesurables|join(' · ') }}. Elles ne sont pas dans la note : le poids des attentes mesurées est simplement réparti sur les autres.</div></div>
