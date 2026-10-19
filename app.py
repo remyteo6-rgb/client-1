@@ -309,6 +309,40 @@ def backup_status():
             "alert": n_matches > 0 and (dl is None or (dl_days or 0) >= BACKUP_DOWNLOAD_ALERT_DAYS)}
 
 
+def match_todo(match):
+    """Ce qu'il reste à compléter sur un match (composition, minutes, score, touches, Surfeurs,
+    origines Zone Gold). Chaque ligne : {label, ok, detail, url}. Jamais bloquant."""
+    mid = match["id"]
+    manual = match.get("manual_stats") or {}
+    comp = [c for c in (match.get("composition") or []) if c]
+    stats = match.get("player_match_stats") or {}
+    items = []
+
+    def add(label, ok, detail, endpoint, anchor=""):
+        items.append({"label": label, "ok": bool(ok), "detail": detail, "url": url_for(endpoint, match_id=mid) + anchor})
+
+    add("Composition", bool(comp), "" if comp else "non saisie", "match_composition")
+    sans = [c for c in comp if not (stats.get(c) or {}).get("minutes")]
+    add("Minutes jouées", bool(comp) and not sans,
+        "" if not sans else (f"{len(sans)} joueur(s) sans minutes — leurs notes manquent" if comp else "après la composition"),
+        "match_composition")
+    score_ok = manual.get("score_own_manual") is not None and manual.get("score_adverse_manual") is not None
+    add("Score du match", score_ok, "" if score_ok else "à saisir (le XML ne donne pas le score complet)", "match_detail")
+    add("Lancements des touches", bool(manual.get("touches")), "" if manual.get("touches") else "non renseignés", "match_touches")
+    try:
+        surf = bool(_surfeurs_touches(manual))
+    except Exception:
+        surf = True
+    add("Surfeurs", surf, "" if surf else "aucune touche placée", "match_surfeurs")
+    try:
+        z = compute_zone_gold_log(match["instances"], overrides=manual.get("zone_gold"))
+        manque = sum(1 for side in ("own", "adverse") for r in (z.get(side) or {}).get("rows", []) if not r.get("origine"))
+    except Exception:
+        manque = 0
+    add("Origines Zone Gold", manque == 0, "" if manque == 0 else f"{manque} entrée(s) sans origine", "match_zone_gold")
+    return items
+
+
 def match_parts(m):
     """(journée, équipe citée en premier, seconde équipe, à l'extérieur ?) — l'adversaire passe devant à l'extérieur."""
     g = (lambda k: (m[k] if k in m.keys() else None)) if not isinstance(m, dict) else m.get
@@ -355,7 +389,7 @@ def inject_logged_in():
         "user_email": session.get("user_email", ""),
         "club_name": CLUB_NAME, "club_full_name": CLUB_FULL_NAME,
         "asset_version": ASSET_VERSION,
-        "match_nav_options": _match_nav_options, "match_title": match_title, "match_parts": match_parts, "backup_status": backup_status,
+        "match_nav_options": _match_nav_options, "match_title": match_title, "match_parts": match_parts, "backup_status": backup_status, "match_todo": match_todo,
     }
     # Liste légère (id + nom) de tous les joueurs, pour la recherche rapide dans la barre
     # du haut (voir _match_subnav.html) — disponible sur toutes les pages plutôt que la

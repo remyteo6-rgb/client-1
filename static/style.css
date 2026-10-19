@@ -3163,3 +3163,13 @@ select.subnav-match-select option { color:#222; background:#fff; }
 
 .backup-banner { border-left: 4px solid #e8a33d; font-size: 14px; margin-bottom: 14px; }
 .backup-banner a { font-weight: 600; }
+
+.match-todo { border-left: 4px solid #e8a33d; padding: 10px 16px; }
+.match-todo summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+.match-todo-short { font-weight: 400; color: var(--text-secondary); }
+.match-todo ul { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 4px; font-size: 14px; }
+.match-todo li.ok { color: var(--text-secondary); }
+.match-todo li.ok a { color: inherit; font-weight: 400; }
+.match-todo li.todo a { font-weight: 600; }
+.match-todo-mark { display: inline-block; width: 18px; }
+.match-todo-detail { color: var(--text-secondary); }

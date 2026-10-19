@@ -1,0 +1,14 @@
+{# Bandeau « À compléter » : ce qu'il manque sur ce match. Visible seulement pour l'admin. #}
+{% if is_admin and match is defined and match['id'] %}{% set _td = match_todo(match) %}{% set _manque = _td|rejectattr('ok')|list %}
+{% if _manque %}
+<details class="card match-todo no-print">
+    <summary>⚠ À compléter sur ce match : {{ _manque|length }} élément{{ 's' if _manque|length > 1 else '' }}
+        <span class="match-todo-short">({{ _manque|map(attribute='label')|join(', ') }})</span></summary>
+    <ul>
+        {% for t in _td %}
+        <li class="{{ 'ok' if t.ok else 'todo' }}"><span class="match-todo-mark">{{ '✓' if t.ok else '○' }}</span>
+            <a href="{{ t.url }}">{{ t.label }}</a>{% if t.detail %} <span class="match-todo-detail">— {{ t.detail }}</span>{% endif %}</li>
+        {% endfor %}
+    </ul>
+</details>
+{% endif %}{% endif %}
