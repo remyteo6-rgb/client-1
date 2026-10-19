@@ -46,9 +46,9 @@
                 {% endfor %}
                 </tbody>
                 <tfoot>
-                    <tr><th>Avants</th><td class="dis-num" id="disAvants">{{ data.avants }}</td><td colspan="2"></td></tr>
-                    <tr><th>3/4</th><td class="dis-num" id="disTrois">{{ data.trois_quarts }}</td><td colspan="2"></td></tr>
-                    <tr><th>Équipe</th><td class="dis-num" id="disEquipe">{{ data.joueurs_total }}</td><td colspan="2"></td></tr>
+                    <tr><th>Avants</th><td class="dis-num" id="disAvants">{{ data.avants }}</td><td></td><td class="dis-reason"><strong>{{ data.avants_cumul }} au total</strong></td></tr>
+                    <tr><th>3/4</th><td class="dis-num" id="disTrois">{{ data.trois_quarts }}</td><td></td><td class="dis-reason"><strong>{{ data.trois_quarts_cumul }} au total</strong></td></tr>
+                    <tr><th>Équipe</th><td class="dis-num" id="disEquipe">{{ data.joueurs_total }}</td><td></td><td class="dis-reason"><strong>{{ data.joueurs_cumul }} au total</strong></td></tr>
                 </tfoot>
             </table>
         </div>

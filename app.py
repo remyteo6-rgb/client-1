@@ -4926,6 +4926,9 @@ def season_discipline():
         "premiere_mi_temps": round(par_periode["own"]["0-20"] + par_periode["own"]["20-40"], 1),
         "rows": rows,
         "avants": group_avg("avants"), "trois_quarts": group_avg("3/4"),
+        "avants_cumul": sum(p["fautes"] for p in players.values() if p["groupe"] == "avants"),
+        "trois_quarts_cumul": sum(p["fautes"] for p in players.values() if p["groupe"] == "3/4"),
+        "joueurs_cumul": sum(p["fautes"] for p in players.values()),
         "joueurs_total": round(sum(p["fautes"] for p in players.values()) / n, 1) if n else 0,
         "categories": [{"label": k, "count": mean(v) or 0} for k, v in cats.items()],
     }
