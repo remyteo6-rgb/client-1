@@ -61,7 +61,7 @@
                     <th class="sep-l">Passes +/=/-</th><th>Total / % propres</th>
                     <th class="sep-l">Offload +/=/-</th><th>Total / %</th>
                     <th class="sep-l">Soutien 1er/2e/3e+</th><th>Cartouches</th>
-                    <th class="sep-l">Ball. perdus</th><th>Pén. off.</th><th>Pén. déf.</th><th>Pén. conquête</th>
+                    <th class="sep-l">Ball. perdus</th>
                 </tr>
             </thead>
             <tbody>
@@ -75,9 +75,6 @@
                     <td>{{ attack.offload_total }}{% if attack.offload_pct is not none %} ({{ attack.offload_pct }}%){% endif %}</td>
                     <td class="sep-l">{{ attack.soutien_1er }} / {{ attack.soutien_2eme }} / {{ attack.soutien_3plus }}</td><td>{{ attack.cartouche }}</td>
                     <td class="sep-l"><span class="stat-neg">{{ attack.pdb }}</span></td>
-                    <td><span class="stat-neg">{{ attack.penalite_off }}</span></td>
-                    <td><span class="stat-neg">{{ attack.penalite_def }}</span></td>
-                    <td><span class="stat-neg">{{ attack.penalite_autre or 0 }}</span></td>
                 </tr>
             </tbody>
         </table>
