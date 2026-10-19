@@ -3219,7 +3219,7 @@ def compute_player_ruck_table(instances):
                       "melee_def_gagnee": 0, "melee_def_perdue": 0,
                       "melee_off_penalisee": 0, "melee_def_penalisee": 0,
                       "melee_off_obtenue": 0, "melee_def_obtenue": 0,
-                      "faute_off": 0, "faute_def": 0, "faute_conquete": 0,
+                      "faute_off": 0, "faute_def": 0, "faute_conquete": 0, "actions_codees": 0,
                       "lancer_gagne": 0, "lancer_perdu": 0,
                       "sauteur_plus": 0, "sauteur_moins": 0, "tqb": 0, "tqb_plus": 0, "tqb_moins": 0,
                       "lifteur_def": 0, "sauteur_def": 0, "sauteur_def_plus": 0, "sauteur_def_moins": 0,
@@ -3238,6 +3238,11 @@ def compute_player_ruck_table(instances):
             continue
         row = rows[code]
         off_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "JOUEURS OFF"}
+        # Activité : instances du joueur portant au moins un label d'action individuelle (même
+        # définition que « Actions codées » du bilan joueur).
+        if any(_normalize_tag(l["group"]) in ("JOUEURS OFF", "SNIPERS", "CHASSEUR", "COMBATTANT", "DISCIPLINES")
+               for l in i["labels"]):
+            row["actions_codees"] += 1
         melee_grp_txt = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "MELEE DEF"}
         if "MELEES" in off_vals or "MELEES OFF" in off_vals or "MELEES DEF" in melee_grp_txt:
             row["melee_conquete"] += 1
@@ -3674,7 +3679,7 @@ def _zero_ruck_row(name):
         "melee_off_gagnee": 0, "melee_off_perdue": 0, "melee_def_gagnee": 0, "melee_def_perdue": 0,
         "melee_off_penalisee": 0, "melee_def_penalisee": 0,
         "melee_off_obtenue": 0, "melee_def_obtenue": 0,
-        "faute_off": 0, "faute_def": 0, "faute_conquete": 0,
+        "faute_off": 0, "faute_def": 0, "faute_conquete": 0, "actions_codees": 0,
         "lancer_gagne": 0, "lancer_perdu": 0,
         "sauteur_plus": 0, "sauteur_moins": 0, "tqb": 0, "tqb_plus": 0, "tqb_moins": 0,
         "lifteur_def": 0, "sauteur_def": 0, "sauteur_def_plus": 0, "sauteur_def_moins": 0,

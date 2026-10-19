@@ -64,6 +64,10 @@ def _x_sauteur(r):      return _v(r["ruck"], "sauteur"), 0
 def _x_lifteur(r):      return _v(r["ruck"], "lifteur"), 0
 def _x_lanceur(r):      return _v(r["ruck"], "lanceur"), 0
 def _x_melee(r):        return _v(r["ruck"], "melee_conquete"), 0
+def _x_ruck(r):
+    a = r["attack"]
+    return _v(a, "soutien_1er", "soutien_2eme", "soutien_3plus", "cartouche"), 0
+def _x_activite(r):     return _v(r["ruck"], "actions_codees"), 0
 def _x_pdb(r):          return _v(r["attack"], "pdb"), 0     # ballons perdus (moins = mieux, voir INVERSES)
 def _x_essai(r):        return _v(r["ruck"], "essai"), 0
 
@@ -119,6 +123,16 @@ def _p_lifteur(r):
     return _pct_expl_auto(r["ruck"], None, None, "lifteur_gagne_auto", "lifteur_perdu_auto", 4)
 
 
+def _p_ruck_util(r):
+    """Utilité au ruck : arrivée en cartouche ou en 1er soutien = pleinement utile, 2e = demi-utile,
+    3e ou plus loin = pas utile. Pourcentage sur l'ensemble des rucks du joueur."""
+    a = r["attack"]
+    tot = _v(a, "soutien_1er", "soutien_2eme", "soutien_3plus", "cartouche")
+    if tot < 5:
+        return None, tot
+    return 100 * (_v(a, "soutien_1er", "cartouche") + 0.5 * _v(a, "soutien_2eme")) / tot, tot
+
+
 def _p_jap(r):
     """Qualité du jeu au pied : JAP codés + (plein) et = (demi) sur le total des JAP qualifiés."""
     tot = _v(r["ruck"], "jap_plus", "jap_neutre", "jap_moins")
@@ -171,6 +185,9 @@ CRITERES = {
     "aerien_pct":   ("Duels aériens (%)", "pct", _p_aerien),
     "kicks_pct":    ("Coups de pied au but réussis (%)", "pct", _p_kicks),
     "jap_pct":      ("Jeu au pied : qualité (%)", "pct", _p_jap),
+    "ruck":         ("Rucks (volume)", "vol", _x_ruck),
+    "ruck_util":    ("Utilité au ruck (%)", "pct", _p_ruck_util),
+    "activite":     ("Activité (actions codées)", "vol", _x_activite),
     "pdb":          ("Ballons perdus (moins = mieux)", "vol", _x_pdb),
     "essai":        ("Essais (volume)", "vol", _x_essai),
 }
@@ -183,7 +200,8 @@ INVERSES = {"pdb"}
 _CIBLES = {
     "Pilier": {"melee_off_pct": (90, 40), "melee_def_pct": (80, 30), "plaquage_pct": (95, 70), "plaquage_dom": (50, 10), "plaquage": (9, 0), "contact": (11, 0),
                "contact_dom": (65, 30), "soutien": (10, 0), "lifteur_pct": (95, 50), "lifteur": (6, 0),
-               "recup": (5, 0), "offload": (3, 0), "offload_pct": (100, 50), "passes": (6, 0)},
+               "recup": (5, 0), "offload": (3, 0), "offload_pct": (100, 50), "passes": (6, 0),
+               "ruck": (18, 0), "ruck_util": (70, 20), "activite": (50, 0)},
     "Talonneur": {"lancer_pct": (95, 50), "melee_off_pct": (90, 40), "melee_def_pct": (80, 30), "plaquage_pct": (95, 70), "plaquage_dom": (50, 10), "plaquage": (9, 0),
                   "contact": (11, 0), "contact_dom": (65, 30), "soutien": (10, 0), "lanceur": (14, 0),
                   "recup": (5, 0), "offload": (3, 0), "offload_pct": (100, 50), "passes": (6, 0)},
@@ -221,9 +239,10 @@ PROFILS = {
         ("Mêlée fermée", {"melee_off_pct": 14, "melee_def_pct": 10}),
         ("Lift sur touche, CE et renvoi", {"lifteur_pct": 12, "lifteur": 7}),
         ("Plaquer / contest", {"plaquage_dom": 4, "plaquage": 4, "plaquage_pct": 4, "recup": 7}),
-        ("Soutenir / rucker", {"soutien": 5}),
+        ("Soutenir / rucker", {"ruck": 4, "ruck_util": 6}),
         ("Duel off", {"contact_dom": 6, "contact": 4}),
         ("Habileté technique", {"offload": 5, "offload_pct": 3, "passes": 1}),
+        ("Activité", {"activite": 4}),
     ],
     "Talonneur": [
         ("Lancer", {"lancer_pct": 17, "lanceur": 7}),
@@ -382,6 +401,9 @@ X_SEUIL = 3.0  # note minimale d'un critère hors poste pour compter comme atout
 X_PROFILS = {
     # Ailiers / arrière (octobre 2026, demande de Téo) : qualité du jeu au pied, passes propres,
     # sécurité du ballon (ballons perdus, ballons récupérés) et finition (essais).
+    # Piliers : mobilité (volumes, à poids égal), finition, et qualité de passe à petit poids.
+    # Un critère = (identifiant, poids) ; sans poids = 1.
+    "Pilier": [("def_battu", 3), ("break", 3), ("essai", 3), ("passes_pct", 1)],
     "11-14": ["jap_pct", "passes_pct", "pdb", "recup", "essai"],
     "15": ["jap_pct", "passes_pct", "pdb", "recup", "essai"],
     # 3ème ligne : dominance dans ce qu'ils font (contacts +/-, plaquages +/-, défenseurs battus)
@@ -392,24 +414,30 @@ X_PROFILS = {
 
 # Cibles propres aux listes X_PROFILS quand le critère n'est pas dans les attentes du poste.
 X_CIBLES_PROFIL = {"jap_pct": (75, 25), "passes_pct": (98, 70), "pdb": (3, 0), "essai": (0.5, 0)}
+# Cibles propres à un poste (prioritaires sur X_CIBLES_PROFIL) : un pilier n'a pas les mêmes volumes qu'un ailier.
+X_CIBLES_POSTE = {"Pilier": {"def_battu": (2, 0), "break": (0.5, 0), "essai": (0.15, 0)}}
 
 
 def _facteur_x_profil(poste, rows, minutes, reglages):
     atouts = []
-    for crit in X_PROFILS[poste]:
+    poids = {}
+    for entree in X_PROFILS[poste]:
+        crit, w = entree if isinstance(entree, tuple) else (entree, 1)
+        poids[crit] = w
         r = reglages.get(crit)
-        ref = (r[1], r[2]) if r and r[1] else (X_CIBLES_PROFIL.get(crit) or _cible_hors_poste(crit))
+        ref = (r[1], r[2]) if r and r[1] else (X_CIBLES_POSTE.get(poste, {}).get(crit) or X_CIBLES_PROFIL.get(crit) or _cible_hors_poste(crit))
         if not ref:
             continue
         ev = evaluer_critere(crit, ref[0], ref[1], rows, minutes)
         if ev["valeur"] is None:
             continue
         atouts.append({"critere": crit, "label": ev["label"], "type": ev["type"], "valeur": ev["valeur"],
-                       "cible": ref[0], "score": round(ev["score"], 1), "actions": ev["actions"]})
+                       "cible": ref[0], "score": round(ev["score"], 1), "actions": ev["actions"], "poids": w})
     if not atouts:
         return None
     atouts.sort(key=lambda a: -a["score"])
-    return {"note": round(sum(a["score"] for a in atouts) / len(atouts), 1), "atouts": atouts}
+    tw = sum(a["poids"] for a in atouts)
+    return {"note": round(sum(a["score"] * a["poids"] for a in atouts) / tw, 1), "atouts": atouts}
 
 
 def facteur_x(poste, rows, minutes, bareme=None):
