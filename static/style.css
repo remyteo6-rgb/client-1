@@ -3160,3 +3160,6 @@ select.subnav-match-select option { color:#222; background:#fff; }
 .match-row:hover .match-edit-btn, .match-edit-btn:focus-visible { opacity: .8; }
 .match-edit-btn:hover { background: rgba(42,23,18,0.1); opacity: 1; }
 @media (hover: none) { .match-edit-btn { opacity: .5; } }
+
+.backup-banner { border-left: 4px solid #e8a33d; font-size: 14px; margin-bottom: 14px; }
+.backup-banner a { font-weight: 600; }

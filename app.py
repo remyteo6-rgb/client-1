@@ -1,6 +1,7 @@
 import os
 import time
 import re
+import gzip
 import json
 import unicodedata
 import copy
@@ -248,6 +249,66 @@ def admin_required(view):
     return wrapped
 
 
+# ───────────── Sauvegardes automatiques ─────────────
+BACKUP_KEEP = 12
+BACKUP_AUTO_DAYS = 7
+BACKUP_DOWNLOAD_ALERT_DAYS = 7
+
+
+def _kv_get(db, key):
+    r = db.execute("SELECT value FROM app_kv WHERE key = %s", (key,)).fetchone()
+    return r["value"] if r else None
+
+
+def _kv_set(db, key, value):
+    db.execute("INSERT INTO app_kv (key, value) VALUES (%s, %s) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+               (key, value))
+
+
+def make_snapshot(kind):
+    """Instantané compressé de tous les matchs (même format que « Sauvegarder les données »,
+    donc restaurable avec « Restaurer une sauvegarde »). Ne doit jamais bloquer l'action en cours."""
+    try:
+        db = get_db()
+        rows = [dict(r) for r in db.execute("SELECT * FROM matches ORDER BY id").fetchall()]
+        if not rows:
+            return False
+        blob = gzip.compress(json.dumps(rows, ensure_ascii=False).encode("utf-8"))
+        db.execute("INSERT INTO app_backups (created_at, kind, n_matches, data) VALUES (%s, %s, %s, %s)",
+                   (datetime.utcnow().isoformat(timespec="seconds"), kind, len(rows), blob))
+        db.execute("DELETE FROM app_backups WHERE id NOT IN (SELECT id FROM app_backups ORDER BY id DESC LIMIT %s)",
+                   (BACKUP_KEEP,))
+        db.commit()
+        return True
+    except Exception:
+        try:
+            get_db().rollback()
+        except Exception:
+            pass
+        return False
+
+
+def _days_since(iso):
+    try:
+        return (datetime.utcnow() - datetime.fromisoformat(iso)).days
+    except Exception:
+        return None
+
+
+def backup_status():
+    """État des sauvegardes pour l'admin ; fait au passage l'instantané hebdomadaire si besoin."""
+    db = get_db()
+    last = db.execute("SELECT created_at FROM app_backups ORDER BY id DESC LIMIT 1").fetchone()
+    if (last is None or (_days_since(last["created_at"]) or 0) >= BACKUP_AUTO_DAYS) and make_snapshot("auto"):
+        last = db.execute("SELECT created_at FROM app_backups ORDER BY id DESC LIMIT 1").fetchone()
+    dl = _kv_get(db, "last_download")
+    dl_days = _days_since(dl) if dl else None
+    n_matches = db.execute("SELECT COUNT(*) AS n FROM matches").fetchone()["n"]
+    return {"last_auto": last["created_at"] if last else None,
+            "download_days": dl_days, "never_downloaded": dl is None,
+            "alert": n_matches > 0 and (dl is None or (dl_days or 0) >= BACKUP_DOWNLOAD_ALERT_DAYS)}
+
+
 def match_parts(m):
     """(journée, équipe citée en premier, seconde équipe, à l'extérieur ?) — l'adversaire passe devant à l'extérieur."""
     g = (lambda k: (m[k] if k in m.keys() else None)) if not isinstance(m, dict) else m.get
@@ -294,7 +355,7 @@ def inject_logged_in():
         "user_email": session.get("user_email", ""),
         "club_name": CLUB_NAME, "club_full_name": CLUB_FULL_NAME,
         "asset_version": ASSET_VERSION,
-        "match_nav_options": _match_nav_options, "match_title": match_title, "match_parts": match_parts,
+        "match_nav_options": _match_nav_options, "match_title": match_title, "match_parts": match_parts, "backup_status": backup_status,
     }
     # Liste légère (id + nom) de tous les joueurs, pour la recherche rapide dans la barre
     # du haut (voir _match_subnav.html) — disponible sur toutes les pages plutôt que la
@@ -935,6 +996,18 @@ def init_db():
             PRIMARY KEY (poste, critere)
         )
     """)
+    # Sauvegardes automatiques des matchs (instantanés compressés, les 12 derniers sont gardés)
+    # + petit registre clé/valeur (date du dernier téléchargement manuel…).
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS app_backups (
+            id SERIAL PRIMARY KEY,
+            created_at TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            n_matches INTEGER NOT NULL DEFAULT 0,
+            data BYTEA NOT NULL
+        )
+    """)
+    db.execute("CREATE TABLE IF NOT EXISTS app_kv (key TEXT PRIMARY KEY, value TEXT)")
     # Couleur attribuée à chaque joueur sur la page Surfeurs (toujours la même, d'un match à l'autre).
     db.execute("""
         CREATE TABLE IF NOT EXISTS surfeur_couleurs (
@@ -2755,11 +2828,39 @@ def export_data():
     data = [dict(r) for r in rows]
     payload = json.dumps(data, ensure_ascii=False, indent=2)
     ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    _kv_set(db, "last_download", datetime.utcnow().isoformat(timespec="seconds"))
+    db.commit()
     return Response(
         payload,
         mimetype="application/json",
         headers={"Content-Disposition": f"attachment; filename=rugby_analytics_sauvegarde_{ts}.json"},
     )
+
+
+@app.route("/admin/sauvegardes")
+@admin_required
+def admin_backups():
+    db = get_db()
+    rows = db.execute("SELECT id, created_at, kind, n_matches, OCTET_LENGTH(data) AS size FROM app_backups ORDER BY id DESC").fetchall()
+    return render_template("admin_backups.html", backups=rows, status=backup_status())
+
+
+@app.route("/admin/sauvegardes/maintenant", methods=["POST"])
+@admin_required
+def admin_backup_now():
+    flash("Instantané créé." if make_snapshot("manuel") else "Aucun match à sauvegarder.", "success")
+    return redirect(url_for("admin_backups"))
+
+
+@app.route("/admin/sauvegardes/<int:backup_id>")
+@admin_required
+def admin_backup_download(backup_id):
+    r = get_db().execute("SELECT created_at, data FROM app_backups WHERE id = %s", (backup_id,)).fetchone()
+    if not r:
+        abort(404)
+    ts = r["created_at"].replace(":", "").replace("-", "").replace("T", "_")
+    return Response(gzip.decompress(bytes(r["data"])), mimetype="application/json",
+                    headers={"Content-Disposition": f"attachment; filename=rugby_analytics_instantane_{ts}.json"})
 
 
 @app.route("/admin/export-ppid")
@@ -3057,6 +3158,7 @@ def import_data():
     except Exception as exc:
         flash(f"Fichier de sauvegarde invalide : {exc}", "error")
         return redirect(url_for("import_data"))
+    make_snapshot("avant restauration")
     db = get_db()
     imported = 0
     # Toutes les colonnes de la sauvegarde que la table connaît : minutes et cartons
@@ -3110,6 +3212,7 @@ def match_replace_xml(match_id):
     row_order = player_row_order(parsed["instances"], parsed.get("row_order"))
     avant = match.get("total_instances") or 0
     db = get_db()
+    make_snapshot("avant remplacement XML")
     db.execute(
         """UPDATE matches SET filename = %s, own_team_tag = %s, total_instances = %s,
            stats_json = %s, players_json = %s, zones_json = %s, instances_json = %s,
@@ -3151,6 +3254,7 @@ def match_edit_info(match_id):
 @admin_required
 def delete_match(match_id):
     db = get_db()
+    make_snapshot("avant suppression")
     db.execute("DELETE FROM matches WHERE id = %s", (match_id,))
     db.commit()
     flash("Match supprimé.", "success")

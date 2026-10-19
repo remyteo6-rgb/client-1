@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Sauvegardes{% endblock %}
+{% block content %}
+<h1>Sauvegardes</h1>
+<p class="subtitle">Le site garde automatiquement un instantané de tous les matchs chaque semaine, et juste avant une suppression, un remplacement de XML ou une restauration (les {{ 12 }} derniers sont conservés).
+Ces instantanés protègent contre une fausse manipulation. Ils sont stockés dans la même base que le site : pour être à l'abri d'un problème de base, télécharge aussi une sauvegarde sur ton ordinateur.</p>
+
+<div class="card">
+    <p>
+        {% if status.never_downloaded %}<strong>Aucune sauvegarde téléchargée pour l'instant.</strong>
+        {% else %}Dernier téléchargement : il y a {{ status.download_days }} jour(s).{% endif %}
+    </p>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <a class="btn" href="{{ url_for('export_data') }}">Télécharger une sauvegarde maintenant</a>
+        <form method="post" action="{{ url_for('admin_backup_now') }}"><button class="btn btn-secondary" type="submit">Créer un instantané</button></form>
+        <a class="btn btn-secondary" href="{{ url_for('import_data') }}">Restaurer une sauvegarde</a>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Instantanés automatiques</h2>
+    {% if backups %}
+    <table class="data-table">
+        <thead><tr><th>Date (UTC)</th><th>Origine</th><th>Matchs</th><th>Taille</th><th></th></tr></thead>
+        <tbody>
+        {% for b in backups %}
+        <tr><td>{{ b['created_at'].replace('T', ' ') }}</td><td>{{ b['kind'] }}</td><td>{{ b['n_matches'] }}</td>
+            <td>{{ (b['size'] / 1024)|round|int }} Ko</td>
+            <td><a href="{{ url_for('admin_backup_download', backup_id=b['id']) }}">Télécharger</a></td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}<p>Aucun instantané pour l'instant.</p>{% endif %}
+</div>
+{% endblock %}
