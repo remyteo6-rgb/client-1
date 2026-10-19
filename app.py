@@ -1128,7 +1128,13 @@ def init_db():
 
 @app.route("/")
 def landing():
-    return render_template("landing.html")
+    last = None
+    if session.get("logged_in") and not session.get("is_player") and not session.get("demo_forced"):
+        try:
+            last = get_db().execute("SELECT * FROM matches ORDER BY COALESCE(match_date, created_at) DESC, id DESC LIMIT 1").fetchone()
+        except Exception:
+            last = None
+    return render_template("landing.html", last_match=last)
 
 
 @app.route("/matchs")

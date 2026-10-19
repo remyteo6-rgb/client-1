@@ -7,9 +7,17 @@
 {% include "_backup_banner.html" %}
 {% include "_match_edit.html" %}
 {% if matches %}
-<div class="match-list">
+<div class="match-tools no-print">
+    <input type="search" id="matchSearch" placeholder="Rechercher un match (adversaire, journée, compétition…)" aria-label="Rechercher un match">
+    <select id="matchSort" aria-label="Trier les matchs">
+        <option value="date">Tri : date (récents d'abord)</option>
+        <option value="journee">Tri : journée (récentes d'abord)</option>
+        <option value="adv">Tri : adversaire (A → Z)</option>
+    </select>
+</div>
+<div class="match-list" id="matchList">
     {% for m in matches %}
-    <a class="match-row" href="{{ url_for('match_detail', match_id=m['id']) }}">
+    <a class="match-row" data-text="{{ (match_title(m) ~ ' ' ~ (m['competition'] or '') ~ ' ' ~ (m['match_date'] or ''))|lower }}" data-date="{{ m['match_date'] or '' }}" data-j="{{ (m['journee'] or '')|replace('J','')|replace('j','')|trim }}" data-adv="{{ m['opponent']|lower }}" data-i="{{ loop.index }}" href="{{ url_for('match_detail', match_id=m['id']) }}">
         <div class="match-main">
             {% set _p = match_parts(m) %}
             <div class="match-title">{% if _p[0] %}<span class="match-j">{{ _p[0] }}</span>{% endif %}{{ _p[1] }} <span class="match-vs">vs</span> {{ _p[2] }}</div>
@@ -34,4 +42,28 @@
     {% endif %}
 </div>
 {% endif %}
+<script>
+(function () {
+    var list = document.getElementById('matchList'); if (!list) return;
+    var rows = Array.prototype.slice.call(list.querySelectorAll('.match-row'));
+    var q = document.getElementById('matchSearch'), sel = document.getElementById('matchSort');
+    function norm(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+    function apply() {
+        var term = norm(q.value.trim()), mode = sel.value;
+        rows.sort(function (a, b) {
+            if (mode === 'adv') return a.dataset.adv.localeCompare(b.dataset.adv, 'fr');
+            if (mode === 'journee') {
+                var ja = parseFloat(a.dataset.j), jb = parseFloat(b.dataset.j);
+                ja = isNaN(ja) ? -1 : ja; jb = isNaN(jb) ? -1 : jb;
+                if (ja !== jb) return jb - ja;
+            }
+            return (+a.dataset.i) - (+b.dataset.i);
+        });
+        rows.forEach(function (r) { list.appendChild(r); r.style.display = norm(r.dataset.text).indexOf(term) === -1 ? 'none' : ''; });
+        try { localStorage.setItem('matchSort', mode); } catch (e) {}
+    }
+    try { var m = localStorage.getItem('matchSort'); if (m) sel.value = m; } catch (e) {}
+    q.addEventListener('input', apply); sel.addEventListener('change', apply); apply();
+})();
+</script>
 {% endblock %}

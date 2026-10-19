@@ -13,10 +13,16 @@
 
 {% include "_match_subnav.html" %}
 
-<div style="max-width:720px;margin:16px auto 0;padding:0 16px;">{% include "_backup_banner.html" %}</div>
 <div class="landing-screen">
     <img src="{{ url_for('static', filename='logo.png') }}" class="landing-logo" alt="{{ club_full_name }}">
 
+    {% include "_backup_banner.html" %}
+    {% if last_match %}
+    <div class="landing-quick">
+        <a href="{{ url_for('match_detail', match_id=last_match['id']) }}"><small>Dernier match</small><strong>{{ match_title(last_match) }}</strong></a>
+        <a href="{{ url_for('season_review') }}"><small>Stats saison</small><strong>Moyennes de toute la saison</strong></a>
+    </div>
+    {% endif %}
     <div class="landing-choice-row">
         <a class="landing-choice-btn" href="{{ url_for('analyse_video') }}">{{ icons.video() }} Analyse vidéo</a>
         <a class="landing-choice-btn" href="{{ url_for('cahier_charges') }}">{{ icons.clipboard() }} Cahier d'entraînement</a>

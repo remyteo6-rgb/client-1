@@ -28,7 +28,7 @@
             · {{ match['total_instances'] }} événements codés
         </p>
     </div>
-    <div style="display:flex; gap:10px;">
+    <div class="page-actions">
         {% if momentum_svg %}
         <button class="btn btn-secondary" onclick="document.getElementById('momentum-dialog').showModal()">{{ icons.training() }} Courbe momentum</button>
         {% endif %}

@@ -3173,3 +3173,24 @@ select.subnav-match-select option { color:#222; background:#fff; }
 .match-todo li.todo a { font-weight: 600; }
 .match-todo-mark { display: inline-block; width: 18px; }
 .match-todo-detail { color: var(--text-secondary); }
+
+/* Boutons d'action des en-têtes de page : passent à la ligne au lieu de déborder (téléphone) */
+.page-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.page-actions form { margin: 0; }
+@media (max-width: 600px) {
+    .page-actions { display: grid; grid-template-columns: 1fr 1fr; }
+    .page-actions .btn { width: 100%; font-size: 12px; padding: 10px 8px; white-space: normal; }
+}
+
+/* Accueil : raccourcis dernier match / saison */
+.landing-quick { display: flex; flex-direction: column; gap: 8px; width: 100%; margin: 0 0 14px; }
+.landing-quick a { display: flex; flex-direction: column; gap: 2px; padding: 10px 16px; text-align: center;
+    background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: var(--radius); text-decoration: none; color: var(--text-primary); }
+.landing-quick a:hover { background: rgba(42,23,18,0.08); }
+.landing-quick small { color: var(--text-secondary); font-size: 12px; }
+.landing-quick strong { font-size: 14px; }
+
+/* Liste des matchs : recherche + tri */
+.match-tools { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; }
+.match-tools input, .match-tools select { padding: 8px 10px; border: 1px solid var(--bg-card-border); border-radius: 8px; background: var(--bg-card); font: inherit; }
+.match-tools input { flex: 1 1 220px; }
