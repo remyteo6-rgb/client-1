@@ -3042,20 +3042,18 @@ def import_data():
         return redirect(url_for("import_data"))
     db = get_db()
     imported = 0
+    # Toutes les colonnes de la sauvegarde que la table connaît : minutes et cartons
+    # (player_match_stats_json), score, plan de ligne, vue d'ensemble… pas seulement les 15
+    # premières — sinon la restauration perdait les minutes et donc les notes.
+    table_cols = {r["column_name"] for r in db.execute(
+        "SELECT column_name FROM information_schema.columns WHERE table_name = 'matches'").fetchall()}
     for m in data:
+        cols = [c for c in m if c in table_cols and c != "id"]
+        if not cols:
+            continue
         db.execute(
-            """INSERT INTO matches
-               (created_at, match_date, own_team, opponent, competition, venue, own_team_tag,
-                filename, total_instances, stats_json, players_json, zones_json, instances_json,
-                manual_stats_json, composition_json)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-            (
-                m.get("created_at"), m.get("match_date"), m.get("own_team"), m.get("opponent"),
-                m.get("competition"), m.get("venue"), m.get("own_team_tag"), m.get("filename"),
-                m.get("total_instances"), m.get("stats_json"), m.get("players_json"),
-                m.get("zones_json"), m.get("instances_json"), m.get("manual_stats_json"),
-                m.get("composition_json"),
-            ),
+            f"INSERT INTO matches ({', '.join(cols)}) VALUES ({', '.join(['%s'] * len(cols))})",
+            tuple(m[c] for c in cols),
         )
         imported += 1
     db.commit()
