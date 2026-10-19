@@ -3278,3 +3278,5 @@ select.subnav-match-select option { color:#222; background:#fff; }
 .sfs-val { font-family: var(--font-display); font-size: 20px; font-weight: 700; fill: #5b1c2e; }
 .sfs-moy { stroke: var(--accent-gold); stroke-width: 2; stroke-dasharray: 7 6; }
 .sfs-note { font-size: 12px; color: #666; margin: 0; padding: 0 20px 12px; }
+.sfs-ini-bg { fill: #eee; stroke: #bbb; }
+.sfs-ini { font-family: var(--font-display); font-size: 12px; font-weight: 700; fill: #555; }

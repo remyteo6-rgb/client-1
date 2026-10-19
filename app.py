@@ -4840,7 +4840,7 @@ def season_surfeurs():
                      "title": match_title(m), "date": m.get("match_date")})
     rows.sort(key=lambda r: (r["date"] or "", r["id"]))
     saisis = [r["total"] for r in rows if r["total"]]
-    W, H, L, R, T, B = 900, 380, 46, 20, 30, 96
+    W, H, L, R, T, B = 900, 360, 46, 20, 30, 90
     mx = max([r["total"] for r in rows] + [1])
     top = ((mx + 4) // 5) * 5 or 5
     PAD = 40  # marge intérieure pour que les points extrêmes ne touchent pas l'axe
