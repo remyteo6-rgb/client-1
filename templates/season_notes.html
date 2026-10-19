@@ -8,7 +8,7 @@
 <div class="page-header no-print">
     <div>
         <h1>{{ icons.chart() }} Notes des joueurs</h1>
-        <p class="subtitle">Une note sur 10 par joueur, jugée sur les attentes de son poste. Clique sur un joueur pour voir le détail. <a href="{{ url_for('season_bareme') }}">Voir le barème</a></p>
+        <p class="subtitle">Une note sur 10 par joueur, jugée sur les attentes de son poste. Clique sur un joueur pour voir le détail. <a href="{{ url_for('season_bareme') }}" class="btn btn-secondary" style="margin-left:8px; padding:3px 12px; font-size:12px;">Barème et poids des critères</a></p>
     </div>
 </div>
 {% include "_season_select.html" %}

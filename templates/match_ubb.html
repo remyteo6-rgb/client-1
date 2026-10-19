@@ -13,7 +13,6 @@
         </p>
     </div>
     <div class="page-actions">
-        <a class="btn btn-secondary" href="{{ url_for('match_essentiel', match_id=match['id']) }}">Essentiel (essai)</a>
         <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
         {% if is_admin %}
         <button class="btn btn-secondary" type="button" data-action="{{ url_for('match_edit_info', match_id=match['id']) }}" data-journee="{{ match['journee'] or '' }}" data-own="{{ match['own_team'] }}" data-opp="{{ match['opponent'] }}" data-date="{{ match['match_date'] or '' }}" data-comp="{{ match['competition'] or '' }}" data-venue="{{ match['venue'] or '' }}" onclick="openMatchEdit(this, event)">Modifier le titre</button>

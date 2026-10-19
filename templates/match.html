@@ -29,7 +29,6 @@
         </p>
     </div>
     <div class="page-actions">
-        <a class="btn btn-secondary" href="{{ url_for('match_essentiel', match_id=match['id']) }}">Essentiel (essai)</a>
         {% if momentum_svg %}
         <button class="btn btn-secondary" onclick="document.getElementById('momentum-dialog').showModal()">{{ icons.training() }} Courbe momentum</button>
         {% endif %}
