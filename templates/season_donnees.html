@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
+{% set active = 'donnees' %}
+{% block title %}Qualité des données — Saison{% endblock %}
+{% block content %}
+<div class="page-header no-print">
+    <div>
+        <h1>{{ icons.criteria() }} Qualité des données</h1>
+        <p class="subtitle">Pour chaque match, les critères du barème qu'on n'a pas pu noter faute d'actions codées, joueur par joueur. Une note basée sur peu de critères est moins fiable : si moins de 60 % du barème est évaluable, elle est tirée vers 5.</p>
+    </div>
+</div>
+{% include "_season_select.html" %}
+{% if resume %}
+<div class="card" style="margin-bottom:14px;">
+    <h2>Critères les plus souvent manquants</h2>
+    <table class="stat-table zebra-table">
+        <thead><tr><th>Critère</th><th>Joueurs concernés</th><th>À faire dans Sportscode</th></tr></thead>
+        <tbody>
+        {% for e in resume %}<tr><td>{{ e.label }}</td><td>{{ e.joueurs }}</td><td>{{ e.conseil or '' }}</td></tr>{% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% for x in matchs %}
+<div class="card" style="margin-bottom:14px;">
+    <h2><a href="{{ url_for('match_notes', match_id=x.m['id']) }}">{{ match_title(x.m) }}</a></h2>
+    {% if not x.lignes %}
+    <p class="subtitle">Tous les critères sont évaluables pour les {{ x.nb_joueurs }} joueurs notés.</p>
+    {% else %}
+    <table class="stat-table zebra-table">
+        <thead><tr><th>Joueur</th><th>Poste</th><th>Min.</th><th>Note</th><th>Barème évaluable</th><th>Critères non évalués</th></tr></thead>
+        <tbody>
+        {% for l in x.lignes %}
+        <tr>
+            <td>{{ l.name }}</td><td>{{ l.poste }}</td><td>{{ l.minutes }}</td>
+            <td>{{ l.note if l.note is not none else '—' }}</td>
+            <td>{% if l.raison %}<span class="stat-neg">{{ l.raison }}</span>{% else %}<span class="{{ 'stat-neg' if l.couverture < 60 else '' }}">{{ l.couverture }} %</span>{% endif %}</td>
+            <td>{% for mq in l.manquants %}{{ mq.label }} <small>({{ mq.n }} action{{ 's' if mq.n != 1 }} codée{{ 's' if mq.n != 1 }})</small>{{ ' · ' if not loop.last }}{% endfor %}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+{% endfor %}
+{% endblock %}

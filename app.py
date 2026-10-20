@@ -4476,6 +4476,60 @@ def season_notes():
                            malus=bareme.MALUS, display_name=_joueur_nom_affiche, **ctx)
 
 
+# Conseils de saisie (Sportscode) pour les critères qu'on ne peut pas évaluer faute d'actions codées.
+CONSEILS_DONNEES = {
+    "jap_pct": "Qualifier chaque coup de pied de jeu courant avec +, = ou − (au moins 4 par match).",
+    "kicks_pct": "Coder les tirs au but (transformations, pénalités, drops) avec leur résultat.",
+    "offload_pct": "Qualifier les offloads (+, =, −).",
+    "passes_pct": "Qualifier les passes (+, =, −) : au moins 8 passes codées.",
+    "plaquage_pct": "Coder au moins 4 plaquages tentés avec leur résultat.",
+    "plaquage_vp": "Coder au moins 4 plaquages tentés avec leur résultat.",
+    "plaquage_dom": "Qualifier les plaquages (dominant / neutre / passif), au moins 4.",
+    "contact_dom": "Qualifier les contacts (+, =, −), au moins 4 contacts codés.",
+    "ruck_util": "Coder l'utilité au ruck (soutien utile / inutile).",
+    "sauteur_pct": "Coder le résultat des touches (gagnée / perdue) sur le sauteur.",
+    "lifteur_pct": "Coder le résultat des touches sur le lifteur.",
+    "lancer_pct": "Coder les lancers en touche et leur résultat.",
+    "melee_off_pct": "Coder les mêlées avec leur résultat.", "melee_def_pct": "Coder les mêlées avec leur résultat.",
+    "rce_pct": "Qualifier les réceptions de coup d'envoi (+, =, −).",
+    "aerien_pct": "Qualifier les duels aériens (+, =, −).",
+}
+
+
+@app.route("/season/notes/donnees")
+def season_donnees():
+    """Qualité des données : pour chaque match, les critères du barème qu'on n'a pas pu évaluer (pas assez
+    d'actions codées), joueur par joueur, et ce qu'il faut qualifier dans Sportscode."""
+    selected, ctx = _season_common("donnees")
+    matchs, manques_total = [], {}
+    for m in selected:
+        lignes = []
+        for j in _notes_saison([m]):
+            x = j["matchs"][0] if j["matchs"] else None
+            if not x or not x["minutes"]:
+                continue
+            res = x.get("res")
+            if not res:
+                if x["minutes"] >= bareme.MIN_MINUTES:
+                    lignes.append({"name": j["name"], "poste": x["poste"], "minutes": x["minutes"], "note": None,
+                                   "couverture": 0, "manquants": [], "raison": x.get("raison")})
+                continue
+            if not res.get("manquants") and res.get("couverture", 100) >= 100:
+                continue
+            for mq in res.get("manquants") or []:
+                e = manques_total.setdefault(mq["critere"], {"label": mq["label"], "joueurs": 0, "poids": 0})
+                e["joueurs"] += 1
+                e["poids"] += mq["poids"]
+            lignes.append({"name": j["name"], "poste": x["poste"], "minutes": x["minutes"], "note": res["note"],
+                           "couverture": res.get("couverture", 100), "raison": None,
+                           "manquants": [{**mq, "conseil": CONSEILS_DONNEES.get(mq["critere"])} for mq in res.get("manquants") or []]})
+        lignes.sort(key=lambda l: (l["couverture"], l["name"].casefold()))
+        matchs.append({"m": m, "lignes": lignes, "nb_joueurs": len(_notes_saison([m]))})
+    resume = sorted(({"critere": k, **v, "conseil": CONSEILS_DONNEES.get(k)} for k, v in manques_total.items()),
+                    key=lambda e: -e["poids"])
+    return render_template("season_donnees.html", matchs=matchs, resume=resume, match_title=match_title, **ctx)
+
+
 @app.route("/season/bareme", methods=["GET", "POST"])
 def season_bareme():
     if request.method == "POST":
