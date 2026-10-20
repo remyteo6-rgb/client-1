@@ -4454,6 +4454,96 @@ def _notes_joueurs_avec_ecart(joueurs):
     return joueurs
 
 
+def _radar_joueur(j, tous_joueurs, bar):
+    """Radar d'un joueur sur les attentes de son poste (barème du club), face à la moyenne des joueurs du même
+    poste. Les rows viennent du calcul des notes : mêmes critères, mêmes cibles. None si < 40 min au poste."""
+    import math
+    poste = j["poste"]
+    if poste not in bar or poste not in bareme.PROFILS:
+        return None
+
+    def donnees(jj):
+        ms = [x for x in jj["matchs"] if x["poste"] == poste and x["minutes"] > 0]
+        minutes = sum(x["minutes"] for x in ms)
+        rows = {k: _fusion_lignes([x["rows"].get(k) for x in ms]) for k in ("attack", "defense", "ruck")}
+        return rows, minutes, len(ms)
+
+    rows_j, min_j, nb_j = donnees(j)
+    if min_j < 40:
+        return {"manque": True, "minutes": min_j}
+    reglages = {c: r for c, r in bar[poste].items() if r[0] > 0 and c in bareme.CRITERES}
+    attentes = [(nom, {c: p for c, p in crits.items() if c in reglages}) for nom, crits in bareme.PROFILS[poste]]
+    attentes = [(nom, crits) for nom, crits in attentes if crits]
+    pool = [(jj, donnees(jj)) for jj in tous_joueurs if jj["poste"] == poste]
+    pool = [(jj, d) for jj, d in pool if d[1] >= 40]
+
+    def evaluer(rows, mn):
+        ev = {c: bareme.evaluer_critere(c, r[1], r[2], rows, mn) for c, r in reglages.items()}
+        pen = _v(rows.get("attack"), "penalite_off", "penalite_def", "penalite_autre") * 80 / mn
+        return ev, pen
+
+    ev_j = evaluer(rows_j, min_j)
+    ev_pool = [evaluer(d[0], d[1]) for _jj, d in pool]
+
+    def score_att(ev, crits):
+        tot = sum(p for c, p in crits.items() if ev[c]["score"] is not None)
+        return round(10 * sum(p * ev[c]["score"] for c, p in crits.items() if ev[c]["score"] is not None) / tot) if tot else None
+
+    def moy(vals):
+        v = [x for x in vals if x is not None]
+        return sum(v) / len(v) if v else None
+
+    axes = []
+    for nom_att, crits in attentes:
+        axes.append({"label": nom_att, "score": score_att(ev_j[0], crits), "moy": moy([score_att(e[0], crits) for e in ev_pool])})
+
+    def sc_disc(pen):
+        return round(max(0, min(100, 100 * (1 - pen / 3))))
+    axes.append({"label": "Discipline", "score": sc_disc(ev_j[1]), "moy": moy([sc_disc(e[1]) for e in ev_pool])})
+    criteres = []
+    for nom_att, crits in attentes:
+        for c in sorted(crits, key=lambda c: -crits[c]):
+            r = reglages[c]
+            criteres.append({"attente": nom_att, "label": bareme.CRITERES[c][0], "type": bareme.CRITERES[c][1],
+                             "valeur": ev_j[0][c]["valeur"], "score": ev_j[0][c]["score"], "cible": r[1], "poids": r[0],
+                             "moy": moy([e[0][c]["valeur"] for e in ev_pool])})
+    n = len(axes)
+    cx, cy, R = 300, 275, 215
+
+    def pt(i, frac):
+        ang = -math.pi / 2 + 2 * math.pi * i / n
+        return round(cx + R * frac * math.cos(ang), 1), round(cy + R * frac * math.sin(ang), 1)
+    for i, ax in enumerate(axes):
+        ax["axis_end"] = pt(i, 1)
+        lx, ly = pt(i, 1.12)
+        ax["label_pos"] = (lx, ly)
+        parts = ax["label"].split(" / ")
+        ax["label_lines"] = [" / ".join(parts[:(len(parts) + 1) // 2]) + (" /" if len(parts) > 1 else "")] + \
+                            ([" / ".join(parts[(len(parts) + 1) // 2:])] if len(parts) > 1 else [])
+        ax["anchor"] = "middle" if abs(lx - cx) < 20 else ("start" if lx > cx else "end")
+        ax["point"] = pt(i, (ax["score"] or 0) / 100)
+    poly = " ".join(f"{x},{y}" for x, y in (pt(i, (ax["score"] or 0) / 100) for i, ax in enumerate(axes)))
+    poly_moy = " ".join(f"{x},{y}" for x, y in (pt(i, (ax["moy"] or 0) / 100) for i, ax in enumerate(axes)))
+    rings = [" ".join(f"{x},{y}" for x, y in (pt(i, f) for i in range(n))) for f in (0.25, 0.5, 0.75, 1)]
+    return {"axes": axes, "criteres": criteres, "poly": poly, "poly_moy": poly_moy, "rings": rings, "cx": cx, "cy": cy,
+            "minutes": min_j, "matchs": nb_j, "pool": len(pool)}
+
+
+@app.route("/season/joueur/<path:key>")
+def season_joueur(key):
+    """Page complète d'un joueur : note, Facteur X, minutes, matchs, radar sur son poste, critères et suivi."""
+    selected, ctx = _season_common("notes")
+    joueurs = _notes_joueurs_avec_ecart(_notes_saison(selected))
+    j = next((x for x in joueurs if x["key"] == key.strip().casefold()), None)
+    if j is None:
+        abort(404)
+    radar = _radar_joueur(j, joueurs, _bareme_courant())
+    joues = [x for x in j["matchs"] if x["minutes"] > 0]
+    return render_template("season_joueur.html", j=j, radar=radar, joues=joues, nb_matchs=len(joues),
+                           libelles=PROFIL_LIBELLE, display_name=_joueur_nom_affiche,
+                           min_minutes=bareme.MIN_MINUTES, **ctx)
+
+
 @app.route("/season/notes")
 def season_notes():
     selected, ctx = _season_common("notes")

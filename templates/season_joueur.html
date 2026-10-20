@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
+{% set active = 'notes' %}
+{% block title %}{{ display_name(j.name) }} — Saison{% endblock %}
+{% macro badge(n, big=false) %}{% if n is none %}<span class="nt-badge nt-na {{ 'pj-big' if big }}">—</span>{% else %}<span class="nt-badge {{ 'nt-top' if n >= 6.5 else ('nt-ok' if n >= 5 else ('nt-mid' if n >= 3.5 else 'nt-low')) }} {{ 'pj-big' if big }}">{{ n }}</span>{% endif %}{% endmacro %}
+{% block content %}
+<div class="page-header no-print">
+    <div>
+        <h1>{{ icons.users() }} {{ display_name(j.name) }}</h1>
+        <p class="subtitle"><a href="{{ url_for('season_notes', m=season_selected_ids) }}">← Notes des joueurs</a></p>
+    </div>
+</div>
+{% include "_season_select.html" %}
+
+<section class="pj-hero">
+    <div class="pj-id">
+        <span class="pj-poste">{{ libelles.get(j.poste, j.poste) if j.poste else 'Sans poste' }}</span>
+        <h2 class="pj-name">{{ display_name(j.name) }}</h2>
+        <p class="pj-sub">Saison · {{ season_selected_count }} match{{ 's' if season_selected_count != 1 }} sélectionné{{ 's' if season_selected_count != 1 }}</p>
+    </div>
+    <div class="pj-kpis">
+        <div class="pj-kpi"><span class="pj-kpi-lab">Note</span>{{ badge(j.note, true) }}<span class="pj-kpi-sub">{% if j.ecart is not none %}{{ '%+.1f'|format(j.ecart) }} vs poste{% endif %}</span></div>
+        <div class="pj-kpi"><span class="pj-kpi-lab">Facteur X</span>{{ badge(j.x_note, true) }}<span class="pj-kpi-sub">{% if j.x_note is none %}60 min minimum{% else %}hors attentes du poste{% endif %}</span></div>
+        <div class="pj-kpi"><span class="pj-kpi-lab">Minutes</span><span class="pj-num">{{ j.minutes }}</span><span class="pj-kpi-sub">{{ (j.minutes / nb_matchs)|round|int if nb_matchs else 0 }} min par match</span></div>
+        <div class="pj-kpi"><span class="pj-kpi-lab">Matchs</span><span class="pj-num">{{ nb_matchs }}</span><span class="pj-kpi-sub">joués sur {{ season_selected_count }}</span></div>
+    </div>
+</section>
+
+<div class="pj-grid">
+    <div class="bil-panel">
+        <div class="bil-panel-head">Radar · attentes du poste</div>
+        {% if radar and radar.axes %}
+        <div class="pj-radar">
+            <svg viewBox="-70 0 740 550" width="640" style="max-width:100%; height:auto;" role="img" aria-label="Radar du joueur">
+                {% for ring in radar.rings %}<polygon points="{{ ring }}" fill="none" stroke="#d9d3cf" stroke-width="1"/>{% endfor %}
+                {% for ax in radar.axes %}
+                <line x1="{{ radar.cx }}" y1="{{ radar.cy }}" x2="{{ ax.axis_end[0] }}" y2="{{ ax.axis_end[1] }}" stroke="#d9d3cf" stroke-width="1"/>
+                <text x="{{ ax.label_pos[0] }}" y="{{ ax.label_pos[1] }}" text-anchor="{{ ax.anchor }}" font-size="14" font-weight="700" fill="#530d34">{% for ln in ax.label_lines %}<tspan x="{{ ax.label_pos[0] }}" dy="{{ 0 if loop.first else 16 }}">{{ ln }}</tspan>{% endfor %}</text>
+                {% endfor %}
+                {% if radar.pool > 1 %}<polygon points="{{ radar.poly_moy }}" fill="rgba(110,110,110,.10)" stroke="#6e6e6e" stroke-width="2" stroke-dasharray="6 4"/>{% endif %}
+                <polygon points="{{ radar.poly }}" fill="rgba(122,19,64,.26)" stroke="#7a1340" stroke-width="2.8"/>
+                {% for ax in radar.axes %}<circle cx="{{ ax.point[0] }}" cy="{{ ax.point[1] }}" r="5.5" fill="#7a1340"><title>{{ ax.label }} : {{ ax.score if ax.score is not none else '—' }}/100</title></circle>{% endfor %}
+            </svg>
+            <p class="pj-legend"><span class="pj-sq" style="background:#7a1340;"></span><strong>{{ display_name(j.name) }}</strong> — {{ radar.minutes }} min, {{ radar.matchs }} match{{ 's' if radar.matchs != 1 }} à ce poste
+                {% if radar.pool > 1 %}&nbsp;<span class="pj-sq" style="background:#6e6e6e;"></span>Moyenne du poste ({{ radar.pool }} joueurs, pointillé){% else %}&nbsp;· pas de moyenne : seul joueur de ce poste avec 40 min ou plus{% endif %}</p>
+        </div>
+        {% else %}
+        <div class="gp-note">{% if radar and radar.manque %}Radar à partir de 40 minutes cumulées à ce poste ({{ radar.minutes }} min jouées).{% else %}Radar indisponible pour ce poste.{% endif %}</div>
+        {% endif %}
+    </div>
+
+    <div class="pj-side">
+        <div class="bil-panel">
+            <div class="bil-panel-head">Ce qu'on retient</div>
+            <div class="pj-text">
+                {% if j.forts %}<p>{% for c in j.forts %}<span class="nt-fort">▲ {{ c.label }} ({{ c.score }})</span> {% endfor %}</p>{% endif %}
+                {% if j.faibles %}<p>{% for c in j.faibles %}<span class="nt-faible">▼ {{ c.label }} ({{ c.score }})</span> {% endfor %}</p>{% endif %}
+                {% if not j.forts and not j.faibles %}<p class="nt-sub">Pas de point saillant.</p>{% endif %}
+                {% if j.ajustements %}<p class="nt-sub"><strong>Bonus et fautes :</strong> {% for e in j.ajustements %}{{ e.label }} {{ '%+.1f'|format(e.points) }} ({{ e.n }}){{ ' · ' if not loop.last }}{% endfor %}</p>{% endif %}
+                {% if j.ecartes %}<p class="nt-sub">Note de saison hors meilleure et moins bonne performance ({% for e in j.ecartes %}{{ e.opponent or 'courtes entrées' }} {{ e.note }}{{ ' · ' if not loop.last }}{% endfor %}).</p>{% endif %}
+            </div>
+        </div>
+        {% if j.x_atouts %}
+        <div class="bil-panel">
+            <div class="bil-panel-head">Facteur X</div>
+            <div class="pj-text">
+                {% for c in j.x_atouts %}
+                <div class="pj-x"><span class="pj-x-lab">{{ c.label }}</span><span class="pj-x-val">{{ c.valeur|round(0)|int if c.type == 'pct' else c.valeur }}{{ ' %' if c.type == 'pct' else ' /80 min' }}</span>{{ badge(c.score) }}</div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if radar and radar.criteres %}
+<div class="bil-panel" style="margin-top:18px;">
+    <div class="bil-panel-head">Critères du poste</div>
+    <table class="stat-table zebra-table pj-table">
+        <thead><tr><th>Attente du club</th><th>Critère</th><th>Valeur</th><th>Moy. poste</th><th>Cible</th><th>Note /10</th><th>Poids</th></tr></thead>
+        <tbody>
+        {% for c in radar.criteres %}
+        <tr>
+            <td>{{ c.attente }}</td><td>{{ c.label }}</td>
+            <td>{% if c.valeur is none %}—{% else %}{{ c.valeur }}{{ ' %' if c.type == 'pct' }}{% endif %}</td>
+            <td>{% if c.moy is none or radar.pool < 2 %}—{% else %}{{ c.moy|round(1) }}{{ ' %' if c.type == 'pct' }}{% endif %}</td>
+            <td>{{ c.cible }}{{ ' %' if c.type == 'pct' }}</td>
+            <td>{{ badge(c.score|round(1) if c.score is not none else none) }}</td>
+            <td>{{ c.poids }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <p class="pj-note">Valeurs ramenées à 80 minutes ; « — » = pas assez d'actions codées. Le radar montre la note /100 de chaque attente du club.</p>
+</div>
+{% endif %}
+
+<div class="bil-panel" style="margin-top:18px;">
+    <div class="bil-panel-head">Match par match</div>
+    <div class="pj-matchs">
+        {% for x in joues %}
+        {% set n = x.res.note if x.res else none %}
+        <div class="pj-match{{ ' pj-ecarte' if x.res and j.ecartes and (j.ecartes|selectattr('opponent', 'equalto', x.opponent)|list) }}">
+            <span class="pj-m-opp">{{ x.opponent }}</span>
+            <span class="pj-m-min">{{ x.minutes }} min · {{ x.poste }}</span>
+            {{ badge(n) }}
+            {% if x.res and x.res.x %}<span class="pj-m-x">X {{ x.res.x.note }}</span>{% endif %}
+            {% if not x.res %}<span class="pj-m-x">{{ x.raison or 'pas de note' }}</span>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% if j.evo|length > 1 %}
+    <div class="nt-evo" title="Note match par match" style="margin:14px 16px;">{% for e in j.evo %}<div class="nt-evo-col" title="{{ e.label }} · {{ e.minutes }} min · {{ e.note }}"><span class="nt-evo-bar {{ 'nt-top' if e.note >= 6.5 else ('nt-ok' if e.note >= 5 else ('nt-mid' if e.note >= 3.5 else 'nt-low')) }}" style="height: {{ (e.note * 10)|round|int }}%;"></span><span class="nt-evo-val">{{ e.note }}</span><span class="nt-evo-lab">{{ e.label[:9] }}</span></div>{% endfor %}</div>
+    {% endif %}
+</div>
+{% endblock %}
