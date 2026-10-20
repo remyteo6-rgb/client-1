@@ -258,12 +258,12 @@ PROFILS = {
         # Duel off / porteur de balle et habileté technique : passés dans le Facteur X (20 oct. 2026).
     ],
     "3ème ligne": [
-        ("Duel off / franchissement", {"contact_dom": 7, "break": 7, "def_battu": 5, "contact": 3}),
+        # Dominance (contact, plaquage) et offloads : passés dans le Facteur X (20 oct. 2026).
+        ("Duel off / franchissement", {"break": 7, "def_battu": 5, "contact": 3}),
         ("Soutenir / rucker", {"soutien": 8}),
-        ("Plaquer / contest / défendre", {"plaquage": 5, "plaquage_pct": 5, "recup": 8, "plaquage_dom": 4}),
-        ("Assurer la continuité", {"offload": 5, "passes": 2}),
+        ("Plaquer / contest / défendre", {"plaquage": 5, "plaquage_pct": 5, "recup": 8}),
+        ("Assurer la continuité", {"passes": 2}),
         ("Sauter / lifter / lecture touche", {"sauteur_pct": 5, "sauteur": 3, "lifteur_pct": 2, "lifteur": 2}),
-        ("Habileté technique", {"offload_pct": 6}),
     ],
     "9": [
         ("Transmission", {"passes": 24}),
@@ -418,7 +418,7 @@ X_PROFILS = {
     "15": ["jap_pct", "passes_pct", "pdb", "recup", "essai"],
     # 3ème ligne : dominance dans ce qu'ils font (contacts +/-, plaquages +/-, défenseurs battus)
     # et volume de jeu de touche (sauteur, lifteur).
-    "3ème ligne": ["contact_dom", "plaquage_dom", "def_battu", "sauteur", "lifteur"],
+    "3ème ligne": ["contact_dom", "plaquage_dom", "offload", "offload_pct", "def_battu", "sauteur", "lifteur"],
     # Talonneur : pourcentages seulement ; duels off (dominance au contact) et habileté technique
     # (offloads, passes) y sont passés en octobre 2026.
     "Talonneur": ["contact_dom", "offload_pct", "passes_pct", "ruck_util"],
