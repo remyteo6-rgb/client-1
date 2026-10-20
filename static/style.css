@@ -3310,3 +3310,4 @@ select.subnav-match-select option { color:#222; background:#fff; }
     .pj-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
     .pj-match { break-inside: avoid; }
 }
+.pj-conq { display:flex; flex-wrap:wrap; gap:14px; padding:12px 14px; } .pj-conq-k { background:rgba(122,19,64,.07); color:inherit; } .pj-conq-k .pj-kpi-lab, .pj-conq-k .pj-kpi-sub { color:var(--text-secondary,#6b5a55); } .pj-conq-k .pj-num { color:#5a0f35; }

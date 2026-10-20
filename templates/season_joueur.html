@@ -81,6 +81,15 @@
     </div>
 </div>
 
+{% if conquete %}
+<div class="bil-panel" style="margin-top:18px;">
+    <div class="bil-panel-head">Conquête et jeu au pied</div>
+    <div class="pj-conq">
+        {% for c in conquete %}<div class="pj-kpi pj-conq-k"><span class="pj-kpi-lab">{{ c.label }}</span><span class="pj-num">{{ c.pct }} %</span><span class="pj-kpi-sub">{{ c.ok }} / {{ c.tot }}{% if c.detail %} · {{ c.detail }}{% endif %}</span></div>{% endfor %}
+    </div>
+</div>
+{% endif %}
+
 {% if radar and radar.criteres %}
 <div class="bil-panel" style="margin-top:18px;">
     <div class="bil-panel-head">Critères du poste</div>

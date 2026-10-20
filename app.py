@@ -4592,6 +4592,26 @@ def _fiabilite(j, joues):
     return {"niveau": niveau, "cls": cls, "points": pts, "raisons": raisons}
 
 
+def _conquete_pied(joues):
+    """Totaux saison d'un joueur : lancers, prises de balle, TQB et réussite au but (transfos + pénalités + drops)."""
+    r = _fusion_lignes([x["rows"].get("ruck") for x in joues]) or {}
+    out = []
+    for lab, ok, ko in (("Lancé", "lancer_gagne", "lancer_perdu"), ("Sauteur", "sauteur_plus", "sauteur_moins"),
+                        ("TQB", "tqb_plus", "tqb_moins")):
+        n_ok, n_ko = _v(r, ok), _v(r, ko)
+        if n_ok + n_ko:
+            out.append({"label": lab, "ok": n_ok, "tot": n_ok + n_ko, "pct": round(100 * n_ok / (n_ok + n_ko)), "detail": None})
+    det = [(lab, _v(r, ok), _v(r, te)) for lab, ok, te in (("transfos", "transfo_reussies", "transfo_tentees"),
+                                                           ("pénalités", "penalite_reussies", "penalite_tentees"),
+                                                           ("drops", "drop_reussis", "drop_tentes"))]
+    tent = sum(d[2] for d in det)
+    if tent:
+        reus = sum(d[1] for d in det)
+        out.append({"label": "Réussite au but", "ok": reus, "tot": tent, "pct": round(100 * reus / tent),
+                    "detail": " · ".join(f"{d[1]}/{d[2]} {d[0]}" for d in det if d[2])})
+    return out
+
+
 def _retenu_radar(radar):
     """Points forts / faibles lus sur les attentes du poste (axes du radar), avec les critères qui les expliquent."""
     if not radar or not radar.get("axes"):
@@ -4651,7 +4671,7 @@ def season_joueur(key):
     for x in joues:
         x["tf"] = _temps_forts(x)
     return render_template("season_joueur.html", j=j, radar=radar, joues=joues, nb_matchs=len(joues),
-                           tendance=_tendance(j["evo"]), axes=_axes_travail(j, radar), fiab=_fiabilite(j, joues),
+                           tendance=_tendance(j["evo"]), axes=_axes_travail(j, radar), fiab=_fiabilite(j, joues), conquete=_conquete_pied(joues),
                            ret_forts=_retenu_radar(radar)[0], ret_faibles=_retenu_radar(radar)[1],
                            libelles=PROFIL_LIBELLE, display_name=_joueur_nom_affiche,
                            min_minutes=bareme.MIN_MINUTES, **ctx)
