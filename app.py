@@ -5899,6 +5899,9 @@ def _migrer_talonneur_pourcentages(db):
             ("11-14", ("plaquage", "offload", "passes")),
             ("15", ("plaquage", "offload", "passes")))) + (
         ("plaquage_pondere_volume_2026_10", "3ème ligne", ("plaquage_pct",)),
+        ("recup_en_bonus_2ligne", "2ème ligne", ("recup",)), ("recup_en_bonus_3ligne", "3ème ligne", ("recup",)),
+        ("recup_en_bonus_centre", "12-13", ("recup",)), ("recup_en_bonus_ailiers", "11-14", ("recup",)),
+        ("recup_en_bonus_pilier", "Pilier", ("recup",)),
     ):
         if db.execute("SELECT 1 FROM app_migrations WHERE name = %s", (nom,)).fetchone():
             continue

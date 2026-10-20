@@ -19,6 +19,8 @@ PASSES_RATEES_DEFAUT = (0.1, 0.5)
 BONUS = {"essai": 1.0, "essai_max": 3.0}
 # Duels aériens des ailiers/arrière : jouer et gagner rapporte, ne pas en avoir à jouer ne coûte rien
 # (le nombre dépend des coups de pied adverses contestables). +0,3 par duel gagné, +0,15 par duel neutre.
+# Ballons récupérés (20 oct. 2026) : un bonus pour tous les postes, jamais un malus quand il n'y en a pas.
+BONUS_RECUP = {"point": 0.3, "max": 1.0}
 BONUS_AERIEN = {"gagne": 0.3, "neutre": 0.15, "max": 1.0, "profils": ("11-14", "15")}
 # Les demis (9, 10) sont moins jugés sur le plaquage que les avants et les centres : malus de plaquage réduits.
 PLAQUAGE_FACTEUR = {"9": 0.5, "10": 0.5}
@@ -255,7 +257,7 @@ PROFILS = {
     # Mêlée fermée retirée : non quantifiée dans les XML. Son poids est reporté sur la touche, le ruck, le plaquage et le duel.
     "2ème ligne": [
         ("Sauter / lifter / touche, CE et CR", {"sauteur_pct": 11, "lifteur_pct": 6}),
-        ("Plaquer / contest / défendre", {"plaquage_dom": 5, "plaquage_pct": 5, "recup": 9}),
+        ("Plaquer / contest / défendre", {"plaquage_dom": 5, "plaquage_pct": 5}),
         ("Soutenir / rucker", {"soutien": 9, "ruck_util": 6}),
         # Duel off / porteur de balle et habileté technique : passés dans le Facteur X (20 oct. 2026).
     ],
@@ -263,7 +265,7 @@ PROFILS = {
         # Dominance (contact, plaquage) et offloads : passés dans le Facteur X (20 oct. 2026).
         ("Duel off / franchissement", {"break": 7, "def_battu": 5}),
         ("Soutenir / rucker", {"soutien": 8}),
-        ("Plaquer / contest / défendre", {"plaquage_vp": 5, "recup": 8}),
+        ("Plaquer / contest / défendre", {"plaquage_vp": 5}),
         ("Assurer la continuité", {"passes_pct": 2}),
         ("Sauter / lifter / lecture touche", {"sauteur_pct": 5, "lifteur_pct": 2}),
     ],
@@ -288,14 +290,14 @@ PROFILS = {
     ],
     "12-13": [
         ("Duel off / franchissement", {"break": 12, "def_battu": 12}),
-        ("Circulation def / plaquer / contest / défendre", {"plaquage_pct": 6, "recup": 8}),
+        ("Circulation def / plaquer / contest / défendre", {"plaquage_pct": 6}),
         ("Habileté technique (main / pied)", {"offload_pct": 6, "passes_pct": 3}),
         ("Soutien / ruck offensif", {"soutien": 6}),
     ],
     "11-14": [
         ("Duel / franchissement", {"contact_dom": 8, "break": 16, "def_battu": 14}),
         ("Réception / duel aérien", {"rce_pct": 8, "aerien_pct": 12}),
-        ("Plaquer / lecture défense", {"plaquage_dom": 4, "plaquage_pct": 5, "recup": 4}),
+        ("Plaquer / lecture défense", {"plaquage_dom": 4, "plaquage_pct": 5}),
         ("Soutien / ruck offensif", {"soutien": 4}),
         ("Habileté technique (mains / pied)", {"offload_pct": 5, "passes_pct": 2}),
     ],
@@ -344,7 +346,7 @@ CALAGE = {"3ème ligne": 1.15, "Ailier/Arrière": 1.2, "Centre": 1.05}
 
 # Échelle de lecture des notes : (note brute, note affichée). 5 = match moyen, 7 = bon match,
 # 3 = match pas bon, sous 3 = vraiment mauvais. Interpolation linéaire entre les points.
-ECHELLE = [(0.0, 0.0), (2.2, 2.0), (3.6, 3.0), (5.0, 5.0), (6.4, 7.0), (8.0, 9.0), (10.0, 10.0)]
+ECHELLE = [(0.0, 0.0), (2.8, 2.0), (4.4, 3.0), (5.9, 5.0), (7.2, 7.0), (8.6, 9.0), (10.0, 10.0)]
 
 
 def etalonner(x):
@@ -439,13 +441,13 @@ X_PROFILS = {
     # Piliers : mobilité (défenseurs battus, franchissements, ballons récupérés, offloads), finition (essais),
     # passes (petit poids).
     # Un critère = (identifiant, poids) ; sans poids = 1.
-    "Pilier": [("def_battu", 3), ("break", 3), ("essai", 3), ("recup", 3), ("offload_pct", 3),
+    "Pilier": [("def_battu", 3), ("break", 3), ("essai", 3), ("offload_pct", 3),
                ("passes_pct", 1)],
     "9": ["essai", "def_battu", "break"],  # 20 oct. 2026 : uniquement le socle
     "12-13": ["essai", "def_battu", "break", "contact_dom", "plaquage_dom", "jap_pct"],  # socle + dominance off et déf
     "10": ["essai", "def_battu", "break", "passes_pct"],  # 20 oct. 2026 : socle + passes
-    "11-14": ["jap_pct", "passes_pct", "pdb", "recup", "essai"],
-    "15": ["jap_pct", "passes_pct", "pdb", "recup", "essai"],
+    "11-14": ["jap_pct", "passes_pct", "pdb", "essai"],
+    "15": ["jap_pct", "passes_pct", "pdb", "essai"],
     # 3ème ligne : dominance dans ce qu'ils font (contacts +/-, plaquages +/-, défenseurs battus)
     # et volume de jeu de touche (sauteur, lifteur).
     "3ème ligne": ["contact_dom", "plaquage_dom", "offload_pct", ("def_battu", 4)],
@@ -567,8 +569,8 @@ def _facteur_x_brut(poste, rows, minutes, bareme=None):
 # Référence du Facteur X par poste : note brute d'un joueur « moyen » à ce poste. Elle est calée sur 5, pour
 # qu'on puisse être très haut comme très bas à chaque poste, quelle que soit la difficulté de ses critères
 # (un 3ème ligne n'est pas bas « parce que 3ème ligne », ni un pilier haut « parce que pilier »).
-X_REF = {"Pilier": 3.1, "Talonneur": 4.9, "2ème ligne": 3.9, "3ème ligne": 2.9, "9": 2.7, "10": 6.4,
-         "12-13": 2.9, "11-14": 4.0, "15": 5.5}
+X_REF = {"Pilier": 2.3, "Talonneur": 4.9, "2ème ligne": 3.9, "3ème ligne": 2.9, "9": 2.7, "10": 6.4,
+         "12-13": 2.9, "11-14": 4.3, "15": 5.4}
 
 
 def facteur_x(poste, rows, minutes, bareme=None):
@@ -690,6 +692,11 @@ def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
     malus = [{"label": l, "points": round(-p, 1), "n": n} for l, p, n in malus if p > 0]
     bonus_pts = min(essais * BONUS["essai"], BONUS["essai_max"])
     bonus = [{"label": "Essais", "points": round(bonus_pts, 1), "n": essais}] if bonus_pts > 0 else []
+    rec = _x_recup(rows)[0] if rows.get("defense") else 0
+    pts_rec = min(rec * BONUS_RECUP["point"], BONUS_RECUP["max"])
+    if pts_rec > 0:
+        bonus.append({"label": "Ballons récupérés", "points": round(pts_rec, 1), "n": rec})
+        bonus_pts += pts_rec
     if poste in BONUS_AERIEN["profils"]:
         ruck = rows.get("ruck")
         g_, n_ = _v(ruck, "duels_aer_plus"), _v(ruck, "duels_aer_neutre")
