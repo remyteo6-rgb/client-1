@@ -3314,3 +3314,10 @@ select.subnav-match-select option { color:#222; background:#fff; }
 @media (max-width: 820px) { .pj-grid { grid-template-columns:1fr; } .pj-name { font-size:26px; } }
 .pj-table .nt-badge, .pj-x .nt-badge, .pj-match .nt-badge { color:#fff; padding:2px 9px; border-radius:7px; font-weight:800; }
 .pj-table .nt-badge.nt-na, .pj-match .nt-badge.nt-na { color:#555; }
+.pj-axe { display:flex; align-items:center; gap:10px; padding:6px 0; border-top:1px solid rgba(122,19,64,.10); }
+.pj-axe-lab { flex:1; font-size:13px; font-weight:700; }
+.pj-axe-val { font-size:12px; color:var(--text-secondary,#6b5a55); }
+.pj-axe .nt-badge { color:#fff; }
+.pj-tend.pj-up .pj-num { color:#9be3a8; } .pj-tend.pj-down .pj-num { color:#ffb3a8; }
+.pj-tf { flex:1 1 100%; font-size:12px; line-height:1.35; }
+.pj-tf-pos { color:#2c6a3a; } .pj-tf-neg { color:#a32d20; }

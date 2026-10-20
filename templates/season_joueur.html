@@ -22,6 +22,7 @@
         <div class="pj-kpi"><span class="pj-kpi-lab">Note</span>{{ badge(j.note, true) }}<span class="pj-kpi-sub">sur 10</span></div>
         <div class="pj-kpi"><span class="pj-kpi-lab">Facteur X</span>{{ badge(j.x_note, true) }}<span class="pj-kpi-sub">{% if j.x_note is none %}60 min minimum{% else %}hors attentes du poste{% endif %}</span></div>
         <div class="pj-kpi"><span class="pj-kpi-lab">Minutes</span><span class="pj-num">{{ j.minutes }}</span><span class="pj-kpi-sub">{{ (j.minutes / nb_matchs)|round|int if nb_matchs else 0 }} min par match</span></div>
+        <div class="pj-kpi pj-tend{{ ' pj-up' if tendance and tendance.etat == 'en progression' }}{{ ' pj-down' if tendance and tendance.etat == 'en baisse' }}"><span class="pj-kpi-lab">Forme</span>{% if tendance %}<span class="pj-num">{{ tendance.fleche }}</span><span class="pj-kpi-sub">{{ tendance.etat }}</span>{% else %}<span class="pj-num">—</span><span class="pj-kpi-sub">3 matchs notés minimum</span>{% endif %}</div>
         <div class="pj-kpi"><span class="pj-kpi-lab">Matchs</span><span class="pj-num">{{ nb_matchs }}</span><span class="pj-kpi-sub">joués sur {{ season_selected_count }}</span></div>
     </div>
 </section>
@@ -49,6 +50,17 @@
     </div>
 
     <div class="pj-side">
+        <div class="bil-panel">
+            <div class="bil-panel-head">À travailler</div>
+            <div class="pj-text">
+                {% if tendance %}<p><strong>Forme : {{ tendance.etat }}</strong> — {{ tendance.recent }} de moyenne sur ses 2 derniers matchs notés, contre {{ tendance.avant }} avant ({{ '%+.1f'|format(tendance.ecart) }}).</p>{% else %}<p class="nt-sub">Pas assez de matchs notés pour dégager une tendance.</p>{% endif %}
+                {% for a in axes %}
+                <div class="pj-axe"><span class="pj-axe-lab">{{ a.label }}</span><span class="pj-axe-val">{% if a.valeur is none %}non évalué{% else %}{{ a.valeur }}{{ ' %' if a.type == 'pct' }}{% endif %} · cible {{ a.cible }}{{ ' %' if a.type == 'pct' }}</span>{{ badge(a.score) }}</div>
+                {% else %}
+                <p class="nt-sub">Aucun critère du poste sous 6/10 : rien de prioritaire.</p>
+                {% endfor %}
+            </div>
+        </div>
         <div class="bil-panel">
             <div class="bil-panel-head">Ce qu'on retient</div>
             <div class="pj-text">
@@ -94,7 +106,7 @@
 {% endif %}
 
 <div class="bil-panel" style="margin-top:18px;">
-    <div class="bil-panel-head">Match par match</div>
+    <div class="bil-panel-head">Match par match · temps forts</div>
     <div class="pj-matchs">
         {% for x in joues %}
         {% set n = x.res.note if x.res else none %}
@@ -104,6 +116,8 @@
             {{ badge(n) }}
             {% if x.res and x.res.x %}<span class="pj-m-x">X {{ x.res.x.note }}</span>{% endif %}
             {% if not x.res %}<span class="pj-m-x">{{ x.raison or 'pas de note' }}</span>{% endif %}
+            {% if x.tf.pos %}<span class="pj-tf pj-tf-pos">▲ {{ x.tf.pos|join(' · ') }}</span>{% endif %}
+            {% if x.tf.neg %}<span class="pj-tf pj-tf-neg">▼ {{ x.tf.neg|join(' · ') }}</span>{% endif %}
         </div>
         {% endfor %}
     </div>

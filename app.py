@@ -4529,6 +4529,65 @@ def _radar_joueur(j, tous_joueurs, bar):
             "minutes": min_j, "matchs": nb_j, "pool": len(pool)}
 
 
+def _s(n, un, plusieurs=None):
+    """« 1 essai », « 2 essais » : accord simple."""
+    return f"{n} {un if n < 2 else (plusieurs or un + 's')}"
+
+
+def _temps_forts(x):
+    """Actions marquantes d'un joueur sur un match (positives et négatives), d'après les lignes du match."""
+    r = x["rows"]
+    att, dfn, ruk = r.get("attack"), r.get("defense"), r.get("ruck")
+    pos, neg = [], []
+    for n, un, pl in ((_v(ruk, "essai"), "essai", None), (_v(att, "break"), "franchissement", None),
+                      (_v(att, "def_battu"), "défenseur battu", None), (_v(att, "offload_plus"), "offload réussi", None),
+                      (_v(dfn, "interception"), "interception", None),
+                      (max(0, _v(dfn, "ballons_recuperes") - _v(dfn, "interception")), "ballon récupéré", None),
+                      (_v(dfn, "plaquage_dominant"), "plaquage dominant", None)):
+        if n:
+            pos.append(_s(n, un, pl))
+    for n, un in ((_v(att, "pdb"), "ballon perdu"), (_v(att, "penalite_off", "penalite_def", "penalite_autre"), "pénalité"),
+                  (_v(att, "passe_minus"), "passe ratée"), (_v(dfn, "plaquage_rate"), "plaquage raté")):
+        if n:
+            neg.append(_s(n, un))
+    if x.get("yellow"):
+        neg.append(_s(x["yellow"], "carton jaune", "cartons jaunes"))
+    if x.get("red"):
+        neg.append(_s(x["red"], "carton rouge", "cartons rouges"))
+    return {"pos": pos, "neg": neg}
+
+
+def _tendance(evo):
+    """Tendance de forme d'après les notes de match, dans l'ordre des dates."""
+    notes = [e["note"] for e in evo if e.get("note") is not None]
+    if len(notes) < 3:
+        return None
+    recent = notes[-2:]
+    avant = notes[:-2]
+    m_r, m_a = sum(recent) / len(recent), sum(avant) / len(avant)
+    ecart = m_r - m_a
+    if ecart >= 0.8:
+        etat, fleche = "en progression", "▲"
+    elif ecart <= -0.8:
+        etat, fleche = "en baisse", "▼"
+    else:
+        etat, fleche = "stable", "▶"
+    return {"etat": etat, "fleche": fleche, "recent": round(m_r, 1), "avant": round(m_a, 1), "ecart": round(ecart, 1),
+            "nb": len(notes)}
+
+
+def _axes_travail(j, radar):
+    """Les 2 critères du barème qui coûtent le plus de points : poids × (10 − note), note sous 6."""
+    cands = []
+    for c in (radar or {}).get("criteres") or []:
+        if c["score"] is None or c["score"] >= 6:
+            continue
+        cands.append({"label": c["label"], "valeur": c["valeur"], "cible": c["cible"], "type": c["type"], "score": round(c["score"], 1),
+                      "cout": c["poids"] * (10 - c["score"])})
+    cands.sort(key=lambda c: -c["cout"])
+    return cands[:2]
+
+
 @app.route("/season/joueur/<path:key>")
 def season_joueur(key):
     """Page complète d'un joueur : note, Facteur X, minutes, matchs, radar sur son poste, critères et suivi."""
@@ -4539,7 +4598,11 @@ def season_joueur(key):
         abort(404)
     radar = _radar_joueur(j, joueurs, _bareme_courant())
     joues = [x for x in j["matchs"] if x["minutes"] > 0]
+    joues.sort(key=lambda x: (x.get("date") or "9999", x.get("id") or 0))
+    for x in joues:
+        x["tf"] = _temps_forts(x)
     return render_template("season_joueur.html", j=j, radar=radar, joues=joues, nb_matchs=len(joues),
+                           tendance=_tendance(j["evo"]), axes=_axes_travail(j, radar),
                            libelles=PROFIL_LIBELLE, display_name=_joueur_nom_affiche,
                            min_minutes=bareme.MIN_MINUTES, **ctx)
 
