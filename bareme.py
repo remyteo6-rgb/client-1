@@ -86,7 +86,7 @@ def _p_ratio(num_keys, den_keys, table, min_n):
 
 
 _p_contact = _p_ratio(("contact_plus",), ("contact_total",), "attack", 4)
-_p_offload = _p_ratio(("offload_plus", "offload_neutre"), ("offload_total",), "attack", 3)
+_p_offload = _p_ratio(("offload_plus", "offload_neutre"), ("offload_total",), "attack", 1)
 _p_passes = _p_ratio(("passe_plus", "passe_neutre"), ("passes",), "attack", 8)
 
 
