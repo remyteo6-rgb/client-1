@@ -26,6 +26,7 @@
         <span class="report-title">TOUCHES</span>
     </div>
 
+    <div class="{{ 'tch-wrap' if nouvelle_page else 'tch-wrap tch-classic' }}">
     <div class="tch-board">
         <div class="tch-left">
             <div class="tch-heads"><span>Numéro</span><span>Lancement</span><span>Lancé</span><span>Annonce</span><span>QB</span><span>Résultat</span></div>
@@ -53,6 +54,31 @@
             </table>
         </div>
 
+        {% if nouvelle_page %}
+        <div class="tch-right">
+            <div class="sf-panel">
+                <div class="sf-panel-head">RÉUSSITE DES LANCEURS</div>
+                {% if lanceurs %}
+                <table class="stat-table zebra-table tch-perf">
+                    <thead><tr><th>Joueur</th><th>Lancés</th><th>Réussis</th><th>%</th></tr></thead>
+                    <tbody>{% for r in lanceurs %}<tr><td>{{ r.name }}</td><td>{{ r.tot }}</td><td><span class="stat-pos">{{ r.ok }}</span> / <span class="stat-neg">{{ r.ko }}</span></td><td><strong>{{ r.pct }} %</strong></td></tr>{% endfor %}</tbody>
+                </table>
+                {% else %}<p class="sfs-note" style="padding:12px 16px;">Aucun lancer qualifié sur ce match.</p>{% endif %}
+            </div>
+            <div class="sf-panel" style="margin-top:12px;">
+                <div class="sf-panel-head">RÉUSSITE DES SAUTEURS</div>
+                {% if sauteurs %}
+                <table class="stat-table zebra-table tch-perf">
+                    <thead><tr><th>Joueur</th><th>Ballons</th><th>Pris</th><th>%</th></tr></thead>
+                    <tbody>{% for r in sauteurs %}<tr><td>{{ r.name }}</td><td>{{ r.tot }}</td><td><span class="stat-pos">{{ r.ok }}</span> / <span class="stat-neg">{{ r.ko }}</span></td><td><strong>{{ r.pct }} %</strong></td></tr>{% endfor %}</tbody>
+                </table>
+                {% else %}<p class="sfs-note" style="padding:12px 16px;">Aucune prise de balle qualifiée sur ce match.</p>{% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="tch-below">
         <div class="tch-chart-card">
             {% if assets.adverse_crest %}<img class="tch-crest" src="{{ assets.adverse_crest }}" alt="{{ match['opponent'] }}">
             {% else %}<span class="tch-crest tch-crest-txt">{{ (match['opponent'] or '?')[0]|upper }}</span>{% endif %}
@@ -60,7 +86,7 @@
             {% set n = data.rows|length %}
             {% set cums = data.rows|map(attribute='cumul')|list %}
             {% set lo = [cums|min, 0]|min %}{% set hi = [cums|max, 1]|max %}
-            {% set W = 1000 %}{% set X0 = 50 %}{% set X1 = 950 %}{% set YT = 30 %}{% set YB = 330 %}
+            {% set W = 1800 if nouvelle_page else 1000 %}{% set X0 = 60 if nouvelle_page else 50 %}{% set X1 = 1740 if nouvelle_page else 950 %}{% set YT = 30 %}{% set YB = 330 %}
             {% macro px(i) %}{{ X0 + (i * (X1 - X0) / (n - 1) if n > 1 else (X1 - X0) / 2) }}{% endmacro %}
             {% macro py(v) %}{{ YB - (v - lo) / ((hi - lo) or 1) * (YB - YT) }}{% endmacro %}
             <svg class="tch-svg" viewBox="0 0 {{ W }} 470" preserveAspectRatio="xMidYMid meet" role="img"
@@ -81,6 +107,7 @@
                 {% endfor %}
             </svg>
         </div>
+    </div>
     </div>
 </div>
 

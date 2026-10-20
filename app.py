@@ -2951,7 +2951,23 @@ def match_touches(match_id):
               "réimporte le fichier XML pour voir cette page.", "error")
         return redirect(url_for("match_detail", match_id=match_id))
     data = compute_touches_page(match["instances"], (match.get("manual_stats") or {}).get("touches"))
-    return render_template("match_touches.html", match=match, data=data, assets=_review_assets(match))
+    ruck_rows = (compute_player_ruck_table(match["instances"]) or {}).get("rows") or []
+
+    def _classement(ok, ko):
+        lst = []
+        for r in ruck_rows:
+            n_ok, n_ko = _v(r, ok), _v(r, ko)
+            if n_ok + n_ko:
+                lst.append({"name": _joueur_nom_affiche(r["name"]), "ok": n_ok, "ko": n_ko, "tot": n_ok + n_ko,
+                            "pct": round(100 * n_ok / (n_ok + n_ko))})
+        return sorted(lst, key=lambda x: (-x["tot"], -x["pct"], x["name"]))
+    lanceurs = _classement("lancer_gagne", "lancer_perdu")
+    sauteurs = _classement("sauteur_plus", "sauteur_moins")
+    # Pour l'instant, seul le match de Pau a cette mise en page (tableaux lanceurs / sauteurs + courbe en bas).
+    adv = (match.get("opponent") or "").casefold()
+    nouvelle_page = "paloise" in adv or adv.strip() in ("pau", "section paloise")
+    return render_template("match_touches.html", match=match, data=data, assets=_review_assets(match),
+                           lanceurs=lanceurs, sauteurs=sauteurs, nouvelle_page=nouvelle_page)
 
 
 @app.route("/match/<int:match_id>/touches/saisie", methods=["POST"])
