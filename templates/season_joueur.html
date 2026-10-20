@@ -64,23 +64,18 @@
         <div class="bil-panel">
             <div class="bil-panel-head">Ce qu'on retient</div>
             <div class="pj-text">
-                {% if j.forts %}<p>{% for c in j.forts %}<span class="nt-fort">▲ {{ c.label }} ({{ c.score }})</span> {% endfor %}</p>{% endif %}
-                {% if j.faibles %}<p>{% for c in j.faibles %}<span class="nt-faible">▼ {{ c.label }} ({{ c.score }})</span> {% endfor %}</p>{% endif %}
-                {% if not j.forts and not j.faibles %}<p class="nt-sub">Pas de point saillant.</p>{% endif %}
-                {% if j.ajustements %}<p class="nt-sub"><strong>Bonus et fautes :</strong> {% for e in j.ajustements %}{{ e.label }} {{ '%+.1f'|format(e.points) }} ({{ e.n }}){{ ' · ' if not loop.last }}{% endfor %}</p>{% endif %}
-                {% if j.ecartes %}<p class="nt-sub">Note de saison hors meilleure et moins bonne performance ({% for e in j.ecartes %}{{ e.opponent or 'courtes entrées' }} {{ e.note }}{{ ' · ' if not loop.last }}{% endfor %}).</p>{% endif %}
-            </div>
-        </div>
-        {% if j.x_atouts %}
-        <div class="bil-panel">
-            <div class="bil-panel-head">Facteur X</div>
-            <div class="pj-text">
-                {% for c in j.x_atouts %}
+                {% set xpos = (j.x_atouts or [])|selectattr('score', 'ge', 6)|list %}
+                {% if j.forts %}<p><span class="pj-ret-t">Points forts au poste</span><br>{% for c in j.forts %}<span class="nt-fort">▲ {{ c.label }} ({{ c.score }})</span> {% endfor %}</p>{% endif %}
+                {% if j.faibles %}<p><span class="pj-ret-t">Points faibles au poste</span><br>{% for c in j.faibles %}<span class="nt-faible">▼ {{ c.label }} ({{ c.score }})</span> {% endfor %}</p>{% endif %}
+                {% if xpos %}
+                <p><span class="pj-ret-t">Facteur X — ce qu'il apporte en plus</span></p>
+                {% for c in xpos %}
                 <div class="pj-x"><span class="pj-x-lab">{{ c.label }}</span><span class="pj-x-val">{{ c.valeur|round(0)|int if c.type == 'pct' else c.valeur }}{{ ' %' if c.type == 'pct' else ' /80 min' }}</span>{{ badge(c.score) }}</div>
                 {% endfor %}
+                {% endif %}
+                {% if not j.forts and not j.faibles and not xpos %}<p class="nt-sub">Pas de point saillant.</p>{% endif %}
             </div>
         </div>
-        {% endif %}
     </div>
 </div>
 
