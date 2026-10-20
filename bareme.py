@@ -308,6 +308,9 @@ PROFILS = {
 }
 POSTES = list(PROFILS)
 for _fam_cibles in _CIBLES.values():
+    if "break" in _fam_cibles:
+        _fam_cibles["break"] = (1, 0)  # 1 franchissement = 8/10, puis +1 point par franchissement
+for _fam_cibles in _CIBLES.values():
     _fam_cibles.setdefault("plaquage_vp", (95, 70))
 _CIBLES["Charnière"].update({"jap_pct": (75, 25), "pdb": (2, 0), "plaquage_pct": (95, 60)})  # pdb : 0/10 à 2 ballons perdus par 80 min
 for _fam_cibles in _CIBLES.values():
@@ -381,7 +384,10 @@ def evaluer_critere(crit, cible, plancher, rows, minutes):
         # On ajoute SHRINK_MIN minutes virtuelles jouées à demi-cible.
         prior = 0.5 * cible * SHRINK_MIN / 80.0
         val80 = (val + prior) / (minutes + SHRINK_MIN) * 80.0
-        if crit in INVERSES:
+        if crit == "break" and cible:
+            # Franchissements (20 oct. 2026) : atteindre la cible = 8/10, chaque franchissement de plus = +1 point.
+            out["score"] = _clamp(8 * val80 / cible if val80 <= cible else 8 + (val80 - cible))
+        elif crit in INVERSES:
             out["score"] = _clamp(10 * (1 - val80 / cible)) if cible else 0.0
         else:
             out["score"] = _clamp(10 * val80 / cible) if cible else 0.0
@@ -464,14 +470,14 @@ X_CIBLES_PROFIL = {"jap_pct": (75, 25), "passes_pct": (98, 70), "pdb": (3, 0), "
 # Cibles propres à un poste (prioritaires sur X_CIBLES_PROFIL) : un pilier n'a pas les mêmes volumes qu'un ailier.
 X_CIBLES_POSTE = {"9": {"essai": (0.3, 0), "def_battu": (2, 0), "break": (1, 0)},
                   "10": {"essai": (0.3, 0), "def_battu": (2, 0), "break": (1, 0), "passes_pct": (99, 85)},
-                  "12-13": {"essai": (0.4, 0), "def_battu": (5, 0), "break": (3, 0)},
+                  "12-13": {"essai": (0.4, 0), "def_battu": (5, 0), "break": (1, 0)},
                   "3ème ligne": {"essai": (0.3, 0), "def_battu": (3, 0)},
                   "2ème ligne": {"contact_dom": (65, 30), "offload_pct": (100, 50),
                                  "passes_pct": (98, 70), "melee_off_pct": (90, 40), "melee_def_pct": (80, 30), "rce_pct": (75, 25),
-                                 "def_battu": (2, 0), "break": (0.5, 0), "essai": (0.15, 0)},
+                                 "def_battu": (2, 0), "break": (1, 0), "essai": (0.15, 0)},
                   "Talonneur": {"contact_dom": (65, 30), "offload_pct": (100, 50), "passes_pct": (98, 70), "ruck_util": (70, 20),
-                                "def_battu": (2, 0), "break": (0.5, 0), "essai": (0.15, 0)},
-                  "Pilier": {"def_battu": (2, 0), "break": (0.5, 0), "essai": (0.15, 0), "recup": (4, 0),
+                                "def_battu": (2, 0), "break": (1, 0), "essai": (0.15, 0)},
+                  "Pilier": {"def_battu": (2, 0), "break": (1, 0), "essai": (0.15, 0), "recup": (4, 0),
                              "offload_pct": (100, 50), "passes_pct": (98, 70)}}
 
 
@@ -558,8 +564,8 @@ def _facteur_x_brut(poste, rows, minutes, bareme=None):
 # Référence du Facteur X par poste : note brute d'un joueur « moyen » à ce poste. Elle est calée sur 5, pour
 # qu'on puisse être très haut comme très bas à chaque poste, quelle que soit la difficulté de ses critères
 # (un 3ème ligne n'est pas bas « parce que 3ème ligne », ni un pilier haut « parce que pilier »).
-X_REF = {"Pilier": 3.2, "Talonneur": 4.9, "2ème ligne": 4.0, "3ème ligne": 3.0, "9": 3.8, "10": 6.6,
-         "12-13": 4.1, "11-14": 3.6, "15": 5.0}
+X_REF = {"Pilier": 3.1, "Talonneur": 4.9, "2ème ligne": 3.9, "3ème ligne": 2.9, "9": 2.7, "10": 6.4,
+         "12-13": 4.2, "11-14": 4.0, "15": 5.5}
 
 
 def facteur_x(poste, rows, minutes, bareme=None):
