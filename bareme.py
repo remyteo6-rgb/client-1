@@ -327,6 +327,17 @@ BAREME_DEFAUT, ATTENTE_DU_CRITERE = _construire()
 # codées). Coefficient appliqué à la note de base pour rendre les moyennes comparables.
 CALAGE = {"3ème ligne": 1.15, "Ailier/Arrière": 1.2, "Centre": 1.05}
 
+# Échelle de lecture des notes : (note brute, note affichée). 5 = match moyen, 7 = bon match,
+# 3 = match pas bon, sous 3 = vraiment mauvais. Interpolation linéaire entre les points.
+ECHELLE = [(0.0, 0.0), (2.2, 2.0), (3.6, 3.0), (5.0, 5.0), (6.4, 7.0), (8.0, 9.0), (10.0, 10.0)]
+
+
+def etalonner(x):
+    for (a, b), (c, d) in zip(ECHELLE, ECHELLE[1:]):
+        if x <= c:
+            return b + (x - a) / (c - a) * (d - b)
+    return ECHELLE[-1][1]
+
 
 def bareme_effectif(overrides=None):
     """Barème de départ + réglages enregistrés. overrides = {(poste, critère): (poids, cible, plancher)}."""
@@ -562,7 +573,7 @@ def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
     # Peu de minutes = peu de preuves : sous CONFIANCE_MIN minutes, la note est tirée vers la
     # note neutre (5) au prorata des minutes jouées.
     confiance = min(1.0, minutes / CONFIANCE_MIN)
-    base = base * confiance + NOTE_NEUTRE * (1 - confiance)
+    base = etalonner(base * confiance + NOTE_NEUTRE * (1 - confiance))
     attack = rows.get("attack")
     pen = _v(attack, "penalite_off", "penalite_def", "penalite_autre")
     pdb = _v(attack, "pdb")
