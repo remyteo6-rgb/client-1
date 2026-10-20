@@ -38,7 +38,7 @@
 
     {% if j.x_atouts %}
     <h2>Facteur X : ce qu'il apporte en plus</h2>
-    <ul>{% for c in j.x_atouts[:3] %}<li>{{ c.label }} : {{ c.valeur|round(0)|int if c.type == 'pct' else c.valeur }}{{ ' %' if c.type == 'pct' else ' /80 min' }} (note {{ c.score }})</li>{% endfor %}</ul>
+    <ul>{% for c in j.x_atouts %}<li>{{ c.label }} : {{ c.valeur|round(0)|int if c.type == 'pct' else c.valeur }}{{ ' %' if c.type == 'pct' else ' /80 min' }} (note {{ c.score }})</li>{% endfor %}</ul>
     {% endif %}
 
     {% if j.criteres %}

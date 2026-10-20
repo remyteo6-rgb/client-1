@@ -4311,7 +4311,7 @@ def _notes_saison_calc(selected, bar=None):
                     e = agr.setdefault(t["critere"], {"label": t["label"], "type": t["type"], "cible": t["cible"], "w": 0.0, "s": 0.0, "v": 0.0})
                     e["w"] += x["minutes"]; e["s"] += t["score"] * x["minutes"]; e["v"] += t["valeur"] * x["minutes"]
             x_atouts = sorted(({"label": e["label"], "type": e["type"], "cible": e["cible"], "score": round(e["s"] / e["w"], 1),
-                                "valeur": round(e["v"] / e["w"], 1)} for e in agr.values()), key=lambda e: -e["score"])[:5]
+                                "valeur": round(e["v"] / e["w"], 1)} for e in agr.values()), key=lambda e: -e["score"])
         forts = [c for c in sorted(criteres, key=lambda d: -d["score"]) if c["score"] >= 6][:2]
         faibles = [c for c in sorted(criteres, key=lambda d: d["score"]) if c["score"] < 5][:2]
         out.append({**j, "note": round(note, 1), "minutes": mins, "poste": poste_princ, "criteres": criteres,

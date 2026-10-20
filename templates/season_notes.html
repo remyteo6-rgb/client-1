@@ -73,7 +73,7 @@
                 {% endif %}
                 {% if j.x_atouts %}
                 <h4>Facteur X : ce qu'il apporte hors de son poste</h4>
-                <p class="nt-sub">{% for c in j.x_atouts[:3] %}{{ c.label }} : {{ c.valeur|round(0)|int if c.type == 'pct' else c.valeur }}{{ ' %' if c.type == 'pct' else ' /80 min' }} (note {{ c.score }}){{ ' · ' if not loop.last }}{% endfor %}</p>
+                <p class="nt-sub">{% for c in j.x_atouts %}{{ c.label }} : {{ c.valeur|round(0)|int if c.type == 'pct' else c.valeur }}{{ ' %' if c.type == 'pct' else ' /80 min' }} (note {{ c.score }}){{ ' · ' if not loop.last }}{% endfor %}</p>
                 {% endif %}
             </div>
         </details>
