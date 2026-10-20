@@ -20,6 +20,8 @@ BONUS = {"essai": 0.7, "essai_max": 2.0}
 # Duels aériens des ailiers/arrière : jouer et gagner rapporte, ne pas en avoir à jouer ne coûte rien
 # (le nombre dépend des coups de pied adverses contestables). +0,3 par duel gagné, +0,15 par duel neutre.
 BONUS_AERIEN = {"gagne": 0.3, "neutre": 0.15, "max": 1.0, "profils": ("11-14", "15")}
+# Les demis (9, 10) sont moins jugés sur le plaquage que les avants et les centres : malus de plaquage réduits.
+PLAQUAGE_FACTEUR = {"9": 0.5, "10": 0.5}
 PLAQUAGE_RATE = (0.15, 1.0)
 PLAQUAGE_PASSIF = (0.1, 0.5)  # plaquage passif subi : malus léger
 PLAQUAGE_HAUT = (0.1, 0.5)    # plaquage haut : malus léger (risque)   # malus par plaquage raté, plafond par match
@@ -271,7 +273,7 @@ PROFILS = {
         ("Transmission", {"passes_pct": 10}),
         ("Jeu au pied (qualité)", {"jap_pct": 12}),
         ("Sécurité du ballon", {"pdb": 8}),
-        ("Plaquer", {"plaquage_pct": 8}),
+        ("Plaquer", {"plaquage_pct": 3}),
         ("Soutenir / rucker", {"ruck_util": 3}),
         ("Habileté technique", {"offload_pct": 2, "break": 4}),
     ],
@@ -281,7 +283,7 @@ PROFILS = {
         ("Réussite au but", {"kicks_pct": 12}),
         ("Transmission", {"passes_pct": 12}),
         ("Jeu au pied (qualité)", {"jap_pct": 12}),
-        ("Plaquer", {"plaquage_pct": 8}),
+        ("Plaquer", {"plaquage_pct": 3}),
         ("Sécurité du ballon", {"pdb": 8}),
     ],
     "12-13": [
@@ -307,7 +309,7 @@ PROFILS = {
 POSTES = list(PROFILS)
 for _fam_cibles in _CIBLES.values():
     _fam_cibles.setdefault("plaquage_vp", (95, 70))
-_CIBLES["Charnière"].update({"jap_pct": (75, 25), "pdb": (2, 0)})  # pdb : 0/10 à 2 ballons perdus par 80 min
+_CIBLES["Charnière"].update({"jap_pct": (75, 25), "pdb": (2, 0), "plaquage_pct": (95, 60)})  # pdb : 0/10 à 2 ballons perdus par 80 min
 for _fam_cibles in _CIBLES.values():
     _fam_cibles.setdefault("passes_pct", (98, 70))
 _CIBLES["Charnière"]["passes_pct"] = (99, 85)  # les 9 et 10 passent beaucoup : la barre est plus haute
@@ -667,10 +669,11 @@ def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
     hauts = _v(rows.get("defense"), "plaquage_haut")
     pr = PASSES_RATEES.get(poste, PASSES_RATEES_DEFAUT)
     essais = _v(rows.get("ruck"), "essai")
+    fp = PLAQUAGE_FACTEUR.get(poste, 1.0)
     malus = [("Pénalités concédées", min(pen * MALUS["penalite"], MALUS["penalite_max"]), pen),
-             ("Plaquages ratés", min(rates_t * PLAQUAGE_RATE[0], PLAQUAGE_RATE[1]), rates_t),
-             ("Plaquages passifs", min(passifs * PLAQUAGE_PASSIF[0], PLAQUAGE_PASSIF[1]), passifs),
-             ("Plaquages hauts", min(hauts * PLAQUAGE_HAUT[0], PLAQUAGE_HAUT[1]), hauts),
+             ("Plaquages ratés", fp * min(rates_t * PLAQUAGE_RATE[0], PLAQUAGE_RATE[1]), rates_t),
+             ("Plaquages passifs", fp * min(passifs * PLAQUAGE_PASSIF[0], PLAQUAGE_PASSIF[1]), passifs),
+             ("Plaquages hauts", fp * min(hauts * PLAQUAGE_HAUT[0], PLAQUAGE_HAUT[1]), hauts),
              ("Cartons jaunes", jaunes * MALUS["jaune"], jaunes),
              ("Cartons rouges", rouges * MALUS["rouge"], rouges),
              ("Passes ratées", min(rates * pr[0], pr[1]), rates),
