@@ -16,7 +16,7 @@ MALUS = {"penalite": 0.3, "penalite_max": 1.5, "jaune": 0.7, "rouge": 2.0, "pdb"
 # Passes ratées : réussir une passe est normal (aucun bonus), la rater coûte, surtout aux 9/10.
 PASSES_RATEES = {"9": (0.4, 2.5), "10": (0.4, 2.5), "12-13": (0.15, 0.75)}
 PASSES_RATEES_DEFAUT = (0.1, 0.5)
-BONUS = {"essai": 0.7, "essai_max": 2.0}
+BONUS = {"essai": 1.0, "essai_max": 3.0}
 # Duels aériens des ailiers/arrière : jouer et gagner rapporte, ne pas en avoir à jouer ne coûte rien
 # (le nombre dépend des coups de pied adverses contestables). +0,3 par duel gagné, +0,15 par duel neutre.
 BONUS_AERIEN = {"gagne": 0.3, "neutre": 0.15, "max": 1.0, "profils": ("11-14", "15")}
