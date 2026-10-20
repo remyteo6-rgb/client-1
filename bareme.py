@@ -420,7 +420,7 @@ X_PROFILS = {
     "15": ["jap_pct", "passes_pct", "pdb", "recup", "essai"],
     # 3ème ligne : dominance dans ce qu'ils font (contacts +/-, plaquages +/-, défenseurs battus)
     # et volume de jeu de touche (sauteur, lifteur).
-    "3ème ligne": ["contact_dom", "plaquage_dom", "offload_pct", "def_battu", "sauteur_pct", "lifteur_pct"],
+    "3ème ligne": ["contact_dom", "plaquage_dom", "offload_pct", "def_battu"],
     # Talonneur : pourcentages seulement ; duels off (dominance au contact) et habileté technique
     # (offloads, passes) y sont passés en octobre 2026.
     "Talonneur": ["contact_dom", "offload_pct", "passes_pct", "ruck_util"],
@@ -445,7 +445,7 @@ X_CIBLES_PROFIL = {"jap_pct": (75, 25), "passes_pct": (98, 70), "pdb": (3, 0), "
 X_CIBLES_POSTE = {"9": {"essai": (0.3, 0), "def_battu": (2, 0), "break": (1, 0)},
                   "10": {"essai": (0.3, 0), "def_battu": (2, 0), "break": (1, 0)},
                   "12-13": {"essai": (0.4, 0), "def_battu": (5, 0), "break": (3, 0)},
-                  "3ème ligne": {"essai": (0.3, 0), "sauteur_pct": (95, 50), "lifteur_pct": (95, 50)},
+                  "3ème ligne": {"essai": (0.3, 0)},
                   "2ème ligne": {"contact_dom": (65, 30), "offload_pct": (100, 50),
                                  "passes_pct": (98, 70), "melee_off_pct": (90, 40), "melee_def_pct": (80, 30), "rce_pct": (75, 25),
                                  "def_battu": (2, 0), "break": (0.5, 0), "essai": (0.15, 0)},
