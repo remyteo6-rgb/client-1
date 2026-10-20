@@ -12,31 +12,40 @@
 </div>
 {% include "_season_select.html" %}
 
-{% if not rows %}
-<div class="card empty-state"><p>Aucune touche UBB taguée dans les matchs sélectionnés.</p></div>
-{% else %}
-<div class="card">
-    <div class="def-topbar" style="display:flex; gap:24px; flex-wrap:wrap;">
-        <div class="def-kpi"><strong>{{ summary.total }}</strong><span>Touches / match</span></div>
-        <div class="def-kpi"><strong>{{ summary.gagnees }}</strong><span>Gagnées / match</span></div>
-        <div class="def-kpi"><strong>{{ summary.pct }} %</strong><span>Conquête</span></div>
-        <div class="def-kpi"><strong>{{ summary.qb_pct }} %</strong><span>QB (TQB +)</span></div>
+<div class="report-board sfs-board">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">TOUCHES</span>
+        <span class="report-subtitle">NOS LANCERS · SAISON</span>
     </div>
-    <p class="subtitle">Moyenne sur {{ summary.n }} match{{ 's' if summary.n != 1 else '' }} avec touches taguées.</p>
+    {% if not rows %}
+    <div class="sf-panel sfs-panel"><div class="sf-panel-head">CONQUÊTE</div>
+        <p class="sfs-note" style="padding:16px;">Aucune touche UBB taguée dans les matchs sélectionnés.</p></div>
+    {% else %}
+    <div class="sf-panel sfs-panel">
+        <div class="sf-panel-head">CONQUÊTE · MOYENNE PAR MATCH</div>
+        <div class="sfs-kpis" style="justify-content:space-around;">
+            <div><strong>{{ summary.total }}</strong><span>Touches / match</span></div>
+            <div><strong>{{ summary.gagnees }}</strong><span>Gagnées / match</span></div>
+            <div><strong>{{ summary.pct }} %</strong><span>Conquête</span></div>
+            <div><strong>{{ summary.qb_pct }} %</strong><span>QB (TQB +)</span></div>
+        </div>
+        <p class="sfs-note">Moyenne sur {{ summary.n }} match{{ 's' if summary.n != 1 else '' }} avec touches taguées.</p>
+    </div>
+    <div class="sf-panel sfs-panel" style="margin-top:14px;">
+        <div class="sf-panel-head">MATCH PAR MATCH</div>
+        <table class="stat-table zebra-table tch-season-table">
+            <thead><tr><th>Match</th><th>Touches</th><th>Gagnées</th><th>Conquête</th><th>QB</th></tr></thead>
+            <tbody>
+            {% for r in rows %}
+            <tr><td>{{ r.date or '—' }} — {{ r.opponent }}</td><td>{{ r.total }}</td><td>{{ r.gagnees }}</td>
+                <td>{{ fmt(r.pct, 1, ' %') }}</td><td>{{ fmt(r.qb_pct, 1, ' %') }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
 </div>
-<div class="card" style="margin-top:14px;">
-    <h2>Match par match</h2>
-    <table class="stat-table zebra-table">
-        <thead><tr><th>Match</th><th>Touches</th><th>Gagnées</th><th>Conquête</th><th>QB</th></tr></thead>
-        <tbody>
-        {% for r in rows %}
-        <tr><td>{{ r.date or '—' }} — {{ r.opponent }}</td><td>{{ r.total }}</td><td>{{ r.gagnees }}</td>
-            <td>{{ fmt(r.pct, 1, ' %') }}</td><td>{{ fmt(r.qb_pct, 1, ' %') }}</td></tr>
-        {% endfor %}
-        </tbody>
-    </table>
-</div>
-{% endif %}
 <script>
 function preparePrint() { setTimeout(() => window.print(), 100); }
 </script>
