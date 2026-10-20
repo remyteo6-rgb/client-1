@@ -442,7 +442,7 @@ X_PROFILS = {
     "Pilier": [("def_battu", 3), ("break", 3), ("essai", 3), ("recup", 3), ("offload_pct", 3),
                ("passes_pct", 1)],
     "9": ["essai", "def_battu", "break"],  # 20 oct. 2026 : uniquement le socle
-    "12-13": ["essai", "def_battu", "break", "contact_dom", "plaquage_dom"],  # socle + dominance off et déf
+    "12-13": ["essai", "def_battu", "break", "contact_dom", "plaquage_dom", "jap_pct"],  # socle + dominance off et déf
     "10": ["essai", "def_battu", "break", "passes_pct"],  # 20 oct. 2026 : socle + passes
     "11-14": ["jap_pct", "passes_pct", "pdb", "recup", "essai"],
     "15": ["jap_pct", "passes_pct", "pdb", "recup", "essai"],
@@ -473,7 +473,7 @@ X_CIBLES_PROFIL = {"jap_pct": (75, 25), "passes_pct": (98, 70), "pdb": (3, 0), "
 X_CIBLES_POSTE = {"9": {"essai": (0.3, 0), "def_battu": (2, 0), "break": (1, 0)},
                   "10": {"essai": (0.3, 0), "def_battu": (2, 0), "break": (1, 0), "passes_pct": (99, 85)},
                   "12-13": {"essai": (0.4, 0), "def_battu": (5, 0), "break": (1, 0), "contact_dom": (65, 30),
-                            "plaquage_dom": (30, 10)},
+                            "plaquage_dom": (30, 10), "jap_pct": (75, 25)},
                   "3ème ligne": {"essai": (0.3, 0), "def_battu": (3, 0)},
                   "2ème ligne": {"contact_dom": (65, 30), "offload_pct": (100, 50),
                                  "passes_pct": (98, 70), "melee_off_pct": (90, 40), "melee_def_pct": (80, 30), "rce_pct": (75, 25),
