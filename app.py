@@ -4266,7 +4266,15 @@ def _notes_saison_calc(selected, bar=None):
                         "x_note": None, "x_atouts": []})
             continue
         mins = sum(x["minutes"] for x in notes)
-        note = sum(x["res"]["note"] * x["minutes"] for x in notes) / mins
+        # Note de saison « objective » : à partir de NB_MATCHS_ECART matchs notés, on écarte la meilleure et la
+        # moins bonne performance. Elles restent visibles dans le suivi (match par match, évolution).
+        ecartes = []
+        if len(notes) >= bareme.NB_MATCHS_ECART:
+            tri = sorted(range(len(notes)), key=lambda i: (notes[i]["res"]["note"], i))
+            ecartes = [notes[tri[0]], notes[tri[-1]]]
+            notes = [x for i, x in enumerate(notes) if i not in (tri[0], tri[-1])]
+        mins_note = sum(x["minutes"] for x in notes)
+        note = sum(x["res"]["note"] * x["minutes"] for x in notes) / mins_note
         par_poste = {}
         for x in notes:
             par_poste[x["poste"]] = par_poste.get(x["poste"], 0) + x["minutes"]
@@ -4318,7 +4326,8 @@ def _notes_saison_calc(selected, bar=None):
         faibles = [c for c in sorted(criteres, key=lambda d: d["score"]) if c["score"] < 5][:2]
         out.append({**j, "note": round(note, 1), "minutes": mins, "poste": poste_princ, "criteres": criteres,
                     "malus": malus, "postes": par_poste, "forts": forts, "faibles": faibles,
-                    "ajustements": ajustements, "manquants": manquants, "x_note": x_note, "x_atouts": x_atouts})
+                    "ajustements": ajustements, "manquants": manquants, "x_note": x_note, "x_atouts": x_atouts,
+                    "ecartes": [{"opponent": x.get("opponent"), "note": round(x["res"]["note"], 1)} for x in ecartes]})
     ordre = {p: i for i, p in enumerate(bareme.POSTES)}
     out.sort(key=lambda j: (ordre.get(j["poste"], 99), -(j["note"] if j["note"] is not None else -1), j["name"].casefold()))
     return out

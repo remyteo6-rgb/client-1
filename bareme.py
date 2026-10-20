@@ -423,6 +423,7 @@ def _cible_hors_poste(crit):
 
 
 TACKLE_VOL_CIBLE = 10  # plaquages tentés par 80 min pour que la réussite compte à 100 %
+NB_MATCHS_ECART = 4  # à partir de 4 matchs notés, la saison écarte la meilleure et la moins bonne performance
 COUVERTURE_MIN = 0.6  # part minimale du poids du barème qui doit être évaluable
 X_MIN_MATCH = 20    # minutes minimales pour un Facteur X sur un match
 X_MIN_SAISON = 60   # minutes minimales pour un Facteur X sur la saison
