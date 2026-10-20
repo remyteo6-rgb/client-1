@@ -4288,12 +4288,21 @@ def _notes_saison_calc(selected, bar=None):
         # Note de saison « objective » : à partir de NB_MATCHS_ECART matchs notés, on écarte la meilleure et la
         # moins bonne performance. Elles restent visibles dans le suivi (match par match, évolution).
         ecartes = []
+        notes_tous = notes
         if len(notes) >= bareme.NB_MATCHS_ECART:
             tri = sorted(range(len(notes)), key=lambda i: (notes[i]["res"]["note"], i))
             ecartes = [notes[tri[0]], notes[tri[-1]]]
             notes = [x for i, x in enumerate(notes) if i not in (tri[0], tri[-1])]
         mins_note = sum(x["minutes"] for x in notes)
-        note = sum(x["res"]["note"] * x["minutes"] for x in notes) / mins_note
+
+        def _pts_essais(x):
+            return sum(b["points"] for b in (x["res"].get("bonus") or []) if b["label"] == "Essais")
+        # Les essais comptent TOUJOURS (jamais écartés) : la note retenue est calculée sans le bonus d'essais,
+        # puis on ajoute le bonus d'essais moyen de TOUS les matchs.
+        mins_tous = sum(x["minutes"] for x in notes_tous)
+        note = (sum((x["res"]["note"] - _pts_essais(x)) * x["minutes"] for x in notes) / mins_note
+                + sum(_pts_essais(x) * x["minutes"] for x in notes_tous) / mins_tous)
+        note = max(0.0, min(10.0, note))
         par_poste = {}
         for x in notes:
             par_poste[x["poste"]] = par_poste.get(x["poste"], 0) + x["minutes"]
@@ -4324,6 +4333,10 @@ def _notes_saison_calc(selected, bar=None):
                     e = ajust.setdefault((kind, it["label"]), {"kind": kind, "label": it["label"], "points": 0.0, "n": 0})
                     e["points"] += it["points"]
                     e["n"] += it.get("n") or 0
+        ess = [x for x in notes_tous if _pts_essais(x)]
+        if ess:
+            ajust[("bonus", "Essais")] = {"kind": "bonus", "label": "Essais", "points": sum(_pts_essais(x) for x in ess),
+                                          "n": sum(next((b.get("n") or 0 for b in x["res"]["bonus"] if b["label"] == "Essais"), 0) for x in ess)}
         ajustements = sorted(({**e, "points": round(e["points"], 1)} for e in ajust.values()),
                              key=lambda e: (e["kind"] != "bonus", -abs(e["points"])))
         # Facteur X : note moyenne (pondérée par les minutes) et atouts hors poste.
@@ -4339,6 +4352,19 @@ def _notes_saison_calc(selected, bar=None):
                 for t in x["res"]["x"]["atouts"]:
                     e = agr.setdefault(t["critere"], {"label": t["label"], "type": t["type"], "cible": t["cible"], "w": 0.0, "s": 0.0, "v": 0.0})
                     e["w"] += x["minutes"]; e["s"] += t["score"] * x["minutes"]; e["v"] += t["valeur"] * x["minutes"]
+            # Les essais comptent toujours : leur critère est calculé sur tous les matchs, pas seulement les retenus.
+            xs_tous = [x for x in notes_tous if x["res"].get("x")]
+            ess_t = [(t, x["minutes"]) for x in xs_tous for t in x["res"]["x"]["atouts"] if t["critere"] == "essai"]
+            if ess_t and "essai" in agr:
+                w_t = sum(mn for _t, mn in ess_t)
+                s_all = sum(t["score"] * mn for t, mn in ess_t) / w_t
+                s_ret = agr["essai"]["s"] / agr["essai"]["w"]
+                poids_tot = sum(max(1, next((t.get("poids", 1) for x in xs for t in x["res"]["x"]["atouts"] if t["critere"] == k), 1))
+                                for k in agr) or 1
+                poids_e = next((t.get("poids", 1) for t, _mn in ess_t), 1)
+                x_note = round(max(0.0, min(10.0, x_note + poids_e / poids_tot * (s_all - s_ret))), 1)
+                agr["essai"]["s"] = s_all * agr["essai"]["w"]
+                agr["essai"]["v"] = sum(t["valeur"] * mn for t, mn in ess_t) / w_t * agr["essai"]["w"]
             x_atouts = sorted(({"label": e["label"], "type": e["type"], "cible": e["cible"], "score": round(e["s"] / e["w"], 1),
                                 "valeur": round(e["v"] / e["w"], 1)} for e in agr.values()), key=lambda e: -e["score"])
         forts = [c for c in sorted(criteres, key=lambda d: -d["score"]) if c["score"] >= 6][:2]
