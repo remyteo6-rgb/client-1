@@ -87,7 +87,7 @@
                     <th colspan="2" class="sep-l" style="text-align:center;">Touches défensives</th>
                     <th class="sep-l" style="text-align:center;">Mêlées off.</th>
                     <th style="text-align:center;">Mêlées déf.</th>
-                    <th colspan="10" class="sep-l" style="text-align:center;">Jeu au pied et marque</th>
+                    <th colspan="11" class="sep-l" style="text-align:center;">Jeu au pied et marque</th>
                 </tr>
                 <tr>
                     <th>Lancé + / −</th><th>Sauteur + / −</th><th>TQB + / −</th><th>Lifteur off.</th>
@@ -95,7 +95,7 @@
                     <th class="sep-l">+ / −</th><th>+ / −</th>
                     <th class="sep-l">JAP + / = / −</th><th>Coups d'envoi</th><th>Récep. CE</th><th>RCE +/=/-</th>
                     <th class="sep-l">Duels aér. + / = / −</th>
-                    <th class="sep-l">Essais</th><th>Transfo. (réus./tent.)</th><th>Pénalités (réus./tent.)</th><th>Drops (réus./tent.)</th><th>Points</th>
+                    <th class="sep-l">Essais</th><th>Transfo. (réus./tent.)</th><th>Pénalités (réus./tent.)</th><th>Drops (réus./tent.)</th><th>Réussite au but (total)</th><th>Points</th>
                 </tr>
             </thead>
             <tbody>
@@ -115,6 +115,8 @@
                     <td>{{ ruck.transfo_reussies }} / {{ ruck.transfo_tentees }}</td>
                     <td>{{ ruck.penalite_reussies }} / {{ ruck.penalite_tentees }}</td>
                     <td>{{ ruck.drop_reussis }} / {{ ruck.drop_tentes }}</td>
+                    {% set but_r = ruck.transfo_reussies + ruck.penalite_reussies + ruck.drop_reussis %}{% set but_t = ruck.transfo_tentees + ruck.penalite_tentees + ruck.drop_tentes %}
+                    <td><strong>{{ but_r }} / {{ but_t }}</strong>{% if but_t %} <small>· {{ (100 * but_r / but_t)|round|int }} %</small>{% endif %}</td>
                     <td class="stat-own">{{ ruck.points }}</td>
                 </tr>
             </tbody>
