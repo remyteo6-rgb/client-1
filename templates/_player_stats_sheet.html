@@ -100,9 +100,9 @@
             </thead>
             <tbody>
                 <tr>
-                    <td><span class="stat-pos">{{ ruck.lancer_gagne }}</span> / <span class="stat-neg">{{ ruck.lancer_perdu }}</span></td>
-                    <td><span class="stat-pos">{{ ruck.sauteur_plus }}</span> / <span class="stat-neg">{{ ruck.sauteur_moins }}</span></td>
-                    <td><span class="stat-pos">{{ ruck.tqb_plus }}</span> / <span class="stat-neg">{{ ruck.tqb_moins }}</span></td>
+                    <td><span class="stat-pos">{{ ruck.lancer_gagne }}</span> / <span class="stat-neg">{{ ruck.lancer_perdu }}</span>{% if ruck.lancer_gagne + ruck.lancer_perdu %} <small>· {{ (100 * ruck.lancer_gagne / (ruck.lancer_gagne + ruck.lancer_perdu))|round|int }} % ({{ ruck.lancer_gagne + ruck.lancer_perdu }})</small>{% endif %}</td>
+                    <td><span class="stat-pos">{{ ruck.sauteur_plus }}</span> / <span class="stat-neg">{{ ruck.sauteur_moins }}</span>{% if ruck.sauteur_plus + ruck.sauteur_moins %} <small>· {{ (100 * ruck.sauteur_plus / (ruck.sauteur_plus + ruck.sauteur_moins))|round|int }} % ({{ ruck.sauteur_plus + ruck.sauteur_moins }})</small>{% endif %}</td>
+                    <td><span class="stat-pos">{{ ruck.tqb_plus }}</span> / <span class="stat-neg">{{ ruck.tqb_moins }}</span>{% if ruck.tqb_plus + ruck.tqb_moins %} <small>· {{ (100 * ruck.tqb_plus / (ruck.tqb_plus + ruck.tqb_moins))|round|int }} % ({{ ruck.tqb_plus + ruck.tqb_moins }})</small>{% endif %}</td>
                     <td>{{ ruck.lifteur }}</td>
                     <td class="sep-l">{{ ruck.lifteur_def }}</td>
                     <td><span class="stat-pos">{{ ruck.sauteur_def_plus }}</span> / <span class="stat-neg">{{ ruck.sauteur_def_moins }}</span></td>
