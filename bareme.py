@@ -420,7 +420,7 @@ X_PROFILS = {
     "15": ["jap_pct", "passes_pct", "pdb", "recup", "essai"],
     # 3ème ligne : dominance dans ce qu'ils font (contacts +/-, plaquages +/-, défenseurs battus)
     # et volume de jeu de touche (sauteur, lifteur).
-    "3ème ligne": ["contact_dom", "plaquage_dom", "offload_pct", "def_battu"],
+    "3ème ligne": ["contact_dom", "plaquage_dom", "offload_pct", ("def_battu", 4)],
     # Talonneur : pourcentages seulement ; duels off (dominance au contact) et habileté technique
     # (offloads, passes) y sont passés en octobre 2026.
     "Talonneur": ["contact_dom", "offload_pct", "passes_pct", "ruck_util"],
@@ -445,7 +445,7 @@ X_CIBLES_PROFIL = {"jap_pct": (75, 25), "passes_pct": (98, 70), "pdb": (3, 0), "
 X_CIBLES_POSTE = {"9": {"essai": (0.3, 0), "def_battu": (2, 0), "break": (1, 0)},
                   "10": {"essai": (0.3, 0), "def_battu": (2, 0), "break": (1, 0)},
                   "12-13": {"essai": (0.4, 0), "def_battu": (5, 0), "break": (3, 0)},
-                  "3ème ligne": {"essai": (0.3, 0)},
+                  "3ème ligne": {"essai": (0.3, 0), "def_battu": (3, 0)},
                   "2ème ligne": {"contact_dom": (65, 30), "offload_pct": (100, 50),
                                  "passes_pct": (98, 70), "melee_off_pct": (90, 40), "melee_def_pct": (80, 30), "rce_pct": (75, 25),
                                  "def_battu": (2, 0), "break": (0.5, 0), "essai": (0.15, 0)},
@@ -461,7 +461,7 @@ def _facteur_x_profil(poste, rows, minutes, reglages):
     for entree in X_PROFILS[poste]:
         crit, w = entree if isinstance(entree, tuple) else (entree, 1)
         r = reglages.get(crit)
-        ref = (r[1], r[2]) if r and r[1] else (X_CIBLES_POSTE.get(poste, {}).get(crit) or X_CIBLES_PROFIL.get(crit) or _cible_hors_poste(crit))
+        ref = X_CIBLES_POSTE.get(poste, {}).get(crit) or ((r[1], r[2]) if r and r[1] else (X_CIBLES_PROFIL.get(crit) or _cible_hors_poste(crit)))
         xr = reglages.get("x:" + crit)  # réglage enregistré sur la page Barème (poids, cible, plancher)
         if xr:
             w, ref = xr[0], (xr[1], xr[2])
@@ -482,7 +482,7 @@ def _facteur_x_profil(poste, rows, minutes, reglages):
     return {"note": round(sum(a["score"] * a["poids"] for a in atouts) / tw, 1), "atouts": atouts}
 
 
-def facteur_x(poste, rows, minutes, bareme=None):
+def _facteur_x_brut(poste, rows, minutes, bareme=None):
     """Facteur X : ce que le joueur apporte HORS des attentes de son poste (franchissements pour un
     pilier, jeu au pied pour un centre, etc.). Note /10 = moyenne de ses X_NB meilleurs atouts (critères hors
     profil notés au moins X_SEUIL), chacun noté comme sur la page Notes. Une valeur basse est normale : elle ne pénalise pas
@@ -497,7 +497,7 @@ def facteur_x(poste, rows, minutes, bareme=None):
         r = reglages.get(crit)
         xr = reglages.get("x:" + crit)
         w = 1
-        ref = (r[1], r[2]) if r and r[1] else (X_CIBLES_POSTE.get(poste, {}).get(crit) or X_CIBLES_PROFIL.get(crit) or _cible_hors_poste(crit))
+        ref = X_CIBLES_POSTE.get(poste, {}).get(crit) or ((r[1], r[2]) if r and r[1] else (X_CIBLES_PROFIL.get(crit) or _cible_hors_poste(crit)))
         if xr:
             w, ref = xr[0], (xr[1], xr[2])
         if w <= 0 or not ref:
@@ -535,6 +535,28 @@ def facteur_x(poste, rows, minutes, bareme=None):
     return {"note": round(note, 1), "atouts": sorted(socle + atouts, key=lambda a: -a["score"])}
 
 
+# Référence du Facteur X par poste : note brute d'un joueur « moyen » à ce poste. Elle est calée sur 5, pour
+# qu'on puisse être très haut comme très bas à chaque poste, quelle que soit la difficulté de ses critères
+# (un 3ème ligne n'est pas bas « parce que 3ème ligne », ni un pilier haut « parce que pilier »).
+X_REF = {"Pilier": 3.2, "Talonneur": 4.9, "2ème ligne": 4.0, "3ème ligne": 3.0, "9": 3.6, "10": 7.5,
+         "12-13": 4.1, "11-14": 3.6, "15": 5.0}
+
+
+def facteur_x(poste, rows, minutes, bareme=None):
+    """Facteur X relatif au poste : 5 = joueur moyen du poste, vers 10 = très au-dessus, vers 0 = très en dessous.
+    `brut` garde la moyenne pondérée des critères avant ce recalage."""
+    res = _facteur_x_brut(poste, rows, minutes, bareme)
+    if not res:
+        return res
+    brut = res["note"]
+    ref = X_REF.get(poste)
+    if ref:
+        brut_c = _clamp(brut)
+        res["note"] = round(5 * brut_c / ref if brut_c <= ref else 5 + 5 * (brut_c - ref) / (10 - ref), 1)
+    res["brut"] = brut
+    return res
+
+
 def x_defaut(poste):
     """Lignes du tableau « Facteur X » d'un poste, valeurs de départ : [{crit, label, type, poids, cible,
     plancher}]. Postes à liste dédiée : critères et poids de X_PROFILS (moyenne pondérée). Autres postes :
@@ -545,7 +567,7 @@ def x_defaut(poste):
         for entree in X_PROFILS[poste]:
             crit, w = entree if isinstance(entree, tuple) else (entree, 1)
             r = reglages.get(crit)
-            ref = (r[1], r[2]) if r and r[1] else (X_CIBLES_POSTE.get(poste, {}).get(crit) or X_CIBLES_PROFIL.get(crit) or _cible_hors_poste(crit))
+            ref = X_CIBLES_POSTE.get(poste, {}).get(crit) or ((r[1], r[2]) if r and r[1] else (X_CIBLES_PROFIL.get(crit) or _cible_hors_poste(crit)))
             if crit in CRITERES and ref:
                 out.append({"crit": crit, "label": CRITERES[crit][0], "type": CRITERES[crit][1], "poids": w,
                             "cible": ref[0], "plancher": ref[1]})
@@ -553,7 +575,7 @@ def x_defaut(poste):
     dans_profil = {c for c, r in reglages.items() if r[0] > 0}
     for crit in X_SOCLE:
         r = reglages.get(crit)
-        ref = (r[1], r[2]) if r and r[1] else (X_CIBLES_POSTE.get(poste, {}).get(crit) or X_CIBLES_PROFIL.get(crit) or _cible_hors_poste(crit))
+        ref = X_CIBLES_POSTE.get(poste, {}).get(crit) or ((r[1], r[2]) if r and r[1] else (X_CIBLES_PROFIL.get(crit) or _cible_hors_poste(crit)))
         if ref:
             out.append({"crit": crit, "label": CRITERES[crit][0], "type": CRITERES[crit][1], "poids": 1,
                         "cible": ref[0], "plancher": ref[1]})
