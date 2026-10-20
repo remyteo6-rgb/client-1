@@ -4612,6 +4612,15 @@ def _conquete_pied(joues):
     return out
 
 
+def _points_cartons(joues):
+    """Points marqués (essai 5, transfo 2, pénalité 3, drop 3) et cartons sur la saison."""
+    r = _fusion_lignes([x["rows"].get("ruck") for x in joues]) or {}
+    essais = _v(r, "essai")
+    pts = 5 * essais + 2 * _v(r, "transfo_reussies") + 3 * _v(r, "penalite_reussies") + 3 * _v(r, "drop_reussis")
+    return {"points": pts, "essais": essais, "jaunes": sum(x.get("yellow") or 0 for x in joues),
+            "rouges": sum(x.get("red") or 0 for x in joues)}
+
+
 def _retenu_radar(radar):
     """Points forts / faibles lus sur les attentes du poste (axes du radar), avec les critères qui les expliquent."""
     if not radar or not radar.get("axes"):
@@ -4671,7 +4680,7 @@ def season_joueur(key):
     for x in joues:
         x["tf"] = _temps_forts(x)
     return render_template("season_joueur.html", j=j, radar=radar, joues=joues, nb_matchs=len(joues),
-                           tendance=_tendance(j["evo"]), axes=_axes_travail(j, radar), fiab=_fiabilite(j, joues), conquete=_conquete_pied(joues),
+                           tendance=_tendance(j["evo"]), axes=_axes_travail(j, radar), fiab=_fiabilite(j, joues), conquete=_conquete_pied(joues), pc=_points_cartons(joues),
                            ret_forts=_retenu_radar(radar)[0], ret_faibles=_retenu_radar(radar)[1],
                            libelles=PROFIL_LIBELLE, display_name=_joueur_nom_affiche,
                            min_minutes=bareme.MIN_MINUTES, **ctx)
