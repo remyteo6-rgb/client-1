@@ -53,7 +53,7 @@ def _pct_expl_auto(ruck, g, p, ga, pa, min_n):
 def _x_contact(r):      return _v(r["attack"], "contact_total"), 0
 def _x_offload(r):      return _v(r["attack"], "offload_total"), 0
 def _x_defb(r):         return _v(r["attack"], "def_battu"), 0
-def _x_break(r):        return _v(r["attack"], "break"), 0
+def _x_break(r):        return _v(r["attack"], "break") + _v(r["defense"], "interception"), 0  # une interception compte comme un franchissement
 def _x_soutien(r):
     # Arriver 3e ou plus loin n'est pas positif : on compte les 1ers soutiens et les cartouches
     # (plein poids) et les 2es soutiens (demi-poids).
@@ -61,7 +61,7 @@ def _x_soutien(r):
     return _v(a, "soutien_1er", "cartouche") + 0.5 * _v(a, "soutien_2eme"), 0
 def _x_passes(r):       return _v(r["attack"], "passes"), 0
 def _x_tackle(r):       return _v(r["defense"], "plaquage_tentes"), 0
-def _x_recup(r):        return _v(r["defense"], "ballons_recuperes", "combattant_total"), 0
+def _x_recup(r):        return max(0, _v(r["defense"], "ballons_recuperes", "combattant_total") - _v(r["defense"], "interception")), 0  # interceptions : comptées en franchissements
 def _x_aerien(r):       return _v(r["ruck"], "duels_aer_total"), 0
 def _x_jap(r):          return _v(r["ruck"], "jap"), 0
 def _x_sauteur(r):      return _v(r["ruck"], "sauteur"), 0

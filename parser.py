@@ -2286,7 +2286,7 @@ def compute_player_defense_table(instances):
                       "plaquage_bas": 0, "plaquage_haut": 0,
                       "combattant_plus": 0, "combattant_neutre": 0, "combattant_minus": 0, "combattant_balle": 0,
                       "chasseur_plus": 0, "chasseur_neutre": 0, "chasseur_minus": 0,
-                      "ballons_recuperes": 0}
+                      "ballons_recuperes": 0, "interception": 0}
 
     for i in instances:
         code = i["code_raw"]
@@ -2333,6 +2333,7 @@ def compute_player_defense_table(instances):
         off_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "JOUEURS OFF"}
         if "INTERCEPTION" in off_vals:
             row["ballons_recuperes"] += 1
+            row["interception"] += 1
 
     result = []
     totals = defaultdict(int)
