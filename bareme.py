@@ -237,11 +237,10 @@ PROFIL_FAMILLE = {"Pilier": "Pilier", "Talonneur": "Talonneur", "2ème ligne": "
 PROFILS = {
     "Pilier": [
         ("Mêlée fermée", {"melee_off_pct": 14, "melee_def_pct": 10}),
-        ("Lift sur touche, CE et renvoi", {"lifteur_pct": 12, "lifteur": 7}),
-        ("Plaquer / contest", {"plaquage_dom": 4, "plaquage": 4, "plaquage_pct": 4}),
-        ("Soutenir / rucker", {"ruck": 4, "ruck_util": 6}),
-        ("Duel off", {"contact_dom": 6, "contact": 4}),
-        ("Activité", {"activite": 4}),
+        ("Lift sur touche, CE et renvoi", {"lifteur_pct": 12}),
+        ("Plaquer / contest", {"plaquage_dom": 4, "plaquage_pct": 4}),
+        ("Soutenir / rucker", {"ruck_util": 6}),
+        ("Duel off", {"contact_dom": 6}),
     ],
     # Talonneur (20 oct. 2026, demande de Téo) : pourcentages seulement (plus de volumes) ; duels off et
     # habileté technique passent dans le Facteur X (voir X_PROFILS).
@@ -252,55 +251,58 @@ PROFILS = {
     ],
     # Mêlée fermée retirée : non quantifiée dans les XML. Son poids est reporté sur la touche, le ruck, le plaquage et le duel.
     "2ème ligne": [
-        ("Sauter / lifter / touche, CE et CR", {"sauteur_pct": 11, "sauteur": 7, "lifteur_pct": 6, "lifteur": 5}),
-        ("Plaquer / contest / défendre", {"plaquage_dom": 5, "plaquage": 5, "plaquage_pct": 5, "recup": 9}),
+        ("Sauter / lifter / touche, CE et CR", {"sauteur_pct": 11, "lifteur_pct": 6}),
+        ("Plaquer / contest / défendre", {"plaquage_dom": 5, "plaquage_pct": 5, "recup": 9}),
         ("Soutenir / rucker", {"soutien": 9, "ruck_util": 6}),
         # Duel off / porteur de balle et habileté technique : passés dans le Facteur X (20 oct. 2026).
     ],
     "3ème ligne": [
         # Dominance (contact, plaquage) et offloads : passés dans le Facteur X (20 oct. 2026).
-        ("Duel off / franchissement", {"break": 7, "def_battu": 5, "contact": 3}),
+        ("Duel off / franchissement", {"break": 7, "def_battu": 5}),
         ("Soutenir / rucker", {"soutien": 8}),
-        ("Plaquer / contest / défendre", {"plaquage": 5, "plaquage_pct": 5, "recup": 8}),
-        ("Assurer la continuité", {"passes": 2}),
-        ("Sauter / lifter / lecture touche", {"sauteur_pct": 5, "sauteur": 3, "lifteur_pct": 2, "lifteur": 2}),
+        ("Plaquer / contest / défendre", {"plaquage_pct": 5, "recup": 8}),
+        ("Assurer la continuité", {"passes_pct": 2}),
+        ("Sauter / lifter / lecture touche", {"sauteur_pct": 5, "lifteur_pct": 2}),
     ],
     "9": [
-        ("Transmission", {"passes": 24}),
+        ("Transmission", {"passes_pct": 24}),
         ("Colle au ballon / soutenir", {"soutien": 8}),
-        ("Plaquer / circulation défensive", {"plaquage_dom": 4, "plaquage": 5, "plaquage_pct": 5, "recup": 6}),
+        ("Plaquer / circulation défensive", {"plaquage_dom": 4, "plaquage_pct": 5, "recup": 6}),
         ("Jeu au pied / sortie de camp", {"kicks_pct": 6}),
-        ("Duel off", {"contact_dom": 6, "contact": 4}),
-        ("Habileté technique", {"offload": 2, "offload_pct": 2, "break": 4}),
+        ("Duel off", {"contact_dom": 6}),
+        ("Habileté technique", {"offload_pct": 2, "break": 4}),
     ],
     "10": [
-        ("Transmission", {"passes": 20, "soutien": 3}),
+        ("Transmission", {"passes_pct": 20, "soutien": 3}),
         ("Jeu au pied (pression, occupation, CE/CR, drop) et stratégie", {"kicks_pct": 10}),
-        ("Plaquer / circulation défensive", {"plaquage_dom": 4, "plaquage": 5, "plaquage_pct": 5, "recup": 6}),
+        ("Plaquer / circulation défensive", {"plaquage_dom": 4, "plaquage_pct": 5, "recup": 6}),
         ("Duel / franchissement", {"contact_dom": 6, "break": 6, "def_battu": 6}),
-        ("Habileté technique", {"offload": 2, "offload_pct": 2}),
+        ("Habileté technique", {"offload_pct": 2}),
     ],
     "12-13": [
-        ("Duel off / franchissement", {"contact_dom": 10, "break": 12, "def_battu": 12, "contact": 4}),
-        ("Circulation def / plaquer / contest / défendre", {"plaquage": 6, "plaquage_pct": 6, "recup": 8, "plaquage_dom": 6}),
-        ("Habileté technique (main / pied)", {"offload": 9, "offload_pct": 6, "passes": 3}),
+        ("Duel off / franchissement", {"contact_dom": 10, "break": 12, "def_battu": 12}),
+        ("Circulation def / plaquer / contest / défendre", {"plaquage_pct": 6, "recup": 8, "plaquage_dom": 6}),
+        ("Habileté technique (main / pied)", {"offload_pct": 6, "passes_pct": 3}),
         ("Soutien / ruck offensif", {"soutien": 6}),
     ],
     "11-14": [
         ("Duel / franchissement", {"contact_dom": 8, "break": 16, "def_battu": 14}),
         ("Réception / duel aérien", {"rce_pct": 8, "aerien_pct": 12}),
-        ("Plaquer / lecture défense", {"plaquage_dom": 4, "plaquage": 5, "plaquage_pct": 5, "recup": 4}),
+        ("Plaquer / lecture défense", {"plaquage_dom": 4, "plaquage_pct": 5, "recup": 4}),
         ("Soutien / ruck offensif", {"soutien": 4}),
-        ("Habileté technique (mains / pied)", {"offload": 7, "offload_pct": 5, "passes": 2}),
+        ("Habileté technique (mains / pied)", {"offload_pct": 5, "passes_pct": 2}),
     ],
     "15": [
-        ("1 contre 1 défensif", {"plaquage": 6, "plaquage_pct": 6, "plaquage_dom": 6}),
+        ("1 contre 1 défensif", {"plaquage_pct": 6, "plaquage_dom": 6}),
         ("Duel / franchissement", {"break": 14, "def_battu": 12, "contact_dom": 6}),
         ("Réception / duel aérien", {"rce_pct": 8, "aerien_pct": 12}),
-        ("Habileté technique", {"offload": 6, "offload_pct": 4, "passes": 2}),
+        ("Habileté technique", {"offload_pct": 4, "passes_pct": 2}),
     ],
 }
 POSTES = list(PROFILS)
+for _fam_cibles in _CIBLES.values():
+    _fam_cibles.setdefault("passes_pct", (98, 70))
+_CIBLES["Charnière"]["passes_pct"] = (99, 85)  # les 9 et 10 passent beaucoup : la barre est plus haute
 NON_MESURABLES = ["Lecture du jeu", "Stratégie", "Leadership", "Communication", "Se déplacer / enchaîner les tâches",
                   "Compréhension du système", "Défense de maul", "Gestion du 3ème rideau / contre-attaque",
                   "Qualité du jeu au pied", "Dureté", "État d'esprit"]
@@ -412,19 +414,19 @@ X_PROFILS = {
     # Piliers : mobilité (défenseurs battus, franchissements, ballons récupérés, offloads), finition (essais),
     # passes (petit poids).
     # Un critère = (identifiant, poids) ; sans poids = 1.
-    "Pilier": [("def_battu", 3), ("break", 3), ("essai", 3), ("recup", 3), ("offload", 3), ("offload_pct", 1),
-               ("passes", 1), ("passes_pct", 1)],
+    "Pilier": [("def_battu", 3), ("break", 3), ("essai", 3), ("recup", 3), ("offload_pct", 3),
+               ("passes_pct", 1)],
     "11-14": ["jap_pct", "passes_pct", "pdb", "recup", "essai"],
     "15": ["jap_pct", "passes_pct", "pdb", "recup", "essai"],
     # 3ème ligne : dominance dans ce qu'ils font (contacts +/-, plaquages +/-, défenseurs battus)
     # et volume de jeu de touche (sauteur, lifteur).
-    "3ème ligne": ["contact_dom", "plaquage_dom", "offload", "offload_pct", "def_battu", "sauteur", "lifteur"],
+    "3ème ligne": ["contact_dom", "plaquage_dom", "offload_pct", "def_battu", "sauteur_pct", "lifteur_pct"],
     # Talonneur : pourcentages seulement ; duels off (dominance au contact) et habileté technique
     # (offloads, passes) y sont passés en octobre 2026.
     "Talonneur": ["contact_dom", "offload_pct", "passes_pct", "ruck_util"],
     # 2ème ligne (20 oct. 2026) : duel off et habileté technique (déplacés du poste), mêlée, réception du CE.
     # Retirés : lancers gagnés, duels aériens, coups de pied au but ; l'utilité au ruck est passée au poste.
-    "2ème ligne": ["contact_dom", "contact", "offload", "offload_pct", "passes",
+    "2ème ligne": ["contact_dom", "offload_pct", "passes_pct",
                    "melee_off_pct", "melee_def_pct", "rce_pct", "def_battu", "break", "essai"],
 }
 
@@ -443,14 +445,14 @@ X_CIBLES_PROFIL = {"jap_pct": (75, 25), "passes_pct": (98, 70), "pdb": (3, 0), "
 X_CIBLES_POSTE = {"9": {"essai": (0.3, 0), "def_battu": (2, 0), "break": (1, 0)},
                   "10": {"essai": (0.3, 0), "def_battu": (2, 0), "break": (1, 0)},
                   "12-13": {"essai": (0.4, 0), "def_battu": (5, 0), "break": (3, 0)},
-                  "3ème ligne": {"essai": (0.3, 0)},
-                  "2ème ligne": {"contact_dom": (65, 30), "contact": (11, 0), "offload": (3, 0), "offload_pct": (100, 50),
-                                 "passes": (6, 0), "melee_off_pct": (90, 40), "melee_def_pct": (80, 30), "rce_pct": (75, 25),
+                  "3ème ligne": {"essai": (0.3, 0), "sauteur_pct": (95, 50), "lifteur_pct": (95, 50)},
+                  "2ème ligne": {"contact_dom": (65, 30), "offload_pct": (100, 50),
+                                 "passes_pct": (98, 70), "melee_off_pct": (90, 40), "melee_def_pct": (80, 30), "rce_pct": (75, 25),
                                  "def_battu": (2, 0), "break": (0.5, 0), "essai": (0.15, 0)},
                   "Talonneur": {"contact_dom": (65, 30), "offload_pct": (100, 50), "passes_pct": (98, 70), "ruck_util": (70, 20),
                                 "def_battu": (2, 0), "break": (0.5, 0), "essai": (0.15, 0)},
                   "Pilier": {"def_battu": (2, 0), "break": (0.5, 0), "essai": (0.15, 0), "recup": (4, 0),
-                             "offload": (1.5, 0), "offload_pct": (100, 50), "passes": (4, 0), "passes_pct": (98, 70)}}
+                             "offload_pct": (100, 50), "passes_pct": (98, 70)}}
 
 
 def _facteur_x_profil(poste, rows, minutes, reglages):

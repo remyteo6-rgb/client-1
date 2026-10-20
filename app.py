@@ -5877,7 +5877,16 @@ def _migrer_talonneur_pourcentages(db):
          ("lanceur", "plaquage", "recup", "soutien", "contact", "contact_dom", "offload", "offload_pct", "passes")),
         ("deuxieme_ligne_facteur_x_2026_10", "2ème ligne",
          ("contact_dom", "contact", "offload", "offload_pct", "passes")),
-    ):
+    ) + tuple(
+        ("sans_volumes_2026_10_" + p, p, c) for p, c in (
+            ("Pilier", ("lifteur", "plaquage", "ruck", "contact", "activite", "offload", "passes")),
+            ("Talonneur", ()), ("2ème ligne", ("sauteur", "lifteur", "plaquage", "contact", "offload", "passes")),
+            ("3ème ligne", ("contact", "contact_dom", "plaquage", "plaquage_dom", "offload", "offload_pct", "passes", "sauteur", "lifteur")),
+            ("9", ("passes", "plaquage", "contact", "offload")),
+            ("10", ("passes", "plaquage", "offload")),
+            ("12-13", ("contact", "plaquage", "offload", "passes")),
+            ("11-14", ("plaquage", "offload", "passes")),
+            ("15", ("plaquage", "offload", "passes")))):
         if db.execute("SELECT 1 FROM app_migrations WHERE name = %s", (nom,)).fetchone():
             continue
         for crit in criteres:
