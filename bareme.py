@@ -264,12 +264,13 @@ PROFILS = {
         ("Assurer la continuité", {"passes_pct": 2}),
         ("Sauter / lifter / lecture touche", {"sauteur_pct": 5, "lifteur_pct": 2}),
     ],
+    # 9 (20 oct. 2026, demande de Téo) : on garde l'habileté technique, on ajoute la qualité du jeu au pied,
+    # les ballons perdus (au-dessus de 1 par match, ce n'est pas bon), le % de plaquages et un peu d'utilité au ruck.
     "9": [
-        ("Transmission", {"passes_pct": 24}),
-        ("Colle au ballon / soutenir", {"soutien": 8}),
-        ("Plaquer / circulation défensive", {"plaquage_dom": 4, "plaquage_pct": 5, "recup": 6}),
-        ("Jeu au pied / sortie de camp", {"kicks_pct": 6}),
-        ("Duel off", {"contact_dom": 6}),
+        ("Jeu au pied (qualité)", {"jap_pct": 12}),
+        ("Sécurité du ballon", {"pdb": 8}),
+        ("Plaquer", {"plaquage_pct": 8}),
+        ("Soutenir / rucker", {"ruck_util": 3}),
         ("Habileté technique", {"offload_pct": 2, "break": 4}),
     ],
     "10": [
@@ -300,6 +301,7 @@ PROFILS = {
     ],
 }
 POSTES = list(PROFILS)
+_CIBLES["Charnière"].update({"jap_pct": (75, 25), "pdb": (2, 0)})  # pdb : 0/10 à 2 ballons perdus par 80 min
 for _fam_cibles in _CIBLES.values():
     _fam_cibles.setdefault("passes_pct", (98, 70))
 _CIBLES["Charnière"]["passes_pct"] = (99, 85)  # les 9 et 10 passent beaucoup : la barre est plus haute
@@ -418,6 +420,7 @@ X_PROFILS = {
     # Un critère = (identifiant, poids) ; sans poids = 1.
     "Pilier": [("def_battu", 3), ("break", 3), ("essai", 3), ("recup", 3), ("offload_pct", 3),
                ("passes_pct", 1)],
+    "9": ["essai", "def_battu", "break"],  # 20 oct. 2026 : uniquement le socle
     "11-14": ["jap_pct", "passes_pct", "pdb", "recup", "essai"],
     "15": ["jap_pct", "passes_pct", "pdb", "recup", "essai"],
     # 3ème ligne : dominance dans ce qu'ils font (contacts +/-, plaquages +/-, défenseurs battus)
@@ -540,7 +543,7 @@ def _facteur_x_brut(poste, rows, minutes, bareme=None):
 # Référence du Facteur X par poste : note brute d'un joueur « moyen » à ce poste. Elle est calée sur 5, pour
 # qu'on puisse être très haut comme très bas à chaque poste, quelle que soit la difficulté de ses critères
 # (un 3ème ligne n'est pas bas « parce que 3ème ligne », ni un pilier haut « parce que pilier »).
-X_REF = {"Pilier": 3.2, "Talonneur": 4.9, "2ème ligne": 4.0, "3ème ligne": 3.0, "9": 3.6, "10": 7.5,
+X_REF = {"Pilier": 3.2, "Talonneur": 4.9, "2ème ligne": 4.0, "3ème ligne": 3.0, "9": 3.8, "10": 7.5,
          "12-13": 4.1, "11-14": 3.6, "15": 5.0}
 
 
@@ -653,7 +656,7 @@ def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
              ("Cartons jaunes", jaunes * MALUS["jaune"], jaunes),
              ("Cartons rouges", rouges * MALUS["rouge"], rouges),
              ("Passes ratées", min(rates * pr[0], pr[1]), rates),
-             ("Ballons perdus", min(pdb * MALUS["pdb"], MALUS["pdb_max"]), pdb)]
+             ("Ballons perdus", 0 if (reglages.get("pdb") or (0,))[0] > 0 else min(pdb * MALUS["pdb"], MALUS["pdb_max"]), pdb)]
     malus = [{"label": l, "points": round(-p, 1), "n": n} for l, p, n in malus if p > 0]
     bonus_pts = min(essais * BONUS["essai"], BONUS["essai_max"])
     bonus = [{"label": "Essais", "points": round(bonus_pts, 1), "n": essais}] if bonus_pts > 0 else []

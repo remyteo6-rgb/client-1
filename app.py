@@ -5884,7 +5884,7 @@ def _migrer_talonneur_pourcentages(db):
             ("Pilier", ("lifteur", "plaquage", "ruck", "contact", "activite", "offload", "passes")),
             ("Talonneur", ()), ("2ème ligne", ("sauteur", "lifteur", "plaquage", "contact", "offload", "passes")),
             ("3ème ligne", ("contact", "contact_dom", "plaquage", "plaquage_dom", "offload", "offload_pct", "passes", "sauteur", "lifteur")),
-            ("9", ("passes", "plaquage", "contact", "offload")),
+            ("9", ("passes", "passes_pct", "soutien", "plaquage", "plaquage_dom", "recup", "kicks_pct", "contact", "contact_dom", "offload")),
             ("10", ("passes", "plaquage", "offload")),
             ("12-13", ("contact", "plaquage", "offload", "passes")),
             ("11-14", ("plaquage", "offload", "passes")),
