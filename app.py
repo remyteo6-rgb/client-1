@@ -4202,6 +4202,24 @@ def _notes_saison(selected, bar=None):
     return _cached_result("notes", selected, lambda: _notes_saison_calc(selected))
 
 
+# Corrections ponctuelles de stats pour un joueur sur un match (20 oct. 2026) : (adversaire, joueur) -> ajouts.
+# Trébuchaire / Bayonne : l'interception compte comme un franchissement (uniquement ce cas, pas une règle générale).
+CORRECTIONS_MANUELLES = {("Aviron Bayonnais", "trebuchaire"): {"attack": {"break": 1}, "defense": {"ballons_recuperes": -1}}}
+
+
+def _appliquer_corrections_manuelles(m, cle_joueur, rows):
+    corr = CORRECTIONS_MANUELLES.get(((m.get("opponent") or "").strip(), cle_joueur))
+    if not corr:
+        return rows
+    out = dict(rows)
+    for table, ajouts in corr.items():
+        ligne = dict(out.get(table) or {})
+        for k, v in ajouts.items():
+            ligne[k] = max(0, (ligne.get(k) or 0) + v)
+        out[table] = ligne
+    return out
+
+
 def _notes_saison_calc(selected, bar=None):
     bar = bar or _bareme_courant()
     joueurs = {}
@@ -4232,6 +4250,7 @@ def _notes_saison_calc(selected, bar=None):
             if not poste:
                 continue
             rows = {k: by[k].get(c) for k in by}
+            rows = _appliquer_corrections_manuelles(m, c, rows)
             res = bareme.note_match(poste, rows, info["minutes"], info["yellow"], info["red"], bar)
             j = joueurs.setdefault(c, {"name": nom, "matchs": [], "approx": False})
             j["approx"] = j["approx"] or not precis
