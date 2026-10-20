@@ -1156,6 +1156,7 @@ def init_db():
     # Points d'étape rugby saisis avec l'ancienne grille de critères : remis en face des
     # bons critères de la grille d'octobre 2026 (une seule fois).
     _ppid_migrer_grille_2026(db)
+    _migrer_talonneur_pourcentages(db)
     # Groupes de joueurs par défaut (l'admin peut en ajouter d'autres ensuite).
     for default_group in ("Avants", "Trois-quarts"):
         db.execute(
@@ -4395,6 +4396,9 @@ def season_bareme():
                 except ValueError:
                     continue
                 defaut = bareme.BAREME_DEFAUT.get(poste, {}).get(crit)
+                if not defaut and poids <= 0:  # critère non retenu pour ce poste, laissé à 0
+                    db.execute("DELETE FROM bareme_reglages WHERE poste = %s AND critere = %s", (poste, crit))
+                    continue
                 if defaut and (poids, cible, plancher) == tuple(float(x) for x in defaut):
                     db.execute("DELETE FROM bareme_reglages WHERE poste = %s AND critere = %s", (poste, crit))
                     continue
@@ -4425,6 +4429,11 @@ def season_bareme():
     selected, ctx = _season_common("bareme")
     bar_full = _bareme_courant()
     bar = {p: {c: v for c, v in d.items() if c in bareme.CRITERES} for p, d in bar_full.items()}
+    for p in bar:  # critères hors profil : proposés à poids 0 (cible / plancher d'un poste qui l'utilise)
+        for c in bareme.CRITERES:
+            if c not in bar[p]:
+                ref = next((d[c] for d in bareme.BAREME_DEFAUT.values() if c in d), (0, 10, 0))
+                bar[p][c] = (0, ref[1], ref[2])
     x_tables = {p: bareme.x_effectif(p, bar_full) for p in bareme.POSTES}
     return render_template("season_bareme.html", bar=bar, x_tables=x_tables, postes=bareme.POSTES, criteres=bareme.CRITERES,
                            malus=bareme.MALUS, bonus=bareme.BONUS, min_minutes=bareme.MIN_MINUTES,
@@ -5857,6 +5866,18 @@ def _ppid_migrer_grille_2026(db):
                     json.dumps(couleurs, ensure_ascii=False) if couleurs else None, r["id"]))
     db.execute("INSERT INTO app_migrations (name, applied_at) VALUES (%s, %s)",
                ("grille_criteres_2026", datetime.utcnow().isoformat()))
+
+
+def _migrer_talonneur_pourcentages(db):
+    """Une seule fois : le barème des talonneurs ne garde que des pourcentages ; on efface donc les réglages
+    enregistrés pour les critères retirés (sinon ils reviendraient dans la note)."""
+    db.execute("CREATE TABLE IF NOT EXISTS app_migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL)")
+    nom = "talonneur_pourcentages_2026_10"
+    if db.execute("SELECT 1 FROM app_migrations WHERE name = %s", (nom,)).fetchone():
+        return
+    for crit in ("lanceur", "plaquage", "recup", "soutien", "contact", "contact_dom", "offload", "offload_pct", "passes"):
+        db.execute("DELETE FROM bareme_reglages WHERE poste = %s AND critere = %s", ("Talonneur", crit))
+    db.execute("INSERT INTO app_migrations (name, applied_at) VALUES (%s, %s)", (nom, datetime.utcnow().isoformat()))
 
 
 def _ppid_rugby_categories_for_position(position):

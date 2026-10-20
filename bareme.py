@@ -243,13 +243,12 @@ PROFILS = {
         ("Duel off", {"contact_dom": 6, "contact": 4}),
         ("Activité", {"activite": 4}),
     ],
+    # Talonneur (20 oct. 2026, demande de Téo) : pourcentages seulement (plus de volumes) ; duels off et
+    # habileté technique passent dans le Facteur X (voir X_PROFILS).
     "Talonneur": [
-        ("Lancer", {"lancer_pct": 17, "lanceur": 7}),
+        ("Lancer", {"lancer_pct": 17}),
         ("Mêlée fermée", {"melee_off_pct": 11, "melee_def_pct": 8}),
-        ("Plaquer / contest", {"plaquage_dom": 4, "plaquage": 4, "plaquage_pct": 4, "recup": 7}),
-        ("Soutenir / rucker", {"soutien": 5}),
-        ("Duel off", {"contact_dom": 6, "contact": 4}),
-        ("Habileté technique", {"offload": 5, "offload_pct": 3, "passes": 1}),
+        ("Plaquer / contest", {"plaquage_dom": 4, "plaquage_pct": 4}),
     ],
     # Mêlée fermée retirée : non quantifiée dans les XML. Son poids est reporté sur la touche, le ruck, le plaquage et le duel.
     "2ème ligne": [
@@ -410,13 +409,17 @@ X_PROFILS = {
     # 3ème ligne : dominance dans ce qu'ils font (contacts +/-, plaquages +/-, défenseurs battus)
     # et volume de jeu de touche (sauteur, lifteur).
     "3ème ligne": ["contact_dom", "plaquage_dom", "def_battu", "sauteur", "lifteur"],
+    # Talonneur : pourcentages seulement ; duels off (dominance au contact) et habileté technique
+    # (offloads, passes) y sont passés en octobre 2026.
+    "Talonneur": ["contact_dom", "offload_pct", "passes_pct", "ruck_util"],
 }
 
 
 # Cibles propres aux listes X_PROFILS quand le critère n'est pas dans les attentes du poste.
 X_CIBLES_PROFIL = {"jap_pct": (75, 25), "passes_pct": (98, 70), "pdb": (3, 0), "essai": (0.5, 0)}
 # Cibles propres à un poste (prioritaires sur X_CIBLES_PROFIL) : un pilier n'a pas les mêmes volumes qu'un ailier.
-X_CIBLES_POSTE = {"Pilier": {"def_battu": (2, 0), "break": (0.5, 0), "essai": (0.15, 0), "recup": (4, 0),
+X_CIBLES_POSTE = {"Talonneur": {"contact_dom": (65, 30), "offload_pct": (100, 50), "passes_pct": (98, 70), "ruck_util": (70, 20)},
+                  "Pilier": {"def_battu": (2, 0), "break": (0.5, 0), "essai": (0.15, 0), "recup": (4, 0),
                              "offload": (1.5, 0), "offload_pct": (100, 50), "passes": (4, 0), "passes_pct": (98, 70)}}
 
 
