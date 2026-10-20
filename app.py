@@ -4588,10 +4588,25 @@ def _axes_travail(j, radar):
     return cands[:2]
 
 
+@app.route("/season/fiche")
+def season_fiche():
+    """Entrée « Fiche indiv » du menu Joueurs : choisir un joueur, puis page complète."""
+    selected, ctx = _season_common("fiche")
+    joueurs = _notes_saison(selected)
+    groupes = []
+    for p in bareme.POSTES:
+        lst = [j for j in joueurs if j["poste"] == p]
+        for j in lst:
+            j["key"] = j["name"].strip().casefold()
+        if lst:
+            groupes.append({"poste": p, "joueurs": sorted(lst, key=lambda j: _joueur_nom_affiche(j["name"]))})
+    return render_template("season_fiche.html", groupes=groupes, libelles=PROFIL_LIBELLE, display_name=_joueur_nom_affiche, **ctx)
+
+
 @app.route("/season/joueur/<path:key>")
 def season_joueur(key):
     """Page complète d'un joueur : note, Facteur X, minutes, matchs, radar sur son poste, critères et suivi."""
-    selected, ctx = _season_common("notes")
+    selected, ctx = _season_common("fiche")
     joueurs = _notes_joueurs_avec_ecart(_notes_saison(selected))
     j = next((x for x in joueurs if x["key"] == key.strip().casefold()), None)
     if j is None:

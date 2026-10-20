@@ -90,7 +90,7 @@
         {% endif %}
 
         {% if match is defined %}
-        {% set page_labels = {'overview': "Vue d'ensemble", 'bilan_attaque': 'Bilan attaque', 'surfeurs': 'Surfeurs', 'bilan_defense': 'Bilan défense', 'csc': 'CSC', 'discipline': 'Discipline', 'touches': 'Touches', 'possessions': 'Nos possessions', 'zone_gold': 'Zone Gold', 'joueurs': 'Joueurs', 'notes': 'Notes', 'composition': 'Composition', 'tableaux': 'Tableaux', 'comparer': 'Comparer', 'bareme': 'Barème', 'donnees': 'Qualité des données', 'gagner_perdre': 'Gagner / Perdre'} %}
+        {% set page_labels = {'overview': "Vue d'ensemble", 'bilan_attaque': 'Bilan attaque', 'surfeurs': 'Surfeurs', 'bilan_defense': 'Bilan défense', 'csc': 'CSC', 'discipline': 'Discipline', 'touches': 'Touches', 'possessions': 'Nos possessions', 'zone_gold': 'Zone Gold', 'joueurs': 'Joueurs', 'notes': 'Notes', 'composition': 'Composition', 'tableaux': 'Tableaux', 'comparer': 'Comparer', 'bareme': 'Barème', 'donnees': 'Qualité des données', 'fiche': 'Fiche indiv', 'gagner_perdre': 'Gagner / Perdre'} %}
         {# Ordre des onglets = ordre du rapport (demande de Téo), Composition à la suite.
            « Nos possessions » est de retour dans le menu (page à remplir, oct. 2026). Une seule liste pour la barre
            et le menu déroulant. En mode saison : mêmes onglets, versions « moyenne par
@@ -107,6 +107,7 @@
             ('touches', 'season_touches', 'Touches'),
             ('joueurs', 'season_joueurs', 'Joueurs'),
             ('notes', 'season_notes', 'Notes'),
+            ('fiche', 'season_fiche', 'Fiche indiv'),
             ('donnees', 'season_donnees', 'Qualité des données'),
             ('comparer', 'season_comparer', 'Comparer'),
             ('gagner_perdre', 'season_gagner_perdre', 'Gagner / Perdre'),
@@ -132,7 +133,7 @@
             {# Barre bureau : « Attaque ▾ » et « Défense ▾ » regroupent leurs pages ; les autres
                onglets restent à plat. Le menu mobile (« page actuelle ▾ ») garde la liste complète. #}
             {% set _groups = {'bilan_attaque': 'Attaque', 'zone_gold': 'Attaque', 'surfeurs': 'Attaque', 'possessions': 'Attaque', 'bilan_defense': 'Défense', 'csc': 'Défense'} %}
-            {% if season_mode %}{% set _groups = {'bilan_attaque': 'Attaque', 'zone_gold': 'Attaque', 'surfeurs': 'Attaque', 'bilan_defense': 'Défense', 'csc': 'Défense', 'joueurs': 'Joueurs', 'notes': 'Joueurs', 'donnees': 'Joueurs', 'comparer': 'Joueurs', 'bareme': 'Joueurs', 'tableaux': 'Joueurs'} %}{% endif %}
+            {% if season_mode %}{% set _groups = {'bilan_attaque': 'Attaque', 'zone_gold': 'Attaque', 'surfeurs': 'Attaque', 'bilan_defense': 'Défense', 'csc': 'Défense', 'joueurs': 'Joueurs', 'notes': 'Joueurs', 'donnees': 'Joueurs', 'fiche': 'Joueurs', 'comparer': 'Joueurs', 'bareme': 'Joueurs', 'tableaux': 'Joueurs'} %}{% endif %}
             {% set _done = [] %}
             {% for key, endpoint, label in match_tabs %}
             {% set g = _groups.get(key) %}

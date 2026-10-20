@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
+{% set active = 'fiche' %}
+{% block title %}Fiche individuelle — Saison{% endblock %}
+{% block content %}
+<div class="page-header no-print">
+    <div>
+        <h1>{{ icons.users() }} Fiche individuelle</h1>
+        <p class="subtitle">Choisis un joueur pour ouvrir sa page complète.</p>
+    </div>
+</div>
+{% include "_season_select.html" %}
+{% for g in groupes %}
+<div class="bil-panel" style="margin-bottom:12px;">
+    <div class="bil-panel-head">{{ libelles.get(g.poste, g.poste) }}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;padding:10px 12px;">
+        {% for j in g.joueurs %}
+        <a class="btn btn-secondary" href="{{ url_for('season_joueur', key=j.key, m=season_selected_ids) }}">{{ display_name(j.name) }}{% if j.note is not none %} · {{ j.note }}{% endif %}</a>
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}
+{% endblock %}
