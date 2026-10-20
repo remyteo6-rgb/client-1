@@ -4576,6 +4576,24 @@ def _tendance(evo):
             "nb": len(notes)}
 
 
+def _retenu_radar(radar):
+    """Points forts / faibles lus sur les attentes du poste (axes du radar), avec les critères qui les expliquent."""
+    if not radar or not radar.get("axes"):
+        return [], []
+    crits = radar.get("criteres") or []
+
+    def detail(att, fort):
+        cs = [c for c in crits if c["attente"] == att and c["score"] is not None]
+        cs.sort(key=lambda c: -c["score"] if fort else c["score"])
+        return [{"label": c["label"], "score": round(c["score"], 1)} for c in cs[:2] if (c["score"] >= 6 if fort else c["score"] < 5)]
+    ax = [x for x in radar["axes"] if x["score"] is not None]
+    forts = [{"label": x["label"], "score": round(x["score"] / 10, 1), "crits": detail(x["label"], True)}
+             for x in sorted((x for x in ax if x["label"] != "Discipline" and x["score"] >= 60), key=lambda x: -x["score"])[:2]]
+    faibles = [{"label": x["label"], "score": round(x["score"] / 10, 1), "crits": detail(x["label"], False)}
+               for x in sorted((x for x in ax if x["score"] < 50), key=lambda x: x["score"])[:2]]
+    return forts, faibles
+
+
 def _axes_travail(j, radar):
     """Les 2 critères du barème qui coûtent le plus de points : poids × (10 − note), note sous 6."""
     cands = []
@@ -4618,6 +4636,7 @@ def season_joueur(key):
         x["tf"] = _temps_forts(x)
     return render_template("season_joueur.html", j=j, radar=radar, joues=joues, nb_matchs=len(joues),
                            tendance=_tendance(j["evo"]), axes=_axes_travail(j, radar),
+                           ret_forts=_retenu_radar(radar)[0], ret_faibles=_retenu_radar(radar)[1],
                            libelles=PROFIL_LIBELLE, display_name=_joueur_nom_affiche,
                            min_minutes=bareme.MIN_MINUTES, **ctx)
 

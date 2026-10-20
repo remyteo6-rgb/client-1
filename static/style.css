@@ -3322,3 +3322,4 @@ select.subnav-match-select option { color:#222; background:#fff; }
 .pj-tf { flex:1 1 100%; font-size:12px; line-height:1.35; }
 .pj-tf-pos { color:#2c6a3a; } .pj-tf-neg { color:#a32d20; }
 .pj-ret-t { font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; opacity:.7; }
+.pj-ret { margin:2px 0 8px; } .pj-ret-d { display:block; font-size:12px; color:var(--text-secondary,#6b5a55); }

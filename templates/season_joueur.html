@@ -65,15 +65,15 @@
             <div class="bil-panel-head">Ce qu'on retient</div>
             <div class="pj-text">
                 {% set xpos = (j.x_atouts or [])|selectattr('score', 'ge', 6)|list %}
-                {% if j.forts %}<p><span class="pj-ret-t">Points forts au poste</span><br>{% for c in j.forts %}<span class="nt-fort">▲ {{ c.label }} ({{ c.score }})</span> {% endfor %}</p>{% endif %}
-                {% if j.faibles %}<p><span class="pj-ret-t">Points faibles au poste</span><br>{% for c in j.faibles %}<span class="nt-faible">▼ {{ c.label }} ({{ c.score }})</span> {% endfor %}</p>{% endif %}
+                {% if ret_forts %}<p><span class="pj-ret-t">Points forts au poste</span></p>{% for x in ret_forts %}<div class="pj-ret"><span class="nt-fort">▲ {{ x.label }} ({{ x.score }})</span>{% if x.crits %}<span class="pj-ret-d">{% for c in x.crits %}{{ c.label }} {{ c.score }}{{ ' · ' if not loop.last }}{% endfor %}</span>{% endif %}</div>{% endfor %}{% endif %}
+                {% if ret_faibles %}<p><span class="pj-ret-t">Points faibles au poste</span></p>{% for x in ret_faibles %}<div class="pj-ret"><span class="nt-faible">▼ {{ x.label }} ({{ x.score }})</span>{% if x.crits %}<span class="pj-ret-d">{% for c in x.crits %}{{ c.label }} {{ c.score }}{{ ' · ' if not loop.last }}{% endfor %}</span>{% endif %}</div>{% endfor %}{% endif %}
                 {% if xpos %}
                 <p><span class="pj-ret-t">Facteur X — ce qu'il apporte en plus</span></p>
                 {% for c in xpos %}
                 <div class="pj-x"><span class="pj-x-lab">{{ c.label }}</span><span class="pj-x-val">{{ c.valeur|round(0)|int if c.type == 'pct' else c.valeur }}{{ ' %' if c.type == 'pct' else ' /80 min' }}</span>{{ badge(c.score) }}</div>
                 {% endfor %}
                 {% endif %}
-                {% if not j.forts and not j.faibles and not xpos %}<p class="nt-sub">Pas de point saillant.</p>{% endif %}
+                {% if not ret_forts and not ret_faibles and not xpos %}<p class="nt-sub">Pas de point saillant.</p>{% endif %}
             </div>
         </div>
     </div>
