@@ -270,18 +270,18 @@ PROFILS = {
     # 9 (20 oct. 2026, demande de Téo) : on garde l'habileté technique, on ajoute la qualité du jeu au pied,
     # les ballons perdus (au-dessus de 1 par match, ce n'est pas bon), le % de plaquages et un peu d'utilité au ruck.
     "9": [
-        ("Transmission", {"passes_pct": 10}),
+        ("Transmission", {"passes_pct": 8}),
         ("Jeu au pied (qualité)", {"jap_pct": 12}),
         ("Sécurité du ballon", {"pdb": 8}),
         ("Plaquer", {"plaquage_pct": 3}),
-        ("Soutenir / rucker", {"ruck_util": 3}),
+        ("Soutenir / rucker", {"ruck_util": 6}),
         ("Habileté technique", {"offload_pct": 2, "break": 4}),
     ],
     # 10 (20 oct. 2026, demande de Téo) : réussite au pied (but), qualité des passes, plaquages, qualité du jeu au pied
     # et ballons perdus. Le reste est retiré.
     "10": [
         ("Réussite au but", {"kicks_pct": 12}),
-        ("Transmission", {"passes_pct": 12}),
+        ("Transmission", {"passes_pct": 10}),
         ("Jeu au pied (qualité)", {"jap_pct": 12}),
         ("Plaquer", {"plaquage_pct": 3}),
         ("Sécurité du ballon", {"pdb": 8}),
