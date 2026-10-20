@@ -4789,7 +4789,10 @@ def season_bareme():
                 ref = next((d[c] for d in bareme.BAREME_DEFAUT.values() if c in d), (0, 10, 0))
                 bar[p][c] = (0, ref[1], ref[2])
     x_tables = {p: bareme.x_effectif(p, bar_full) for p in bareme.POSTES}
-    return render_template("season_bareme.html", bar=bar, x_tables=x_tables, postes=bareme.POSTES, criteres=bareme.CRITERES,
+    _assurer_references(bar_full)
+    refs = [{"poste": p, "note": bareme.NOTE_REF.get(p), "x": bareme.X_REF.get(p), "x_auto": p in bareme.X_REF and bareme.X_REF[p] != bareme.X_REF_DEFAUT.get(p)}
+            for p in bareme.POSTES]
+    return render_template("season_bareme.html", refs=refs, ref_min=bareme.REF_MIN_ECHANTILLON, bar=bar, x_tables=x_tables, postes=bareme.POSTES, criteres=bareme.CRITERES,
                            malus=bareme.MALUS, bonus=bareme.BONUS, min_minutes=bareme.MIN_MINUTES,
                            passes_charniere=bareme.PASSES_RATEES["9"][0], attentes=bareme.ATTENTE_DU_CRITERE, non_mesurables=bareme.NON_MESURABLES, libelles=PROFIL_LIBELLE, plaquage_rate=bareme.PLAQUAGE_RATE[0],
                            plaquage_rate_max=bareme.PLAQUAGE_RATE[1], calage=bareme.CALAGE, **ctx)

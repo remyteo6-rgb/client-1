@@ -10,6 +10,15 @@
         <p class="subtitle">Chaque critère vaut une note de 0 à 10 : volume (rapporté à 80 min) ÷ cible, ou % entre plancher et cible. La note est la moyenne pondérée, moins les malus, plus les essais (max +{{ bonus.essai_max }}).<br>Réussir est normal : les passes et plaquages réussis n'ajoutent rien, les <strong>passes ratées</strong> (surtout au 9/10) et les <strong>plaquages ratés</strong> (−{{ plaquage_rate }} chacun, max −{{ plaquage_rate_max }}) sont retirés. Un pourcentage reposant sur peu d'actions est tiré vers la moyenne attendue. Calage de poste : {% for p, k in calage.items() %}{{ p }} ×{{ k }}{{ ', ' if not loop.last }}{% endfor %}.</p>
     </div>
 </div>
+<div class="bil-panel no-print" style="margin-bottom:14px;">
+    <div class="bil-panel-head">Références calculées automatiquement</div>
+    <div class="pj-text">
+        <p class="nt-sub">Moyenne réelle de tous les matchs en base, par poste, recalculée à chaque match ajouté ou changement de barème. La note brute et le Facteur X sont recentrés sur ces références, pour que chaque poste ait la même échelle de lecture. Sous {{ ref_min }} notes dans un poste : pas de recentrage de la note, valeur de départ pour le Facteur X.</p>
+        <table class="stat-table zebra-table"><thead><tr><th>Poste</th><th>Référence note (brute)</th><th>Référence Facteur X</th></tr></thead><tbody>
+        {% for r in refs %}<tr><td>{{ libelles.get(r.poste, r.poste) }}</td><td>{{ r.note if r.note is not none else 'pas assez de matchs' }}</td><td>{{ r.x if r.x is not none else '—' }}{{ ' (calculée)' if r.x_auto else ' (valeur de départ)' }}</td></tr>{% endfor %}
+        </tbody></table>
+    </div>
+</div>
 <div class="report-board board-free">
     <div class="report-head"><span class="report-title">BARÈME</span>
         <span class="report-subtitle">Pénalité −{{ malus.penalite }} · jaune −{{ malus.jaune }} · rouge −{{ malus.rouge }} · essai +{{ bonus.essai }} · passe ratée : −{{ passes_charniere }} au 9/10</span></div>
