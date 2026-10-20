@@ -4252,6 +4252,11 @@ def _notes_saison_calc(selected, bar=None):
             rows = {k: by[k].get(c) for k in by}
             rows = _appliquer_corrections_manuelles(m, c, rows)
             res = bareme.note_match(poste, rows, info["minutes"], info["yellow"], info["red"], bar)
+            if res and any(d["critere"] == "kicks_pct" for d in res["detail"]):
+                # Note du même match sans la réussite au but : sert à la faire compter TOUJOURS sur la saison.
+                bar_sb = {**bar, poste: {**bar[poste], "kicks_pct": (0,) + tuple(bar[poste]["kicks_pct"][1:])}}
+                r_sb = bareme.note_match(poste, rows, info["minutes"], info["yellow"], info["red"], bar_sb)
+                res["note_sans_but"] = r_sb["note"] if r_sb else res["note"]
             j = joueurs.setdefault(c, {"name": nom, "matchs": [], "approx": False})
             j["approx"] = j["approx"] or not precis
             j["matchs"].append({"id": m["id"], "opponent": m.get("opponent") or "?", "date": m.get("match_date"),
@@ -4300,8 +4305,15 @@ def _notes_saison_calc(selected, bar=None):
         # Les essais comptent TOUJOURS (jamais écartés) : la note retenue est calculée sans le bonus d'essais,
         # puis on ajoute le bonus d'essais moyen de TOUS les matchs.
         mins_tous = sum(x["minutes"] for x in notes_tous)
-        note = (sum((x["res"]["note"] - _pts_essais(x)) * x["minutes"] for x in notes) / mins_note
-                + sum(_pts_essais(x) * x["minutes"] for x in notes_tous) / mins_tous)
+        # Même principe pour la réussite au but des buteurs : sa part dans la note de chaque match (note avec
+        # moins note sans) est moyennée sur TOUS les matchs où elle est notée, jamais écartée.
+        def _sb(x):
+            return x["res"].get("note_sans_but", x["res"]["note"])
+        bute = [x for x in notes_tous if "note_sans_but" in x["res"]]
+        part_but = (sum((x["res"]["note"] - x["res"]["note_sans_but"]) * x["minutes"] for x in bute)
+                    / sum(x["minutes"] for x in bute)) if bute else 0.0
+        note = (sum((_sb(x) - _pts_essais(x)) * x["minutes"] for x in notes) / mins_note
+                + sum(_pts_essais(x) * x["minutes"] for x in notes_tous) / mins_tous + part_but)
         note = max(0.0, min(10.0, note))
         par_poste = {}
         for x in notes:
