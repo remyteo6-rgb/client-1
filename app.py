@@ -4199,7 +4199,9 @@ def _bareme_courant():
 def _notes_saison(selected, bar=None):
     if bar is not None:
         return _notes_saison_calc(selected, bar)
-    return _cached_result("notes", selected, lambda: _notes_saison_calc(selected))
+    _assurer_references(_bareme_courant())
+    return _cached_result("notes", selected, lambda: _notes_saison_calc(selected),
+                          extra=repr((sorted(bareme.NOTE_REF.items()), sorted(bareme.X_REF.items()))))
 
 
 # Corrections ponctuelles de stats pour un joueur sur un match (20 oct. 2026) : (adversaire, joueur) -> ajouts.
@@ -4220,8 +4222,47 @@ def _appliquer_corrections_manuelles(m, cle_joueur, rows):
     return out
 
 
+_REFS_LOCK = threading.Lock()
+_REFS_STATE = {"key": None, "en_cours": False}
+
+
+def _assurer_references(bar):
+    """Références par poste (note au poste et Facteur X) = moyennes réelles de TOUS les matchs en base,
+    recalculées dès qu'un match est ajouté ou modifié ou que le barème change. Postes avec moins de
+    REF_MIN_ECHANTILLON notes : valeur de départ (X) ou pas de recentrage (note)."""
+    if _REFS_STATE["en_cours"]:
+        return
+    tous = _season_context()[0]
+    key = (tuple((m["id"], m.get("_sig")) for m in tous), _deps_signature(), repr(sorted((bar or {}).items())) if bar else "")
+    if _REFS_STATE["key"] == key:
+        return
+    with _REFS_LOCK:
+        if _REFS_STATE["key"] == key or _REFS_STATE["en_cours"]:
+            return
+        _REFS_STATE["en_cours"] = True
+        try:
+            notes_p, x_p = {}, {}
+            for j in _notes_saison_calc(tous, bar or _bareme_courant()):
+                for x in j["matchs"]:
+                    r = x.get("res")
+                    if not r or x["minutes"] < 50:
+                        continue
+                    notes_p.setdefault(x["poste"], []).append(r.get("note_brut", r["note"]))
+                    if r.get("x") and r["x"].get("brut") is not None:
+                        x_p.setdefault(x["poste"], []).append(r["x"]["brut"])
+            n_ref = {p: round(sum(v) / len(v), 2) for p, v in notes_p.items() if len(v) >= bareme.REF_MIN_ECHANTILLON}
+            x_ref = dict(bareme.X_REF_DEFAUT)
+            x_ref.update({p: round(sum(v) / len(v), 2) for p, v in x_p.items() if len(v) >= bareme.REF_MIN_ECHANTILLON})
+            bareme.NOTE_REF = n_ref
+            bareme.X_REF = x_ref
+            _REFS_STATE["key"] = key
+        finally:
+            _REFS_STATE["en_cours"] = False
+
+
 def _notes_saison_calc(selected, bar=None):
     bar = bar or _bareme_courant()
+    _assurer_references(bar)
     joueurs = {}
     infos_matchs = {m["id"]: _match_infos_full(m) for m in selected}
     minutes_profil = {}
@@ -4411,18 +4452,6 @@ def _notes_joueurs_avec_ecart(joueurs):
         j["evo"] = _note_evolution(j)
         j["key"] = j["name"].strip().casefold()
     return joueurs
-
-
-@app.route("/season/notes/fiche/<path:key>")
-def season_notes_fiche(key):
-    """Fiche A4 imprimable d'un joueur : note, Facteur X, évolution, points forts et à travailler."""
-    selected, ctx = _season_common("notes")
-    joueurs = _notes_joueurs_avec_ecart(_notes_saison(selected))
-    j = next((x for x in joueurs if x["key"] == key.strip().casefold()), None)
-    if j is None:
-        abort(404)
-    return render_template("season_notes_fiche.html", j=j, libelles=PROFIL_LIBELLE, display_name=_joueur_nom_affiche,
-                           min_minutes=bareme.MIN_MINUTES, n_matchs=len(selected), **ctx)
 
 
 @app.route("/season/notes")

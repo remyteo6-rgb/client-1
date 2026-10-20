@@ -571,8 +571,22 @@ def _facteur_x_brut(poste, rows, minutes, bareme=None):
 # Référence du Facteur X par poste : note brute d'un joueur « moyen » à ce poste. Elle est calée sur 5, pour
 # qu'on puisse être très haut comme très bas à chaque poste, quelle que soit la difficulté de ses critères
 # (un 3ème ligne n'est pas bas « parce que 3ème ligne », ni un pilier haut « parce que pilier »).
-X_REF = {"Pilier": 2.3, "Talonneur": 4.9, "2ème ligne": 3.9, "3ème ligne": 2.9, "9": 2.7, "10": 6.4,
+X_REF_DEFAUT = {"Pilier": 2.3, "Talonneur": 4.9, "2ème ligne": 3.9, "3ème ligne": 2.9, "9": 2.7, "10": 6.4,
          "12-13": 3.9, "11-14": 4.3, "15": 5.4}
+X_REF = dict(X_REF_DEFAUT)  # remplacé à chaque calcul par les moyennes réelles de la saison (voir app._assurer_references)
+# Note au poste : référence par poste (note brute moyenne d'un joueur de ce poste), recalculée automatiquement.
+# Elle recentre chaque poste sur 5, pour que « joueur moyen = 5 » quel que soit le poste.
+NOTE_REF = {}
+REF_MIN_ECHANTILLON = 5  # nombre minimal de notes de match d'un poste pour calculer sa référence
+
+
+def recentrer(valeur, ref):
+    """0 → 0, ref → 5, 10 → 10 (linéaire par morceaux)."""
+    v = _clamp(valeur)
+    if not ref or ref <= 0 or ref >= 10:
+        return v
+    return 5 * v / ref if v <= ref else 5 + 5 * (v - ref) / (10 - ref)
+
 
 
 def facteur_x(poste, rows, minutes, bareme=None):
@@ -584,8 +598,7 @@ def facteur_x(poste, rows, minutes, bareme=None):
     brut = res["note"]
     ref = X_REF.get(poste)
     if ref:
-        brut_c = _clamp(brut)
-        res["note"] = round(5 * brut_c / ref if brut_c <= ref else 5 + 5 * (brut_c - ref) / (10 - ref), 1)
+        res["note"] = round(recentrer(brut, ref), 1)
     res["brut"] = brut
     return res
 
@@ -708,7 +721,8 @@ def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
             bonus.append({"label": "Duels aériens joués", "points": round(pts, 1), "n": g_ + n_})
             bonus_pts += pts
     total_malus = min(sum(-m["points"] for m in malus), MALUS["total_max"])
-    note = _clamp(base - total_malus + bonus_pts)
-    return {"note": round(note, 1), "base": round(base, 1), "malus": malus, "bonus": bonus,
+    note_brute = _clamp(base - total_malus + bonus_pts)
+    note = recentrer(note_brute, NOTE_REF.get(poste))
+    return {"note": round(note, 1), "note_brut": round(note_brute, 2), "base": round(base, 1), "malus": malus, "bonus": bonus,
             "detail": sorted(detail, key=lambda d: -d["poids"]), "manquants": manquants, "couverture": round(100 * couverture), "minutes": minutes, "poste": poste,
             "x": _facteur_x_sur(poste, rows, minutes, bareme)}

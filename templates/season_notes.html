@@ -60,7 +60,6 @@
             <div class="nt-body">
                 {% if j.ecart is not none %}<p class="nt-sub" style="margin-top:2px;"><strong>Écart avec la moyenne du poste :</strong> {{ '%+.1f'|format(j.ecart) }}{% if j.malus %} · fautes −{{ j.malus }} par match{% endif %}</p>{% endif %}
                 {{ evo(j) }}
-                <p class="no-print" style="margin:6px 0 10px;"><a href="{{ url_for('season_notes_fiche', key=j.key, m=season_selected_ids) }}" target="_blank">🖨 Fiche A4 de ce joueur</a></p>
                 <h4>Match par match</h4>
                 <p class="nt-matchs">{% for x in j.matchs %}<span class="nt-chip" title="{{ x.poste }} · {{ x.minutes }} min{% if x.raison %} · {{ x.raison }}{% endif %}">{{ x.opponent }}{% if x.poste != j.poste %} ({{ x.poste }}){% endif %} · {{ x.minutes }} min {% if x.cumul %}<span class="nt-badge nt-na" title="Courte entrée, cumulée dans la note de saison">cumul</span>{% else %}{{ badge(x.res.note if x.res else none) }}{% endif %}</span>{% endfor %}</p>
                 {% if j.ecartes %}<p class="nt-sub">Note de saison hors meilleure et moins bonne performance ({% for e in j.ecartes %}{{ e.opponent or 'courtes entrées' }} {{ e.note }}{{ ' · ' if not loop.last }}{% endfor %}), toujours visibles dans le suivi match par match.</p>{% endif %}
