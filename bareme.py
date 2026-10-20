@@ -254,9 +254,8 @@ PROFILS = {
     "2ème ligne": [
         ("Sauter / lifter / touche, CE et CR", {"sauteur_pct": 11, "sauteur": 7, "lifteur_pct": 6, "lifteur": 5}),
         ("Plaquer / contest / défendre", {"plaquage_dom": 5, "plaquage": 5, "plaquage_pct": 5, "recup": 9}),
-        ("Soutenir / rucker", {"soutien": 9}),
-        ("Duel off / porteur de balle", {"contact_dom": 6, "contact": 5}),
-        ("Habileté technique", {"offload": 6, "offload_pct": 3, "passes": 2}),
+        ("Soutenir / rucker", {"soutien": 9, "ruck_util": 6}),
+        # Duel off / porteur de balle et habileté technique : passés dans le Facteur X (20 oct. 2026).
     ],
     "3ème ligne": [
         ("Duel off / franchissement", {"contact_dom": 7, "break": 7, "def_battu": 5, "contact": 3}),
@@ -412,13 +411,19 @@ X_PROFILS = {
     # Talonneur : pourcentages seulement ; duels off (dominance au contact) et habileté technique
     # (offloads, passes) y sont passés en octobre 2026.
     "Talonneur": ["contact_dom", "offload_pct", "passes_pct", "ruck_util"],
+    # 2ème ligne (20 oct. 2026) : duel off et habileté technique (déplacés du poste), mêlée, réception du CE.
+    # Retirés : lancers gagnés, duels aériens, coups de pied au but ; l'utilité au ruck est passée au poste.
+    "2ème ligne": ["contact_dom", "contact", "offload", "offload_pct", "passes",
+                   "melee_off_pct", "melee_def_pct", "rce_pct"],
 }
 
 
 # Cibles propres aux listes X_PROFILS quand le critère n'est pas dans les attentes du poste.
 X_CIBLES_PROFIL = {"jap_pct": (75, 25), "passes_pct": (98, 70), "pdb": (3, 0), "essai": (0.5, 0)}
 # Cibles propres à un poste (prioritaires sur X_CIBLES_PROFIL) : un pilier n'a pas les mêmes volumes qu'un ailier.
-X_CIBLES_POSTE = {"Talonneur": {"contact_dom": (65, 30), "offload_pct": (100, 50), "passes_pct": (98, 70), "ruck_util": (70, 20)},
+X_CIBLES_POSTE = {"2ème ligne": {"contact_dom": (65, 30), "contact": (11, 0), "offload": (3, 0), "offload_pct": (100, 50),
+                                 "passes": (6, 0), "melee_off_pct": (90, 40), "melee_def_pct": (80, 30), "rce_pct": (75, 25)},
+                  "Talonneur": {"contact_dom": (65, 30), "offload_pct": (100, 50), "passes_pct": (98, 70), "ruck_util": (70, 20)},
                   "Pilier": {"def_battu": (2, 0), "break": (0.5, 0), "essai": (0.15, 0), "recup": (4, 0),
                              "offload": (1.5, 0), "offload_pct": (100, 50), "passes": (4, 0), "passes_pct": (98, 70)}}
 

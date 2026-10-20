@@ -5869,15 +5869,20 @@ def _ppid_migrer_grille_2026(db):
 
 
 def _migrer_talonneur_pourcentages(db):
-    """Une seule fois : le barème des talonneurs ne garde que des pourcentages ; on efface donc les réglages
-    enregistrés pour les critères retirés (sinon ils reviendraient dans la note)."""
+    """Une seule fois par poste (table app_migrations) : quand des critères sont retirés du barème d'un poste,
+    on efface leurs réglages enregistrés (sinon ils reviendraient dans la note)."""
     db.execute("CREATE TABLE IF NOT EXISTS app_migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL)")
-    nom = "talonneur_pourcentages_2026_10"
-    if db.execute("SELECT 1 FROM app_migrations WHERE name = %s", (nom,)).fetchone():
-        return
-    for crit in ("lanceur", "plaquage", "recup", "soutien", "contact", "contact_dom", "offload", "offload_pct", "passes"):
-        db.execute("DELETE FROM bareme_reglages WHERE poste = %s AND critere = %s", ("Talonneur", crit))
-    db.execute("INSERT INTO app_migrations (name, applied_at) VALUES (%s, %s)", (nom, datetime.utcnow().isoformat()))
+    for nom, poste, criteres in (
+        ("talonneur_pourcentages_2026_10", "Talonneur",
+         ("lanceur", "plaquage", "recup", "soutien", "contact", "contact_dom", "offload", "offload_pct", "passes")),
+        ("deuxieme_ligne_facteur_x_2026_10", "2ème ligne",
+         ("contact_dom", "contact", "offload", "offload_pct", "passes")),
+    ):
+        if db.execute("SELECT 1 FROM app_migrations WHERE name = %s", (nom,)).fetchone():
+            continue
+        for crit in criteres:
+            db.execute("DELETE FROM bareme_reglages WHERE poste = %s AND critere = %s", (poste, crit))
+        db.execute("INSERT INTO app_migrations (name, applied_at) VALUES (%s, %s)", (nom, datetime.utcnow().isoformat()))
 
 
 def _ppid_rugby_categories_for_position(position):
