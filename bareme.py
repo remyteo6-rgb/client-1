@@ -414,7 +414,7 @@ X_PROFILS = {
     # 2ème ligne (20 oct. 2026) : duel off et habileté technique (déplacés du poste), mêlée, réception du CE.
     # Retirés : lancers gagnés, duels aériens, coups de pied au but ; l'utilité au ruck est passée au poste.
     "2ème ligne": ["contact_dom", "contact", "offload", "offload_pct", "passes",
-                   "melee_off_pct", "melee_def_pct", "rce_pct"],
+                   "melee_off_pct", "melee_def_pct", "rce_pct", "def_battu", "break", "essai"],
 }
 
 
@@ -422,7 +422,8 @@ X_PROFILS = {
 X_CIBLES_PROFIL = {"jap_pct": (75, 25), "passes_pct": (98, 70), "pdb": (3, 0), "essai": (0.5, 0)}
 # Cibles propres à un poste (prioritaires sur X_CIBLES_PROFIL) : un pilier n'a pas les mêmes volumes qu'un ailier.
 X_CIBLES_POSTE = {"2ème ligne": {"contact_dom": (65, 30), "contact": (11, 0), "offload": (3, 0), "offload_pct": (100, 50),
-                                 "passes": (6, 0), "melee_off_pct": (90, 40), "melee_def_pct": (80, 30), "rce_pct": (75, 25)},
+                                 "passes": (6, 0), "melee_off_pct": (90, 40), "melee_def_pct": (80, 30), "rce_pct": (75, 25),
+                                 "def_battu": (2, 0), "break": (0.5, 0), "essai": (0.15, 0)},
                   "Talonneur": {"contact_dom": (65, 30), "offload_pct": (100, 50), "passes_pct": (98, 70), "ruck_util": (70, 20)},
                   "Pilier": {"def_battu": (2, 0), "break": (0.5, 0), "essai": (0.15, 0), "recup": (4, 0),
                              "offload": (1.5, 0), "offload_pct": (100, 50), "passes": (4, 0), "passes_pct": (98, 70)}}
