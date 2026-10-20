@@ -4576,6 +4576,22 @@ def _tendance(evo):
             "nb": len(notes)}
 
 
+def _fiabilite(j, joues):
+    """Fiabilité de la note de saison : temps de jeu, nombre de matchs notés, part des critères réellement évalués."""
+    notes = [x for x in joues if x.get("res")]
+    mins = sum(x["minutes"] for x in notes)
+    if not notes or mins <= 0:
+        return None
+    couv = sum((x["res"].get("couverture", 100)) * x["minutes"] for x in notes) / mins
+    pts = (2 if mins >= 240 else 1 if mins >= 120 else 0) + (2 if len(notes) >= 4 else 1 if len(notes) >= 2 else 0) \
+        + (2 if couv >= 90 else 1 if couv >= 75 else 0)
+    niveau, cls = ("Solide", "ok") if pts >= 5 else (("Correcte", "mid") if pts >= 3 else ("Fragile", "low"))
+    raisons = [f"{mins} min notées sur {len(notes)} match{'s' if len(notes) > 1 else ''}", f"{round(couv)} % des critères du poste évalués"]
+    if mins < 120:
+        raisons.append("peu de temps de jeu : la note bouge vite")
+    return {"niveau": niveau, "cls": cls, "points": pts, "raisons": raisons}
+
+
 def _retenu_radar(radar):
     """Points forts / faibles lus sur les attentes du poste (axes du radar), avec les critères qui les expliquent."""
     if not radar or not radar.get("axes"):
@@ -4635,7 +4651,7 @@ def season_joueur(key):
     for x in joues:
         x["tf"] = _temps_forts(x)
     return render_template("season_joueur.html", j=j, radar=radar, joues=joues, nb_matchs=len(joues),
-                           tendance=_tendance(j["evo"]), axes=_axes_travail(j, radar),
+                           tendance=_tendance(j["evo"]), axes=_axes_travail(j, radar), fiab=_fiabilite(j, joues),
                            ret_forts=_retenu_radar(radar)[0], ret_faibles=_retenu_radar(radar)[1],
                            libelles=PROFIL_LIBELLE, display_name=_joueur_nom_affiche,
                            min_minutes=bareme.MIN_MINUTES, **ctx)

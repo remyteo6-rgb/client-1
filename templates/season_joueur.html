@@ -7,7 +7,7 @@
 <div class="page-header no-print">
     <div>
         <h1>{{ icons.users() }} {{ display_name(j.name) }}</h1>
-        <p class="subtitle"><a href="{{ url_for('season_fiche', m=season_selected_ids) }}">← Tous les joueurs</a> · <a href="{{ url_for('season_notes', m=season_selected_ids) }}">Notes</a></p>
+        <p class="subtitle"><button type="button" class="btn btn-secondary" style="float:right" onclick="window.print()">Exporter en PDF</button><a href="{{ url_for('season_fiche', m=season_selected_ids) }}">← Tous les joueurs</a> · <a href="{{ url_for('season_notes', m=season_selected_ids) }}">Notes</a></p>
     </div>
 </div>
 {% include "_season_select.html" %}
@@ -16,6 +16,7 @@
     <div class="pj-id">
         <span class="pj-poste">{{ libelles.get(j.poste, j.poste) if j.poste else 'Sans poste' }}</span>
         <h2 class="pj-name">{{ display_name(j.name) }}</h2>
+        {% if fiab %}<p class="pj-fiab pj-fiab-{{ fiab.cls }}" title="{{ fiab.raisons|join(' · ') }}">Fiabilité de la note : <strong>{{ fiab.niveau }}</strong></p>{% endif %}
         <p class="pj-sub">Saison · {{ season_selected_count }} match{{ 's' if season_selected_count != 1 }} sélectionné{{ 's' if season_selected_count != 1 }}</p>
     </div>
     <div class="pj-kpis">
@@ -27,6 +28,7 @@
     </div>
 </section>
 
+{% if fiab %}<p class="nt-sub pj-fiab-detail">{{ fiab.raisons|join(' · ') }}.</p>{% endif %}
 <div class="pj-grid">
     <div class="bil-panel">
         <div class="bil-panel-head">Radar · attentes du poste</div>
