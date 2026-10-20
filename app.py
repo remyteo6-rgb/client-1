@@ -4302,7 +4302,9 @@ def _notes_saison_calc(selected, bar=None):
         # Facteur X : note moyenne (pondérée par les minutes) et atouts hors poste.
         xs = [x for x in notes if x["res"].get("x")]
         x_note, x_atouts = None, []
-        if xs:
+        # Pas de Facteur X sans assez de temps de jeu : 20 min sur un match, 60 min sur la saison.
+        seuil_x = bareme.X_MIN_MATCH if len(selected) == 1 else bareme.X_MIN_SAISON
+        if xs and sum(x["minutes"] for x in xs) >= seuil_x:
             xm = sum(x["minutes"] for x in xs)
             x_note = round(sum(x["res"]["x"]["note"] * x["minutes"] for x in xs) / xm, 1)
             agr = {}

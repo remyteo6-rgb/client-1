@@ -402,6 +402,8 @@ def _cible_hors_poste(crit):
     return min(cands, key=lambda x: x[0]) if cands else None
 
 
+X_MIN_MATCH = 20    # minutes minimales pour un Facteur X sur un match
+X_MIN_SAISON = 60   # minutes minimales pour un Facteur X sur la saison
 X_NB = 3      # le facteur X est la moyenne des X_NB meilleurs atouts hors poste
 X_SEUIL = 3.0  # note minimale d'un critère hors poste pour compter comme atout
 
