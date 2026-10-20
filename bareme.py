@@ -275,12 +275,14 @@ PROFILS = {
         ("Soutenir / rucker", {"ruck_util": 3}),
         ("Habileté technique", {"offload_pct": 2, "break": 4}),
     ],
+    # 10 (20 oct. 2026, demande de Téo) : réussite au pied (but), qualité des passes, plaquages, qualité du jeu au pied
+    # et ballons perdus. Le reste est retiré.
     "10": [
-        ("Transmission", {"passes_pct": 20, "soutien": 3}),
-        ("Jeu au pied (pression, occupation, CE/CR, drop) et stratégie", {"kicks_pct": 10}),
-        ("Plaquer / circulation défensive", {"plaquage_dom": 4, "plaquage_pct": 5, "recup": 6}),
-        ("Duel / franchissement", {"contact_dom": 6, "break": 6, "def_battu": 6}),
-        ("Habileté technique", {"offload_pct": 2}),
+        ("Réussite au but", {"kicks_pct": 12}),
+        ("Transmission", {"passes_pct": 12}),
+        ("Jeu au pied (qualité)", {"jap_pct": 12}),
+        ("Plaquer", {"plaquage_pct": 8}),
+        ("Sécurité du ballon", {"pdb": 8}),
     ],
     "12-13": [
         ("Duel off / franchissement", {"contact_dom": 10, "break": 12, "def_battu": 12}),
@@ -431,6 +433,7 @@ X_PROFILS = {
     "Pilier": [("def_battu", 3), ("break", 3), ("essai", 3), ("recup", 3), ("offload_pct", 3),
                ("passes_pct", 1)],
     "9": ["essai", "def_battu", "break"],  # 20 oct. 2026 : uniquement le socle
+    "10": ["essai", "def_battu", "break", "passes_pct"],  # 20 oct. 2026 : socle + passes
     "11-14": ["jap_pct", "passes_pct", "pdb", "recup", "essai"],
     "15": ["jap_pct", "passes_pct", "pdb", "recup", "essai"],
     # 3ème ligne : dominance dans ce qu'ils font (contacts +/-, plaquages +/-, défenseurs battus)
@@ -458,7 +461,7 @@ for _p, _l in X_PROFILS.items():
 X_CIBLES_PROFIL = {"jap_pct": (75, 25), "passes_pct": (98, 70), "pdb": (3, 0), "essai": (0.5, 0)}
 # Cibles propres à un poste (prioritaires sur X_CIBLES_PROFIL) : un pilier n'a pas les mêmes volumes qu'un ailier.
 X_CIBLES_POSTE = {"9": {"essai": (0.3, 0), "def_battu": (2, 0), "break": (1, 0)},
-                  "10": {"essai": (0.3, 0), "def_battu": (2, 0), "break": (1, 0)},
+                  "10": {"essai": (0.3, 0), "def_battu": (2, 0), "break": (1, 0), "passes_pct": (99, 85)},
                   "12-13": {"essai": (0.4, 0), "def_battu": (5, 0), "break": (3, 0)},
                   "3ème ligne": {"essai": (0.3, 0), "def_battu": (3, 0)},
                   "2ème ligne": {"contact_dom": (65, 30), "offload_pct": (100, 50),
@@ -553,7 +556,7 @@ def _facteur_x_brut(poste, rows, minutes, bareme=None):
 # Référence du Facteur X par poste : note brute d'un joueur « moyen » à ce poste. Elle est calée sur 5, pour
 # qu'on puisse être très haut comme très bas à chaque poste, quelle que soit la difficulté de ses critères
 # (un 3ème ligne n'est pas bas « parce que 3ème ligne », ni un pilier haut « parce que pilier »).
-X_REF = {"Pilier": 3.2, "Talonneur": 4.9, "2ème ligne": 4.0, "3ème ligne": 3.0, "9": 3.8, "10": 7.5,
+X_REF = {"Pilier": 3.2, "Talonneur": 4.9, "2ème ligne": 4.0, "3ème ligne": 3.0, "9": 3.8, "10": 6.6,
          "12-13": 4.1, "11-14": 3.6, "15": 5.0}
 
 
