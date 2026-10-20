@@ -429,13 +429,26 @@ X_PROFILS = {
 }
 
 
+# Socle commun du Facteur X (20 oct. 2026, demande de Téo) : essais, défenseurs battus et franchissements
+# comptent dans le Facteur X de CHAQUE poste.
+X_SOCLE = ["essai", "def_battu", "break"]
+for _p, _l in X_PROFILS.items():
+    _deja = {e[0] if isinstance(e, tuple) else e for e in _l}
+    _l.extend(c for c in X_SOCLE if c not in _deja)
+
+
 # Cibles propres aux listes X_PROFILS quand le critère n'est pas dans les attentes du poste.
 X_CIBLES_PROFIL = {"jap_pct": (75, 25), "passes_pct": (98, 70), "pdb": (3, 0), "essai": (0.5, 0)}
 # Cibles propres à un poste (prioritaires sur X_CIBLES_PROFIL) : un pilier n'a pas les mêmes volumes qu'un ailier.
-X_CIBLES_POSTE = {"2ème ligne": {"contact_dom": (65, 30), "contact": (11, 0), "offload": (3, 0), "offload_pct": (100, 50),
+X_CIBLES_POSTE = {"9": {"essai": (0.3, 0), "def_battu": (2, 0), "break": (1, 0)},
+                  "10": {"essai": (0.3, 0), "def_battu": (2, 0), "break": (1, 0)},
+                  "12-13": {"essai": (0.4, 0), "def_battu": (5, 0), "break": (3, 0)},
+                  "3ème ligne": {"essai": (0.3, 0)},
+                  "2ème ligne": {"contact_dom": (65, 30), "contact": (11, 0), "offload": (3, 0), "offload_pct": (100, 50),
                                  "passes": (6, 0), "melee_off_pct": (90, 40), "melee_def_pct": (80, 30), "rce_pct": (75, 25),
                                  "def_battu": (2, 0), "break": (0.5, 0), "essai": (0.15, 0)},
-                  "Talonneur": {"contact_dom": (65, 30), "offload_pct": (100, 50), "passes_pct": (98, 70), "ruck_util": (70, 20)},
+                  "Talonneur": {"contact_dom": (65, 30), "offload_pct": (100, 50), "passes_pct": (98, 70), "ruck_util": (70, 20),
+                                "def_battu": (2, 0), "break": (0.5, 0), "essai": (0.15, 0)},
                   "Pilier": {"def_battu": (2, 0), "break": (0.5, 0), "essai": (0.15, 0), "recup": (4, 0),
                              "offload": (1.5, 0), "offload_pct": (100, 50), "passes": (4, 0), "passes_pct": (98, 70)}}
 
@@ -477,8 +490,23 @@ def facteur_x(poste, rows, minutes, bareme=None):
         return _facteur_x_profil(poste, rows, minutes, reglages)
     dans_profil = {c for c, r in reglages.items() if r[0] > 0}
     atouts = []
+    socle = []
+    for crit in X_SOCLE:
+        r = reglages.get(crit)
+        xr = reglages.get("x:" + crit)
+        w = 1
+        ref = (r[1], r[2]) if r and r[1] else (X_CIBLES_POSTE.get(poste, {}).get(crit) or X_CIBLES_PROFIL.get(crit) or _cible_hors_poste(crit))
+        if xr:
+            w, ref = xr[0], (xr[1], xr[2])
+        if w <= 0 or not ref:
+            continue
+        ev = evaluer_critere(crit, ref[0], ref[1], rows, minutes)
+        if ev["valeur"] is None:
+            continue
+        socle.append({"critere": crit, "label": ev["label"], "type": ev["type"], "valeur": ev["valeur"],
+                      "cible": ref[0], "score": round(ev["score"], 1), "actions": ev["actions"], "poids": w})
     for crit in CRITERES:
-        if crit in dans_profil or crit == "jap":  # jap : volume de jeu au pied, qualité non notée
+        if crit in dans_profil or crit == "jap" or crit in X_SOCLE:  # jap : volume de jeu au pied, qualité non notée
             continue
         # Le facteur X juge la QUALITÉ de ce que fait le joueur hors de son poste, pas la quantité :
         # les volumes (contacts, soutiens, plaquages, duels aériens…) relèvent du jeu au poste.
@@ -493,13 +521,16 @@ def facteur_x(poste, rows, minutes, bareme=None):
             continue
         atouts.append({"critere": crit, "label": ev["label"], "type": ev["type"], "valeur": ev["valeur"],
                        "cible": ref[0], "score": round(ev["score"], 1), "actions": ev["actions"]})
-    if not atouts:
+    if not atouts and not socle:
         return None
     atouts.sort(key=lambda a: -a["score"])
     # Seuls les vrais atouts comptent (note >= X_SEUIL) : un critère à zéro ne dilue pas un atout réel.
+    # Le socle (essais, défenseurs battus, franchissements) compte toujours, en plus des meilleurs atouts.
     reels = [a for a in atouts if a["score"] >= X_SEUIL][:X_NB]
     top = reels or atouts[:1]
-    return {"note": round(sum(a["score"] for a in top) / len(top), 1), "atouts": atouts}
+    tw = sum(a.get("poids", 1) for a in socle) + len(top)
+    note = (sum(a["score"] * a["poids"] for a in socle) + sum(a["score"] for a in top)) / tw
+    return {"note": round(note, 1), "atouts": sorted(socle + atouts, key=lambda a: -a["score"])}
 
 
 def x_defaut(poste):
@@ -518,8 +549,14 @@ def x_defaut(poste):
                             "cible": ref[0], "plancher": ref[1]})
         return out
     dans_profil = {c for c, r in reglages.items() if r[0] > 0}
+    for crit in X_SOCLE:
+        r = reglages.get(crit)
+        ref = (r[1], r[2]) if r and r[1] else (X_CIBLES_POSTE.get(poste, {}).get(crit) or X_CIBLES_PROFIL.get(crit) or _cible_hors_poste(crit))
+        if ref:
+            out.append({"crit": crit, "label": CRITERES[crit][0], "type": CRITERES[crit][1], "poids": 1,
+                        "cible": ref[0], "plancher": ref[1]})
     for crit in CRITERES:
-        if crit in dans_profil or crit == "jap" or CRITERES[crit][1] == "vol":
+        if crit in dans_profil or crit == "jap" or crit in X_SOCLE or CRITERES[crit][1] == "vol":
             continue
         ref = _cible_hors_poste(crit)
         if ref:
