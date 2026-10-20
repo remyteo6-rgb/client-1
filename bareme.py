@@ -18,7 +18,7 @@ PASSES_RATEES = {"9": (0.4, 2.5), "10": (0.4, 2.5), "12-13": (0.15, 0.75)}
 PASSES_RATEES_DEFAUT = (0.1, 0.5)
 BONUS = {"essai": 1.0, "essai_max": 3.0}
 # Les ailiers marquent : leurs essais rapportent plus (20 oct. 2026).
-BONUS_ESSAI_POSTE = {"11-14": (1.5, 4.5)}
+BONUS_ESSAI_POSTE = {"11-14": (1.5, 4.5), "15": (1.5, 4.5)}
 # Duels aériens des ailiers/arrière : jouer et gagner rapporte, ne pas en avoir à jouer ne coûte rien
 # (le nombre dépend des coups de pied adverses contestables). +0,3 par duel gagné, +0,15 par duel neutre.
 # Ballons récupérés (20 oct. 2026) : un bonus pour tous les postes, jamais un malus quand il n'y en a pas.
