@@ -5895,7 +5895,7 @@ def _migrer_talonneur_pourcentages(db):
             ("3ème ligne", ("contact", "contact_dom", "plaquage", "plaquage_dom", "offload", "offload_pct", "passes", "sauteur", "lifteur")),
             ("9", ("passes", "passes_pct", "soutien", "plaquage", "plaquage_dom", "recup", "kicks_pct", "contact", "contact_dom", "offload")),
             ("10", ("passes", "plaquage", "offload", "soutien", "plaquage_dom", "recup", "contact_dom", "offload_pct", "break", "def_battu")),
-            ("12-13", ("contact", "plaquage", "offload", "passes")),
+            ("12-13", ("contact", "plaquage", "offload", "passes", "contact_dom", "plaquage_dom")),
             ("11-14", ("plaquage", "offload", "passes")),
             ("15", ("plaquage", "offload", "passes")))) + (
         ("plaquage_pondere_volume_2026_10", "3ème ligne", ("plaquage_pct",)),

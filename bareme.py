@@ -287,8 +287,8 @@ PROFILS = {
         ("Sécurité du ballon", {"pdb": 8}),
     ],
     "12-13": [
-        ("Duel off / franchissement", {"contact_dom": 10, "break": 12, "def_battu": 12}),
-        ("Circulation def / plaquer / contest / défendre", {"plaquage_pct": 6, "recup": 8, "plaquage_dom": 6}),
+        ("Duel off / franchissement", {"break": 12, "def_battu": 12}),
+        ("Circulation def / plaquer / contest / défendre", {"plaquage_pct": 6, "recup": 8}),
         ("Habileté technique (main / pied)", {"offload_pct": 6, "passes_pct": 3}),
         ("Soutien / ruck offensif", {"soutien": 6}),
     ],
@@ -442,6 +442,7 @@ X_PROFILS = {
     "Pilier": [("def_battu", 3), ("break", 3), ("essai", 3), ("recup", 3), ("offload_pct", 3),
                ("passes_pct", 1)],
     "9": ["essai", "def_battu", "break"],  # 20 oct. 2026 : uniquement le socle
+    "12-13": ["essai", "def_battu", "break", "contact_dom", "plaquage_dom"],  # socle + dominance off et déf
     "10": ["essai", "def_battu", "break", "passes_pct"],  # 20 oct. 2026 : socle + passes
     "11-14": ["jap_pct", "passes_pct", "pdb", "recup", "essai"],
     "15": ["jap_pct", "passes_pct", "pdb", "recup", "essai"],
@@ -471,7 +472,8 @@ X_CIBLES_PROFIL = {"jap_pct": (75, 25), "passes_pct": (98, 70), "pdb": (3, 0), "
 # Cibles propres à un poste (prioritaires sur X_CIBLES_PROFIL) : un pilier n'a pas les mêmes volumes qu'un ailier.
 X_CIBLES_POSTE = {"9": {"essai": (0.3, 0), "def_battu": (2, 0), "break": (1, 0)},
                   "10": {"essai": (0.3, 0), "def_battu": (2, 0), "break": (1, 0), "passes_pct": (99, 85)},
-                  "12-13": {"essai": (0.4, 0), "def_battu": (5, 0), "break": (1, 0)},
+                  "12-13": {"essai": (0.4, 0), "def_battu": (5, 0), "break": (1, 0), "contact_dom": (65, 30),
+                            "plaquage_dom": (30, 10)},
                   "3ème ligne": {"essai": (0.3, 0), "def_battu": (3, 0)},
                   "2ème ligne": {"contact_dom": (65, 30), "offload_pct": (100, 50),
                                  "passes_pct": (98, 70), "melee_off_pct": (90, 40), "melee_def_pct": (80, 30), "rce_pct": (75, 25),
@@ -566,7 +568,7 @@ def _facteur_x_brut(poste, rows, minutes, bareme=None):
 # qu'on puisse être très haut comme très bas à chaque poste, quelle que soit la difficulté de ses critères
 # (un 3ème ligne n'est pas bas « parce que 3ème ligne », ni un pilier haut « parce que pilier »).
 X_REF = {"Pilier": 3.1, "Talonneur": 4.9, "2ème ligne": 3.9, "3ème ligne": 2.9, "9": 2.7, "10": 6.4,
-         "12-13": 4.2, "11-14": 4.0, "15": 5.5}
+         "12-13": 2.9, "11-14": 4.0, "15": 5.5}
 
 
 def facteur_x(poste, rows, minutes, bareme=None):
