@@ -404,6 +404,7 @@ def _cible_hors_poste(crit):
     return min(cands, key=lambda x: x[0]) if cands else None
 
 
+COUVERTURE_MIN = 0.6  # part minimale du poids du barème qui doit être évaluable
 X_MIN_MATCH = 20    # minutes minimales pour un Facteur X sur un match
 X_MIN_SAISON = 60   # minutes minimales pour un Facteur X sur la saison
 X_NB = 3      # le facteur X est la moyenne des X_NB meilleurs atouts hors poste
@@ -639,6 +640,11 @@ def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
     # Peu de minutes = peu de preuves : sous CONFIANCE_MIN minutes, la note est tirée vers la
     # note neutre (5) au prorata des minutes jouées.
     confiance = min(1.0, minutes / CONFIANCE_MIN)
+    # Couverture du barème : si moins de COUVERTURE_MIN du poids total est évaluable (critères sans assez
+    # d'actions codées), la note est tirée vers 5 au prorata de ce qui manque.
+    poids_total = sum(r[0] for c, r in reglages.items() if r[0] > 0 and c in CRITERES)
+    couverture = tot_w / poids_total if poids_total else 1.0
+    confiance *= min(1.0, couverture / COUVERTURE_MIN)
     base = etalonner(base * confiance + NOTE_NEUTRE * (1 - confiance))
     attack = rows.get("attack")
     pen = _v(attack, "penalite_off", "penalite_def", "penalite_autre")
@@ -670,5 +676,5 @@ def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
     total_malus = min(sum(-m["points"] for m in malus), MALUS["total_max"])
     note = _clamp(base - total_malus + bonus_pts)
     return {"note": round(note, 1), "base": round(base, 1), "malus": malus, "bonus": bonus,
-            "detail": sorted(detail, key=lambda d: -d["poids"]), "manquants": manquants, "minutes": minutes, "poste": poste,
+            "detail": sorted(detail, key=lambda d: -d["poids"]), "manquants": manquants, "couverture": round(100 * couverture), "minutes": minutes, "poste": poste,
             "x": _facteur_x_sur(poste, rows, minutes, bareme)}
