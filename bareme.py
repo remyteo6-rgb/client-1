@@ -169,6 +169,7 @@ CRITERES = {
     "plaquage":     ("Plaquages (volume)", "vol", _x_tackle),
     "plaquage_pct": ("Plaquages réussis (%)", "pct", _p_tackle),
     "plaquage_dom": ("Plaquages dominants (%)", "pct", _p_tackle_dom),
+    "plaquage_vp":  ("Plaquages : réussite pondérée par le volume", "pct", _p_tackle),
     "recup":        ("Ballons récupérés / combat", "vol", _x_recup),
     "jap":          ("Jeu au pied (volume)", "vol", _x_jap),
     "aerien":       ("Duels aériens (volume)", "vol", _x_aerien),
@@ -260,7 +261,7 @@ PROFILS = {
         # Dominance (contact, plaquage) et offloads : passés dans le Facteur X (20 oct. 2026).
         ("Duel off / franchissement", {"break": 7, "def_battu": 5}),
         ("Soutenir / rucker", {"soutien": 8}),
-        ("Plaquer / contest / défendre", {"plaquage_pct": 5, "recup": 8}),
+        ("Plaquer / contest / défendre", {"plaquage_vp": 5, "recup": 8}),
         ("Assurer la continuité", {"passes_pct": 2}),
         ("Sauter / lifter / lecture touche", {"sauteur_pct": 5, "lifteur_pct": 2}),
     ],
@@ -302,6 +303,8 @@ PROFILS = {
     ],
 }
 POSTES = list(PROFILS)
+for _fam_cibles in _CIBLES.values():
+    _fam_cibles.setdefault("plaquage_vp", (95, 70))
 _CIBLES["Charnière"].update({"jap_pct": (75, 25), "pdb": (2, 0)})  # pdb : 0/10 à 2 ballons perdus par 80 min
 for _fam_cibles in _CIBLES.values():
     _fam_cibles.setdefault("passes_pct", (98, 70))
@@ -386,6 +389,10 @@ def evaluer_critere(crit, cible, plancher, rows, minutes):
             val = (val * n + prior * SHRINK_K) / (n + SHRINK_K)
         out["score"] = _clamp(10 * (val - plancher) / span)
         out["valeur"] = round(val)
+        if crit == "plaquage_vp" and minutes:
+            # Le volume compte avec la réussite : réussir 95 % sur 3 plaquages ne vaut pas 95 % sur 10.
+            vol80 = n * 80.0 / minutes
+            out["score"] *= 0.5 + 0.5 * min(1.0, vol80 / TACKLE_VOL_CIBLE)
     return out
 
 
@@ -405,6 +412,7 @@ def _cible_hors_poste(crit):
     return min(cands, key=lambda x: x[0]) if cands else None
 
 
+TACKLE_VOL_CIBLE = 10  # plaquages tentés par 80 min pour que la réussite compte à 100 %
 COUVERTURE_MIN = 0.6  # part minimale du poids du barème qui doit être évaluable
 X_MIN_MATCH = 20    # minutes minimales pour un Facteur X sur un match
 X_MIN_SAISON = 60   # minutes minimales pour un Facteur X sur la saison
@@ -515,7 +523,7 @@ def _facteur_x_brut(poste, rows, minutes, bareme=None):
         socle.append({"critere": crit, "label": ev["label"], "type": ev["type"], "valeur": ev["valeur"],
                       "cible": ref[0], "score": round(ev["score"], 1), "actions": ev["actions"], "poids": w})
     for crit in CRITERES:
-        if crit in dans_profil or crit == "jap" or crit in X_SOCLE:  # jap : volume de jeu au pied, qualité non notée
+        if crit in dans_profil or crit == "jap" or crit in X_SOCLE or crit == "plaquage_vp":  # jap : volume de jeu au pied, qualité non notée
             continue
         # Le facteur X juge la QUALITÉ de ce que fait le joueur hors de son poste, pas la quantité :
         # les volumes (contacts, soutiens, plaquages, duels aériens…) relèvent du jeu au poste.
@@ -587,7 +595,7 @@ def x_defaut(poste):
             out.append({"crit": crit, "label": CRITERES[crit][0], "type": CRITERES[crit][1], "poids": 1,
                         "cible": ref[0], "plancher": ref[1]})
     for crit in CRITERES:
-        if crit in dans_profil or crit == "jap" or crit in X_SOCLE or CRITERES[crit][1] == "vol":
+        if crit in dans_profil or crit == "jap" or crit in X_SOCLE or crit == "plaquage_vp" or CRITERES[crit][1] == "vol":
             continue
         ref = _cible_hors_poste(crit)
         if ref:

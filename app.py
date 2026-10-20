@@ -5888,7 +5888,9 @@ def _migrer_talonneur_pourcentages(db):
             ("10", ("passes", "plaquage", "offload")),
             ("12-13", ("contact", "plaquage", "offload", "passes")),
             ("11-14", ("plaquage", "offload", "passes")),
-            ("15", ("plaquage", "offload", "passes")))):
+            ("15", ("plaquage", "offload", "passes")))) + (
+        ("plaquage_pondere_volume_2026_10", "3ème ligne", ("plaquage_pct",)),
+    ):
         if db.execute("SELECT 1 FROM app_migrations WHERE name = %s", (nom,)).fetchone():
             continue
         for crit in criteres:
