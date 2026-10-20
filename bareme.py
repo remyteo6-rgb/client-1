@@ -267,6 +267,7 @@ PROFILS = {
     # 9 (20 oct. 2026, demande de Téo) : on garde l'habileté technique, on ajoute la qualité du jeu au pied,
     # les ballons perdus (au-dessus de 1 par match, ce n'est pas bon), le % de plaquages et un peu d'utilité au ruck.
     "9": [
+        ("Transmission", {"passes_pct": 10}),
         ("Jeu au pied (qualité)", {"jap_pct": 12}),
         ("Sécurité du ballon", {"pdb": 8}),
         ("Plaquer", {"plaquage_pct": 8}),
