@@ -17,6 +17,8 @@ MALUS = {"penalite": 0.3, "penalite_max": 1.5, "jaune": 0.7, "rouge": 2.0, "pdb"
 PASSES_RATEES = {"9": (0.4, 2.5), "10": (0.4, 2.5), "12-13": (0.15, 0.75)}
 PASSES_RATEES_DEFAUT = (0.1, 0.5)
 BONUS = {"essai": 1.0, "essai_max": 3.0}
+# Les ailiers marquent : leurs essais rapportent plus (20 oct. 2026).
+BONUS_ESSAI_POSTE = {"11-14": (1.5, 4.5)}
 # Duels aériens des ailiers/arrière : jouer et gagner rapporte, ne pas en avoir à jouer ne coûte rien
 # (le nombre dépend des coups de pied adverses contestables). +0,3 par duel gagné, +0,15 par duel neutre.
 # Ballons récupérés (20 oct. 2026) : un bonus pour tous les postes, jamais un malus quand il n'y en a pas.
@@ -690,7 +692,8 @@ def note_match(poste, rows, minutes, jaunes=0, rouges=0, bareme=None):
              ("Passes ratées", min(rates * pr[0], pr[1]), rates),
              ("Ballons perdus", 0 if (reglages.get("pdb") or (0,))[0] > 0 else min(pdb * MALUS["pdb"], MALUS["pdb_max"]), pdb)]
     malus = [{"label": l, "points": round(-p, 1), "n": n} for l, p, n in malus if p > 0]
-    bonus_pts = min(essais * BONUS["essai"], BONUS["essai_max"])
+    b_pt, b_max = BONUS_ESSAI_POSTE.get(poste, (BONUS["essai"], BONUS["essai_max"]))
+    bonus_pts = min(essais * b_pt, b_max)
     bonus = [{"label": "Essais", "points": round(bonus_pts, 1), "n": essais}] if bonus_pts > 0 else []
     rec = _x_recup(rows)[0] if rows.get("defense") else 0
     pts_rec = min(rec * BONUS_RECUP["point"], BONUS_RECUP["max"])
