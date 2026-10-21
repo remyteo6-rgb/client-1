@@ -3364,3 +3364,23 @@ select.subnav-match-select option { color:#222; background:#fff; }
 .sty-todo { margin:12px 2px 0; font-size:12px; color:#777; }
 @media (max-width: 900px) { .sty-grid { grid-template-columns:1fr; } .sty-wide { grid-column:auto; } .sty-two { grid-template-columns:1fr; } }
 .sty-forme { padding-top: 30px; } .sty-bars { padding-top: 24px; } .sty-legend { padding-bottom: 2px; }
+
+.sty-board { margin-bottom: 18px; }
+.sty-kpis { display:flex; gap:12px; flex-wrap:wrap; margin:6px 0 14px; }
+.sty-kpis > div { flex:1; min-width:150px; background:#530d34; color:#fff; border-radius:8px; padding:12px 16px; display:flex; flex-direction:column; }
+.sty-kpis strong { font-family:var(--font-display); font-size:2.2rem; line-height:1; color:#f2b24a; }
+.sty-kpis span { font-size:12px; letter-spacing:.8px; text-transform:uppercase; margin-top:6px; opacity:.9; }
+.sty-span2 { grid-column: span 2; }
+.sty-dn { display:flex; align-items:center; gap:16px; padding:12px 16px 14px; }
+.sty-donut { width:170px; height:170px; flex:0 0 auto; transform:rotate(0deg); }
+.sty-dn-c { font-size:7px; font-weight:800; fill:#1b2540; font-family:var(--font-display); }
+.sty-dn-t { flex:1; border-collapse:collapse; font-size:13px; } .sty-dn-t td { padding:4px 6px; border-bottom:1px solid #e3e5ea; } .sty-dn-t td:nth-child(2) { font-weight:800; text-align:right; width:34px; } .sty-dn-t td:nth-child(3) { color:#666; text-align:right; width:58px; }
+.sty-sw { display:inline-block; width:11px; height:11px; border-radius:2px; margin-right:8px; vertical-align:-1px; }
+.sty-ban { color:#fff; font-family:var(--font-display); font-weight:700; letter-spacing:1px; text-align:center; padding:8px; font-size:17px; }
+.sty-ban-g { background:#3f8a4f; } .sty-ban-r { background:#c4453a; } .sty-ban-n { background:#530d34; } .sty-ban-adv { background:#6c7280; }
+.sty-bigtot { padding:12px 16px 0; font-size:15px; color:#444; } .sty-bigtot strong { font-size:26px; color:#1b2540; font-family:var(--font-display); }
+.sty-cols { padding:0; gap:14px; margin-bottom:14px; }
+.sty-obsbox { margin-top:0; }
+@media (max-width: 900px) { .sty-span2 { grid-column:auto; } .sty-dn { flex-direction:column; } }
+@media print { .sty-board { break-inside: avoid; } }
+.sty-dn-t td:nth-child(3) { width:70px; white-space:nowrap; } .sty-dn-t td:first-child { min-width:90px; }

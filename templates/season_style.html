@@ -12,19 +12,55 @@
 </div>
 {% include "_season_select.html" %}
 
+{% set PAL = ['#c4453a', '#e8a33d', '#3f8a4f', '#2f6fb5', '#7a3b8f', '#17a3a3', '#8a8f9c', '#d97aa6'] %}
 {% macro duo(a, b, mx, ca='sty-g', cb='sty-r') %}
 <div class="sty-duo"><span class="sty-col {{ ca }}" style="height:{{ (a / mx * 100) if mx else 0 }}%"><i>{{ a }}</i></span><span class="sty-col {{ cb }}" style="height:{{ (b / mx * 100) if mx else 0 }}%"><i>{{ b }}</i></span></div>
 {% endmacro %}
 
-<div class="report-board board-free sty-board">
-    <div class="report-head">
-        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
-        <span class="report-title">STYLE DE JEU</span>
-        <span class="report-subtitle">SAISON · {{ sj.nb }} MATCH{{ 'S' if sj.nb != 1 }}</span>
-    </div>
+{# Camembert (anneau) + tableau « libellé · nombre · % » : même lecture que les diapos du PDF d'analyse. #}
+{% macro donut(items, centre='', pal=PAL, max_parts=7) %}
+{% set tot = items|sum(attribute=1) %}
+{% if tot %}
+{% set shown = items[:max_parts] %}
+{% set reste = items[max_parts:]|sum(attribute=1) %}
+{% set parts = shown + ([('Autres', reste)] if reste else []) %}
+<div class="sty-dn">
+    <svg viewBox="0 0 42 42" class="sty-donut" role="img">
+        <circle cx="21" cy="21" r="15.9155" fill="none" stroke="#eceef2" stroke-width="7"/>
+        {% set ns = namespace(off=25) %}
+        {% for lab, n in parts %}{% set p = n / tot * 100 %}
+        <circle cx="21" cy="21" r="15.9155" fill="none" stroke="{{ pal[loop.index0 % pal|length] }}" stroke-width="7" stroke-dasharray="{{ '%.2f'|format(p) }} {{ '%.2f'|format(100 - p) }}" stroke-dashoffset="{{ '%.2f'|format(ns.off) }}"/>
+        {% set ns.off = ns.off - p %}{% endfor %}
+        <text x="21" y="22.5" text-anchor="middle" class="sty-dn-c">{{ centre or tot }}</text>
+    </svg>
+    <table class="sty-dn-t">
+        {% for lab, n in parts %}<tr><td><span class="sty-sw" style="background:{{ pal[loop.index0 % pal|length] }}"></span>{{ lab }}</td><td>{{ n }}</td><td>{{ (100 * n / tot)|round(1) }} %</td></tr>{% endfor %}
+    </table>
+</div>
+{% else %}<p class="nt-sub" style="padding:12px 14px;">Rien de codé.</p>{% endif %}
+{% endmacro %}
 
+{% macro entete(titre, sous='') %}
+<div class="report-head">
+    <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+    <span class="report-title">{{ titre }}</span>
+    {% if sous %}<span class="report-subtitle">{{ sous }}</span>{% endif %}
+</div>
+{% endmacro %}
+
+{% set n = sj.nb or 1 %}
+
+{# ================= OVERVIEW ================= #}
+<div class="report-board board-free sty-board">
+    {{ entete('OVERVIEW', 'SAISON · ' ~ sj.nb ~ ' MATCH' ~ ('S' if sj.nb != 1 else '')) }}
+    <div class="sty-kpis">
+        <div><strong>{{ (sj.tot[0] / n)|round(1) }}</strong><span>Points marqués / match</span></div>
+        <div><strong>{{ (sj.tot[1] / n)|round(1) }}</strong><span>Points encaissés / match</span></div>
+        <div><strong>{{ '%+.1f'|format((sj.tot[0] - sj.tot[1]) / n) }}</strong><span>Écart moyen</span></div>
+        <div><strong>{{ ((sj.pdb_own|sum(attribute=1)) / n)|round(1) }}</strong><span>Ballons perdus / match</span></div>
+        <div><strong>{{ ((sj.pen|sum(attribute=1)) / n)|round(1) }}</strong><span>Pénalités concédées / match</span></div>
+    </div>
     <div class="sty-grid">
-        {# ---- Forme ---- #}
         <div class="sf-panel">
             <div class="sf-panel-head">FORME · ÉCART DE SCORE PAR MATCH</div>
             {% set marges = sj.matchs|selectattr('marge', 'ne', none)|map(attribute='marge')|map('abs')|list %}
@@ -44,9 +80,7 @@
                 {% endfor %}
             </div>
         </div>
-
-        {# ---- Profil de score ---- #}
-        <div class="sf-panel">
+        <div class="sf-panel sty-span2">
             <div class="sf-panel-head">PROFIL DE SCORE · POINTS PAR TRANCHE DE 20 MIN</div>
             {% set mx = [sj.quarts|map(attribute='own')|max, sj.quarts|map(attribute='adv')|max, 1]|max %}
             <div class="sty-legend"><span class="sty-g"></span> marqués <span class="sty-r"></span> encaissés</div>
@@ -56,77 +90,74 @@
             </div>
             <p class="sty-obs">{{ sj.obs.score or 'Pas de points codés.' }}</p>
         </div>
-
-        {# ---- Mi-temps ---- #}
         <div class="sf-panel">
-            <div class="sf-panel-head">POINTS PAR MI-TEMPS</div>
-            {% for lab, (o, a) in (('Marqués', (sj.h1[0], sj.h2[0])), ('Encaissés', (sj.h1[1], sj.h2[1]))) %}
-            {% set t = (o + a) or 1 %}
-            <div class="sty-half"><span class="sty-half-l">{{ lab }}</span>
-                <span class="sty-split"><span class="sty-h1" style="flex:{{ o }} 1 0;">{{ (100*o/t)|round|int if o else '' }}{{ ' %' if o }}</span><span class="sty-h2" style="flex:{{ a }} 1 0;">{{ (100*a/t)|round|int if a else '' }}{{ ' %' if a }}</span></span></div>
-            {% endfor %}
-            <p class="sty-obs"><span class="sty-key sty-h1"></span> 1re mi-temps <span class="sty-key sty-h2"></span> 2e mi-temps</p>
+            <div class="sf-panel-head">POINTS MARQUÉS · MI-TEMPS</div>
+            {{ donut([('1re mi-temps', sj.h1[0]), ('2e mi-temps', sj.h2[0])], pal=['#5ab0e8', '#1f5f99']) }}
         </div>
-
-        {# ---- Ballons perdus / gagnés ---- #}
-        <div class="sf-panel sty-wide">
-            <div class="sf-panel-head">TURNOVERS · COMMENT ON PERD ET GAGNE LE BALLON</div>
-            <div class="sty-two">
-                {% for titre, lst, cls in (("Perdus par nous", sj.pdb_own, 'sty-r'), ("Gagnés (perdus par l'adversaire)", sj.pdb_adv, 'sty-g')) %}
-                <div>
-                    <h4>{{ titre }} · {{ lst|sum(attribute=1) }}</h4>
-                    {% set mx2 = ([lst[0][1]] if lst else [1])|first %}
-                    {% for t, k in lst %}<div class="sty-hb"><span class="sty-hb-l">{{ t }}</span><span class="sty-hb-bar"><span class="{{ cls }}" style="width:{{ k / mx2 * 100 }}%"></span></span><span class="sty-hb-v">{{ k }}</span></div>
-                    {% else %}<p class="nt-sub">Rien de codé.</p>{% endfor %}
-                </div>
-                {% endfor %}
-            </div>
-            <p class="sty-obs">{{ sj.obs.pdb or '' }}{% if sj.pdb_own and sj.pdb_own[0][0] == 'Non précisé' %} Le type des ballons perdus par nous n'est pas encore codé.{% endif %}</p>
-        </div>
-
-        {# ---- Jeu au pied ---- #}
         <div class="sf-panel">
-            <div class="sf-panel-head">JEU AU PIED PAR TRANCHE DE 20 MIN</div>
-            {% set mk = [sj.pied.own|map(attribute='n')|max, sj.pied.adv|map(attribute='n')|max, 1]|max %}
-            <div class="sty-legend"><span class="sty-g"></span> nous <span class="sty-r"></span> adversaire</div>
-            <div class="sty-bars">
-                {% for i in range(4) %}<div class="sty-bcol">{{ duo(sj.pied.own[i].n, sj.pied.adv[i].n, mk) }}<span class="sty-x">{{ sj.pied.own[i].q }}</span></div>{% endfor %}
-            </div>
-            <p class="sty-obs">{{ sj.obs.pied or '' }}</p>
+            <div class="sf-panel-head">POINTS ENCAISSÉS · MI-TEMPS</div>
+            {{ donut([('1re mi-temps', sj.h1[1]), ('2e mi-temps', sj.h2[1])], pal=['#f0a39b', '#c4453a']) }}
         </div>
-
-        {# ---- Aérien ---- #}
         <div class="sf-panel">
             <div class="sf-panel-head">DUELS AÉRIENS</div>
             {% set ta = sj.aer.plus + sj.aer.neutre + sj.aer.moins %}
-            {% if ta %}
-            <div class="sty-half"><span class="sty-half-l">{{ ta }} duels</span>
-                <span class="sty-split"><span class="sty-g" style="flex:{{ sj.aer.plus }} 1 0;">{{ sj.aer.plus if sj.aer.plus }}</span><span class="sty-n" style="flex:{{ sj.aer.neutre }} 1 0;">{{ sj.aer.neutre if sj.aer.neutre }}</span><span class="sty-r" style="flex:{{ sj.aer.moins }} 1 0;">{{ sj.aer.moins if sj.aer.moins }}</span></span></div>
-            <p class="sty-obs"><span class="sty-key sty-g"></span> gagnés <span class="sty-key sty-n"></span> neutres <span class="sty-key sty-r"></span> perdus · {{ (100 * sj.aer.plus / ta)|round|int }} % gagnés</p>
-            {% else %}<p class="sty-obs">Aucun duel aérien qualifié.</p>{% endif %}
-        </div>
-
-        {# ---- Discipline ---- #}
-        <div class="sf-panel sty-wide">
-            <div class="sf-panel-head">DISCIPLINE · PÉNALITÉS CONCÉDÉES</div>
-            <div class="sty-two">
-                <div>
-                    <h4>Par type · {{ sj.pen|sum(attribute=1) }}</h4>
-                    {% set mx3 = ([sj.pen[0][1]] if sj.pen else [1])|first %}
-                    {% for t, k in sj.pen %}<div class="sty-hb"><span class="sty-hb-l">{{ t }}</span><span class="sty-hb-bar"><span class="sty-r" style="width:{{ k / mx3 * 100 }}%"></span></span><span class="sty-hb-v">{{ k }}</span></div>
-                    {% else %}<p class="nt-sub">Rien de codé.</p>{% endfor %}
-                </div>
-                <div>
-                    <h4>Par tranche de 20 min</h4>
-                    {% set mq = [sj.pen_q|map(attribute='n')|max, 1]|max %}
-                    <div class="sty-bars sty-bars-s">
-                        {% for r in sj.pen_q %}<div class="sty-bcol"><div class="sty-duo"><span class="sty-col sty-r" style="height:{{ r.n / mq * 100 }}%"><i>{{ r.n }}</i></span></div><span class="sty-x">{{ r.q }}</span></div>{% endfor %}
-                    </div>
-                </div>
-            </div>
-            <p class="sty-obs">{{ sj.obs.pen or '' }}</p>
+            {{ donut([('Gagnés', sj.aer.plus), ('Neutres', sj.aer.neutre), ('Perdus', sj.aer.moins)], pal=['#3f8a4f', '#9aa0ab', '#c4453a']) }}
         </div>
     </div>
-    <p class="sty-todo no-print">Pas encore sur cette page, faute de codage : efficacité par type de possession (points par touche, mêlée, renvoi…), origine des essais marqués et encaissés, carte du terrain.</p>
+</div>
+
+{# ================= TURNOVERS ================= #}
+<div class="report-board board-free sty-board">
+    {{ entete('TURNOVERS', 'COMMENT ON PERD ET GAGNE LE BALLON') }}
+    <div class="sty-two sty-cols">
+        {% for titre, lst, cls in (("GAGNÉS", sj.pdb_adv, 'sty-ban-g'), ("PERDUS", sj.pdb_own, 'sty-ban-r')) %}
+        <div class="sf-panel">
+            <div class="sty-ban {{ cls }}">{{ titre }}</div>
+            {% set tt = lst|sum(attribute=1) %}
+            <div class="sty-bigtot"><strong>{{ tt }}</strong> total · <strong>{{ (tt / n)|round(1) }}</strong> par match</div>
+            {{ donut(lst) }}
+        </div>
+        {% endfor %}
+    </div>
+    <div class="sf-panel sty-obsbox"><div class="sf-panel-head">OBSERVATIONS</div><p class="sty-obs">{{ sj.obs.pdb or '' }}{% if sj.pdb_own and sj.pdb_own[0][0] == 'Non précisé' %} Le type des ballons perdus par nous n'est pas encore codé (« Type de BP » sur nos pertes de balle).{% endif %}</p></div>
+</div>
+
+{# ================= KICKING ================= #}
+<div class="report-board board-free sty-board">
+    {{ entete('KICKING', 'JEU AU PIED') }}
+    {% set ko = sj.pied.own|sum(attribute='n') %}{% set ka = sj.pied.adv|sum(attribute='n') %}
+    <div class="sty-two sty-cols">
+        <div class="sf-panel">
+            <div class="sty-ban sty-ban-n">NOTRE JEU AU PIED</div>
+            <div class="sty-bigtot"><strong>{{ ko }}</strong> total · <strong>{{ (ko / n)|round(1) }}</strong> par match</div>
+            {{ donut(sj.pied_items.own, pal=['#2f6fb5', '#5ab0e8', '#1f4d82', '#9cc9ee']) }}
+        </div>
+        <div class="sf-panel">
+            <div class="sty-ban sty-ban-adv">JEU AU PIED ADVERSE</div>
+            <div class="sty-bigtot"><strong>{{ ka }}</strong> total · <strong>{{ (ka / n)|round(1) }}</strong> par match</div>
+            {{ donut(sj.pied_items.adv, pal=['#c4453a', '#f0a39b', '#8c2a21', '#e8a33d']) }}
+        </div>
+    </div>
+    <div class="sf-panel sty-obsbox"><div class="sf-panel-head">OBSERVATIONS</div><p class="sty-obs">{{ sj.obs.pied or '' }} Découpage par tranche de 20 minutes : les donuts montrent à quel moment du match chacun met le pied dans le ballon.</p></div>
+</div>
+
+{# ================= DISCIPLINE ================= #}
+<div class="report-board board-free sty-board">
+    {{ entete('DISCIPLINE', 'PÉNALITÉS CONCÉDÉES') }}
+    {% set tp = sj.pen|sum(attribute=1) %}
+    <div class="sty-two sty-cols">
+        <div class="sf-panel">
+            <div class="sty-ban sty-ban-r">PAR TYPE</div>
+            <div class="sty-bigtot"><strong>{{ tp }}</strong> total · <strong>{{ (tp / n)|round(1) }}</strong> par match</div>
+            {{ donut(sj.pen) }}
+        </div>
+        <div class="sf-panel">
+            <div class="sty-ban sty-ban-n">PAR TRANCHE DE 20 MIN</div>
+            <div class="sty-bigtot">{% if sj.pen_pic %}Pic : <strong>{{ sj.pen_pic.n }}</strong> entre <strong>{{ sj.pen_pic.q }}</strong> min{% endif %}</div>
+            {{ donut(sj.pen_q_items, pal=['#6b1a2b', '#c4453a', '#e8a33d', '#2f6fb5']) }}
+        </div>
+    </div>
+    <div class="sf-panel sty-obsbox"><div class="sf-panel-head">OBSERVATIONS</div><p class="sty-obs">{{ sj.obs.pen or '' }}</p></div>
+    <p class="sty-todo no-print">Pas encore sur cette page, faute de codage : efficacité par type de possession (points par touche, mêlée, renvoi…), origine des essais marqués et encaissés, carte du terrain, chronologie des cartons.</p>
 </div>
 {% endblock %}

@@ -4218,7 +4218,10 @@ def _style_de_jeu_calc(selected):
     if pen_l:
         obs["pen"] = f"{round(sum(pen.values()) / n, 1)} pénalités concédées par match ; la plus fréquente : {pen_l[0][0].lower()} ({pen_l[0][1]})."
     return {"matchs": ms, "nb": len(ms), "quarts": quarts, "tot": (tot_own, tot_adv), "h1": h1, "h2": h2,
-            "pdb_own": pdb_own, "pdb_adv": pdb_adv, "pied": pied, "pen": pen_l, "pen_q": pen_q, "aer": aer, "obs": obs}
+            "pdb_own": pdb_own, "pdb_adv": pdb_adv, "pied": pied, "pen": pen_l, "pen_q": pen_q, "aer": aer, "obs": obs,
+            "pied_items": {s: [(r["q"], r["n"]) for r in pied[s]] for s in pied},
+            "pen_q_items": [(r["q"], r["n"]) for r in pen_q],
+            "pen_pic": max(pen_q, key=lambda r: r["n"]) if pen_q else None}
 
 
 @app.route("/season/style-de-jeu")
