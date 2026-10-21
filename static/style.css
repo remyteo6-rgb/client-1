@@ -3316,3 +3316,16 @@ select.subnav-match-select option { color:#222; background:#fff; }
 .tch-perf { font-size: 1.15rem; } .tch-perf th { font-size: .95rem; } .tch-perf td, .tch-perf th { padding: 5px 10px; }
 .tch-right .sf-panel-head { font-size: 1.2rem; }
 .tch-right .tch-chart-card { width: 100%; box-sizing: border-box; }
+
+/* Pages Joueurs (saison) : en-têtes de tableau et colonnes Poste / Nom figés pendant le défilement. */
+.bjr-season { overflow: clip; }
+.bjr-season .bjr-table thead th { position: sticky; z-index: 10; }
+.bjr-season .bjr-table .bjr-cols th, .bjr-season .bjr-table .bjr-groups .bjr-g-joueur { background: #fff; }
+.bjr-season .bjr-table .bjr-groups th { top: var(--st-top, 56px); }
+.bjr-season .bjr-table .bjr-cols th { top: calc(var(--st-top, 56px) + var(--st-h1, 34px)); box-shadow: 0 1.5px 0 #c9ccd6; }
+.bjr-season .bjr-table thead th:first-child { left: 0; z-index: 12; }
+.bjr-season .bjr-table .bjr-cols th:nth-child(2) { left: 204px; z-index: 12; }
+.bjr-season .bjr-table tbody td:nth-child(-n+3) { position: sticky; z-index: 2; background: #fff; }
+.bjr-season .bjr-table tbody td:nth-child(1) { left: 0; } .bjr-season .bjr-table tbody td:nth-child(2) { left: 54px; } .bjr-season .bjr-table tbody td:nth-child(3) { left: 204px; }
+.bjr-season .bjr-table tbody tr:nth-child(even) td:nth-child(-n+3) { background: #f4f5f7; }
+@media print { .bjr-season .bjr-table thead th, .bjr-season .bjr-table tbody td { position: static !important; } .bjr-season { overflow: hidden; } }

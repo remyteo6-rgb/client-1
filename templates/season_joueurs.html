@@ -146,6 +146,19 @@
 {% endfor %}
 
 <script>
+// Hauteur du bandeau fixe et de la 1re ligne d'en-tête : les en-têtes figés se collent juste dessous.
+(function () {
+    function fix() {
+        var nav = document.querySelector('.subnav'), top = nav ? nav.getBoundingClientRect().bottom : 56;
+        var crumb = document.querySelector('.breadcrumb, .crumbs');
+        document.documentElement.style.setProperty('--st-top', Math.round(top) + 'px');
+        var g = document.querySelector('.bjr-season .bjr-groups th');
+        if (g) document.documentElement.style.setProperty('--st-h1', g.getBoundingClientRect().height + 'px');
+    }
+    fix(); window.addEventListener('resize', fix); window.addEventListener('load', fix);
+})();
+</script>
+<script>
 function preparePrint() {
     document.querySelectorAll('details.section-block').forEach(d => d.open = true);
     setTimeout(() => window.print(), 100);
