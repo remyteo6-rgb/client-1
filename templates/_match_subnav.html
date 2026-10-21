@@ -90,7 +90,7 @@
         {% endif %}
 
         {% if match is defined %}
-        {% set page_labels = {'overview': "Vue d'ensemble", 'bilan_attaque': 'Bilan attaque', 'surfeurs': 'Surfeurs', 'bilan_defense': 'Bilan défense', 'csc': 'CSC', 'discipline': 'Discipline', 'touches': 'Touches', 'possessions': 'Nos possessions', 'zone_gold': 'Zone Gold', 'joueurs': 'Joueurs', 'notes': 'Notes', 'composition': 'Composition', 'tableaux': 'Tableaux', 'comparer': 'Comparer', 'bareme': 'Barème', 'donnees': 'Qualité des données', 'fiche': 'Fiche indiv', 'gagner_perdre': 'Gagner / Perdre'} %}
+        {% set page_labels = {'overview': "Vue d'ensemble", 'bilan_attaque': 'Bilan attaque', 'surfeurs': 'Surfeurs', 'bilan_defense': 'Bilan défense', 'csc': 'CSC', 'discipline': 'Discipline', 'touches': 'Touches', 'possessions': 'Nos possessions', 'zone_gold': 'Zone Gold', 'joueurs': 'Joueurs', 'notes': 'Notes', 'composition': 'Composition', 'tableaux': 'Tableaux', 'comparer': 'Comparer', 'bareme': 'Barème', 'donnees': 'Qualité des données', 'fiche': 'Fiche indiv', 'gagner_perdre': 'Gagner / Perdre', 'style': 'Style de jeu'} %}
         {# Ordre des onglets = ordre du rapport (demande de Téo), Composition à la suite.
            « Nos possessions » est de retour dans le menu (page à remplir, oct. 2026). Une seule liste pour la barre
            et le menu déroulant. En mode saison : mêmes onglets, versions « moyenne par
@@ -110,7 +110,7 @@
             ('fiche', 'season_fiche', 'Fiche indiv'),
             ('donnees', 'season_donnees', 'Qualité des données'),
             ('comparer', 'season_comparer', 'Comparer'),
-            ('gagner_perdre', 'season_gagner_perdre', 'Gagner / Perdre'),
+            ('style', 'season_style', 'Style de jeu'),
         ] %}
         {% else %}
         {% set match_tabs = [

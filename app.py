@@ -16,7 +16,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, render_template, request, redirect, url_for, flash, g, abort, session, Response, jsonify
 import bareme
 from parser import (
-    _normalize_tag,
+    _normalize_tag, _detect_adverse_token,
     ZONE_GOLD_CHOICES,
     compute_touches_page,
     compute_discipline,
@@ -4114,6 +4114,117 @@ def _gagner_perdre_calc(selected, cibles=None):
             "fiable": fiable, "min_par_issue": GP_MIN_PAR_ISSUE,
             "nb_nuls": sum(1 for x in matchs if x["res"] == "N"),
             "sans_score": [x for x in matchs if x["res"] is None]}
+
+
+# ---- Style de jeu (remplace « Gagner / Perdre » dans le menu) ----------------------------------
+
+STYLE_QUARTS = ["0-20", "20-40", "40-60", "60-80"]
+
+
+def _style_match(m):
+    """Chiffres d'un match pour la page « Style de jeu » : score, points par quart, ballons perdus et gagnés
+    (par type), coups de pied, pénalités concédées (par type et par quart), duels aériens."""
+    ins = m["instances"]
+    adv = _detect_adverse_token(ins) or "ADV"
+    own, opp = _resolve_match_score(m)[:2]
+    pq = {s: (compute_points_par_quart(ins, s) or {}) for s in ("own", "adverse")}
+    out = {"id": m["id"], "opponent": m.get("opponent") or "?", "date": m.get("match_date"),
+           "venue": (m.get("venue") or "")[:3].lower(), "own": own, "adv": opp,
+           "pts": {s: {q: pq[s].get(q, 0) for q in STYLE_QUARTS} for s in pq},
+           "pdb": {"own": {}, "adv": {}}, "pied": {"own": dict.fromkeys(STYLE_QUARTS, 0), "adv": dict.fromkeys(STYLE_QUARTS, 0)},
+           "pen": {}, "pen_q": dict.fromkeys(STYLE_QUARTS, 0), "pen_adv": 0}
+    adv_n = _normalize_tag(adv)
+    for i in ins:
+        toks = _normalize_tag(i.get("code_raw")).split()
+        if len(toks) < 2:
+            continue
+        side = "own" if toks[0] == "UBB" else ("adv" if toks[0] == adv_n or toks[0] in ("ADV", "ADVERSE") else None)
+        if not side:
+            continue
+        cat = " ".join(toks[1:])
+        labels = i.get("labels") or []
+        quart = next((l.get("text") for l in labels if _normalize_tag(l.get("group")) == "CHRONO" and l.get("text") in STYLE_QUARTS), None)
+        if cat == "PDB":
+            types = [l.get("text") for l in labels if _normalize_tag(l.get("group")) == "TYPE DE BP"] or ["Non précisé"]
+            for t in types:
+                out["pdb"][side][t] = out["pdb"][side].get(t, 0) + 1
+        elif cat == "JEU AU PIED" and quart:
+            out["pied"][side][quart] += 1
+        elif cat == "DISCIPLINES":
+            if side == "adv":
+                out["pen_adv"] += 1
+                continue
+            types = [l.get("text") for l in labels if _normalize_tag(l.get("group")) == "DISCIPLINES"] or ["Non précisé"]
+            for t in types:
+                out["pen"][t] = out["pen"].get(t, 0) + 1
+            if quart:
+                out["pen_q"][quart] += 1
+    rk = compute_player_ruck_table(ins).get("rows") or []
+    out["aer"] = {k: sum(_v(r, "duels_aer_" + k) for r in rk) for k in ("plus", "neutre", "moins")}
+    return out
+
+
+def _style_de_jeu(selected):
+    return _cached_result("style", selected, lambda: _style_de_jeu_calc(selected))
+
+
+def _style_de_jeu_calc(selected):
+    ms = sorted((_style_match(m) for m in selected), key=lambda x: (x["date"] or "9999", x["id"]))
+    n = len(ms) or 1
+    for x in ms:
+        x["marge"] = (x["own"] - x["adv"]) if (x["own"] is not None and x["adv"] is not None) else None
+    quarts = [{"q": q, "own": sum(x["pts"]["own"][q] for x in ms), "adv": sum(x["pts"]["adverse"][q] for x in ms)} for q in STYLE_QUARTS]
+    for r in quarts:
+        r["net"] = r["own"] - r["adv"]
+    tot_own, tot_adv = sum(r["own"] for r in quarts), sum(r["adv"] for r in quarts)
+    h1 = (quarts[0]["own"] + quarts[1]["own"], quarts[0]["adv"] + quarts[1]["adv"])
+    h2 = (quarts[2]["own"] + quarts[3]["own"], quarts[2]["adv"] + quarts[3]["adv"])
+
+    def agrege(cle):
+        tot = {}
+        for x in ms:
+            for t, k in x["pdb"][cle].items():
+                tot[t] = tot.get(t, 0) + k
+        return sorted(tot.items(), key=lambda kv: -kv[1])
+    pdb_own, pdb_adv = agrege("own"), agrege("adv")
+    pied = {s: [{"q": q, "n": sum(x["pied"][s][q] for x in ms)} for q in STYLE_QUARTS] for s in ("own", "adv")}
+    pen = {}
+    for x in ms:
+        for t, k in x["pen"].items():
+            pen[t] = pen.get(t, 0) + k
+    pen_l = sorted(pen.items(), key=lambda kv: -kv[1])
+    pen_q = [{"q": q, "n": sum(x["pen_q"][q] for x in ms)} for q in STYLE_QUARTS]
+    aer = {k: sum(x["aer"][k] for x in ms) for k in ("plus", "neutre", "moins")}
+    obs = {}
+    # Lecture automatique : phrases courtes, chiffrées, sans rien inventer.
+    if tot_own or tot_adv:
+        p2o = round(100 * h2[0] / tot_own) if tot_own else None
+        p2a = round(100 * h2[1] / tot_adv) if tot_adv else None
+        t = []
+        if p2o is not None:
+            t.append(f"{p2o} % de nos points sont marqués en 2e mi-temps")
+        if p2a is not None:
+            t.append(f"{p2a} % des points encaissés le sont en 2e mi-temps")
+        obs["score"] = " · ".join(t) + "."
+        pire = min(quarts, key=lambda r: r["net"])
+        if pire["net"] < 0:
+            obs["score"] += f" Tranche la plus difficile : {pire['q']} min ({pire['net']:+d})."
+    k_o, k_a = sum(r["n"] for r in pied["own"]), sum(r["n"] for r in pied["adv"])
+    if k_o or k_a:
+        obs["pied"] = f"{round(k_o / n, 1)} coups de pied par match pour nous, {round(k_a / n, 1)} pour l'adversaire."
+    if pdb_own or pdb_adv:
+        po, pa = sum(k for _t, k in pdb_own), sum(k for _t, k in pdb_adv)
+        obs["pdb"] = f"{round(po / n, 1)} ballons perdus par match, {round(pa / n, 1)} ballons gagnés sur les pertes adverses."
+    if pen_l:
+        obs["pen"] = f"{round(sum(pen.values()) / n, 1)} pénalités concédées par match ; la plus fréquente : {pen_l[0][0].lower()} ({pen_l[0][1]})."
+    return {"matchs": ms, "nb": len(ms), "quarts": quarts, "tot": (tot_own, tot_adv), "h1": h1, "h2": h2,
+            "pdb_own": pdb_own, "pdb_adv": pdb_adv, "pied": pied, "pen": pen_l, "pen_q": pen_q, "aer": aer, "obs": obs}
+
+
+@app.route("/season/style-de-jeu")
+def season_style():
+    selected, ctx = _season_common("style")
+    return render_template("season_style.html", sj=_style_de_jeu(selected), **ctx)
 
 
 @app.route("/season/gagner-perdre")

@@ -3329,3 +3329,38 @@ select.subnav-match-select option { color:#222; background:#fff; }
 .bjr-season .bjr-table tbody td:nth-child(1) { left: 0; } .bjr-season .bjr-table tbody td:nth-child(2) { left: 54px; } .bjr-season .bjr-table tbody td:nth-child(3) { left: 204px; }
 .bjr-season .bjr-table tbody tr:nth-child(even) td:nth-child(-n+3) { background: #f4f5f7; }
 @media print { .bjr-season .bjr-table thead th, .bjr-season .bjr-table tbody td { position: static !important; } .bjr-season { overflow: hidden; } }
+
+/* Page « Style de jeu » (saison) */
+.sty-grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; }
+.sty-wide { grid-column: span 3; }
+.sty-g { background:#3f8a4f; } .sty-r { background:#c4453a; } .sty-n { background:#9aa0ab; }
+.sty-forme { display:flex; gap:8px; padding:12px 12px 14px; }
+.sty-m { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; min-width:0; }
+.sty-m-bar { height:150px; width:100%; display:flex; align-items:center; justify-content:center; }
+.sty-fb { width:60%; position:relative; border-radius:3px; display:flex; align-items:flex-start; justify-content:center; min-height:4px; }
+.sty-fb i { position:absolute; top:-18px; font-style:normal; font-weight:800; font-size:13px; color:#1b2540; }
+.sty-nd { color:#999; }
+.sty-pill { font-size:10px; font-weight:800; padding:1px 7px; border-radius:10px; background:#e3e5ea; color:#555a66; }
+.sty-pill-dom { background:#3f8a4f; color:#fff; } .sty-pill-ext { background:#6b1a2b; color:#fff; }
+.sty-opp { font-size:12px; font-weight:700; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .sty-sc { font-size:11px; color:#666; }
+.sty-legend { padding:8px 14px 0; font-size:12px; color:#555; display:flex; align-items:center; gap:6px; } .sty-legend span { width:12px; height:12px; border-radius:2px; display:inline-block; margin-left:8px; }
+.sty-legend span:first-child { margin-left:0; }
+.sty-bars { display:flex; gap:10px; padding:8px 14px 4px; align-items:flex-end; }
+.sty-bcol { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; }
+.sty-duo { height:130px; width:100%; display:flex; align-items:flex-end; justify-content:center; gap:4px; }
+.sty-bars-s .sty-duo { height:90px; }
+.sty-col { width:38%; border-radius:3px 3px 0 0; position:relative; min-height:2px; }
+.sty-col i { position:absolute; top:-16px; left:50%; transform:translateX(-50%); font-style:normal; font-size:12px; font-weight:700; color:#333; }
+.sty-x { font-size:12px; color:#555; font-weight:700; } .sty-net { font-size:13px; font-weight:800; color:#777; } .sty-pos { color:#2f6b39; } .sty-neg { color:#c4453a; }
+.sty-obs { margin:6px 14px 12px; font-size:12.5px; color:#444; line-height:1.4; }
+.sty-half { display:flex; align-items:center; gap:10px; padding:12px 14px 2px; } .sty-half-l { width:82px; font-size:12px; font-weight:700; color:#555; }
+.sty-split { flex:1; display:flex; height:30px; border-radius:4px; overflow:hidden; }
+.sty-split > span { display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:13px; }
+.sty-h1 { background:#5ab0e8; } .sty-h2 { background:#1f5f99; }
+.sty-key { display:inline-block; width:11px; height:11px; border-radius:2px; vertical-align:-1px; margin:0 3px 0 8px; } .sty-key:first-child { margin-left:0; }
+.sty-two { display:grid; grid-template-columns:1fr 1fr; gap:22px; padding:10px 16px 2px; } .sty-two h4 { margin:0 0 8px; font-size:13px; color:#333; }
+.sty-hb { display:grid; grid-template-columns:140px 1fr 28px; gap:8px; align-items:center; margin-bottom:5px; font-size:12.5px; }
+.sty-hb-bar { height:12px; background:#eceef2; border-radius:3px; overflow:hidden; } .sty-hb-bar span { display:block; height:100%; } .sty-hb-v { font-weight:800; text-align:right; }
+.sty-todo { margin:12px 2px 0; font-size:12px; color:#777; }
+@media (max-width: 900px) { .sty-grid { grid-template-columns:1fr; } .sty-wide { grid-column:auto; } .sty-two { grid-template-columns:1fr; } }
+.sty-forme { padding-top: 30px; } .sty-bars { padding-top: 24px; } .sty-legend { padding-bottom: 2px; }
