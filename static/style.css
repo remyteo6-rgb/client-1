@@ -3392,4 +3392,8 @@ select.subnav-match-select option { color:#222; background:#fff; }
     .subnav-links { overflow: visible; }
     .subnav-page-menu { background: #1a0a12; z-index: 1000; position: fixed; top: 52px; right: 8px; left: auto; max-height: calc(100vh - 70px); overflow-y: auto; }
     .subnav-page-menu a.active { background: rgba(247,163,63,0.18); color: var(--accent-gold); }
+    .subnav-links > a, .subnav-links > details.subnav-sector-dropdown { display: none !important; }
+    .subnav-page-dropdown { display: block !important; }
+    .subnav-links { flex: 1 1 auto; justify-content: flex-end; padding-left: 0; }
+    .subnav-page-dropdown summary { white-space: nowrap; padding: 12px 12px; }
 }
