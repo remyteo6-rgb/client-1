@@ -3397,3 +3397,100 @@ select.subnav-match-select option { color:#222; background:#fff; }
     .subnav-links { flex: 1 1 auto; justify-content: flex-end; padding-left: 0; }
     .subnav-page-dropdown summary { white-space: nowrap; padding: 12px 12px; }
 }
+
+/* =====================================================================
+   VERSION TÉLÉPHONE (≤ 700 px) — passe d'optimisation complète
+   ===================================================================== */
+/* Pastille de contexte : texte clair sur le bandeau bordeaux (elle était sombre sur sombre). */
+.subnav-context { color: rgba(255,255,255,0.88); }
+.subnav-context svg { opacity: .8; }
+
+/* Bouton « Agrandir » des diapos 16/9 et visionneuse plein écran (créés par base.html). */
+.slide-zoom-btn { display: none; }
+.slide-fs { position: fixed; inset: 0; z-index: 2000; background: #120a0e; display: none; overflow: auto; -webkit-overflow-scrolling: touch; }
+.slide-fs.open { display: block; }
+.slide-fs-stage { position: absolute; top: 50%; left: 50%; transform-origin: center center; }
+.slide-fs-stage > .report-slide { margin: 0; max-width: none; width: 100%; box-shadow: 0 0 0 1px rgba(255,255,255,.08); }
+.slide-fs-close {
+    position: fixed; z-index: 2001; top: max(10px, env(safe-area-inset-top)); right: 10px;
+    width: 44px; height: 44px; border-radius: 50%; border: 0; cursor: pointer;
+    background: rgba(255,255,255,.92); color: #3a0d1f; font-size: 22px; font-weight: 800; line-height: 44px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.4);
+}
+body.slide-fs-on { overflow: hidden; }
+
+/* Tableaux larges : enveloppe défilable horizontalement posée par base.html. */
+.m-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+
+@media (max-width: 700px) {
+    /* --- Bandeau --- */
+    .subnav-inner { padding-right: 4px; }
+    .subnav-logo { margin: 0 6px; height: 24px; }
+    .subnav-context, select.subnav-match-select { max-width: 118px; min-width: 0; font-size: 11px; margin-right: 6px; flex-shrink: 1; }
+    select.subnav-match-select { padding-right: 20px; text-overflow: ellipsis; }
+    .subnav-search { margin-right: 4px; }
+    .subnav-links { min-width: 0; flex: 1 1 auto; justify-content: flex-end; }
+    .subnav-page-dropdown { min-width: 0; max-width: 100%; }
+    .subnav-page-dropdown summary { max-width: 150px; overflow: hidden; text-overflow: ellipsis; padding: 12px 8px 12px 6px; font-size: 12px; }
+    .subnav-page-menu a { padding: 13px 18px; font-size: 14px; }
+    .subnav-breadcrumb { font-size: 11px; padding: 7px 14px; }
+
+    /* --- Titres, textes, cartes --- */
+    .page { padding: 14px 12px; margin: 8px auto; }
+    h1 { font-size: 17px; line-height: 1.25; }
+    h2 { font-size: 14px; }
+    .subtitle { font-size: 12px; margin-bottom: 12px; }
+    .card { padding: 12px 13px; }
+    /* Avertissements (« Cartouches n'est pas tagué… ») : beaucoup moins envahissants. */
+    .card[style*="f9a240"] p { font-size: 12px; line-height: 1.4; }
+    details.card > summary h2 { font-size: 12.5px; }
+
+    /* --- Diapos 16/9 réduites : bouton « Agrandir » bien visible --- */
+    .report-slide { margin-bottom: 14px; border-radius: 6px; }
+    .slide-zoom-btn {
+        display: flex; align-items: center; gap: 6px;
+        position: absolute; z-index: 30; right: 8px; bottom: 8px;
+        background: var(--wine-deep, #4a0f2a); color: #fff; border: 0; border-radius: 999px;
+        padding: 8px 13px; font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+        box-shadow: 0 2px 8px rgba(0,0,0,.35); cursor: pointer;
+    }
+    .slide-fs .slide-zoom-btn { display: none; }
+
+    /* --- Planches « libres » (Style de jeu, Barème, Notes…) : en-tête qui passe à la ligne --- */
+    .report-board.board-free .report-head, .review-board.board-free .review-head { flex-wrap: wrap; gap: 8px; }
+    .report-board.board-free .report-title, .review-board.board-free .review-title { font-size: 1.35rem; padding: 2px 14px 4px; letter-spacing: 1px; }
+    .report-board.board-free .report-head-crest, .review-board.board-free .review-head-crest { width: 40px; height: 40px; }
+    .report-board.board-free .report-subtitle { flex-basis: 100%; font-size: .8rem; line-height: 1.35; }
+    .report-board.board-free, .review-board.board-free { padding-left: 10px; padding-right: 10px; }
+
+    /* --- Joueurs saison : le tableau défile horizontalement (Poste/Nom restent figés) --- */
+    .bjr-season { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+    /* --- Composition : 2 lignes par joueur au lieu de 5 champs tassés --- */
+    .composition-grid { grid-template-columns: 1fr; }
+    .composition-row { display: grid; grid-template-columns: 38px 1fr 52px 42px 42px; gap: 6px; }
+    .composition-row .composition-number { grid-row: span 2; align-self: center; }
+    .composition-row select[name="player"] { grid-column: 2 / -1; }
+    .composition-row select[name="poste_joue"] { width: auto !important; }
+    .composition-row input[type="number"] { width: auto !important; }
+
+    /* --- Formulaires : champs à 16 px pour éviter le zoom automatique d'iOS --- */
+    input[type="text"], input[type="number"], input[type="email"], input[type="password"], input[type="search"], select, textarea { font-size: 16px; }
+    .subnav-search-input, select.subnav-match-select { font-size: 16px; }
+    .report-slide input, .report-slide select { font-size: inherit; }
+
+    /* --- Boutons d'action de la page match : grille compacte --- */
+    .page-header .btn, .match-actions .btn { padding: 9px 10px; font-size: 12px; }
+}
+
+/* Téléphone tenu en paysage (≈ 850 × 390) : la ligne d'onglets ne tient pas non plus,
+   on utilise le même bouton « page actuelle ▾ ». */
+@media (max-height: 500px) and (pointer: coarse) and (min-width: 701px) {
+    .subnav-links > a, .subnav-links > details.subnav-sector-dropdown { display: none !important; }
+    .subnav-page-dropdown { display: block !important; }
+    .subnav-links { overflow: visible; flex: 1 1 auto; justify-content: flex-end; min-width: 0; }
+    .subnav-page-menu { background: #1a0a12; z-index: 1000; position: fixed; top: 52px; right: 8px; left: auto; max-height: calc(100vh - 64px); overflow-y: auto; }
+    .subnav-page-menu a.active { background: rgba(247,163,63,0.18); color: var(--accent-gold); }
+    .subnav-context, select.subnav-match-select { max-width: 240px; }
+    h1 { font-size: 19px; }
+}

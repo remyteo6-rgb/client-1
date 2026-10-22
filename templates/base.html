@@ -145,6 +145,78 @@ if (window.Chart) { Chart.defaults.color = '#2a1712'; }
 })();
 </script>
 <script>
+/* Téléphone : 1) bouton « Agrandir » sur chaque diapo 16/9 → plein écran, tournée en paysage
+   si le téléphone est tenu droit (la diapo y est ~2× plus grande, et on peut zoomer au doigt) ;
+   2) les tableaux larges hors diapo sont enveloppés dans une zone qui défile horizontalement. */
+(function () {
+    var mq = window.matchMedia('(max-width: 700px)');
+    var fs, stage, ouvert = null, repere = null, interne = false;
+    function relayout() {
+        if (!ouvert) return;
+        var vw = window.innerWidth, vh = window.innerHeight, marge = 14;
+        var tourner = vh > vw;
+        var lw = (tourner ? vh : vw) - 2 * marge, lh = (tourner ? vw : vh) - 2 * marge;
+        var w = Math.floor(Math.min(lw, lh * 1280 / 720));
+        stage.style.width = w + 'px';
+        stage.style.transform = 'translate(-50%, -50%)' + (tourner ? ' rotate(90deg)' : '');
+        interne = true; window.dispatchEvent(new Event('resize')); interne = false;
+    }
+    function fermer() {
+        if (!ouvert) return;
+        repere.parentNode.insertBefore(ouvert, repere);
+        repere.remove(); repere = null; ouvert = null;
+        fs.classList.remove('open'); document.body.classList.remove('slide-fs-on');
+        window.dispatchEvent(new Event('resize'));
+    }
+    function ouvrir(slide) {
+        if (!fs) {
+            fs = document.createElement('div'); fs.className = 'slide-fs';
+            fs.innerHTML = '<button type="button" class="slide-fs-close" aria-label="Fermer">✕</button><div class="slide-fs-stage"></div>';
+            document.body.appendChild(fs);
+            stage = fs.querySelector('.slide-fs-stage');
+            fs.querySelector('.slide-fs-close').addEventListener('click', fermer);
+            window.addEventListener('resize', function () { if (ouvert && !interne && !relayout.busy) { relayout.busy = true; requestAnimationFrame(function () { relayout(); relayout.busy = false; }); } });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') fermer(); });
+        }
+        repere = document.createElement('div');
+        repere.style.height = slide.offsetHeight + 'px';
+        slide.parentNode.insertBefore(repere, slide);
+        stage.appendChild(slide); ouvert = slide;
+        fs.classList.add('open'); document.body.classList.add('slide-fs-on');
+        relayout();
+    }
+    function boutons() {
+        document.querySelectorAll('.report-slide').forEach(function (slide) {
+            if (slide.querySelector(':scope > .slide-zoom-btn')) return;
+            var b = document.createElement('button');
+            b.type = 'button'; b.className = 'slide-zoom-btn no-print';
+            b.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>Agrandir';
+            b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); ouvrir(slide); });
+            slide.appendChild(b);
+        });
+    }
+    function tableaux() {
+        if (!mq.matches) return;
+        document.querySelectorAll('main table').forEach(function (t) {
+            if (t.closest('.report-slide, .m-scroll, .bjr-season')) return;
+            for (var p = t.parentElement; p && p !== document.body; p = p.parentElement) {
+                var ox = getComputedStyle(p).overflowX;
+                if (ox === 'auto' || ox === 'scroll') return;
+            }
+            var cols = 0;
+            var r = t.rows[t.rows.length > 1 ? 1 : 0] || t.rows[0];
+            if (r) for (var i = 0; i < r.cells.length; i++) cols += r.cells[i].colSpan || 1;
+            if (cols < 5) return;
+            var w = document.createElement('div'); w.className = 'm-scroll';
+            t.parentNode.insertBefore(w, t); w.appendChild(t);
+            t.style.minWidth = Math.min(cols * 92, 1100) + 'px';
+        });
+    }
+    function init() { setTimeout(function () { boutons(); tableaux(); }, 0); }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+</script>
+<script>
 /* Blason qui ne se charge pas (image absente ou fichier invalide) : on affiche les initiales du club
    à la place de l'icône « image cassée » du navigateur. */
 (function () {
