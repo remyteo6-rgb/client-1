@@ -3384,3 +3384,12 @@ select.subnav-match-select option { color:#222; background:#fff; }
 @media (max-width: 900px) { .sty-span2 { grid-column:auto; } .sty-dn { flex-direction:column; } }
 @media print { .sty-board { break-inside: avoid; } }
 .sty-dn-t td:nth-child(3) { width:70px; white-space:nowrap; } .sty-dn-t td:first-child { min-width:90px; }
+
+/* Mobile : le bouton « page actuelle ▾ » (liste de tous les onglets) devait s'afficher, mais la règle de base
+   .subnav-page-dropdown { display:none } située plus bas dans ce fichier l'écrasait. On la remet après. */
+@media (max-width: 700px) {
+    .subnav-page-dropdown { display: block; }
+    .subnav-links { overflow: visible; }
+    .subnav-page-menu { background: #1a0a12; z-index: 1000; position: fixed; top: 52px; right: 8px; left: auto; max-height: calc(100vh - 70px); overflow-y: auto; }
+    .subnav-page-menu a.active { background: rgba(247,163,63,0.18); color: var(--accent-gold); }
+}
