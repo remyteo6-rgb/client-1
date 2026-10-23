@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
+{% set active = 'compte_rendu' %}
+{% block title %}Compte rendu — {{ 'Saison' if season_mode else match_title(match) }}{% endblock %}
+{% block content %}
+<div class="page-header no-print">
+    <div>
+        <h1>{{ icons.chart() }} Compte rendu{% if not season_mode %} — {{ match_title(match) }}{% endif %}</h1>
+        <p class="subtitle">Ce qui marche, ce qui coûte, et où travailler. Tout est lu dans le codage existant{% if season_mode %}, sur {{ season_selected_count }} match{{ 's' if season_selected_count != 1 else '' }}{% endif %}.</p>
+    </div>
+    <button class="btn btn-secondary" onclick="window.print()">{{ icons.print() }} Imprimer / Exporter PDF</button>
+</div>
+{% if season_mode %}{% include "_season_select.html" %}{% endif %}
+
+{% set PAL = ['#c4453a', '#e8a33d', '#3f8a4f', '#2f6fb5', '#7a3b8f', '#17a3a3', '#8a8f9c', '#d97aa6'] %}
+{% macro donut(items, centre='', pal=PAL) %}
+{% set tot = items|sum(attribute=1) %}
+{% if tot %}
+<div class="sty-dn">
+    <svg viewBox="0 0 42 42" class="sty-donut" role="img">
+        <circle cx="21" cy="21" r="15.9155" fill="none" stroke="#eceef2" stroke-width="7"/>
+        {% set ns = namespace(off=25) %}
+        {% for lab, n in items %}{% set p = n / tot * 100 %}
+        <circle cx="21" cy="21" r="15.9155" fill="none" stroke="{{ pal[loop.index0 % pal|length] }}" stroke-width="7" stroke-dasharray="{{ '%.2f'|format(p) }} {{ '%.2f'|format(100 - p) }}" stroke-dashoffset="{{ '%.2f'|format(ns.off) }}"/>
+        {% set ns.off = ns.off - p %}{% endfor %}
+        <text x="21" y="22.5" text-anchor="middle" class="sty-dn-c">{{ centre or tot }}</text>
+    </svg>
+    <table class="sty-dn-t">
+        {% for lab, n in items %}<tr><td><span class="sty-sw" style="background:{{ pal[loop.index0 % pal|length] }}"></span>{{ lab }}</td><td>{{ n }}</td><td>{{ (100 * n / tot)|round(1) }} %</td></tr>{% endfor %}
+    </table>
+</div>
+{% else %}<p class="cr-vide">Rien de codé.</p>{% endif %}
+{% endmacro %}
+{% macro entete(titre, sous='') %}
+<div class="report-head">
+    <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+    <span class="report-title">{{ titre }}</span>
+    {% if sous %}<span class="report-subtitle">{{ sous }}</span>{% endif %}
+</div>
+{% endmacro %}
+{% macro hbar(lab, n, mx, cls='sty-r', suffixe='') %}
+<div class="sty-hb"><span>{{ lab }}</span><div class="sty-hb-bar"><span class="{{ cls }}" style="width:{{ (100 * n / mx) if mx else 0 }}%"></span></div><span class="sty-hb-v">{{ n }}{{ suffixe }}</span></div>
+{% endmacro %}
+{% macro fmt(v, dec=1, unite='') %}{% if v is none %}—{% else %}{{ ('%.' ~ dec ~ 'f')|format(v) }}{{ unite }}{% endif %}{% endmacro %}
+{% macro pct(v) %}{% if v is none %}—{% else %}{{ v }} %{% endif %}{% endmacro %}
+{% set sous_titre = ('SAISON · ' ~ cr.nb ~ ' MATCH' ~ ('S' if cr.nb != 1 else '')) if season_mode else ('VS ' ~ (match['opponent'] or '')|upper) %}
+{% set n = cr.nb or 1 %}
+{% set ess = (cr.issues|selectattr('nom', 'equalto', 'Essai')|first) %}
+
+{# ======================= 1. TABLEAU DE BORD ======================= #}
+<div class="report-board board-free sty-board">
+    {{ entete('COMPTE RENDU', sous_titre) }}
+    <div class="sty-kpis">
+        <div><strong>{{ cr.poss_par_match if season_mode else cr.possessions }}</strong><span>Possessions{{ ' / match' if season_mode }}</span></div>
+        <div><strong>{{ fmt(cr.pts_par_poss, 2) }}</strong><span>Points par possession</span></div>
+        <div><strong>{{ pct(ess.pct) }}</strong><span>Possessions finies en essai</span></div>
+        <div><strong>{{ fmt(cr.gold.pts_entree, 2) }}</strong><span>Points par entrée (22)</span></div>
+        <div><strong>{{ cr.pen_par_match if season_mode else cr.pens|length }}</strong><span>Pénalités concédées{{ ' / match' if season_mode }}</span></div>
+    </div>
+    <div class="sty-two sty-cols">
+        <div class="sf-panel">
+            <div class="sty-ban sty-ban-g">POINTS FORTS</div>
+            {% for l in tb.forces %}
+            <div class="cr-fa"><strong>{{ l.label }}</strong><span>{{ fmt(l.val, l.dec, l.unite) }}
+                {% if l.cible is not none %}· objectif {{ fmt(l.cible, l.dec, l.unite) }}{% elif mode_match %}· moyenne {{ fmt(l.moy_ref, l.dec, l.unite) }}{% else %}· en progrès sur les derniers matchs{% endif %}</span></div>
+            {% else %}<p class="cr-vide">{% if season_mode and not tb.nb_cibles %}Fixe des objectifs (en bas du tableau) pour faire ressortir les points forts.{% else %}Aucun critère au-dessus de la référence.{% endif %}</p>{% endfor %}
+        </div>
+        <div class="sf-panel">
+            <div class="sty-ban sty-ban-r">AXES DE TRAVAIL</div>
+            {% for l in tb.axes %}
+            <div class="cr-fa"><strong>{{ l.label }}</strong><span>{{ fmt(l.val, l.dec, l.unite) }}
+                {% if l.cible is not none %}· objectif {{ fmt(l.cible, l.dec, l.unite) }}{% elif mode_match %}· moyenne {{ fmt(l.moy_ref, l.dec, l.unite) }}{% else %}· en baisse sur les derniers matchs{% endif %}</span></div>
+            {% else %}<p class="cr-vide">{% if season_mode and not tb.nb_cibles %}Fixe des objectifs (en bas du tableau) pour faire ressortir les axes de travail.{% else %}Aucun critère sous la référence.{% endif %}</p>{% endfor %}
+        </div>
+    </div>
+    <div class="sf-panel">
+        <div class="sf-panel-head">TABLEAU DE BORD{{ ' · VALEUR DU MATCH, MOYENNE DE LA SAISON ET OBJECTIF' if mode_match else ' · MOYENNE PAR MATCH, OBJECTIF ET ÉVOLUTION' }}</div>
+        <div class="m-scroll">
+        <table class="cr-tb">
+            <thead><tr><th>Critère</th><th>{{ 'Ce match' if mode_match else 'Moyenne' }}</th>{% if mode_match %}<th>Moy. saison</th>{% endif %}<th>Objectif</th><th></th><th>{{ 'Par rapport à la saison' if mode_match else 'Match par match' }}</th></tr></thead>
+            <tbody>
+            {% for l in tb.lignes %}
+            <tr>
+                <td class="cr-tb-l">{{ l.label }}{% if l.sens == 'lo' %} <small>(moins = mieux)</small>{% endif %}</td>
+                <td class="cr-tb-v">{{ fmt(l.val, l.dec, l.unite) }}</td>
+                {% if mode_match %}<td>{{ fmt(l.moy_ref, l.dec, l.unite) }}</td>{% endif %}
+                <td>{{ fmt(l.cible, l.dec, l.unite) }}</td>
+                <td>{% if l.statut %}<span class="cr-dot cr-{{ l.statut }}" title="{{ {'ok': 'Objectif atteint', 'proche': 'À moins de 10 % de l’objectif', 'ko': 'Objectif raté'}[l.statut] }}"></span>{% endif %}</td>
+                <td>
+                    {% if mode_match %}
+                        {% if l.comp %}<span class="cr-tend cr-t-{{ l.comp }}">{{ {'mieux': '▲ mieux', 'moins': '▼ moins bien', 'stable': '= dans la moyenne'}[l.comp] }}</span>{% endif %}
+                    {% else %}
+                        <span class="cr-spark">{% for o, x, h in l.serie %}<i style="height:{{ [h, 6]|max }}%" title="{{ o }} : {{ fmt(x, l.dec, l.unite) }}"></i>{% endfor %}</span>
+                        {% if l.tend %}<span class="cr-tend cr-t-{{ l.tend }}">{{ {'mieux': '▲', 'moins': '▼', 'stable': '='}[l.tend] }}</span>{% endif %}
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        <p class="sty-obs"><span class="cr-dot cr-ok"></span> objectif atteint · <span class="cr-dot cr-proche"></span> à moins de 10 % · <span class="cr-dot cr-ko"></span> raté.
+            {% if not mode_match %}Barres : un match chacune, dans l'ordre chronologique ; ▲ / ▼ = les 2 derniers matchs comparés aux précédents.{% endif %}
+            Points forts et axes : d'abord l'écart à l'objectif, sinon {{ 'l’écart à la moyenne de la saison' if mode_match else 'l’évolution récente' }}.</p>
+        {% if is_admin %}
+        <details class="cr-cibles no-print">
+            <summary>Fixer les objectifs du club</summary>
+            <form method="post" action="{{ url_for('season_gagner_perdre_cibles') }}">
+                <input type="hidden" name="next" value="{{ request.full_path }}">
+                <div class="cr-cibles-grid">
+                {% for key, label, unite, dec, sens in criteres %}
+                    <label>{{ label }}{% if sens == 'lo' %} (max){% endif %}<input type="text" inputmode="decimal" name="cible_{{ key }}" value="{{ cibles.get(key, '') }}" placeholder="—"></label>
+                {% endfor %}
+                </div>
+                <button class="btn" type="submit">Enregistrer les objectifs</button>
+            </form>
+        </details>
+        {% endif %}
+    </div>
+</div>
+
+{# ======================= 2. COMMENT FINISSENT NOS POSSESSIONS ======================= #}
+<div class="report-board board-free sty-board">
+    {{ entete('NOS POSSESSIONS', 'COMMENT ELLES FINISSENT') }}
+    <div class="sty-grid">
+        <div class="sf-panel sty-span2">
+            <div class="sf-panel-head">ISSUE DE NOS {{ cr.possessions }} POSSESSIONS</div>
+            {{ donut(cr.issues_items, pal=['#3f8a4f', '#7fbf6a', '#2f6fb5', '#c4453a', '#e8a33d', '#9aa0ab']) }}
+            {% set perdu = (cr.issues|selectattr('nom', 'equalto', 'Ballon perdu')|first) %}
+            {% set pc = (cr.issues|selectattr('nom', 'equalto', 'Pénalité concédée')|first) %}
+            <p class="sty-obs">{{ cr.pts_tot }} points marqués sur {{ cr.possessions }} possessions ({{ fmt(cr.pts_par_poss, 2) }} par possession).
+                {{ (perdu.pct or 0) + (pc.pct or 0) }} % de nos possessions se terminent par un ballon rendu ou une pénalité contre nous.</p>
+        </div>
+        <div class="sf-panel">
+            <div class="sf-panel-head">OÙ ON PERD LE BALLON</div>
+            {% set mx = cr.pertes_zone|map(attribute='n')|max if cr.pertes_zone else 1 %}
+            <div class="cr-pad">{% for r in cr.pertes_zone %}{{ hbar(r.z, r.n, mx) }}{% else %}<p class="cr-vide">Aucune perte codée.</p>{% endfor %}</div>
+            <p class="sty-obs">Zone où se trouve le ballon au moment de la perte (zones Gold / Rumble / Cop / Rouge).</p>
+        </div>
+        <div class="sf-panel sty-wide">
+            <div class="sf-panel-head">RENDEMENT SELON LE POINT DE DÉPART SUR LE TERRAIN</div>
+            <div class="m-scroll"><table class="cr-tb">
+                <thead><tr><th>Départ de la possession</th><th>Possessions</th><th>Points / possession</th><th>Finies en essai</th><th>Ballon rendu ou pénalité contre</th></tr></thead>
+                <tbody>{% for r in cr.par_zone_depart %}<tr><td class="cr-tb-l">{{ r.z }}</td><td>{{ r.n }}</td><td class="cr-tb-v">{{ fmt(r.pts, 2) }}</td><td>{{ pct(r.essai) }}</td><td>{{ pct(r.perdu) }}</td></tr>{% endfor %}</tbody>
+            </table></div>
+        </div>
+    </div>
+</div>
+
+{# ======================= 3. D'OÙ PARTENT NOS POSSESSIONS ======================= #}
+<div class="report-board board-free sty-board">
+    {{ entete("D'OÙ PARTENT NOS POSSESSIONS", 'CE QUE CHAQUE TYPE DE BALLON NOUS RAPPORTE') }}
+    <div class="sf-panel">
+        <div class="sf-panel-head">TYPE DE BALLON → ISSUE DE LA POSSESSION</div>
+        {% set mxp = cr.origines|map(attribute='pts')|max if cr.origines else 1 %}
+        <div class="m-scroll"><table class="cr-tb cr-orig">
+            <thead><tr><th>Origine</th><th>{{ 'Par match' if season_mode else 'Nombre' }}</th><th>Points / possession</th><th>Essai</th><th>Pén. obtenue</th><th>Jeu au pied</th><th>Ballon perdu</th><th>Pén. concédée</th></tr></thead>
+            <tbody>{% for o in cr.origines %}
+            <tr>
+                <td class="cr-tb-l">{{ o.nom }}</td><td>{{ o.par_match if season_mode else o.n }}</td>
+                <td><div class="cr-inbar"><span style="width:{{ (100 * o.pts / mxp) if mxp else 0 }}%"></span><b>{{ fmt(o.pts, 2) }}</b></div></td>
+                <td class="cr-pos">{{ pct(o.issues['Essai']) }}</td><td class="cr-pos">{{ pct(o.issues['Pénalité obtenue']) }}</td>
+                <td>{{ pct(o.issues['Jeu au pied']) }}</td><td class="cr-neg">{{ pct(o.issues['Ballon perdu']) }}</td><td class="cr-neg">{{ pct(o.issues['Pénalité concédée']) }}</td>
+            </tr>{% endfor %}</tbody>
+        </table></div>
+        <p class="sty-obs">
+            {% if cr.meilleure and cr.pire and cr.meilleure.nom != cr.pire.nom %}
+            Notre meilleur ballon : <strong>{{ cr.meilleure.nom|lower }}</strong> ({{ fmt(cr.meilleure.pts, 2) }} point par possession).
+            Le moins rentable : <strong>{{ cr.pire.nom|lower }}</strong> ({{ fmt(cr.pire.pts, 2) }}).
+            {% endif %}
+            Origine retrouvée par les temps : touche ou mêlée à nous, réception du coup d'envoi, ballon perdu par l'adversaire, jeu au pied adverse, pénalité jouée vite. Les pourcentages se lisent en ligne (sur 100 possessions de ce type).
+        </p>
+    </div>
+</div>
+
+{# ======================= 4. ZONE GOLD ======================= #}
+<div class="report-board board-free sty-board">
+    {{ entete('ZONE GOLD', 'RENDEMENT DANS LES 22 ADVERSES') }}
+    <div class="sty-kpis">
+        <div><strong>{{ cr.gold.par_match if season_mode else cr.gold.entrees }}</strong><span>Entrées{{ ' / match' if season_mode }}</span></div>
+        <div><strong>{{ fmt(cr.gold.pts_entree, 2) }}</strong><span>Points par entrée</span></div>
+        <div><strong>{{ cr.gold.sans_points }} / {{ cr.gold.entrees }}</strong><span>Entrées sans points</span></div>
+    </div>
+    <div class="sty-grid">
+        <div class="sf-panel">
+            <div class="sf-panel-head">RÉSULTAT DES ENTRÉES</div>
+            {{ donut(cr.gold.res_l, pal=['#3f8a4f', '#c4453a', '#7fbf6a', '#e8a33d', '#9aa0ab']) }}
+        </div>
+        <div class="sf-panel sty-span2">
+            <div class="sf-panel-head">POINTS PAR ENTRÉE SELON LE BALLON DE DÉPART</div>
+            {% set mxg = cr.gold.orig_l|map(attribute='pts')|max if cr.gold.orig_l else 1 %}
+            <div class="cr-pad">{% for r in cr.gold.orig_l %}
+                <div class="sty-hb cr-hb3"><span>{{ r.nom }} <small>({{ r.n }})</small></span><div class="sty-hb-bar"><span class="sty-g" style="width:{{ (100 * r.pts / mxg) if mxg else 0 }}%"></span></div><span class="sty-hb-v">{{ fmt(r.pts, 2) }}</span></div>
+            {% else %}<p class="cr-vide">Aucune entrée codée.</p>{% endfor %}</div>
+            <p class="sty-obs">Entre parenthèses : nombre d'entrées. Le ballon de départ est celui de la possession pendant laquelle on entre dans les 22.</p>
+        </div>
+    </div>
+    {% if cr.gold.liste %}
+    <details class="cr-liste">
+        <summary>Liste des {{ cr.gold.entrees }} entrées (minute, ballon de départ, résultat)</summary>
+        <div class="m-scroll"><table class="cr-tb">
+            <thead><tr>{% if season_mode %}<th>Match</th>{% endif %}<th>Min.</th><th>Ballon de départ</th><th>Résultat</th><th>Points</th></tr></thead>
+            <tbody>{% for r in cr.gold.liste %}<tr>{% if season_mode %}<td class="cr-tb-l">{{ r.adv }}</td>{% endif %}<td>{{ r.minute ~ "'" if r.minute else '—' }}</td><td>{{ r.origine }}</td><td class="{{ 'cr-pos' if r.ton == 'pos' else ('cr-neg' if r.ton == 'neg' else '') }}">{{ r.res }}</td><td>{{ r.pts or '' }}</td></tr>{% endfor %}</tbody>
+        </table></div>
+    </details>
+    {% endif %}
+</div>
+
+{# ======================= 5. VITESSE DE RUCK ======================= #}
+<div class="report-board board-free sty-board">
+    {{ entete('VITESSE DE RUCK', 'CE QUE DONNE LA SUITE DE LA POSSESSION') }}
+    <div class="sf-panel">
+        <div class="sf-panel-head">NOS {{ cr.rucks }} RUCKS CODÉS (ZONE RUMBLE) · ISSUE DE LA POSSESSION</div>
+        <div class="m-scroll"><table class="cr-tb">
+            <thead><tr><th>Vitesse de sortie</th><th>Rucks</th><th>Part</th><th>Points / possession</th><th>Essai</th><th>Pén. obtenue</th><th>Jeu au pied</th><th>Ballon rendu ou pén. contre</th></tr></thead>
+            <tbody>{% for v in cr.vitesse %}<tr><td class="cr-tb-l">{{ v.nom }}</td><td>{{ v.n }}</td><td>{{ pct(v.pct_rucks) }}</td><td class="cr-tb-v">{{ fmt(v.pts, 2) }}</td><td class="cr-pos">{{ pct(v.essai) }}</td><td class="cr-pos">{{ pct(v.pen) }}</td><td>{{ pct(v.pied) }}</td><td class="cr-neg">{{ pct(v.perdu) }}</td></tr>
+            {% else %}<tr><td colspan="8" class="cr-vide">Pas de label « Vitesse ruck » codé.</td></tr>{% endfor %}</tbody>
+        </table></div>
+        <p class="sty-obs">Chaque ruck est relié à la possession dans laquelle il a lieu, et on regarde comment cette possession se termine. {% if cr.rucks < 60 %}<strong>Peu de rucks codés ({{ cr.rucks }}) : à lire comme une tendance, pas comme une vérité.</strong>{% endif %}</p>
+    </div>
+</div>
+
+{# ======================= 6. DISCIPLINE ======================= #}
+<div class="report-board board-free sty-board">
+    {{ entete('DISCIPLINE', 'QUAND, OÙ, QUI — ET CE QUE ÇA COÛTE') }}
+    <div class="sty-kpis">
+        <div><strong>{{ cr.pen_par_match if season_mode else cr.pens|length }}</strong><span>Pénalités concédées{{ ' / match' if season_mode }}</span></div>
+        <div><strong>{{ cr.pen_cout }}</strong><span>Points encaissés juste après</span></div>
+        <div><strong>{{ (100 * cr.pen_cout / cr.pts_encaisses)|round|int if cr.pts_encaisses else '—' }}{{ ' %' if cr.pts_encaisses }}</strong><span>Des points encaissés</span></div>
+    </div>
+    <div class="sty-grid">
+        <div class="sf-panel">
+            <div class="sf-panel-head">PAR PHASE DE JEU</div>
+            {% set mx = cr.pen_phase|map(attribute=1)|max if cr.pen_phase else 1 %}
+            <div class="cr-pad">{% for ph, k in cr.pen_phase %}{{ hbar(ph, k, mx) }}{% else %}<p class="cr-vide">Aucune pénalité codée.</p>{% endfor %}</div>
+        </div>
+        <div class="sf-panel">
+            <div class="sf-panel-head">PAR ZONE DU TERRAIN</div>
+            {% set mx = cr.pen_zone|map(attribute='n')|max if cr.pen_zone else 1 %}
+            <div class="cr-pad">{% for r in cr.pen_zone %}{{ hbar(r.z, r.n, mx) }}{% else %}<p class="cr-vide">Zones non codées.</p>{% endfor %}</div>
+        </div>
+        <div class="sf-panel">
+            <div class="sf-panel-head">JOUEURS LES PLUS PÉNALISÉS</div>
+            {% set mx = cr.pen_joueurs|map(attribute=1)|max if cr.pen_joueurs else 1 %}
+            <div class="cr-pad">{% for nom, k in cr.pen_joueurs %}{{ hbar(nom, k, mx, 'sty-n') }}{% else %}<p class="cr-vide">Aucun joueur rattaché.</p>{% endfor %}</div>
+        </div>
+        <div class="sf-panel sty-wide">
+            <div class="sf-panel-head">PAR TRANCHE DE 10 MINUTES</div>
+            {% set mx = [cr.pen_tranches|map(attribute='n')|max, 1]|max %}
+            <div class="sty-bars sty-bars-s">{% for r in cr.pen_tranches %}<div class="sty-bcol"><div class="sty-duo"><span class="sty-col sty-r" style="width:46%; height:{{ 100 * r.n / mx }}%"><i>{{ r.n }}</i></span></div><span class="sty-x">{{ r.t }}</span></div>{% endfor %}</div>
+            <p class="sty-obs">« Points encaissés juste après » : points marqués par l'adversaire entre notre pénalité et le moment où on récupère le ballon (2 min 30 de vidéo au plus). {{ cr.pen_coutantes }} pénalité{{ 's' if cr.pen_coutantes != 1 }} sur {{ cr.pens|length }} ont coûté des points.</p>
+        </div>
+    </div>
+    {% if cr.pens %}
+    <details class="cr-liste">
+        <summary>Liste des {{ cr.pens|length }} pénalités (minute, phase, zone, joueur, coût)</summary>
+        <div class="m-scroll"><table class="cr-tb">
+            <thead><tr>{% if season_mode %}<th>Match</th>{% endif %}<th>Min.</th><th>Phase</th><th>Zone</th><th>Joueur</th><th>Points encaissés derrière</th></tr></thead>
+            <tbody>{% for r in cr.pens %}<tr>{% if season_mode %}<td class="cr-tb-l">{{ r.adv }}</td>{% endif %}<td>{{ r.minute ~ "'" if r.minute else '—' }}</td><td>{{ r.phase }}</td><td>{{ r.zone or '—' }}</td><td>{{ r.joueur or '—' }}</td><td class="{{ 'cr-neg' if r.cout }}">{{ r.cout or '' }}</td></tr>{% endfor %}</tbody>
+        </table></div>
+    </details>
+    {% endif %}
+</div>
+
+{# ======================= 7. APRÈS UN SCORE ======================= #}
+{% set a = cr.apres %}
+<div class="report-board board-free sty-board">
+    {{ entete('APRÈS UN SCORE', 'LES MINUTES QUI SUIVENT') }}
+    <div class="sty-two sty-cols">
+        <div class="sf-panel">
+            <div class="sty-ban sty-ban-g">APRÈS AVOIR MARQUÉ ({{ a.nous_n }})</div>
+            <div class="cr-stats">
+                <div><strong>{{ a.nous_enchaine }} / {{ a.nous_n }}</strong><span>fois le score suivant est encore pour nous</span></div>
+                <div><strong>{{ a.nous_rend }} / {{ a.nous_n }}</strong><span>fois l'adversaire marque juste derrière</span></div>
+                <div><strong>{{ a.nous_pris5 }}</strong><span>points encaissés dans les 5 minutes ({{ a.nous_pris5_n }} fois)</span></div>
+            </div>
+            <div class="sf-panel-head cr-sub">NOTRE PREMIÈRE POSSESSION SUR LE RENVOI</div>
+            {{ donut(a.nous_premiere, pal=['#2f6fb5', '#c4453a', '#9aa0ab', '#d0d3da', '#3f8a4f', '#e8a33d', '#7fbf6a']) }}
+        </div>
+        <div class="sf-panel">
+            <div class="sty-ban sty-ban-r">APRÈS AVOIR ENCAISSÉ ({{ a.eux_n }})</div>
+            <div class="cr-stats">
+                <div><strong>{{ a.eux_recup }} / {{ a.eux_recup_n }}</strong><span>renvois où l'on récupère le ballon en premier</span></div>
+                <div><strong>{{ a.eux_reponse }} / {{ a.eux_n }}</strong><span>fois on répond avec le score suivant</span></div>
+                <div><strong>{{ a.eux_encore }} / {{ a.eux_n }}</strong><span>fois l'adversaire marque encore derrière</span></div>
+                <div><strong>{{ a.eux_marques5 }}</strong><span>points marqués dans les 5 minutes</span></div>
+            </div>
+        </div>
+    </div>
+    <p class="sty-obs">Un essai et sa transformation comptent comme un seul score. « 5 minutes » = 5 minutes de vidéo après le score.</p>
+</div>
+
+<div class="card cr-methode no-print">
+    <h2>Comment c'est calculé</h2>
+    <p>Rien n'est recodé : chaque possession « UBB POSSESSION » est reliée par les temps vidéo aux actions codées autour d'elle. Son <strong>origine</strong> = la touche, la mêlée, la réception de coup d'envoi, le ballon perdu par l'adversaire, son jeu au pied ou sa pénalité qui la précède. Son <strong>issue</strong> = l'essai, la pénalité obtenue, le jeu au pied, le ballon perdu ou la pénalité concédée qui la termine (« autre arrêt » : arrêt de jeu sans action d'équipe codée, ex. en-avant ou touche). Les codes d'équipe étant des fenêtres de durée fixe, l'instant de l'action est retrouvé par un décalage mesuré sur les matchs (pertes et pénalités : début + 15 s ; essais : début + 20 s ; jeu au pied : début + 13,5 s). Les zones viennent des codes Gold / Rumble / Cop / Rouge. Les minutes sont estimées depuis la vidéo (coup d'envoi et reprise).</p>
+</div>
+{% endblock %}

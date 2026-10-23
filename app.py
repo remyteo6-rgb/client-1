@@ -15,6 +15,7 @@ from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, render_template, request, redirect, url_for, flash, g, abort, session, Response, jsonify
 import bareme
+import compte_rendu
 from parser import (
     _normalize_tag, _detect_adverse_token,
     ZONE_GOLD_CHOICES,
@@ -3989,6 +3990,8 @@ GP_CRITERES = [
     ("possession", "Possession", " %", 1, "hi"),
     ("occupation", "Occupation", " %", 1, "hi"),
     ("bip", "Ball in play (% du match)", " %", 0, "hi"),
+    ("pdb", "Ballons perdus", "", 1, "lo"),
+    ("pts_poss", "Points par possession", "", 2, "hi"),
 ]
 
 
@@ -4027,7 +4030,16 @@ def _gp_valeurs_match(m):
         "possession": ((ov.get("possession") or {}).get("own_pct")),
         "occupation": ((ov.get("occupation") or {}).get("own_pct")),
         "bip": ((ov.get("ball_in_play") or {}).get("pct_match") or None),
+        **_cr_valeurs(m),
     }
+
+
+def _cr_valeurs(m):
+    """Ballons perdus et points par possession (lecture des possessions du compte rendu)."""
+    x = compte_rendu._Match(m)
+    pdb = len(x.ev[("own", "PDB")])
+    return {"pdb": pdb if (pdb or x.poss) else None,
+            "pts_poss": round(sum(p["pts"] for p in x.poss) / len(x.poss), 2) if x.poss else None}
 
 
 GP_CIBLES_DEFAUT = {"offloads": 13, "def_battus": 18}  # cibles déjà fixées par le staff (bilan attaque)
@@ -4230,6 +4242,97 @@ def season_style():
     return render_template("season_style.html", sj=_style_de_jeu(selected), **ctx)
 
 
+def _cr_tableau(selected, reference, cibles, mode_match, pooled=None, ref_pooled=None):
+    """Tableau de bord : chaque critère du club, sa valeur, l'objectif (s'il est fixé), la tendance
+    match par match, et 3 points forts / 3 axes de travail tirés automatiquement.
+    mode_match : `selected` = le match ; `reference` = tous les matchs (moyenne de comparaison)."""
+    def vals(ms):
+        return [(m, _gp_valeurs_match(m)) for m in sorted(ms, key=lambda m: (m.get("match_date") or "9999", m["id"]))]
+    sel = _cached_result("cr_vals", selected, lambda: vals(selected), copy_result=False)
+    ref = _cached_result("cr_vals", reference, lambda: vals(reference), copy_result=False)
+    lignes = []
+    for key, label, unite, dec, sens in GP_CRITERES:
+        serie = [(m.get("opponent") or "?", v[key]) for m, v in ref if v.get(key) is not None]
+        pts = [v[key] for _m, v in sel if v.get(key) is not None]
+        if not pts:
+            continue
+        val = sum(pts) / len(pts)
+        # Points / possession : total des points ÷ total des possessions (comme le compte rendu),
+        # plutôt que la moyenne des ratios de chaque match.
+        if not mode_match and (pooled or {}).get(key) is not None:
+            val = pooled[key]
+        moy_ref = (sum(x for _o, x in serie) / len(serie)) if serie else None
+        if (ref_pooled or {}).get(key) is not None:
+            moy_ref = ref_pooled[key]
+        cible = cibles.get(key)
+        signe = 1 if sens == "hi" else -1
+        statut, ecart = None, None
+        if cible is not None:
+            ecart = signe * (val - cible) / (abs(cible) or 1)
+            statut = "ok" if ecart >= 0 else ("proche" if ecart >= -0.10 else "ko")
+        tend = None
+        if not mode_match:
+            serie_sel = [v[key] for _m, v in sel if v.get(key) is not None]
+            if len(serie_sel) >= 3:
+                avant, fin = serie_sel[:-2], serie_sel[-2:]
+                a, b = sum(avant) / len(avant), sum(fin) / len(fin)
+                rel = signe * (b - a) / (abs(a) or 1)
+                tend = "mieux" if rel > 0.05 else ("moins" if rel < -0.05 else "stable")
+            serie = [(m.get("opponent") or "?", v[key]) for m, v in sel if v.get(key) is not None]
+        comp = None
+        if mode_match and moy_ref is not None:
+            rel = signe * (val - moy_ref) / (abs(moy_ref) or 1)
+            comp = "mieux" if rel > 0.05 else ("moins" if rel < -0.05 else "stable")
+        # Score pour classer forces / axes : l'objectif d'abord, sinon l'écart à la moyenne (match)
+        # ou la tendance (saison).
+        if ecart is not None:
+            score = ecart
+        elif mode_match and moy_ref:
+            score = signe * (val - moy_ref) / (abs(moy_ref) or 1)
+        elif tend:
+            score = {"mieux": 0.05, "moins": -0.05, "stable": 0}[tend]
+        else:
+            score = None
+        mx = max([abs(x) for _o, x in serie] or [1]) or 1
+        lignes.append({"key": key, "label": label, "unite": unite, "dec": dec, "sens": sens, "val": val, "cible": cible,
+                       "statut": statut, "tend": tend, "comp": comp, "moy_ref": moy_ref, "score": score,
+                       "serie": [(o, x, round(100 * abs(x) / mx)) for o, x in serie]})
+    classes = [l for l in lignes if l["score"] is not None]
+    forces = sorted([l for l in classes if l["score"] > 0], key=lambda l: -l["score"])[:3]
+    axes = sorted([l for l in classes if l["score"] < 0], key=lambda l: l["score"])[:3]
+    return {"lignes": lignes, "forces": forces, "axes": axes, "nb_cibles": sum(1 for l in lignes if l["cible"] is not None)}
+
+
+def _cr_render(selected, reference, mode_match, ctx):
+    cr = _cached_result("compte_rendu", selected, lambda: compte_rendu.compte_rendu(selected))
+    cibles = _gp_cibles()
+    ref_pooled = None
+    if mode_match:
+        cr_ref = _cached_result("compte_rendu", reference, lambda: compte_rendu.compte_rendu(reference))
+        ref_pooled = {"pts_poss": cr_ref["pts_par_poss"]}
+    tb = _cr_tableau(selected, reference, cibles, mode_match,
+                     pooled={"pts_poss": cr["pts_par_poss"]}, ref_pooled=ref_pooled)
+    return render_template("compte_rendu.html", cr=cr, tb=tb, cibles=cibles, criteres=GP_CRITERES, mode_match=mode_match,
+                           bandes=compte_rendu.BANDES, issues_noms=compte_rendu.ISSUES, **ctx)
+
+
+@app.route("/season/compte-rendu")
+def season_compte_rendu():
+    selected, ctx = _season_common("compte_rendu")
+    return _cr_render(selected, selected, False, ctx)
+
+
+@app.route("/match/<int:match_id>/compte-rendu")
+def match_compte_rendu(match_id):
+    match = _get_match_or_404(match_id)
+    if _no_instances_guard(match):
+        flash("Ce match n'a pas d'actions codées détaillées : réimporte le XML pour voir le compte rendu.", "error")
+        return redirect(url_for("match_detail", match_id=match_id))
+    _all, tous, _ids, _qs = _season_context()
+    match["_sig"] = next((m.get("_sig") for m in tous if m["id"] == match["id"]), None)
+    return _cr_render([match], tous, True, {"match": match, "assets": _review_assets(match)})
+
+
 @app.route("/season/gagner-perdre")
 def season_gagner_perdre():
     selected, ctx = _season_common("gagner_perdre")
@@ -4255,6 +4358,9 @@ def season_gagner_perdre_cibles():
                       ON CONFLICT (critere) DO UPDATE SET valeur = EXCLUDED.valeur""", (key, val))
     db.commit()
     flash("Objectifs enregistrés.", "success")
+    nxt = request.form.get("next") or ""
+    if nxt.startswith("/") and not nxt.startswith("//"):
+        return redirect(nxt)
     return redirect(url_for("season_gagner_perdre", m=request.form.getlist("m")))
 
 
