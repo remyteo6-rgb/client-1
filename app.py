@@ -4324,13 +4324,8 @@ def season_compte_rendu():
 
 @app.route("/match/<int:match_id>/compte-rendu")
 def match_compte_rendu(match_id):
-    match = _get_match_or_404(match_id)
-    if _no_instances_guard(match):
-        flash("Ce match n'a pas d'actions codées détaillées : réimporte le XML pour voir le compte rendu.", "error")
-        return redirect(url_for("match_detail", match_id=match_id))
-    _all, tous, _ids, _qs = _season_context()
-    match["_sig"] = next((m.get("_sig") for m in tous if m["id"] == match["id"]), None)
-    return _cr_render([match], tous, True, {"match": match, "assets": _review_assets(match)})
+    """Le compte rendu n'existe qu'en version saison (anciens liens redirigés)."""
+    return redirect(url_for("season_compte_rendu"))
 
 
 @app.route("/season/gagner-perdre")
