@@ -839,7 +839,7 @@ def compute_new_convention_overview(instances):
         else:
             side = None
 
-        if tokens in (["BIP"], ["BALL", "IN", "PLAY"]):
+        if _is_bip_code(inst.get("code_raw")):
             # Temps de jeu effectif : chaque code "BIP" / "Ball in play" (nom utilisé
             # dans les fichiers 2026) est une séquence ballon en jeu (l'autre face de la
             # pièce étant les codes "TIME OFF", non comptés ici).
@@ -2692,7 +2692,7 @@ def compute_expected_points(instances, equipe=MOMENTUM_EQUIPE):
         n = tuple(_normalize_tag(i.get("code_raw")).split())
         s, e = i.get("start") or 0, i.get("end") or i.get("start") or 0
         raw = i.get("code_raw") or ""
-        if n in (("BIP",), ("BALL", "IN", "PLAY")):
+        if _is_bip_code(raw):
             seqs.append((s, e))
             continue
         # Possession : convention 2026 ('UBB POSSESSION' / '<ADV> POSSESSION') ou ancien
@@ -4207,6 +4207,18 @@ def _normalize_tag(text):
     return " ".join(ascii_text.upper().split())
 
 
+# Temps de jeu effectif : le code s'écrit différemment d'un fichier à l'autre (« BIP », « Ball in play »,
+# « Ball-in-play », « B.I.P », « Ballon en jeu », « Temps de jeu effectif »…). On compare sans
+# ponctuation ni espaces.
+_BIP_NOMS = {"BIP", "BALLINPLAY", "BALLSINPLAY", "BALLONENJEU", "BALLONSENJEU", "TEMPSDEJEU", "TEMPSDEJEUEFFECTIF",
+             "TEMPSEFFECTIF", "JEUEFFECTIF", "BALLINPLAYTIME", "BIPTIME", "INPLAY"}
+
+
+def _is_bip_code(code_raw):
+    k = re.sub(r"[^A-Z0-9]", "", _normalize_tag(code_raw))
+    return k in _BIP_NOMS
+
+
 ZONE_GOLD_RESULT_GROUPS = {"RESULTAT Z.MARQUE", "RESULTATS Z.MARQUE", "RESULTAT ZONE MARQUE", "RESULTAT Z MARQUE"}
 
 ZONE_GOLD_RESULT_CLASS = {
@@ -4252,7 +4264,7 @@ def detect_half_time(instances):
     À défaut de « Ball in play », on se rabat sur les labels Chrono (entre la dernière
     action 0-40 et la première 40-80). None si rien ne permet de la situer."""
     bip = sorted(((i.get("start") or 0, i.get("end") or i.get("start") or 0)
-                  for i in instances if _normalize_tag(i.get("code_raw")) in ("BALL IN PLAY", "BIP")))
+                  for i in instances if _is_bip_code(i.get("code_raw"))))
     best = None
     for (s1, e1), (s2, _e2) in zip(bip, bip[1:]):
         gap = s2 - e1

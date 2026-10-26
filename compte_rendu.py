@@ -14,7 +14,7 @@ Zone nue = ballon à nous dans notre sens ; suffixe « A » ou préfixe adverse 
 """
 from collections import Counter, defaultdict
 
-from parser import _normalize_tag, _detect_adverse_token, _scoring_events, detect_half_time, compute_zone_gold_log
+from parser import _normalize_tag, _detect_adverse_token, _scoring_events, detect_half_time, compute_zone_gold_log, _is_bip_code
 
 DECALAGE = {"PDB": 15.0, "DISCIPLINES": 15.0, "ESSAI": 20.0, "JEU AU PIED": 13.5, "BREAK": 13.0, "CLIC": 13.0}
 ZONES = ("GOLD", "RUMBLE", "COP", "ROUGE")
@@ -37,7 +37,7 @@ def _labels(inst, groupe):
 
 def _minute_fn(ins):
     """Instant vidéo -> minute de match (1re période depuis le 1er coup d'envoi, 2e depuis la reprise)."""
-    bip = sorted(float(i.get("start") or 0) for i in ins if _normalize_tag(i.get("code_raw")) in ("BALL IN PLAY", "BIP"))
+    bip = sorted(float(i.get("start") or 0) for i in ins if _is_bip_code(i.get("code_raw")))
     if not bip:
         return lambda t: None
     mt = detect_half_time(ins)
