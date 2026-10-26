@@ -70,16 +70,16 @@
             <div class="bil-panel bil-panel-light">
                 <div class="bil-duo">
                     <div>
-                        <div class="bil-mini-title">Points inscrits</div>
+                        <div class="bil-mini-title bil-t-points">Points inscrits</div>
                         {% if data.points_par_quart %}
-                        {{ bar_chart(data.points_par_quart, 'bil-bar-green') }}
+                        {{ bar_chart(data.points_par_quart, 'bil-bar-points') }}
                         {% else %}
                         <p class="bil-empty">Non tagué</p>
                         {% endif %}
                     </div>
                     <div>
-                        <div class="bil-mini-title">Essais inscrits</div>
-                        {{ bar_chart(data.essais_par_quart, 'bil-bar-green') }}
+                        <div class="bil-mini-title bil-t-essais">Essais inscrits</div>
+                        {{ bar_chart(data.essais_par_quart, 'bil-bar-essais') }}
                     </div>
                 </div>
             </div>

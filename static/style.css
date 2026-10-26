@@ -3542,3 +3542,9 @@ body.slide-fs-on { overflow: hidden; }
     .cr-hb3 { grid-template-columns: 120px 1fr 38px; }
     .cr-tb { font-size: 12.5px; }
 }
+
+/* Bilan attaque : points et essais inscrits en deux couleurs distinctes (bordeaux / or). */
+.bil-bar-points { background: #7a1f3d; }
+.bil-bar-essais { background: #d98e1f; }
+.bil-t-points { color: #7a1f3d; }
+.bil-t-essais { color: #b8730f; }
