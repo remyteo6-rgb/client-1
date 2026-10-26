@@ -153,16 +153,20 @@
                 </div>
                 <div class="bil-panel-body">
                     <div class="bil-mini-title">{{ data.plaquages_detail.joueurs }} joueurs différents</div>
-                    {% set rc_total = data.plaquages_detail.ring + data.plaquages_detail.cordes %}
-                    {% if data.plaquages_detail.ring_corde_tagues %}
-                    <div class="bil-hbar"><span class="bil-hbar-label">Ring</span>
-                        <span class="bil-hbar-fill" style="width:{{ (100 * data.plaquages_detail.ring / rc_total) | round | int if rc_total else 0 }}%">{{ data.plaquages_detail.ring }}</span></div>
-                    <div class="bil-hbar"><span class="bil-hbar-label">Corde</span>
-                        <span class="bil-hbar-fill" style="width:{{ (100 * data.plaquages_detail.cordes / rc_total) | round | int if rc_total else 0 }}%">{{ data.plaquages_detail.cordes }}</span></div>
-                    {% else %}
-                    <p class="bil-empty">Ring / Corde non tagués (labels « Ring » ou « Cordes » sur le code « UBB DEF BATTUS »)</p>
-                    {% endif %}
-                    {{ bar_chart(data.plaquages_detail.par_quart, 'bil-bar-green') }}
+                    <div class="bil-duo">
+                        <div>
+                            <div class="bil-mini-title bil-t-type">Ring / Corde</div>
+                            {% if data.plaquages_detail.ring_corde_tagues %}
+                            {{ bar_chart({'Ring': data.plaquages_detail.ring, 'Corde': data.plaquages_detail.cordes}, 'bil-bar-blue') }}
+                            {% else %}
+                            <p class="bil-empty">Non tagués (labels « Ring » / « Cordes » sur « UBB DEF BATTUS »)</p>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <div class="bil-mini-title">Par période</div>
+                            {{ bar_chart(data.plaquages_detail.par_quart, 'bil-bar-green') }}
+                        </div>
+                    </div>
                 </div>
             </div>
 

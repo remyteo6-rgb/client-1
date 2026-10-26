@@ -3548,3 +3548,7 @@ body.slide-fs-on { overflow: hidden; }
 .bil-bar-essais { background: #d98e1f; }
 .bil-t-points { color: #7a1f3d; }
 .bil-t-essais { color: #b8730f; }
+/* Plaquages cassés : Ring / Corde et période côte à côte, même gabarit que points / essais. */
+.bil-bar-blue { background: #4a74b0; }
+.bil-t-type { color: #3c5f93; }
+.bil-panel-body > .bil-mini-title + .bil-duo { margin-top: 4px; }
