@@ -398,9 +398,11 @@ BAREME_DEFAUT, ATTENTE_DU_CRITERE = _construire()
 
 # Calage par famille : certains postes ont des cibles plus dures dans les faits (moins d'actions
 # codées). Coefficient appliqué à la note de base pour rendre les moyennes comparables.
-# 27 oct. 2026 : plus de calage pour la 3ème ligne — il compensait des critères durs (franchissements, défenseurs
-# battus) qui ne sont plus au poste ; avec les critères du 2ème ligne, il faisait saturer les notes à 10.
-CALAGE = {"Ailier/Arrière": 1.2, "Centre": 1.05}
+# Calage historique par famille de poste : il servait à rendre les postes comparables AVANT que chaque poste
+# soit recentré sur sa propre référence (NOTE_REF, voir recentrer()). Les deux faisaient le même travail, et le
+# calage, appliqué avant l'échelle et les bonus, poussait les bons matchs au plafond de 10 (27 oct. 2026 : il
+# est retiré pour tous les postes, le recentrage par poste suffit).
+CALAGE = {}
 
 # Échelle de lecture des notes : (note brute, note affichée). 5 = match moyen, 7 = bon match,
 # 3 = match pas bon, sous 3 = vraiment mauvais. Interpolation linéaire entre les points.
