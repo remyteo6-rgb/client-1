@@ -2964,9 +2964,8 @@ def match_touches(match_id):
         return sorted(lst, key=lambda x: (-x["tot"], -x["pct"], x["name"]))
     lanceurs = _classement("lancer_gagne", "lancer_perdu")
     sauteurs = _classement("sauteur_plus", "sauteur_moins")
-    # Pour l'instant, seul le match de Pau a cette mise en page (tableaux lanceurs / sauteurs + courbe en bas).
-    adv = (match.get("opponent") or "").casefold()
-    nouvelle_page = "paloise" in adv or adv.strip() in ("pau", "section paloise")
+    # Mise en page « tableaux lanceurs / sauteurs + courbe en bas » sur tous les matchs (avant : Pau seulement).
+    nouvelle_page = True
     return render_template("match_touches.html", match=match, data=data, assets=_review_assets(match),
                            lanceurs=lanceurs, sauteurs=sauteurs, nouvelle_page=nouvelle_page)
 

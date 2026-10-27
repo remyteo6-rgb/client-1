@@ -94,7 +94,7 @@
                     <thead><tr><th>Joueur</th><th>Lancés</th><th>Réussis</th><th>%</th></tr></thead>
                     <tbody>{% for r in lanceurs %}<tr><td>{{ r.name }}</td><td>{{ r.tot }}</td><td><span class="stat-pos">{{ r.ok }}</span> / <span class="stat-neg">{{ r.ko }}</span></td><td><strong>{{ r.pct }} %</strong></td></tr>{% endfor %}</tbody>
                 </table>
-                {% else %}<p class="sfs-note" style="padding:12px 16px;">Aucun lancer qualifié sur ce match.</p>{% endif %}
+                {% else %}<p class="sfs-note" style="padding:12px 16px;">Lanceurs non codés sur ce match (label « Touches OFF lancé » + / − sur le joueur).</p>{% endif %}
             </div>
             <div class="sf-panel" style="margin-top:12px;">
                 <div class="sf-panel-head">RÉUSSITE DES SAUTEURS</div>
@@ -103,7 +103,7 @@
                     <thead><tr><th>Joueur</th><th>Ballons</th><th>Pris</th><th>%</th></tr></thead>
                     <tbody>{% for r in sauteurs %}<tr><td>{{ r.name }}</td><td>{{ r.tot }}</td><td><span class="stat-pos">{{ r.ok }}</span> / <span class="stat-neg">{{ r.ko }}</span></td><td><strong>{{ r.pct }} %</strong></td></tr>{% endfor %}</tbody>
                 </table>
-                {% else %}<p class="sfs-note" style="padding:12px 16px;">Aucune prise de balle qualifiée sur ce match.</p>{% endif %}
+                {% else %}<p class="sfs-note" style="padding:12px 16px;">Sauteurs non codés sur ce match (label « Touches OFF sauteur » + / − sur le joueur).</p>{% endif %}
             </div>
             <div style="margin-top:12px;">{{ chart_card() }}</div>
         </div>
