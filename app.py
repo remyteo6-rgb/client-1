@@ -1922,7 +1922,135 @@ def match_joueurs(match_id):
                            detail_slides=detail_slides, activity_slide=activity_slide,
                            defense_table=defense_table, ruck_table=ruck_table,
                            bilan_table=bilan_table,
-                           player_baselines=player_baselines, player_cards=player_cards)
+                           player_baselines=player_baselines, player_cards=player_cards,
+                           chasses_saisies=_chasses_saisies(match), chasse_seuil=CHASSE_SEUIL_KMH,
+                           chasses_noms={r["name"].strip().casefold(): r["name"]
+                                         for r in ruck_table["rows"]})
+
+
+# ---- Chasses relevées au GPS (collées depuis l'outil du staff) ------------------------------
+CHASSE_SEUIL_KMH = 24      # une chasse « validée » est menée à plus de 24 km/h (demande des coachs)
+_CH_RATIO = re.compile(r"(\d+)\s*/\s*(\d+)")
+_CH_VITESSE = re.compile(r"\d{1,2}[.,]\d")
+
+
+def _ch_cellules(ligne):
+    return [c.strip() for c in (ligne.split("\t") if "\t" in ligne else re.split(r"\s{2,}", ligne))]
+
+
+def _ch_rapprocher(texte, noms):
+    """« HERAUD Maxime » / « SILVAIN POUVREAU Hugo » -> code joueur du XML. On essaie le nom entier,
+    puis en retirant les mots de la fin (le prénom), et on garde le meilleur rapprochement."""
+    mots = texte.replace("…", " ").split()
+    best, score = None, 0.0
+    for k in range(len(mots), 0, -1):
+        cand = " ".join(mots[:k])
+        for n in noms:
+            sc = _composition_name_score(cand, n)
+            if sc > score:
+                best, score = n, sc
+    return best if score >= 0.8 else None
+
+
+def _parser_chasses_colle(texte, noms_xml):
+    """Tableau des chasses collé depuis l'outil GPS : une ligne par joueur. On lit en priorité la
+    colonne « > 24 » (« 4/6 » = 4 chasses sur 6 au-dessus du seuil) ; sinon on compte les Vmax de
+    chaque chasse de la ligne (la moyenne en fin de ligne est reconnue et écartée).
+    Renvoie ({code joueur: {"n": chasses, "rapides": au-dessus du seuil}}, lignes non rapprochées)."""
+    col_seuil = None
+    for ligne in texte.splitlines():
+        cells = _ch_cellules(ligne)
+        for i, c in enumerate(cells):
+            k = c.replace(" ", "")
+            if k == ">%d" % CHASSE_SEUIL_KMH:
+                col_seuil = i
+        if col_seuil is not None:
+            break
+    out, inconnus = {}, []
+    for ligne in texte.splitlines():
+        cells = _ch_cellules(ligne)
+        if len(cells) < 2 or not re.search(r"[A-Za-zÀ-ÿ]", cells[0]):
+            continue
+        if "joueur" in _normalize_tag(cells[0]).casefold():
+            continue
+        ratios = [(int(m.group(1)), int(m.group(2))) for c in cells for m in [_CH_RATIO.fullmatch(c.replace(" ", ""))] if m]
+        choisi = None
+        if col_seuil is not None and col_seuil < len(cells):
+            m = _CH_RATIO.fullmatch(cells[col_seuil].replace(" ", ""))
+            if m:
+                choisi = (int(m.group(1)), int(m.group(2)))
+        if choisi is None and ratios:
+            choisi = ratios[-1]          # dernière colonne « a/b » = le seuil le plus haut
+        if choisi is not None:
+            rapides, total = choisi
+        else:
+            vitesses = [float(v.replace(",", ".")) for c in cells[1:] for v in _CH_VITESSE.findall(c)]
+            if len(vitesses) > 1:
+                # Dernière valeur ≈ moyenne des précédentes : c'est la colonne « Moy Vmax », pas une chasse.
+                moy = sum(vitesses[:-1]) / len(vitesses[:-1])
+                if abs(vitesses[-1] - moy) <= 0.15:
+                    vitesses = vitesses[:-1]
+            total = len(vitesses)
+            rapides = sum(1 for v in vitesses if v > CHASSE_SEUIL_KMH)
+        nom = _ch_rapprocher(cells[0], noms_xml)
+        if not nom:
+            if total or rapides:
+                inconnus.append(cells[0])
+            continue
+        out[nom.strip().casefold()] = {"n": total, "rapides": rapides}
+    return out, inconnus
+
+
+def _chasses_saisies(match):
+    return ((match.get("manual_stats") or {}).get("chasses") or {})
+
+
+def _injecter_chasses(m, cle_joueur, rows):
+    """Chasses relevées au GPS : elles remplacent le comptage du XML et ajoutent les chasses
+    menées au-dessus du seuil, pour le critère « Chasses à + de 24 km/h » des ailiers."""
+    saisie = _chasses_saisies(m).get(cle_joueur)
+    if not saisie:
+        return rows
+    out = dict(rows)
+    ruck = dict(out.get("ruck") or {})
+    ruck["chasses"] = saisie.get("n") or 0
+    ruck["chasses_rapides"] = saisie.get("rapides") or 0
+    ruck["chasses_gps"] = 1
+    ruck["chasses_match"] = max(ruck.get("chasses_match") or 0, 1)
+    out["ruck"] = ruck
+    return out
+
+
+@app.route("/match/<int:match_id>/chasses/saisie", methods=["POST"])
+@admin_required
+def match_chasses_saisie(match_id):
+    match = _get_match_or_404(match_id)
+    texte = request.form.get("tableau", "")
+    manual = match.get("manual_stats") or {}
+    if request.form.get("effacer"):
+        manual.pop("chasses", None)
+        db = get_db()
+        db.execute("UPDATE matches SET manual_stats_json = %s WHERE id = %s", (json.dumps(manual), match_id))
+        db.commit()
+        flash("Chasses GPS effacées pour ce match.", "success")
+        return redirect(url_for("match_joueurs", match_id=match_id))
+    noms = sorted({r["name"] for r in compute_player_ruck_table(match["instances"])["rows"]}
+                  | {r["name"] for r in compute_player_attack_table(match["instances"])["rows"]})
+    data, inconnus = _parser_chasses_colle(texte, noms)
+    if not data:
+        flash("Aucun joueur reconnu dans ce tableau. Colle les lignes du tableau des chasses "
+              "(une ligne par joueur, avec la colonne « > 24 »).", "error")
+        return redirect(url_for("match_joueurs", match_id=match_id))
+    manual["chasses"] = data
+    db = get_db()
+    db.execute("UPDATE matches SET manual_stats_json = %s WHERE id = %s", (json.dumps(manual), match_id))
+    db.commit()
+    tot = sum(v["n"] for v in data.values())
+    msg = f"Chasses GPS enregistrées : {len(data)} joueurs, {tot} chasses dont {sum(v['rapides'] for v in data.values())} au-dessus de {CHASSE_SEUIL_KMH} km/h."
+    if inconnus:
+        msg += " Joueurs non reconnus (ignorés) : " + ", ".join(inconnus[:6]) + "."
+    flash(msg, "success" if not inconnus else "error")
+    return redirect(url_for("match_joueurs", match_id=match_id))
 
 
 def _composition_groups():
@@ -4708,6 +4836,7 @@ def _notes_saison_calc(selected, bar=None):
                 continue
             rows = {k: by[k].get(c) for k in by}
             rows = _appliquer_corrections_manuelles(m, c, rows)
+            rows = _injecter_chasses(m, c, rows)
             res = bareme.note_match(poste, rows, info["minutes"], info["yellow"], info["red"], bar)
             if res and any(d["critere"] == "kicks_pct" for d in res["detail"]):
                 # Note du même match sans la réussite au but : sert à la faire compter TOUJOURS sur la saison.

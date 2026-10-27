@@ -86,6 +86,15 @@ def _x_chasses(r):
     return _v(r["ruck"], "chasses"), 0
 
 
+def _p_chasses_rapides(r):
+    """Part des chasses menées au-dessus du seuil de vitesse (relevé GPS collé sur la page du match).
+    Non noté tant que le relevé n'est pas saisi : le XML seul ne donne pas les vitesses."""
+    tot = _v(r["ruck"], "chasses")
+    if not _v(r["ruck"], "chasses_gps") or tot < 3:
+        return None, tot
+    return 100 * _v(r["ruck"], "chasses_rapides") / tot, tot
+
+
 def _p_tqb(r):
     """Touches de qualité (TQB) sur les touches où le joueur est sauteur : + / − saisis sur le joueur."""
     tot = _v(r["ruck"], "tqb_plus", "tqb_moins")
@@ -214,6 +223,7 @@ CRITERES = {
     "ballons_touches": ("Ballons touchés (passes, contacts, jeu au pied, offloads)", "vol", _x_ballons),
     "contre_ruck":  ("Contre-rucks", "vol", _x_contre_ruck),
     "chasses":      ("Chasses (jeu au pied, renvois)", "vol", _x_chasses),
+    "chasses_rapides_pct": ("Chasses à + de 24 km/h (%)", "pct", _p_chasses_rapides),
     "tqb_pct":      ("Touches de qualité TQB (%)", "pct", _p_tqb),
 }
 
@@ -256,7 +266,9 @@ PROFIL_FAMILLE = {"Pilier": "Pilier", "Talonneur": "Talonneur", "2ème ligne": "
                   "11-14": "Ailier/Arrière", "15": "Ailier/Arrière"}
 # Cibles propres à un profil (prioritaires sur celles de sa famille) : un ailier et un arrière ne touchent pas
 # autant de ballons qu'un ouvreur.
-_CIBLES_PROFIL = {"10": {"ballons_touches": (25, 0)}, "11-14": {"ballons_touches": (12, 0), "contre_ruck": (1, 0), "chasses": (4, 0)},
+_CIBLES_PROFIL = {"10": {"ballons_touches": (25, 0)}, "11-14": {"ballons_touches": (12, 0), "contre_ruck": (1, 0),
+                           # 27 oct. 2026 : un ailier chasse 6 à 10 fois par match — la cible était trop basse (4).
+                           "chasses": (10, 0), "chasses_rapides_pct": (70, 20)},
                   "15": {"ballons_touches": (20, 0)}}
 
 # --- Grille d'attentes du club (auto-évaluation par poste) traduite en statistiques ------------
@@ -337,7 +349,7 @@ PROFILS = {
         ("Sécurité du ballon", {"pdb": 14}),
         ("Volume de jeu", {"ballons_touches": 6}),
         ("Contre-ruck", {"contre_ruck": 4}),
-        ("Chasses", {"chasses": 4}),
+        ("Chasses", {"chasses": 3, "chasses_rapides_pct": 4}),
     ],
     # Arrière (27 oct. 2026) : + ballons touchés (cible 20).
     "15": [

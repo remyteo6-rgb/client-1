@@ -146,6 +146,36 @@
 </div>
 {% endfor %}
 
+{% if is_admin %}
+<details class="card no-print chg-saisie">
+    <summary>{{ icons.chart() }} Chasses relevées au GPS — coller le tableau</summary>
+    <p class="subtitle">Copie le tableau des chasses de ton outil GPS (une ligne par joueur) et colle-le ici.
+        La colonne « &gt; {{ chasse_seuil }} » (par exemple « 4/6 ») est lue en priorité ; sans elle, les Vmax de chaque
+        chasse sont comptées. Le nombre de chasses et la part au-dessus de {{ chasse_seuil }} km/h entrent dans la note des ailiers.</p>
+    <form method="POST" action="{{ url_for('match_chasses_saisie', match_id=match['id']) }}">
+        <textarea name="tableau" rows="8" placeholder="JOUEUR&#9;#1&#9;#2&#9;…&#9;MOY VMAX&#9;&gt;21&#9;&gt;{{ chasse_seuil }}&#10;BARONNET Thomas&#9;–&#9;26.6&#9;…&#9;25.9&#9;6/6&#9;4/6"></textarea>
+        <div class="chg-actions">
+            <button type="submit" class="btn">Enregistrer les chasses</button>
+            {% if chasses_saisies %}
+            <button type="submit" name="effacer" value="1" class="btn btn-secondary"
+                    onclick="return confirm('Effacer les chasses GPS de ce match ?');">Effacer</button>
+            {% endif %}
+        </div>
+    </form>
+    {% if chasses_saisies %}
+    <table class="stat-table zebra-table chg-table">
+        <thead><tr><th>Joueur</th><th>Chasses</th><th>&gt; {{ chasse_seuil }} km/h</th><th>%</th></tr></thead>
+        <tbody>
+            {% for cle, v in chasses_saisies.items() | sort(attribute='1.n', reverse=true) %}
+            <tr><td>{{ chasses_noms.get(cle, cle)|title }}</td><td>{{ v.n }}</td><td>{{ v.rapides }}</td>
+                <td>{{ (100 * v.rapides / v.n)|round|int ~ ' %' if v.n else '—' }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</details>
+{% endif %}
+
 <script>
 function preparePrint() {
     document.querySelectorAll('details.section-block').forEach(d => d.open = true);

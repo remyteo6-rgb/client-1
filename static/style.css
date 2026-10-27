@@ -3583,3 +3583,8 @@ body.slide-fs-on { overflow: hidden; }
 .cr-lecture { margin: 12px 14px 0; font-size: 14px; font-weight: 700; color: #1b2540; line-height: 1.45; }
 .cr-stats span b { color: #1b2540; }
 .staff-scope-form select { padding: 4px 8px; border-radius: 4px; border: 1px solid #c9bfb2; font: inherit; font-size: 13px; background: #fff; }
+/* Chasses GPS (page Joueurs d'un match) : zone de collage du tableau. */
+.chg-saisie > summary { cursor: pointer; font-weight: 700; color: var(--accent-gold-text); }
+.chg-saisie textarea { width: 100%; font-family: ui-monospace, monospace; font-size: 12.5px; padding: 8px; border: 1px solid #c9bfb2; border-radius: 6px; }
+.chg-actions { display: flex; gap: 10px; margin-top: 10px; }
+.chg-table { margin-top: 14px; max-width: 520px; }
