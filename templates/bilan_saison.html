@@ -215,19 +215,19 @@
     <div class="sty-grid">
         <div class="sf-panel sty-span2">
             <div class="sf-panel-head">ISSUE DE NOS {{ cr.possessions }} POSSESSIONS</div>
-            {{ donut(cr.issues_items, pal=['#3f8a4f', '#7fbf6a', '#2f6fb5', '#c4453a', '#e8a33d', '#9aa0ab']) }}
-            {% set perdu = (cr.issues|selectattr('nom', 'equalto', 'Ballon perdu')|first) %}
+            {{ donut(cr.issues_items, pal=['#3f8a4f', '#7fbf6a', '#2f6fb5', '#c4453a', '#e8a33d', '#9cc9ee', '#e8908a', '#9aa0ab'], max_parts=8) }}
+            {% set perdu = (cr.issues|selectattr('nom', 'equalto', 'Ballon perdu')|first) %}{% set rendu = (cr.issues|selectattr('nom', 'equalto', 'Arrêt de jeu, ballon rendu')|first) %}
             {% set pc = (cr.issues|selectattr('nom', 'equalto', 'Pénalité concédée')|first) %}
             <p class="sty-obs">{{ cr.pts_tot }} points marqués sur {{ cr.possessions }} possessions ({{ fmt(cr.pts_par_poss, 2) }} par possession).
-                {{ (perdu.pct or 0) + (pc.pct or 0) }} % de nos possessions se terminent par un ballon rendu ou une pénalité contre nous.
+                {{ (perdu.pct or 0) + (pc.pct or 0) + (rendu.pct or 0) }} % de nos possessions se terminent par un ballon perdu, rendu ou une pénalité contre nous. « Arrêt de jeu » : rien n'est codé à la fin de la possession ; on regarde qui reprend le ballon (mêlée ou touche pour nous = gardé ; possession adverse = rendu, souvent un en-avant ou un ballon sorti non codé en perte de balle). « Autre arrêt » : fin de période ou cas non retrouvé.
                 {% set d = cr.pdb_det %}{% if d.total %}<br>Pertes de balle codées : {{ d.total }} ({{ (d.total / n)|round(1) }} par match). {{ d.fin or 0 }} terminent la possession ; {{ d.faute or 0 }} vont avec une faute en attaque (comptées en « pénalité concédée ») ; {{ d.hors or 0 }} sont hors d'une possession codée ; {{ d.autre or 0 }} autres (avantage, contre-ruck…).{% endif %}
-                {% if cr.vols_renvoi %}<br>{{ cr.vols_renvoi }} « possessions » de quelques secondes pendant le vol de nos coups d'envoi sont écartées.{% endif %}</p>
+                {% if cr.vols_renvoi %}<br>{{ cr.vols_renvoi }} « possessions » de quelques secondes pendant le vol de nos coups d'envoi sont écartées.{% endif %}{% if cr.doublons %} {{ cr.doublons }} possession{{ 's' if cr.doublons > 1 }} codée{{ 's' if cr.doublons > 1 }} deux fois (même départ) comptée{{ 's' if cr.doublons > 1 }} une seule fois.{% endif %}</p>
         </div>
         <div class="sf-panel">
             <div class="sf-panel-head">OÙ ON PERD LE BALLON</div>
             {% set mx = cr.pertes_zone|map(attribute='n')|max if cr.pertes_zone else 1 %}
             <div class="cr-pad">{% for r in cr.pertes_zone %}{{ hbar(r.z, r.n, mx) }}{% else %}<p class="cr-vide">Aucune perte codée.</p>{% endfor %}</div>
-            <p class="sty-obs">Zone où se trouve le ballon au moment de la perte (zones Gold / Rumble / Cop / Rouge).</p>
+            <p class="sty-obs">Ballons perdus ou rendus, selon la zone où se trouve le ballon (si la zone n'est pas codée à cet instant : zone où le jeu reprend).</p>
         </div>
         <div class="sf-panel sty-wide">
             <div class="sf-panel-head">RENDEMENT SELON LE POINT DE DÉPART SUR LE TERRAIN</div>
@@ -246,13 +246,13 @@
         <div class="sf-panel-head">TYPE DE BALLON → ISSUE DE LA POSSESSION</div>
         {% set mxp = cr.origines|map(attribute='pts')|max if cr.origines else 1 %}
         <div class="m-scroll"><table class="cr-tb cr-orig">
-            <thead><tr><th>Origine</th><th>{{ 'Par match' if season_mode else 'Nombre' }}</th><th>Points / possession</th><th>Essai</th><th>Pén. obtenue</th><th>Jeu au pied</th><th>Ballon perdu</th><th>Pén. concédée</th></tr></thead>
+            <thead><tr><th>Origine</th><th>{{ 'Par match' if season_mode else 'Nombre' }}</th><th>Points / possession</th><th>Essai</th><th>Pén. obtenue</th><th>Jeu au pied</th><th>Ballon perdu ou rendu</th><th>Pén. concédée</th></tr></thead>
             <tbody>{% for o in cr.origines %}
             <tr>
                 <td class="cr-tb-l">{{ o.nom }}</td><td>{{ o.par_match if season_mode else o.n }}</td>
                 <td><div class="cr-inbar"><span style="width:{{ (100 * o.pts / mxp) if mxp else 0 }}%"></span><b>{{ fmt(o.pts, 2) }}</b></div></td>
                 <td class="cr-pos">{{ pct(o.issues['Essai']) }}</td><td class="cr-pos">{{ pct(o.issues['Pénalité obtenue']) }}</td>
-                <td>{{ pct(o.issues['Jeu au pied']) }}</td><td class="cr-neg">{{ pct(o.issues['Ballon perdu']) }}</td><td class="cr-neg">{{ pct(o.issues['Pénalité concédée']) }}</td>
+                <td>{{ pct(o.issues['Jeu au pied']) }}</td><td class="cr-neg">{{ pct(o.issues['Perdu ou rendu']) }}</td><td class="cr-neg">{{ pct(o.issues['Pénalité concédée']) }}</td>
             </tr>{% endfor %}</tbody>
         </table></div>
         <p class="sty-obs">
@@ -267,7 +267,7 @@
 
 {# ======================= 4. ZONE GOLD ======================= #}
 <div class="report-board board-free sty-board">
-    {{ entete('ZONE GOLD', 'RENDEMENT DANS LES 22 ADVERSES') }}
+    {{ entete('ZONE GOLD', '22 ADVERSE · RENDEMENT') }}
     <div class="sty-kpis">
         <div><strong>{{ cr.gold.par_match if season_mode else cr.gold.entrees }}</strong><span>Entrées{{ ' / match' if season_mode }}</span></div>
         <div><strong>{{ fmt(cr.gold.pts_entree, 2) }}</strong><span>Points par entrée</span></div>
@@ -303,7 +303,7 @@
 <div class="report-board board-free sty-board">
     {{ entete('VITESSE DE RUCK', 'CE QUE DONNE LA SUITE DE LA POSSESSION') }}
     <div class="sf-panel">
-        <div class="sf-panel-head">NOS {{ cr.rucks }} RUCKS CODÉS (ZONE RUMBLE) · ISSUE DE LA POSSESSION</div>
+        <div class="sf-panel-head">NOS {{ cr.rucks }} RUCKS CODÉS (ZONE RUMBLE, 50-22 ADV) · ISSUE DE LA POSSESSION</div>
         <div class="m-scroll"><table class="cr-tb">
             <thead><tr><th>Vitesse de sortie</th><th>Rucks</th><th>Part</th><th>Points / possession</th><th>Essai</th><th>Pén. obtenue</th><th>Jeu au pied</th><th>Ballon rendu ou pén. contre</th></tr></thead>
             <tbody>{% for v in cr.vitesse %}<tr><td class="cr-tb-l">{{ v.nom }}</td><td>{{ v.n }}</td><td>{{ pct(v.pct_rucks) }}</td><td class="cr-tb-v">{{ fmt(v.pts, 2) }}</td><td class="cr-pos">{{ pct(v.essai) }}</td><td class="cr-pos">{{ pct(v.pen) }}</td><td>{{ pct(v.pied) }}</td><td class="cr-neg">{{ pct(v.perdu) }}</td></tr>
@@ -417,6 +417,6 @@
 
 <div class="card cr-methode no-print">
     <h2>Comment c'est calculé</h2>
-    <p>Rien n'est recodé : chaque possession « UBB POSSESSION » est reliée par les temps vidéo aux actions codées autour d'elle. Son <strong>origine</strong> = la touche, la mêlée, la réception de coup d'envoi, le ballon perdu par l'adversaire, son jeu au pied ou sa pénalité qui la précède. Son <strong>issue</strong> = l'essai, la pénalité obtenue, le jeu au pied, le ballon perdu ou la pénalité concédée qui la termine (« autre arrêt » : arrêt de jeu sans action d'équipe codée, ex. en-avant ou touche). Les codes d'équipe étant des fenêtres de durée fixe, l'instant de l'action est retrouvé par un décalage mesuré sur les matchs (pertes et pénalités : début + 15 s ; essais : début + 20 s ; jeu au pied : début + 13,5 s). Les zones viennent des codes Gold / Rumble / Cop / Rouge. Les minutes sont estimées depuis la vidéo (coup d'envoi et reprise).</p>
+    <p>Rien n'est recodé : chaque possession « UBB POSSESSION » est reliée par les temps vidéo aux actions codées autour d'elle. Son <strong>origine</strong> = la touche, la mêlée, la réception de coup d'envoi, le ballon perdu par l'adversaire, son jeu au pied ou sa pénalité qui la précède. Son <strong>issue</strong> = l'essai, la pénalité obtenue, le jeu au pied, le ballon perdu ou la pénalité concédée qui la termine (« autre arrêt » : arrêt de jeu sans action d'équipe codée, ex. en-avant ou touche). Les codes d'équipe étant des fenêtres de durée fixe, l'instant de l'action est retrouvé par un décalage mesuré sur les matchs (pertes et pénalités : début + 15 s ; essais : début + 20 s ; jeu au pied : début + 13,5 s). Zones du club : Gold = 22 adverse, Rumble = 50-22 adverse, Cop = 50-22 chez nous, Rouge = nos 22. Les minutes sont estimées depuis la vidéo (coup d'envoi et reprise).</p>
 </div>
 {% endblock %}

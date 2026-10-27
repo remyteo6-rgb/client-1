@@ -18,15 +18,19 @@ from parser import _normalize_tag, _detect_adverse_token, _scoring_events, detec
 
 DECALAGE = {"PDB": 15.0, "DISCIPLINES": 15.0, "ESSAI": 20.0, "JEU AU PIED": 13.5, "BREAK": 13.0, "CLIC": 13.0}
 ZONES = ("GOLD", "RUMBLE", "COP", "ROUGE")
-BANDES = ["Nos 22", "Notre moitié", "Leur moitié", "Leurs 22"]
+# Libellés des zones avec les codes du club (Rouge = nos 22, Cop = 50-22 chez nous, Rumble = 50-22 adverse, Gold = 22 adverse).
+Z_ROUGE, Z_COP, Z_RUMBLE, Z_GOLD = "Zone Rouge (nos 22)", "Zone Cop (50-22 nous)", "Zone Rumble (50-22 adv)", "Zone Gold (22 adverse)"
+BANDES = [Z_ROUGE, Z_COP, Z_RUMBLE, Z_GOLD]
 # Bande du terrain vue de chez nous, selon la zone et l'équipe qui a le ballon.
-_BANDE_NOUS = {"ROUGE": "Nos 22", "COP": "Notre moitié", "RUMBLE": "Leur moitié", "GOLD": "Leurs 22"}
-_BANDE_EUX = {"GOLD": "Nos 22", "RUMBLE": "Notre moitié", "COP": "Leur moitié", "ROUGE": "Leurs 22"}
+_BANDE_NOUS = {"ROUGE": Z_ROUGE, "COP": Z_COP, "RUMBLE": Z_RUMBLE, "GOLD": Z_GOLD}
+_BANDE_EUX = {"GOLD": Z_ROUGE, "RUMBLE": Z_COP, "COP": Z_RUMBLE, "ROUGE": Z_GOLD}
 
 ORIGINES = ["Touche", "Mêlée", "Renvoi reçu", "Notre renvoi récupéré", "Ballon récupéré", "Jeu au pied adverse", "Pénalité jouée vite", "Jeu continu / autre"]
-ISSUES = ["Essai", "Pénalité obtenue", "Jeu au pied", "Ballon perdu", "Pénalité concédée", "Autre arrêt"]
+ISSUES = ["Essai", "Pénalité obtenue", "Jeu au pied", "Ballon perdu", "Pénalité concédée",
+          "Arrêt de jeu, ballon gardé", "Arrêt de jeu, ballon rendu", "Autre arrêt"]
 ISSUE_TON = {"Essai": "pos", "Pénalité obtenue": "pos", "Jeu au pied": "neu", "Ballon perdu": "neg",
-             "Pénalité concédée": "neg", "Autre arrêt": "neu"}
+             "Pénalité concédée": "neg", "Arrêt de jeu, ballon gardé": "neu", "Arrêt de jeu, ballon rendu": "neg",
+             "Autre arrêt": "neu"}
 VITESSES = [("-2", "Rapide (< 2 s)"), ("-4", "Moyen (2 à 4 s)"), ("+4", "Lent (> 4 s)"), ("PERDU", "Ruck perdu")]
 PHASES_PEN = {"DEF": "Défense", "OFF": "Attaque", "CONQUETE": "Conquête", "AUTRES": "Autres"}
 
@@ -98,6 +102,15 @@ class _Match:
         vols = [p for p in self.poss if p["e"] - p["s"] < 6 and any(ev["s"] - 1 <= p["s"] <= ev["s"] + 10 for ev in rce_adv)]
         self.vols_renvoi = len(vols)
         self.poss = [p for p in self.poss if p not in vols]
+        # Doublons : deux « UBB POSSESSION » codées au même départ (à 1 s près) = une seule possession.
+        fus = []
+        for p in sorted(self.poss, key=lambda q: (q["s"], -q["e"])):
+            if fus and abs(p["s"] - fus[-1]["s"]) <= 1:
+                fus[-1]["e"] = max(fus[-1]["e"], p["e"])
+            else:
+                fus.append(dict(p))
+        self.doublons = len(self.poss) - len(fus)
+        self.poss = fus
         self.poss_adv = [{"s": p["s"], "e": p["e"]} for p in self.ev[("adv", "POSSESSION")]]
         self._possessions()
 
@@ -111,6 +124,14 @@ class _Match:
             return best[1]
         avant = [(e, z) for s, e, z, _i in self.zones if e <= t and t - e <= 4]
         return max(avant)[1] if avant else None
+
+    def zone_proche(self, t, fenetre=60):
+        """Dernière zone codée avant t (60 s de vidéo au plus) — secours quand rien n'est codé à t."""
+        avant = [(e, z) for s, e, z, _i in self.zones if s <= t and t - e <= fenetre]
+        if avant:
+            return max(avant)[1]
+        apres = [(s, z) for s, e, z, _i in self.zones if 0 <= s - t <= 20]
+        return min(apres)[1] if apres else None
 
     def poss_at(self, t, avant=1.0, apres=3.0):
         """Notre possession dont la fin est la plus proche de t (t dans [début - avant, fin + apres])."""
@@ -152,6 +173,27 @@ class _Match:
                 if issue != "Pénalité concédée" and any(i == "Pénalité concédée" and abs(t - t0) <= 4 for t, i in c):
                     issue = "Pénalité concédée"
                 p["issue"] = issue
+        # « Autre arrêt » (aucune action d'équipe codée à la fin) : on regarde ce qui reprend derrière.
+        # Mêlée / touche pour nous = arrêt de jeu, ballon gardé ; possession adverse = ballon rendu (en-avant,
+        # ballon sorti… non codés en perte de balle).
+        toutes = sorted([("own", q["s"]) for q in P] + [("adv", q["s"]) for q in self.poss_adv], key=lambda t: t[1])
+        for p in P:
+            suiv = next(((cote, d) for cote, d in toutes if d >= p["e"] - 1 and not (cote == "own" and d == p["s"])), None)
+            p["suivante"] = suiv
+            if p["issue"] != "Autre arrêt" or suiv is None:
+                continue
+            cote, d = suiv
+            if cote == "own" and any(ev["s"] + 2 <= d <= ev["e"] + 1 for cle in (("own", "TOUCHES"), ("own", "MELEES")) for ev in self.ev[cle]):
+                p["issue"] = "Arrêt de jeu, ballon gardé"
+            elif cote == "adv" and d - p["e"] <= 120:
+                p["issue"] = "Arrêt de jeu, ballon rendu"
+        # Zone non codée à la fin de la possession : on prend la zone où reprend le jeu (possession suivante).
+        for p in P:
+            if p["z1"] is None and p.get("suivante"):
+                p["z1"] = self.zone_at(p["suivante"][1] + 0.5)
+            if p["z1"] is None:
+                p["z1"] = p["z0"] or self.zone_proche(p["e"])
+
         # Points : toute action de score à nous entre le début de la possession et le début de la suivante.
         for sc in self.scores:
             if sc["side"] != "own" or not sc["pts"]:
@@ -218,7 +260,14 @@ class _Match:
                 if sc["side"] == "adv" and sc["pts"] and ev["t"] - 1 <= sc["t"] <= borne and j not in deja:
                     cout += sc["pts"]
                     deja.add(j)
-            out.append({"t": ev["s"], "minute": self.minute(ev["t"]), "phase": phase, "zone": self.zone_at(ev["t"]),
+            zone = self.zone_at(ev["t"])
+            if zone is None:
+                # Zone non codée à l'instant de la faute : zone où le jeu reprend derrière.
+                reprise = min([q["s"] for q in self.poss + self.poss_adv if q["s"] >= ev["t"] - 1] or [None], key=lambda v: v or 1e12)
+                zone = self.zone_at(reprise + 0.5) if reprise is not None else None
+            if zone is None:
+                zone = self.zone_proche(ev["t"])
+            out.append({"t": ev["s"], "minute": self.minute(ev["t"]), "phase": phase, "zone": zone,
                         "joueur": joueur.title() if joueur else None, "cout": cout})
         return out
 
@@ -298,7 +347,7 @@ def compte_rendu(selected):
                 vus.add(id(p))
                 pdb_det[{"Ballon perdu": "fin", "Pénalité concédée": "faute"}.get(p["issue"], "autre")] += 1
     pdb_det["total"] = sum(pdb_det.values())
-    perte_zone = Counter(p["z1"] or "Zone non codée" for p in P if p["issue"] == "Ballon perdu")
+    perte_zone = Counter(p["z1"] or "Zone non codée" for p in P if p["issue"] in ("Ballon perdu", "Arrêt de jeu, ballon rendu"))
     pertes_zone = [{"z": z, "n": perte_zone.get(z, 0)} for z in BANDES + ["Zone non codée"] if perte_zone.get(z)]
     par_zone_depart = []
     for z in BANDES:
@@ -306,7 +355,7 @@ def compte_rendu(selected):
         if lst:
             par_zone_depart.append({"z": z, "n": len(lst), "pts": round(sum(p["pts"] for p in lst) / len(lst), 2),
                                     "essai": _pct(sum(1 for p in lst if p["issue"] == "Essai"), len(lst)),
-                                    "perdu": _pct(sum(1 for p in lst if p["issue"] in ("Ballon perdu", "Pénalité concédée")), len(lst))})
+                                    "perdu": _pct(sum(1 for p in lst if p["issue"] in ("Ballon perdu", "Pénalité concédée", "Arrêt de jeu, ballon rendu")), len(lst))})
 
     # 3. Origine x issue
     origines = []
@@ -318,7 +367,8 @@ def compte_rendu(selected):
         origines.append({"nom": o, "n": len(lst), "par_match": round(len(lst) / nb, 1),
                          "pts": round(sum(p["pts"] for p in lst) / len(lst), 2),
                          "essais": sum(p["essais"] for p in lst),
-                         "issues": {n: _pct(c.get(n, 0), len(lst)) for n in ISSUES}})
+                         "issues": {**{n: _pct(c.get(n, 0), len(lst)) for n in ISSUES},
+                                    "Perdu ou rendu": _pct(c.get("Ballon perdu", 0) + c.get("Arrêt de jeu, ballon rendu", 0), len(lst))}})
     utiles = [o for o in origines if o["n"] >= 10 and o["nom"] != "Jeu continu / autre"]
     meilleure = max(utiles, key=lambda o: o["pts"]) if utiles else None
     pire = min(utiles, key=lambda o: o["pts"]) if utiles else None
@@ -369,7 +419,7 @@ def compte_rendu(selected):
         c = Counter(p["issue"] for p, _r in rows)
         vit.append({"code": code, "nom": nom, "n": n, "pct_rucks": None,
                     "essai": _pct(c.get("Essai", 0), n), "pen": _pct(c.get("Pénalité obtenue", 0), n),
-                    "perdu": _pct(c.get("Ballon perdu", 0) + c.get("Pénalité concédée", 0), n),
+                    "perdu": _pct(c.get("Ballon perdu", 0) + c.get("Pénalité concédée", 0) + c.get("Arrêt de jeu, ballon rendu", 0), n),
                     "pied": _pct(c.get("Jeu au pied", 0), n),
                     "pts": round(sum(p["pts"] for p, _r in rows) / n, 2)})
     tr = sum(v["n"] for v in vit)
@@ -429,11 +479,11 @@ def compte_rendu(selected):
         pic = max(pen_tranches, key=lambda r: r["n"])
         messages.append(f"{round(100 * cout_tot / pts_encaisses)} % des points encaissés arrivent juste après une de nos pénalités. "
                         f"Pic de fautes entre {pic['t']} min ({pic['n']}).")
-    perdu = issues.get("Ballon perdu", 0) + issues.get("Pénalité concédée", 0)
+    perdu = issues.get("Ballon perdu", 0) + issues.get("Pénalité concédée", 0) + issues.get("Arrêt de jeu, ballon rendu", 0)
     if tot and perdu:
         z = max(pertes_zone, key=lambda r: r["n"])["z"] if pertes_zone else None
         messages.append(f"{round(100 * perdu / tot)} % de nos possessions se terminent par un ballon rendu ou une faute"
-                        + (f", le plus souvent dans {z.lower()}." if z and z != "Zone non codée" else "."))
+                        + (f", le plus souvent en {z}." if z and z != "Zone non codée" else "."))
     if nous:
         txt = f"Après avoir marqué, l'adversaire marque juste derrière {sum(1 for r in nous if r['suivant'] == 'adv')} fois sur {len(nous)}"
         n_rec = sum(1 for r in eux if r.get("recupere") is not None)
@@ -443,7 +493,7 @@ def compte_rendu(selected):
         messages.append(txt + ".")
 
     rv = [v for x in ms for v in x.renvois()]
-    return {"nb": len(ms), "renvois": {"n": len(rv), "recup": sum(1 for v in rv if v["recup"])}, "messages": messages, "possessions": tot, "vols_renvoi": sum(x.vols_renvoi for x in ms), "poss_par_match": round(tot / nb, 1), "pts_par_poss": round(pts_tot / tot, 2) if tot else None,
+    return {"nb": len(ms), "renvois": {"n": len(rv), "recup": sum(1 for v in rv if v["recup"])}, "messages": messages, "possessions": tot, "vols_renvoi": sum(x.vols_renvoi for x in ms), "doublons": sum(x.doublons for x in ms), "poss_par_match": round(tot / nb, 1), "pts_par_poss": round(pts_tot / tot, 2) if tot else None,
             "pts_tot": pts_tot, "pdb_det": dict(pdb_det), "issues": issues_l, "issues_items": [(r["nom"], r["n"]) for r in issues_l], "pertes_zone": pertes_zone, "par_zone_depart": par_zone_depart,
             "zones_codees": any(x.zones for x in ms),
             "origines": origines, "meilleure": meilleure, "pire": pire, "gold": gold,
