@@ -366,8 +366,9 @@
         </div>
         <div class="sf-panel">
             <div class="sf-panel-head">JOUEURS LES PLUS PÉNALISÉS</div>
-            {% set mx = cr.pen_joueurs|map(attribute=1)|max if cr.pen_joueurs else 1 %}
-            <div class="cr-pad">{% for nom, k in cr.pen_joueurs %}{{ hbar(nom, k, mx, 'sty-n') }}{% else %}<p class="cr-vide">Aucun joueur rattaché.</p>{% endfor %}</div>
+            {% set mx = pen_joueurs|map(attribute='fautes')|max if pen_joueurs else 1 %}
+            <div class="cr-pad">{% for p in pen_joueurs %}{{ hbar(p.nom ~ (' 🟨' * p.jaunes) ~ (' 🟥' * p.rouges), p.fautes, mx, 'sty-n') }}{% else %}<p class="cr-vide">Aucune faute de joueur codée.</p>{% endfor %}</div>
+            <p class="sty-obs">Même calcul que la page Discipline (corrections saisies à la main comprises).</p>
         </div>
         <div class="sf-panel sty-wide">
             <div class="sf-panel-head">PAR TRANCHE DE 10 MINUTES</div>

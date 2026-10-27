@@ -4313,7 +4313,9 @@ def _cr_render(selected, reference, mode_match, ctx):
                      pooled={"pts_poss": cr["pts_par_poss"]}, ref_pooled=ref_pooled)
     return render_template("bilan_saison.html", cr=cr, tb=tb, cibles=cibles, criteres=GP_CRITERES, mode_match=mode_match,
                            bandes=compte_rendu.BANDES, issues_noms=compte_rendu.ISSUES, sj=_style_de_jeu(selected),
-                           radar=_radar_equipe(selected, cr), **ctx)
+                           radar=_radar_equipe(selected, cr),
+                           pen_joueurs=[dict(p, nom=_joueur_nom_affiche(p["name"])) for p in _discipline_joueurs_saison(selected)][:8],
+                           **ctx)
 
 
 # ---- Radar d'équipe (Bilan saison · Notre profil) --------------------------------------------
@@ -5577,13 +5579,29 @@ def season_surfeurs():
                            W=W, H=H, L=L, R=R, total=sum(saisis), **ctx)
 
 
+def _discipline_joueurs_saison(selected):
+    """Fautes par joueur sur la saison : exactement le calcul de la page Discipline (compute_discipline,
+    corrections saisies à la main comprises), cumulé match par match. Trié du plus pénalisé au moins."""
+    players = {}
+    for m in selected:
+        d = compute_discipline(m["instances"], m.get("row_order"), m.get("player_match_stats"),
+                               m.get("composition"), (m.get("manual_stats") or {}).get("discipline"))
+        for r in d["rows"]:
+            p = players.setdefault(r["name"], {"name": r["name"], "fautes": 0, "jaunes": 0, "rouges": 0, "groupe": r["groupe"]})
+            p["fautes"] += r["fautes"] or 0
+            p["jaunes"] += 1 if r["carton"] == "J" else 0
+            p["rouges"] += 1 if r["carton"] == "R" else 0
+    return sorted((p for p in players.values() if p["fautes"] or p["jaunes"] or p["rouges"]),
+                  key=lambda p: (-p["fautes"], -p["rouges"], -p["jaunes"], p["name"]))
+
+
 @app.route("/season/discipline")
 def season_discipline():
     selected, ctx = _season_common("discipline")
     n = len(selected)
     team = {"own": [], "adverse": []}
     periods = {"own": {}, "adverse": {}}
-    cats, players = {}, {}
+    cats = {}
     for m in selected:
         d = compute_discipline(m["instances"], m.get("row_order"), m.get("player_match_stats"),
                                m.get("composition"), (m.get("manual_stats") or {}).get("discipline"))
@@ -5594,11 +5612,7 @@ def season_discipline():
                 periods[side].setdefault(q, []).append(v)
         for c in d["categories"]:
             cats.setdefault(c["label"], []).append(c["count"] or 0)
-        for r in d["rows"]:
-            p = players.setdefault(r["name"], {"name": r["name"], "fautes": 0, "jaunes": 0, "rouges": 0, "groupe": r["groupe"]})
-            p["fautes"] += r["fautes"] or 0
-            p["jaunes"] += 1 if r["carton"] == "J" else 0
-            p["rouges"] += 1 if r["carton"] == "R" else 0
+    players = {p["name"]: p for p in _discipline_joueurs_saison(selected)}
     mean = lambda v: round(sum(v) / len(v), 1) if v else None
     quarters = ["0-20", "20-40", "40-60", "60-80"]
     par_periode = {side: {q: mean(periods[side].get(q, [])) or 0 for q in quarters} for side in periods}
