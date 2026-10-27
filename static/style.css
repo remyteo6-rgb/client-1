@@ -27,6 +27,7 @@
     --ubb: #6b1a2b; --ubb-light: #b35a72; --adv: #5b6472; --adv-light: #a7adb8; --adv-text: #4a525e;
     --or: #e8a33d; --bon: #2f7d46; --mauvais: #c4453a;
     --own-color: #7a1f3d;
+    --cahier-blue: #4f7fd6;   /* cahier d'entraînement : garde son bleu d'origine */
     --adverse-color: #ffffff;
     /* Idem pour --positive/--negative : versions plus soutenues que l'original (pensé
        pour du texte sur fond sombre), pour rester lisibles en texte sur fond clair. Les
@@ -1183,7 +1184,7 @@ body.demo-mode .demo-blur {
     color: var(--text-primary);
 }
 .cc-suggestion-item:hover, .cc-suggestion-item.is-active { background: rgba(42,23,18,0.08); }
-.cc-suggestion-item.is-current { background: rgba(122,31,61,0.16); }
+.cc-suggestion-item.is-current { background: rgba(79,127,214,0.16); }
 .cc-suggestion-avatar {
     flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center;
     justify-content: center; font-size: 10.5px; font-weight: 800; color: #fff;
@@ -1221,7 +1222,7 @@ body.demo-mode .demo-blur {
 .ppid-profil-table thead th { background: rgba(42,23,18,0.06); font-weight: 700; text-align: center; white-space: nowrap; }
 .ppid-row-label { font-weight: 700; color: var(--text-secondary); white-space: nowrap; background: rgba(42,23,18,0.03); }
 .ppid-profil-table td, .ppid-profil-table th.ppid-col-active, .ppid-profil-table td.ppid-col-active { }
-.ppid-col-active { background: rgba(122,31,61,0.22) !important; color: var(--text-primary); }
+.ppid-col-active { background: rgba(79,127,214,0.22) !important; color: var(--text-primary); }
 .ppid-profil-table thead th.ppid-col-active { background: var(--accent) !important; color: #fff; }
 
 .ppid-eval-form { max-width: 640px; }
@@ -1283,7 +1284,7 @@ body.demo-mode .demo-blur {
     background: rgba(42,23,18,0.1); color: var(--text-secondary); white-space: nowrap;
 }
 .ppid-pill-exl { background: rgba(111,207,122,0.22); color: var(--positive); }
-.ppid-pill-bien { background: rgba(122,31,61,0.22); color: #f0b9c9; }
+.ppid-pill-bien { background: rgba(79,127,214,0.22); color: #9db8f0; }
 .ppid-pill-moy { background: rgba(249,162,64,0.22); color: var(--accent-gold-text); }
 .ppid-pill-pasbon { background: rgba(255,92,92,0.22); color: var(--negative); }
 .ppid-pill-empty { opacity: 0.5; }
@@ -1304,7 +1305,7 @@ body.demo-mode .demo-blur {
 .ppid-rate-btn.is-active[data-value="EXL"],
 .ppid-rate-btn.is-active[data-value="Excellent"] { background: var(--positive); color: #0d2b10; }
 .ppid-rate-btn.is-active[data-value="BIEN"],
-.ppid-rate-btn.is-active[data-value="Bien"] { background: var(--own-color); }
+.ppid-rate-btn.is-active[data-value="Bien"] { background: var(--cahier-blue); }
 .ppid-rate-btn.is-active[data-value="MOY"],
 .ppid-rate-btn.is-active[data-value="Moyen"] { background: var(--accent-gold); color: #3a2405; }
 .ppid-rate-btn.is-active[data-value="PAS BON"],
@@ -1392,7 +1393,7 @@ body.demo-mode .demo-blur {
 /* ---------- P.P.I.D — en-tête joueur / carte critères / timeline unifiée ---------- */
 .ppid-player-header {
     display: flex; align-items: center; gap: 16px; margin-bottom: 18px; padding: 16px 18px;
-    background: linear-gradient(135deg, rgba(122,31,61,0.16), rgba(42,23,18,0.03));
+    background: linear-gradient(135deg, rgba(79,127,214,0.16), rgba(42,23,18,0.03));
     border: 1px solid var(--bg-card-border); border-radius: var(--radius);
 }
 .ppid-avatar {
@@ -1405,7 +1406,7 @@ body.demo-mode .demo-blur {
 .ppid-player-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .ppid-badge {
     display: inline-block; font-size: 11px; font-weight: 700; padding: 4px 11px; border-radius: 999px;
-    background: rgba(122,31,61,0.25); color: #f0b9c9;
+    background: rgba(79,127,214,0.25); color: #9db8f0;
 }
 .ppid-badge-muted { background: rgba(42,23,18,0.08); color: var(--text-secondary); }
 .ppid-badge-warn { background: rgba(249,162,64,0.2); color: var(--accent-gold-text); }
@@ -1492,11 +1493,11 @@ body.demo-mode .demo-blur {
    manager pour que ce soit la 1ère chose vue en ouvrant le tableau, en gros et bien
    contrasté, plutôt qu'une ligne discrète tout en bas noyée après les critères. */
 .ppid-grid-highlight th, .ppid-grid-highlight td {
-    background: rgba(122,31,61,0.10); font-size: 14.5px; font-weight: 600;
+    background: rgba(79,127,214,0.10); font-size: 14.5px; font-weight: 600;
     color: var(--text-primary); padding: 14px;
 }
 .ppid-grid-highlight th { font-size: 13.5px; font-weight: 800; }
-.ppid-grid-highlight:last-of-type th, .ppid-grid-highlight:last-of-type td { border-bottom: 2px solid var(--own-color); }
+.ppid-grid-highlight:last-of-type th, .ppid-grid-highlight:last-of-type td { border-bottom: 2px solid var(--cahier-blue); }
 
 /* Objectifs en rouge, Entraînements spécifiques en gras — pour que le manager repère ces deux
    lignes en un coup d'œil dans le tableau. */
@@ -1590,7 +1591,7 @@ body.demo-mode .demo-blur {
     content: ''; position: absolute; left: -29px; top: 20px; width: 14px; height: 14px;
     border-radius: 50%; background: var(--bg-card); border: 2px solid var(--bg-card-border); z-index: 1;
 }
-.ppid-card-rugby::before { border-color: var(--own-color); box-shadow: 0 0 0 3px rgba(122,31,61,0.18); }
+.ppid-card-rugby::before { border-color: var(--cahier-blue); box-shadow: 0 0 0 3px rgba(79,127,214,0.18); }
 .ppid-card-physical::before { border-color: var(--positive); box-shadow: 0 0 0 3px rgba(111,207,122,0.18); }
 .ppid-card-entretien::before { border-color: var(--accent-gold); box-shadow: 0 0 0 3px rgba(249,162,64,0.18); }
 
@@ -1610,7 +1611,7 @@ body.demo-mode .demo-blur {
     .ppid-timeline-merged .ppid-eval-card::before { left: -21px; width: 10px; height: 10px; top: 18px; }
     .ppid-month-marker-label { left: -58px; width: 34px; font-size: 9.5px; top: 19px; }
 }
-.ppid-type-rugby { background: rgba(122,31,61,0.2); color: #f0b9c9; }
+.ppid-type-rugby { background: rgba(79,127,214,0.2); color: #9db8f0; }
 .ppid-type-physical { background: rgba(111,207,122,0.2); color: var(--positive); }
 .ppid-type-entretien { background: rgba(249,162,64,0.2); color: var(--accent-gold-text); }
 
@@ -1695,7 +1696,7 @@ body.demo-mode .demo-blur {
 .cal-day-today .cal-day-number { background: var(--accent-gold); color: #1c1200; }
 .cal-day-events { display: flex; flex-direction: column; gap: 3px; overflow: hidden; }
 .cal-event-chip {
-    font-size: 10.5px; background: rgba(122,31,61,0.35); border-radius: 4px; padding: 2px 5px;
+    font-size: 10.5px; background: rgba(79,127,214,0.35); border-radius: 4px; padding: 2px 5px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .cal-event-chip-more { font-size: 10px; color: var(--text-secondary); padding-left: 5px; }
@@ -1714,7 +1715,7 @@ body.demo-mode .demo-blur {
 .cal-week-col-header .cal-day-number { margin: 4px auto 0; }
 .cal-week-col-body { display: flex; flex-direction: column; gap: 5px; padding: 8px; }
 .cal-week-event {
-    background: rgba(122,31,61,0.35); border-radius: 5px; padding: 4px 6px; font-size: 11px; line-height: 1.3;
+    background: rgba(79,127,214,0.35); border-radius: 5px; padding: 4px 6px; font-size: 11px; line-height: 1.3;
 }
 .cal-week-event-time { font-weight: 700; opacity: 0.85; }
 @media (max-width: 900px) {
@@ -2509,10 +2510,10 @@ span.review-crest {
 }
 .ppid-grid-title svg { flex: none; width: 30px; height: 30px; }
 .ppid-title-rugby     { border-top-color: var(--positive); }
-.ppid-title-physique  { border-top-color: var(--own-color); }
+.ppid-title-physique  { border-top-color: var(--cahier-blue); }
 .ppid-title-entretien { border-top-color: var(--accent-gold); }
 .ppid-title-rugby svg     { color: var(--positive); }
-.ppid-title-physique svg  { color: var(--own-color); }
+.ppid-title-physique svg  { color: var(--cahier-blue); }
 .ppid-title-entretien svg { color: var(--accent-gold-text); }
 .ppid-grid-section + .ppid-grid-section { margin-top: 34px; }
 

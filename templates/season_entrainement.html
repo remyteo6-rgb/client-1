@@ -32,7 +32,7 @@
                 {% if sub.session_count %}
                 <tr>
                     <td>{{ sub.name }}</td>
-                    <td class="stat-own">{{ sub.session_count }}</td>
+                    <td class="stat-own" style="color:var(--cahier-blue)">{{ sub.session_count }}</td>
                     <td>{{ sub.minutes if sub.minutes is not none else '—' }}</td>
                 </tr>
                 {% for el in sub.elements %}
