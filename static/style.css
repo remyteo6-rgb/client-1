@@ -3580,3 +3580,5 @@ body.slide-fs-on { overflow: hidden; }
 .sty-ban-adv { background: #5b6472; }
 .rd-fam-txt { font-size: 13px; font-weight: 800; letter-spacing: .14em; font-family: var(--font-display, inherit); }
 .cr-stats > div.cr-chrono { grid-column: 1 / -1; background: #fbf3e4; } .cr-chrono strong { color: #b8730f; }
+.cr-lecture { margin: 12px 14px 0; font-size: 14px; font-weight: 700; color: #1b2540; line-height: 1.45; }
+.cr-stats span b { color: #1b2540; }

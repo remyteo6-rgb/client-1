@@ -394,32 +394,36 @@
 {% set a = cr.apres %}
 <div class="report-board board-free sty-board">
     {{ entete('APRÈS UN SCORE', 'LES MINUTES QUI SUIVENT') }}
+    {% macro pc(x, n) %}{{ (100 * x / n)|round|int if n else 0 }} %{% endmacro %}
     <div class="sty-two sty-cols">
         <div class="sf-panel">
-            <div class="sty-ban sty-ban-g">APRÈS AVOIR MARQUÉ ({{ a.nous_n }})</div>
+            <div class="sty-ban sty-ban-g">QUAND ON MARQUE · {{ a.nous_n }} FOIS</div>
+            <p class="cr-lecture">Que se passe-t-il juste après ? On enchaîne {{ a.nous_enchaine }} fois sur {{ a.nous_n }} ; l'adversaire nous répond {{ a.nous_rend }} fois.</p>
             <div class="cr-stats">
-                <div><strong>{{ a.nous_enchaine }} / {{ a.nous_n }}</strong><span>fois le score suivant est encore pour nous</span></div>
-                <div><strong>{{ a.nous_rend }} / {{ a.nous_n }}</strong><span>fois l'adversaire marque juste derrière</span></div>
-                <div><strong>{{ a.nous_pris5 }}</strong><span>points encaissés dans les 3 minutes ({{ a.nous_pris5_n }} fois)</span></div>
-                <div class="cr-chrono"><strong>{{ a.nous_recup.moy }}</strong><span>temps moyen pour avoir de nouveau le ballon dans le camp adverse (médiane {{ a.nous_recup.med }} · {{ a.nous_recup.n }} marques{% if a.nous_recup.non %} ; {{ a.nous_recup.non }} fois pas avant la marque suivante{% endif %})</span></div>
+                <div><strong>{{ pc(a.nous_enchaine, a.nous_n) }}</strong><span><b>On enchaîne</b> : la marque suivante est encore pour nous ({{ a.nous_enchaine }} / {{ a.nous_n }})</span></div>
+                <div><strong>{{ pc(a.nous_rend, a.nous_n) }}</strong><span><b>Ils répondent</b> : la marque suivante est pour eux ({{ a.nous_rend }} / {{ a.nous_n }})</span></div>
+                <div><strong>{{ a.nous_pris5 }} pts</strong><span><b>Encaissés dans les 3 min</b> qui suivent notre marque ({{ a.nous_pris5_n }} fois sur {{ a.nous_n }})</span></div>
+                <div class="cr-chrono"><strong>{{ a.nous_recup.moy }}</strong><span><b>Retour dans leur camp</b> : temps moyen entre la réception de leur coup d'envoi et le moment où on a de nouveau le ballon en Zone Rumble / Gold (médiane {{ a.nous_recup.med }}{% if a.nous_recup.non %} · {{ a.nous_recup.non }} fois on n'y revient pas avant la marque suivante{% endif %})</span></div>
             </div>
-            <div class="sf-panel-head cr-sub">NOTRE PREMIÈRE POSSESSION SUR LE RENVOI</div>
+            <div class="sf-panel-head cr-sub">LEUR COUP D'ENVOI : COMMENT FINIT NOTRE 1<sup>RE</sup> POSSESSION</div>
             {% set coul = {'Jeu au pied': '#5b6472', 'Ballon perdu': '#c4453a', 'Arrêt de jeu, ballon rendu': '#f0a39b', 'Pénalité concédée': '#e0705f', 'Arrêt de jeu, ballon gardé': '#a7adb8', 'Pénalité obtenue': '#7fb88f', 'Essai': '#2f7d46', 'Autre arrêt': '#d5d8de', 'Non retrouvée': '#ecedf0'} %}
             {% set pal_prem = [] %}{% for lab, _n in a.nous_premiere %}{% set _ = pal_prem.append(coul.get(lab, '#d5d8de')) %}{% endfor %}
             {{ donut(a.nous_premiere, pal=pal_prem, max_parts=9) }}
+            <p class="sty-obs">Après une marque, c'est l'adversaire qui renvoie et nous qui réceptionnons. « Non retrouvée » : pas de réception codée (fin de mi-temps…).</p>
         </div>
         <div class="sf-panel">
-            <div class="sty-ban sty-ban-r">APRÈS AVOIR ENCAISSÉ ({{ a.eux_n }})</div>
+            <div class="sty-ban sty-ban-r">QUAND ILS MARQUENT · {{ a.eux_n }} FOIS</div>
+            <p class="cr-lecture">Que se passe-t-il juste après ? On répond {{ a.eux_reponse }} fois sur {{ a.eux_n }} ; ils enchaînent {{ a.eux_encore }} fois.</p>
             <div class="cr-stats">
-                <div><strong>{{ a.eux_recup }} / {{ a.eux_recup_n }}</strong><span>renvois où l'on récupère le ballon en premier</span></div>
-                <div><strong>{{ a.eux_reponse }} / {{ a.eux_n }}</strong><span>fois on répond avec le score suivant</span></div>
-                <div><strong>{{ a.eux_encore }} / {{ a.eux_n }}</strong><span>fois l'adversaire marque encore derrière</span></div>
-                <div><strong>{{ a.eux_marques5 }}</strong><span>points marqués dans les 3 minutes</span></div>
-                <div class="cr-chrono"><strong>{{ a.eux_recup_camp.moy }}</strong><span>temps moyen pour que l'adversaire ait de nouveau le ballon dans notre camp (médiane {{ a.eux_recup_camp.med }} · {{ a.eux_recup_camp.n }} marques{% if a.eux_recup_camp.non %} ; {{ a.eux_recup_camp.non }} fois pas avant la marque suivante{% endif %})</span></div>
+                <div><strong>{{ pc(a.eux_reponse, a.eux_n) }}</strong><span><b>On répond</b> : la marque suivante est pour nous ({{ a.eux_reponse }} / {{ a.eux_n }})</span></div>
+                <div><strong>{{ pc(a.eux_encore, a.eux_n) }}</strong><span><b>Ils enchaînent</b> : la marque suivante est encore pour eux ({{ a.eux_encore }} / {{ a.eux_n }})</span></div>
+                <div><strong>{{ a.eux_marques5 }} pts</strong><span><b>Marqués dans les 3 min</b> qui suivent leur marque</span></div>
+                <div><strong>{{ a.eux_recup }} / {{ a.eux_recup_n }}</strong><span><b>Notre coup d'envoi récupéré</b> : ils perdent le ballon dans les 12 s ou c'est nous qui l'avons en premier</span></div>
+                <div class="cr-chrono"><strong>{{ a.eux_recup_camp.moy }}</strong><span><b>Retour dans notre camp</b> : temps moyen entre la réception de notre coup d'envoi et le moment où ils ont de nouveau le ballon en Zone Cop / Rouge (médiane {{ a.eux_recup_camp.med }}{% if a.eux_recup_camp.non %} · {{ a.eux_recup_camp.non }} fois ils n'y reviennent pas avant la marque suivante{% endif %})</span></div>
             </div>
         </div>
     </div>
-    <p class="sty-obs">Une marque = un essai et sa transformation (réussie ou manquée), ou une pénalité / un drop réussi. « 3 minutes » = les 3 minutes qui suivent la marque, comptées après la transformation pour un essai. Temps moyen : chrono vidéo lancé à la réception du coup d'envoi qui suit la marque, arrêté dès que l'équipe qui a marqué a le ballon en Zone Rumble ou Gold (camp adverse, d'après les zones codées).</p>
+    <p class="sty-obs">Une marque = un essai et sa transformation (réussie ou manquée), ou une pénalité / un drop réussi. Les 3 minutes partent de la fin de la marque (après la transformation pour un essai). Temps mesurés sur la vidéo. Si « on enchaîne » + « ils répondent » ne font pas 100 %, le reste correspond aux marques sans autre score derrière (fin de mi-temps ou de match).</p>
 </div>
 
 <div class="card cr-methode no-print">
