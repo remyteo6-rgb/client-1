@@ -286,22 +286,22 @@ class _Match:
     # --- après un score -----------------------------------------------------------------------
     def apres_scores(self):
         """Pour chaque score (essai + transfo regroupés), ce qui se passe ensuite."""
+        # Une « marque » = un essai et sa transformation (réussie OU manquée), ou une pénalité / un drop réussi.
+        # Son instant de fin est celui du dernier coup de pied : on compte les 3 minutes à partir de là.
         groupes = []
         for sc in self.scores:
-            if not sc["pts"]:
-                continue
             g = groupes[-1] if groupes else None
-            if g and g["side"] == sc["side"] and sc["t"] - g["t"] < 150:
+            if sc["kind"] == "conversions" and g and g["side"] == sc["side"] and sc["t"] - g["t"] < 150:
                 g["pts"] += sc["pts"]
                 g["t"] = sc["t"]
-            else:
+            elif sc["pts"]:
                 groupes.append({"side": sc["side"], "pts": sc["pts"], "t": sc["t"]})
         out = []
         for g in groupes:
-            fen = g["t"] + 300  # 5 minutes de vidéo
-            suivant = next((sc for sc in self.scores if sc["t"] > g["t"] + 30 and sc["pts"]), None)
-            pris = sum(sc["pts"] for sc in self.scores if sc["side"] == "adv" and g["t"] + 30 < sc["t"] <= fen)
-            marques = sum(sc["pts"] for sc in self.scores if sc["side"] == "own" and g["t"] + 30 < sc["t"] <= fen)
+            fen = g["t"] + 180  # 3 minutes de vidéo après la marque (après la transformation pour un essai)
+            suivant = next((sc for sc in self.scores if sc["t"] > g["t"] + 1 and sc["pts"]), None)
+            pris = sum(sc["pts"] for sc in self.scores if sc["side"] == "adv" and g["t"] + 1 < sc["t"] <= fen)
+            marques = sum(sc["pts"] for sc in self.scores if sc["side"] == "own" and g["t"] + 1 < sc["t"] <= fen)
             r = {"side": g["side"], "pts": g["pts"], "minute": self.minute(g["t"]), "pris5": pris, "marques5": marques,
                  "suivant": (suivant["side"] if suivant else None)}
             if g["side"] == "own":

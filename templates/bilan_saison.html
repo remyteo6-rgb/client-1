@@ -399,10 +399,12 @@
             <div class="cr-stats">
                 <div><strong>{{ a.nous_enchaine }} / {{ a.nous_n }}</strong><span>fois le score suivant est encore pour nous</span></div>
                 <div><strong>{{ a.nous_rend }} / {{ a.nous_n }}</strong><span>fois l'adversaire marque juste derrière</span></div>
-                <div><strong>{{ a.nous_pris5 }}</strong><span>points encaissés dans les 5 minutes ({{ a.nous_pris5_n }} fois)</span></div>
+                <div><strong>{{ a.nous_pris5 }}</strong><span>points encaissés dans les 3 minutes ({{ a.nous_pris5_n }} fois)</span></div>
             </div>
             <div class="sf-panel-head cr-sub">NOTRE PREMIÈRE POSSESSION SUR LE RENVOI</div>
-            {{ donut(a.nous_premiere, pal=['#5b6472', '#c4453a', '#a7adb8', '#d5d8de', '#2f7d46', '#e0705f', '#7fb88f']) }}
+            {% set coul = {'Jeu au pied': '#5b6472', 'Ballon perdu': '#c4453a', 'Arrêt de jeu, ballon rendu': '#f0a39b', 'Pénalité concédée': '#e0705f', 'Arrêt de jeu, ballon gardé': '#a7adb8', 'Pénalité obtenue': '#7fb88f', 'Essai': '#2f7d46', 'Autre arrêt': '#d5d8de', 'Non retrouvée': '#ecedf0'} %}
+            {% set pal_prem = [] %}{% for lab, _n in a.nous_premiere %}{% set _ = pal_prem.append(coul.get(lab, '#d5d8de')) %}{% endfor %}
+            {{ donut(a.nous_premiere, pal=pal_prem, max_parts=9) }}
         </div>
         <div class="sf-panel">
             <div class="sty-ban sty-ban-r">APRÈS AVOIR ENCAISSÉ ({{ a.eux_n }})</div>
@@ -410,11 +412,11 @@
                 <div><strong>{{ a.eux_recup }} / {{ a.eux_recup_n }}</strong><span>renvois où l'on récupère le ballon en premier</span></div>
                 <div><strong>{{ a.eux_reponse }} / {{ a.eux_n }}</strong><span>fois on répond avec le score suivant</span></div>
                 <div><strong>{{ a.eux_encore }} / {{ a.eux_n }}</strong><span>fois l'adversaire marque encore derrière</span></div>
-                <div><strong>{{ a.eux_marques5 }}</strong><span>points marqués dans les 5 minutes</span></div>
+                <div><strong>{{ a.eux_marques5 }}</strong><span>points marqués dans les 3 minutes</span></div>
             </div>
         </div>
     </div>
-    <p class="sty-obs">Un essai et sa transformation comptent comme un seul score. « 5 minutes » = 5 minutes de vidéo après le score.</p>
+    <p class="sty-obs">Une marque = un essai et sa transformation (réussie ou manquée), ou une pénalité / un drop réussi. « 3 minutes » = les 3 minutes qui suivent la marque, comptées après la transformation pour un essai.</p>
 </div>
 
 <div class="card cr-methode no-print">
