@@ -1,21 +1,23 @@
 {% extends "base.html" %}
 {% import "_ppid_icons.html" as icons %}
-{% set active = 'compte_rendu' %}
-{% block title %}Compte rendu — {{ 'Saison' if season_mode else match_title(match) }}{% endblock %}
+{% set active = 'bilan' %}
+{% block title %}Bilan saison{% endblock %}
 {% block content %}
 <div class="page-header no-print">
     <div>
-        <h1>{{ icons.chart() }} Compte rendu{% if not season_mode %} — {{ match_title(match) }}{% endif %}</h1>
-        <p class="subtitle">Ce qui marche, ce qui coûte, et où travailler. Tout est lu dans le codage existant{% if season_mode %}, sur {{ season_selected_count }} match{{ 's' if season_selected_count != 1 else '' }}{% endif %}.</p>
+        <h1>{{ icons.chart() }} Bilan saison</h1>
+        <p class="subtitle">Le verdict d'abord, puis le détail : qui on est, ce qui rapporte, ce qui coûte. Tout est lu dans le codage existant, sur {{ season_selected_count }} match{{ 's' if season_selected_count != 1 else '' }}.</p>
     </div>
     <button class="btn btn-secondary" onclick="window.print()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
-{% if season_mode %}{% include "_season_select.html" %}{% endif %}
+{% include "_season_select.html" %}
 
 {% set PAL = ['#c4453a', '#e8a33d', '#3f8a4f', '#2f6fb5', '#7a3b8f', '#17a3a3', '#8a8f9c', '#d97aa6'] %}
-{% macro donut(items, centre='', pal=PAL) %}
+{% macro donut(items, centre='', pal=PAL, max_parts=7) %}
 {% set tot = items|sum(attribute=1) %}
 {% if tot %}
+{% set reste = items[max_parts:]|sum(attribute=1) %}
+{% set items = items[:max_parts] + ([('Autres', reste)] if reste else []) %}
 <div class="sty-dn">
     <svg viewBox="0 0 42 42" class="sty-donut" role="img">
         <circle cx="21" cy="21" r="15.9155" fill="none" stroke="#eceef2" stroke-width="7"/>
@@ -43,19 +45,23 @@
 {% endmacro %}
 {% macro fmt(v, dec=1, unite='') %}{% if v is none %}—{% else %}{{ ('%.' ~ dec ~ 'f')|format(v) }}{{ unite }}{% endif %}{% endmacro %}
 {% macro pct(v) %}{% if v is none %}—{% else %}{{ v }} %{% endif %}{% endmacro %}
-{% set sous_titre = ('SAISON · ' ~ cr.nb ~ ' MATCH' ~ ('S' if cr.nb != 1 else '')) if season_mode else ('VS ' ~ (match['opponent'] or '')|upper) %}
+{% macro duo(a, b, mx, ca='sty-g', cb='sty-r') %}
+<div class="sty-duo"><span class="sty-col {{ ca }}" style="height:{{ (a / mx * 100) if mx else 0 }}%"><i>{{ a }}</i></span><span class="sty-col {{ cb }}" style="height:{{ (b / mx * 100) if mx else 0 }}%"><i>{{ b }}</i></span></div>
+{% endmacro %}
+{% set mode_match = False %}
+{% set sous_titre = 'SAISON · ' ~ cr.nb ~ ' MATCH' ~ ('S' if cr.nb != 1 else '') %}
 {% set n = cr.nb or 1 %}
 {% set ess = (cr.issues|selectattr('nom', 'equalto', 'Essai')|first) %}
 
-{# ======================= 1. TABLEAU DE BORD ======================= #}
+{# ======================= 1. LE VERDICT ======================= #}
 <div class="report-board board-free sty-board">
-    {{ entete('COMPTE RENDU', sous_titre) }}
+    {{ entete('LE VERDICT', sous_titre) }}
     <div class="sty-kpis">
-        <div><strong>{{ cr.poss_par_match if season_mode else cr.possessions }}</strong><span>Possessions{{ ' / match' if season_mode }}</span></div>
+        <div><strong>{{ (sj.tot[0] / n)|round(1) }}</strong><span>Points marqués / match</span></div>
+        <div><strong>{{ (sj.tot[1] / n)|round(1) }}</strong><span>Points encaissés / match</span></div>
+        <div><strong>{{ '%+.1f'|format((sj.tot[0] - sj.tot[1]) / n) }}</strong><span>Écart moyen</span></div>
         <div><strong>{{ fmt(cr.pts_par_poss, 2) }}</strong><span>Points par possession</span></div>
-        <div><strong>{{ pct(ess.pct) }}</strong><span>Possessions finies en essai</span></div>
         <div><strong>{{ fmt(cr.gold.pts_entree, 2) }}</strong><span>Points par entrée (22)</span></div>
-        <div><strong>{{ cr.pen_par_match if season_mode else cr.pens|length }}</strong><span>Pénalités concédées{{ ' / match' if season_mode }}</span></div>
     </div>
     <div class="sty-two sty-cols">
         <div class="sf-panel">
@@ -119,7 +125,50 @@
     </div>
 </div>
 
-{# ======================= 2. COMMENT FINISSENT NOS POSSESSIONS ======================= #}
+{# ======================= 2. NOTRE PROFIL ======================= #}
+<div class="report-board board-free sty-board">
+    {{ entete('NOTRE PROFIL', 'COMMENT ON MARQUE ET ON ENCAISSE') }}
+    <div class="sty-grid">
+        <div class="sf-panel">
+            <div class="sf-panel-head">FORME · ÉCART DE SCORE PAR MATCH</div>
+            {% set marges = sj.matchs|selectattr('marge', 'ne', none)|map(attribute='marge')|map('abs')|list %}
+            {% set mm = (marges|max) if marges else 1 %}
+            <div class="sty-forme">
+                {% for x in sj.matchs %}
+                <div class="sty-m">
+                    <div class="sty-m-bar">
+                        {% if x.marge is not none %}
+                        <span class="sty-fb {{ 'sty-g' if x.marge > 0 else ('sty-r' if x.marge < 0 else 'sty-n') }}" style="height:{{ [ (x.marge|abs) / mm * 100, 4 ]|max }}%; {{ 'align-self:flex-end;' if x.marge > 0 }}"><i>{{ '%+d'|format(x.marge) }}</i></span>
+                        {% else %}<span class="sty-nd">—</span>{% endif %}
+                    </div>
+                    <span class="sty-pill {{ 'sty-pill-dom' if x.venue == 'dom' else ('sty-pill-ext' if x.venue == 'ext' else '') }}">{{ 'DOM' if x.venue == 'dom' else ('EXT' if x.venue == 'ext' else '·') }}</span>
+                    <span class="sty-opp" title="{{ x.opponent }}">{{ x.opponent[:11] }}</span>
+                    {% if x.own is not none %}<span class="sty-sc">{{ x.own }} – {{ x.adv }}</span>{% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="sf-panel sty-span2">
+            <div class="sf-panel-head">PROFIL DE SCORE · POINTS PAR TRANCHE DE 20 MIN</div>
+            {% set mx = [sj.quarts|map(attribute='own')|max, sj.quarts|map(attribute='adv')|max, 1]|max %}
+            <div class="sty-legend"><span class="sty-g"></span> marqués <span class="sty-r"></span> encaissés</div>
+            <div class="sty-bars">
+                {% for r in sj.quarts %}<div class="sty-bcol">{{ duo(r.own, r.adv, mx) }}<span class="sty-x">{{ r.q }}</span>
+                    <span class="sty-net {{ 'sty-pos' if r.net > 0 else ('sty-neg' if r.net < 0 else '') }}">{{ '%+d'|format(r.net) }}</span></div>{% endfor %}
+            </div>
+            <p class="sty-obs">{{ sj.obs.score or 'Pas de points codés.' }}</p>
+        </div>
+        <div class="sf-panel sty-wide">
+            <div class="sf-panel-head">MI-TEMPS · POINTS MARQUÉS ET ENCAISSÉS</div>
+            <div class="sty-two">
+                <div><h4>Marqués</h4>{{ donut([('1re mi-temps', sj.h1[0]), ('2e mi-temps', sj.h2[0])], pal=['#5ab0e8', '#1f5f99']) }}</div>
+                <div><h4>Encaissés</h4>{{ donut([('1re mi-temps', sj.h1[1]), ('2e mi-temps', sj.h2[1])], pal=['#f0a39b', '#c4453a']) }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ======================= 3. COMMENT FINISSENT NOS POSSESSIONS ======================= #}
 <div class="report-board board-free sty-board">
     {{ entete('NOS POSSESSIONS', 'COMMENT ELLES FINISSENT') }}
     <div class="sty-grid">
@@ -147,7 +196,7 @@
     </div>
 </div>
 
-{# ======================= 3. D'OÙ PARTENT NOS POSSESSIONS ======================= #}
+{# ======================= 3b. D'OÙ PARTENT NOS POSSESSIONS ======================= #}
 <div class="report-board board-free sty-board">
     {{ entete("D'OÙ PARTENT NOS POSSESSIONS", 'CE QUE CHAQUE TYPE DE BALLON NOUS RAPPORTE') }}
     <div class="sf-panel">
@@ -220,7 +269,39 @@
     </div>
 </div>
 
-{# ======================= 6. DISCIPLINE ======================= #}
+{# ======================= 6. LE BALLON ======================= #}
+{% set ko = sj.pied.own|sum(attribute='n') %}{% set ka = sj.pied.adv|sum(attribute='n') %}{% set tg = sj.pdb_adv|sum(attribute=1) %}
+<div class="report-board board-free sty-board">
+    {{ entete('LE BALLON', 'RÉCUPÉRATIONS, JEU AU PIED, AIR') }}
+    <div class="sty-grid">
+        <div class="sf-panel">
+            <div class="sty-ban sty-ban-g">BALLONS RÉCUPÉRÉS</div>
+            <div class="sty-bigtot"><strong>{{ tg }}</strong> total · <strong>{{ (tg / n)|round(1) }}</strong> par match</div>
+            {{ donut(sj.pdb_adv) }}
+            <p class="sty-obs">Ballons perdus par l'adversaire, par type. Nos ballons perdus sont dans « Nos possessions » (où et comment).</p>
+        </div>
+        <div class="sf-panel">
+            <div class="sty-ban sty-ban-n">NOTRE JEU AU PIED</div>
+            <div class="sty-bigtot"><strong>{{ ko }}</strong> total · <strong>{{ (ko / n)|round(1) }}</strong> par match</div>
+            {{ donut(sj.pied_items.own, pal=['#2f6fb5', '#5ab0e8', '#1f4d82', '#9cc9ee']) }}
+        </div>
+        <div class="sf-panel">
+            <div class="sty-ban sty-ban-adv">JEU AU PIED ADVERSE</div>
+            <div class="sty-bigtot"><strong>{{ ka }}</strong> total · <strong>{{ (ka / n)|round(1) }}</strong> par match</div>
+            {{ donut(sj.pied_items.adv, pal=['#c4453a', '#f0a39b', '#8c2a21', '#e8a33d']) }}
+        </div>
+        <div class="sf-panel">
+            <div class="sf-panel-head">DUELS AÉRIENS</div>
+            {{ donut([('Gagnés', sj.aer.plus), ('Neutres', sj.aer.neutre), ('Perdus', sj.aer.moins)], pal=['#3f8a4f', '#9aa0ab', '#c4453a']) }}
+        </div>
+        <div class="sf-panel sty-span2">
+            <div class="sf-panel-head">OBSERVATIONS</div>
+            <p class="sty-obs">{{ sj.obs.pied or '' }} Les donuts du jeu au pied montrent à quelle tranche de 20 minutes chacun met le pied dans le ballon. {{ sj.obs.pdb or '' }}</p>
+        </div>
+    </div>
+</div>
+
+{# ======================= 7. DISCIPLINE ======================= #}
 <div class="report-board board-free sty-board">
     {{ entete('DISCIPLINE', 'QUAND, OÙ, QUI — ET CE QUE ÇA COÛTE') }}
     <div class="sty-kpis">
@@ -262,7 +343,7 @@
     {% endif %}
 </div>
 
-{# ======================= 7. APRÈS UN SCORE ======================= #}
+{# ======================= 8. APRÈS UN SCORE ======================= #}
 {% set a = cr.apres %}
 <div class="report-board board-free sty-board">
     {{ entete('APRÈS UN SCORE', 'LES MINUTES QUI SUIVENT') }}

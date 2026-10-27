@@ -4237,8 +4237,8 @@ def _style_de_jeu_calc(selected):
 
 @app.route("/season/style-de-jeu")
 def season_style():
-    selected, ctx = _season_common("style")
-    return render_template("season_style.html", sj=_style_de_jeu(selected), **ctx)
+    """Fusionné dans le Bilan saison (anciens liens redirigés, sélection de matchs conservée)."""
+    return redirect(url_for("season_bilan", m=request.args.getlist("m")))
 
 
 def _cr_tableau(selected, reference, cibles, mode_match, pooled=None, ref_pooled=None):
@@ -4311,20 +4311,25 @@ def _cr_render(selected, reference, mode_match, ctx):
         ref_pooled = {"pts_poss": cr_ref["pts_par_poss"]}
     tb = _cr_tableau(selected, reference, cibles, mode_match,
                      pooled={"pts_poss": cr["pts_par_poss"]}, ref_pooled=ref_pooled)
-    return render_template("compte_rendu.html", cr=cr, tb=tb, cibles=cibles, criteres=GP_CRITERES, mode_match=mode_match,
-                           bandes=compte_rendu.BANDES, issues_noms=compte_rendu.ISSUES, **ctx)
+    return render_template("bilan_saison.html", cr=cr, tb=tb, cibles=cibles, criteres=GP_CRITERES, mode_match=mode_match,
+                           bandes=compte_rendu.BANDES, issues_noms=compte_rendu.ISSUES, sj=_style_de_jeu(selected), **ctx)
+
+
+@app.route("/season/bilan")
+def season_bilan():
+    """Bilan saison : l'ancien « Compte rendu » et l'ancien « Style de jeu » réunis sur une page."""
+    selected, ctx = _season_common("bilan")
+    return _cr_render(selected, selected, False, ctx)
 
 
 @app.route("/season/compte-rendu")
 def season_compte_rendu():
-    selected, ctx = _season_common("compte_rendu")
-    return _cr_render(selected, selected, False, ctx)
+    return redirect(url_for("season_bilan", m=request.args.getlist("m")))
 
 
 @app.route("/match/<int:match_id>/compte-rendu")
 def match_compte_rendu(match_id):
-    """Le compte rendu n'existe qu'en version saison (anciens liens redirigés)."""
-    return redirect(url_for("season_compte_rendu"))
+    return redirect(url_for("season_bilan"))
 
 
 @app.route("/season/gagner-perdre")
