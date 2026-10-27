@@ -76,6 +76,20 @@ def _x_ruck(r):
 def _x_activite(r):     return _v(r["ruck"], "actions_codees"), 0
 def _x_pdb(r):          return _v(r["attack"], "pdb"), 0     # ballons perdus (moins = mieux, voir INVERSES)
 def _x_essai(r):        return _v(r["ruck"], "essai"), 0
+# Ballons touchés (oct. 2026) : passes + contacts (porteur) + jeu au pied + offloads.
+def _x_ballons(r):      return _v(r["attack"], "passes", "contact_total", "offload_total") + _v(r["ruck"], "jap"), 0
+def _x_contre_ruck(r):  return _v(r["defense"], "contre_ruck"), 0
+def _x_chasses(r):
+    # Pas de chasse codée du tout dans le match : critère non noté (sinon 0/10 injuste).
+    if not _v(r["ruck"], "chasses_match"):
+        return None, 0
+    return _v(r["ruck"], "chasses"), 0
+
+
+def _p_tqb(r):
+    """Touches de qualité (TQB) sur les touches où le joueur est sauteur : + / − saisis sur le joueur."""
+    tot = _v(r["ruck"], "tqb_plus", "tqb_moins")
+    return (100 * _v(r["ruck"], "tqb_plus") / tot, tot) if tot >= 3 else (None, tot)
 
 
 def _p_ratio(num_keys, den_keys, table, min_n):
@@ -197,6 +211,10 @@ CRITERES = {
     "activite":     ("Activité (actions codées)", "vol", _x_activite),
     "pdb":          ("Ballons perdus (moins = mieux)", "vol", _x_pdb),
     "essai":        ("Essais (volume)", "vol", _x_essai),
+    "ballons_touches": ("Ballons touchés (passes, contacts, jeu au pied, offloads)", "vol", _x_ballons),
+    "contre_ruck":  ("Contre-rucks", "vol", _x_contre_ruck),
+    "chasses":      ("Chasses (jeu au pied, renvois)", "vol", _x_chasses),
+    "tqb_pct":      ("Touches de qualité TQB (%)", "pct", _p_tqb),
 }
 
 # Critères « inversés » : plus la valeur est basse, meilleure est la note (10/10 à zéro, 0/10 à la cible).
@@ -233,8 +251,13 @@ _CIBLES = {
 
 # Famille de chaque profil (sert aux cibles de référence et au calage).
 PROFIL_FAMILLE = {"Pilier": "Pilier", "Talonneur": "Talonneur", "2ème ligne": "2ème ligne",
-                  "3ème ligne": "3ème ligne", "9": "Charnière", "10": "Charnière", "12-13": "Centre",
+                  "3ème ligne aile": "3ème ligne", "3ème ligne centre": "3ème ligne",
+                  "9": "Charnière", "10": "Charnière", "12-13": "Centre",
                   "11-14": "Ailier/Arrière", "15": "Ailier/Arrière"}
+# Cibles propres à un profil (prioritaires sur celles de sa famille) : un ailier et un arrière ne touchent pas
+# autant de ballons qu'un ouvreur.
+_CIBLES_PROFIL = {"10": {"ballons_touches": (25, 0)}, "11-14": {"ballons_touches": (12, 0), "contre_ruck": (1, 0), "chasses": (4, 0)},
+                  "15": {"ballons_touches": (20, 0)}}
 
 # --- Grille d'attentes du club (auto-évaluation par poste) traduite en statistiques ------------
 # Pour chaque profil : liste de (attente du club, {critère: poids}). Seules les attentes qui se
@@ -242,72 +265,88 @@ PROFIL_FAMILLE = {"Pilier": "Pilier", "Talonneur": "Talonneur", "2ème ligne": "
 # déplacer / enchaîner, compréhension du système, défense de maul, dureté, état d'esprit) ne
 # peuvent pas être notées automatiquement.
 PROFILS = {
+    # Sécurité du ballon (ballons perdus, 27 oct. 2026) : critère à tous les postes (≈ 15 % de la note),
+    # à la place du petit malus par ballon perdu.
     "Pilier": [
         ("Mêlée fermée", {"melee_off_pct": 14, "melee_def_pct": 10}),
         ("Lift sur touche, CE et renvoi", {"lifteur_pct": 12}),
         ("Plaquer / contest", {"plaquage_dom": 4, "plaquage_pct": 4}),
         ("Soutenir / rucker", {"ruck_util": 6}),
         ("Duel off", {"contact_dom": 6}),
+        ("Sécurité du ballon", {"pdb": 10}),
     ],
-    # Talonneur (20 oct. 2026, demande de Téo) : pourcentages seulement (plus de volumes) ; duels off et
-    # habileté technique passent dans le Facteur X (voir X_PROFILS).
+    # Talonneur : pourcentages seulement ; la dominance au contact revient dans le jeu au poste (27 oct. 2026).
     "Talonneur": [
         ("Lancer", {"lancer_pct": 17}),
         ("Mêlée fermée", {"melee_off_pct": 11, "melee_def_pct": 8}),
         ("Plaquer / contest", {"plaquage_dom": 4, "plaquage_pct": 4}),
+        ("Duel off", {"contact_dom": 6}),
+        ("Sécurité du ballon", {"pdb": 9}),
     ],
-    # Mêlée fermée retirée : non quantifiée dans les XML. Son poids est reporté sur la touche, le ruck, le plaquage et le duel.
     "2ème ligne": [
         ("Sauter / lifter / touche, CE et CR", {"sauteur_pct": 11, "lifteur_pct": 6}),
         ("Plaquer / contest / défendre", {"plaquage_dom": 5, "plaquage_pct": 5}),
         ("Soutenir / rucker", {"soutien": 9, "ruck_util": 6}),
-        # Duel off / porteur de balle et habileté technique : passés dans le Facteur X (20 oct. 2026).
+        ("Sécurité du ballon", {"pdb": 7}),
     ],
-    "3ème ligne": [
-        # Dominance (contact, plaquage) et offloads : passés dans le Facteur X (20 oct. 2026).
-        ("Duel off / franchissement", {"break": 7, "def_battu": 5}),
-        ("Soutenir / rucker", {"soutien": 8}),
-        ("Plaquer / contest / défendre", {"plaquage_vp": 5}),
-        ("Assurer la continuité", {"passes_pct": 2}),
-        ("Sauter / lifter / lecture touche", {"sauteur_pct": 5, "lifteur_pct": 2}),
+    # 3ème ligne centre (8, 27 oct. 2026) : les critères du 2ème ligne sans la touche, poids propres.
+    "3ème ligne centre": [
+        ("Plaquer / contest / défendre", {"plaquage_pct": 8, "plaquage_dom": 6}),
+        ("Soutenir / rucker", {"soutien": 10, "ruck_util": 6}),
+        ("Sécurité du ballon", {"pdb": 5}),
     ],
-    # 9 (20 oct. 2026, demande de Téo) : on garde l'habileté technique, on ajoute la qualité du jeu au pied,
-    # les ballons perdus (au-dessus de 1 par match, ce n'est pas bon), le % de plaquages et un peu d'utilité au ruck.
+    # 3ème ligne aile (6/7, 27 oct. 2026) : les critères du 8 (60 %) + la touche (40 %) : prise en touche,
+    # lifteur, touches de qualité (TQB).
+    "3ème ligne aile": [
+        ("Plaquer / contest / défendre", {"plaquage_pct": 8, "plaquage_dom": 6}),
+        ("Soutenir / rucker", {"soutien": 10, "ruck_util": 6}),
+        ("Sécurité du ballon", {"pdb": 5}),
+        ("Touche : sauteur, lifteur, TQB", {"sauteur_pct": 8, "lifteur_pct": 6, "tqb_pct": 9}),
+    ],
+    # 9 (27 oct. 2026) : offloads et franchissements passent au Facteur X ; utilité au ruck beaucoup moins lourde.
     "9": [
         ("Transmission", {"passes_pct": 8}),
         ("Jeu au pied (qualité)", {"jap_pct": 12}),
         ("Sécurité du ballon", {"pdb": 8}),
         ("Plaquer", {"plaquage_pct": 3}),
-        ("Soutenir / rucker", {"ruck_util": 6}),
-        ("Habileté technique", {"offload_pct": 2, "break": 4}),
+        ("Soutenir / rucker", {"ruck_util": 2}),
     ],
-    # 10 (20 oct. 2026, demande de Téo) : réussite au pied (but), qualité des passes, plaquages, qualité du jeu au pied
-    # et ballons perdus. Le reste est retiré.
+    # 10 (27 oct. 2026) : + ballons touchés (cible 25 par 80 min).
     "10": [
         ("Réussite au but", {"kicks_pct": 12}),
         ("Transmission", {"passes_pct": 10}),
         ("Jeu au pied (qualité)", {"jap_pct": 12}),
         ("Plaquer", {"plaquage_pct": 3}),
         ("Sécurité du ballon", {"pdb": 8}),
+        ("Volume de jeu", {"ballons_touches": 8}),
     ],
     "12-13": [
         ("Duel off / franchissement", {"break": 12, "def_battu": 12}),
         ("Circulation def / plaquer / contest / défendre", {"plaquage_pct": 6}),
         ("Habileté technique (main / pied)", {"offload_pct": 6, "passes_pct": 3}),
         ("Soutien / ruck offensif", {"soutien": 6}),
+        ("Sécurité du ballon", {"pdb": 8}),
     ],
+    # Ailiers (27 oct. 2026) : + ballons touchés (cible 12), contre-rucks et chasses.
     "11-14": [
         ("Duel / franchissement", {"contact_dom": 8, "break": 16, "def_battu": 14}),
         ("Réception / duel aérien", {"rce_pct": 8, "aerien_pct": 12}),
         ("Plaquer / lecture défense", {"plaquage_dom": 4, "plaquage_pct": 5}),
         ("Soutien / ruck offensif", {"soutien": 4}),
         ("Habileté technique (mains / pied)", {"offload_pct": 5, "passes_pct": 2}),
+        ("Sécurité du ballon", {"pdb": 14}),
+        ("Volume de jeu", {"ballons_touches": 6}),
+        ("Contre-ruck", {"contre_ruck": 4}),
+        ("Chasses", {"chasses": 4}),
     ],
+    # Arrière (27 oct. 2026) : + ballons touchés (cible 20).
     "15": [
         ("1 contre 1 défensif", {"plaquage_pct": 6, "plaquage_dom": 6}),
         ("Duel / franchissement", {"break": 14, "def_battu": 12, "contact_dom": 6}),
         ("Réception / duel aérien", {"rce_pct": 8, "aerien_pct": 12}),
         ("Habileté technique", {"offload_pct": 4, "passes_pct": 2}),
+        ("Sécurité du ballon", {"pdb": 12}),
+        ("Volume de jeu", {"ballons_touches": 6}),
     ],
 }
 POSTES = list(PROFILS)
@@ -316,6 +355,9 @@ for _fam_cibles in _CIBLES.values():
         _fam_cibles["break"] = (1, 0)  # 1 franchissement = 8/10, puis +1 point par franchissement
 for _fam_cibles in _CIBLES.values():
     _fam_cibles.setdefault("plaquage_vp", (95, 70))
+for _fam_cibles in _CIBLES.values():
+    _fam_cibles.setdefault("pdb", (3, 0))      # sécurité du ballon (oct. 2026) : 0/10 à 3 ballons perdus par 80 min
+    _fam_cibles.setdefault("tqb_pct", (90, 40))
 _CIBLES["Charnière"].update({"jap_pct": (75, 25), "pdb": (2, 0), "plaquage_pct": (95, 60)})  # pdb : 0/10 à 2 ballons perdus par 80 min
 for _fam_cibles in _CIBLES.values():
     _fam_cibles.setdefault("passes_pct", (98, 70))
@@ -332,7 +374,7 @@ def _construire():
         d, lab = {}, {}
         for nom, crits in attentes:
             for crit, poids in crits.items():
-                cible, plancher = _CIBLES[fam].get(crit) or next(
+                cible, plancher = _CIBLES_PROFIL.get(profil, {}).get(crit) or _CIBLES[fam].get(crit) or next(
                     (v[crit] for v in _CIBLES.values() if crit in v), (10, 0))
                 d[crit] = (poids, cible, plancher)
                 lab[crit] = nom
@@ -445,17 +487,18 @@ X_PROFILS = {
     # Un critère = (identifiant, poids) ; sans poids = 1.
     "Pilier": [("def_battu", 3), ("break", 3), ("essai", 3), ("offload_pct", 3),
                ("passes_pct", 1)],
-    "9": ["essai", "def_battu", "break"],  # 20 oct. 2026 : uniquement le socle
+    "9": ["essai", "def_battu", "break", "offload_pct"],  # 27 oct. 2026 : socle + offloads (sortis du jeu au poste)
     "12-13": ["essai", "def_battu", "break", "contact_dom", "plaquage_dom", "jap_pct"],  # socle + dominance off et déf
     "10": ["essai", "def_battu", "break", "passes_pct"],  # 20 oct. 2026 : socle + passes
-    "11-14": ["jap_pct", "passes_pct", "pdb", "essai"],
-    "15": ["jap_pct", "passes_pct", "pdb", "essai"],
+    "11-14": ["jap_pct", "passes_pct", "essai"],   # ballons perdus : passés dans le jeu au poste (27 oct. 2026)
+    "15": ["jap_pct", "passes_pct", "essai"],
     # 3ème ligne : dominance dans ce qu'ils font (contacts +/-, plaquages +/-, défenseurs battus)
     # et volume de jeu de touche (sauteur, lifteur).
-    "3ème ligne": ["contact_dom", "plaquage_dom", "offload_pct", ("def_battu", 4)],
+    "3ème ligne aile": ["contact_dom", "offload_pct", ("def_battu", 4)],
+    "3ème ligne centre": ["contact_dom", "offload_pct", ("def_battu", 4)],
     # Talonneur : pourcentages seulement ; duels off (dominance au contact) et habileté technique
     # (offloads, passes) y sont passés en octobre 2026.
-    "Talonneur": ["contact_dom", "offload_pct", "passes_pct", "ruck_util"],
+    "Talonneur": ["offload_pct", "passes_pct", "ruck_util"],  # dominance au contact : revenue au poste (27 oct. 2026)
     # 2ème ligne (20 oct. 2026) : duel off et habileté technique (déplacés du poste), mêlée, réception du CE.
     # Retirés : lancers gagnés, duels aériens, coups de pied au but ; l'utilité au ruck est passée au poste.
     "2ème ligne": ["contact_dom", "offload_pct", "passes_pct",
@@ -478,7 +521,8 @@ X_CIBLES_POSTE = {"9": {"essai": (0.3, 0), "def_battu": (2, 0), "break": (1, 0)}
                   "10": {"essai": (0.3, 0), "def_battu": (2, 0), "break": (1, 0), "passes_pct": (99, 85)},
                   "12-13": {"essai": (0.4, 0), "def_battu": (3, 0), "break": (1, 0), "contact_dom": (65, 30),
                             "plaquage_dom": (10, 0), "jap_pct": (75, 25)},
-                  "3ème ligne": {"essai": (0.3, 0), "def_battu": (3, 0)},
+                  "3ème ligne aile": {"essai": (0.3, 0), "def_battu": (3, 0)},
+                  "3ème ligne centre": {"essai": (0.3, 0), "def_battu": (3, 0)},
                   "2ème ligne": {"contact_dom": (65, 30), "offload_pct": (100, 50),
                                  "passes_pct": (98, 70), "melee_off_pct": (90, 40), "melee_def_pct": (80, 30), "rce_pct": (75, 25),
                                  "def_battu": (2, 0), "break": (1, 0), "essai": (0.15, 0)},
@@ -571,7 +615,7 @@ def _facteur_x_brut(poste, rows, minutes, bareme=None):
 # Référence du Facteur X par poste : note brute d'un joueur « moyen » à ce poste. Elle est calée sur 5, pour
 # qu'on puisse être très haut comme très bas à chaque poste, quelle que soit la difficulté de ses critères
 # (un 3ème ligne n'est pas bas « parce que 3ème ligne », ni un pilier haut « parce que pilier »).
-X_REF_DEFAUT = {"Pilier": 2.3, "Talonneur": 4.9, "2ème ligne": 3.9, "3ème ligne": 2.9, "9": 2.7, "10": 6.4,
+X_REF_DEFAUT = {"Pilier": 2.3, "Talonneur": 4.9, "2ème ligne": 3.9, "3ème ligne aile": 2.9, "3ème ligne centre": 2.9, "9": 2.7, "10": 6.4,
          "12-13": 3.9, "11-14": 4.3, "15": 5.4}
 X_REF = dict(X_REF_DEFAUT)  # remplacé à chaque calcul par les moyennes réelles de la saison (voir app._assurer_references)
 # Note au poste : référence par poste (note brute moyenne d'un joueur de ce poste), recalculée automatiquement.

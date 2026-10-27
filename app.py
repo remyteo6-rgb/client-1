@@ -3831,7 +3831,7 @@ def _pct_choix(ruck, g_exp, p_exp, g_auto, p_auto, minimum=3):
 
 
 # Poste de comparaison -> profil du barème (page Notes) dont on reprend les attentes et les cibles.
-COMPARE_PROFIL = {"Pilier": "Pilier", "Talonneur": "Talonneur", "2ème ligne": "2ème ligne", "3ème ligne": "3ème ligne",
+COMPARE_PROFIL = {"Pilier": "Pilier", "Talonneur": "Talonneur", "2ème ligne": "2ème ligne", "3ème ligne": "3ème ligne aile",
                   "Charnière": "9", "Centre": "12-13", "Ailier/Arrière": "11-14"}
 
 
@@ -4536,12 +4536,12 @@ def season_gagner_perdre_cibles():
 
 # ---- Notes des joueurs (barème par poste, note sur 10) ---------------------------------------
 
-PPID_VERS_PROFIL = {"Pilier": "Pilier", "Talon": "Talonneur", "2L": "2ème ligne", "3LC": "3ème ligne",
-                    "3LA": "3ème ligne", "9": "9", "10": "10", "12-13": "12-13", "11-14": "11-14", "15": "15"}
+PPID_VERS_PROFIL = {"Pilier": "Pilier", "Talon": "Talonneur", "2L": "2ème ligne", "3LC": "3ème ligne centre",
+                    "3LA": "3ème ligne aile", "9": "9", "10": "10", "12-13": "12-13", "11-14": "11-14", "15": "15"}
 PROFIL_PAR_DEFAUT = {"Pilier": "Pilier", "Talonneur": "Talonneur", "2ème ligne": "2ème ligne",
-                     "3ème ligne": "3ème ligne", "Charnière": "9", "Centre": "12-13", "Ailier/Arrière": "11-14"}
+                     "3ème ligne": "3ème ligne aile", "Charnière": "9", "Centre": "12-13", "Ailier/Arrière": "11-14"}
 PROFIL_LIBELLE = {"Pilier": "Piliers", "Talonneur": "Talonneurs", "2ème ligne": "2ème ligne",
-                  "3ème ligne": "3ème ligne (LC et LA)", "9": "Demi de mêlée (9)", "10": "Ouvreur (10)",
+                  "3ème ligne aile": "3ème ligne aile (6-7)", "3ème ligne centre": "3ème ligne centre (8)", "9": "Demi de mêlée (9)", "10": "Ouvreur (10)",
                   "12-13": "Centres (12-13)", "11-14": "Ailiers (11-14)", "15": "Arrière (15)"}
 
 
@@ -4566,8 +4566,8 @@ def _ppid_fin(xml_name):
 
 
 # Maillot de la composition (n°1 à 23) -> profil de notation. Le banc (16 à 23) n'a pas de poste fixe : poste habituel.
-NUMERO_PROFIL = {1: "Pilier", 2: "Talonneur", 3: "Pilier", 4: "2ème ligne", 5: "2ème ligne", 6: "3ème ligne",
-                 7: "3ème ligne", 8: "3ème ligne", 9: "9", 10: "10", 11: "11-14", 12: "12-13", 13: "12-13",
+NUMERO_PROFIL = {1: "Pilier", 2: "Talonneur", 3: "Pilier", 4: "2ème ligne", 5: "2ème ligne", 6: "3ème ligne aile",
+                 7: "3ème ligne aile", 8: "3ème ligne centre", 9: "9", 10: "10", 11: "11-14", 12: "12-13", 13: "12-13",
                  14: "11-14", 15: "15"}
 
 
@@ -4592,7 +4592,7 @@ def _profil_note(xml_name, poste_match, numero=None, poste_saisi=None, habituel=
     if poste_match not in PROFIL_PAR_DEFAUT:
         return None, True
     defaut = PROFIL_PAR_DEFAUT[poste_match]
-    return defaut, poste_match not in ("Charnière", "Ailier/Arrière")
+    return defaut, poste_match not in ("Charnière", "Ailier/Arrière", "3ème ligne")
 
 
 def _bareme_courant():
@@ -4657,6 +4657,16 @@ def _assurer_references(bar):
                     if r.get("x") and r["x"].get("brut") is not None:
                         x_p.setdefault(x["poste"], []).append(r["x"]["brut"])
             n_ref = {p: round(sum(v) / len(v), 2) for p, v in notes_p.items() if len(v) >= bareme.REF_MIN_ECHANTILLON}
+            # Profil avec trop peu de notes (ex. un seul n°8 dans l'effectif) : référence de sa famille de poste
+            # (3ème ligne aile + centre réunies), pour ne pas recentrer un joueur sur lui-même.
+            for p in bareme.POSTES:
+                if p in n_ref:
+                    continue
+                fam = bareme.PROFIL_FAMILLE.get(p)
+                pool = [v for q, lst in notes_p.items() if bareme.PROFIL_FAMILLE.get(q) == fam for v in lst]
+                if len(pool) >= bareme.REF_MIN_ECHANTILLON:
+                    n_ref[p] = round(sum(pool) / len(pool), 2)
+            _REFS_STATE["echantillons"] = {p: len(v) for p, v in notes_p.items()}
             x_ref = dict(bareme.X_REF_DEFAUT)
             x_ref.update({p: round(sum(v) / len(v), 2) for p, v in x_p.items() if len(v) >= bareme.REF_MIN_ECHANTILLON})
             bareme.NOTE_REF = n_ref
@@ -6695,6 +6705,11 @@ def _migrer_talonneur_pourcentages(db):
         ("recup_en_bonus_2ligne", "2ème ligne", ("recup",)), ("recup_en_bonus_3ligne", "3ème ligne", ("recup",)),
         ("recup_en_bonus_centre", "12-13", ("recup",)), ("recup_en_bonus_ailiers", "11-14", ("recup",)),
         ("recup_en_bonus_pilier", "Pilier", ("recup",)),
+        # 27 oct. 2026 (revue des notes avec les coachs) : critères déplacés ou repondérés.
+        ("revue_2026_10_27_9", "9", ("ruck_util", "offload_pct", "break")),
+        ("revue_2026_10_27_talonneur", "Talonneur", ("x:contact_dom",)),
+        ("revue_2026_10_27_ailiers", "11-14", ("x:pdb", "pdb")),
+        ("revue_2026_10_27_arriere", "15", ("x:pdb", "pdb")),
     ):
         if db.execute("SELECT 1 FROM app_migrations WHERE name = %s", (nom,)).fetchone():
             continue

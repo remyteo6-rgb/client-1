@@ -2290,7 +2290,7 @@ def compute_player_defense_table(instances):
                       "plaquage_bas": 0, "plaquage_haut": 0,
                       "combattant_plus": 0, "combattant_neutre": 0, "combattant_minus": 0, "combattant_balle": 0,
                       "chasseur_plus": 0, "chasseur_neutre": 0, "chasseur_minus": 0,
-                      "ballons_recuperes": 0, "interception": 0}
+                      "ballons_recuperes": 0, "interception": 0, "contre_ruck": 0}
 
     for i in instances:
         code = i["code_raw"]
@@ -2334,6 +2334,8 @@ def compute_player_defense_table(instances):
                 row["chasseur_neutre"] += 1
         if chasseur_vals & CHASSEUR_RECUP_TEXTS:
             row["ballons_recuperes"] += 1
+        if "CONTRE RUCK" in chasseur_vals:
+            row["contre_ruck"] += 1
         off_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "JOUEURS OFF"}
         if "INTERCEPTION" in off_vals:
             row["ballons_recuperes"] += 1
@@ -3270,7 +3272,31 @@ def compute_player_ruck_table(instances):
                       "jap_plus": 0, "jap_neutre": 0, "jap_moins": 0,
                       "essai": 0, "transfo_reussies": 0, "transfo_tentees": 0,
                       "penalite_reussies": 0, "penalite_tentees": 0,
-                      "drop_reussis": 0, "drop_tentes": 0}
+                      "drop_reussis": 0, "drop_tentes": 0, "chasses": 0}
+
+    # Chasses (kick chase, restart chase) : le nom du chasseur est un label du groupe « Chasse(s) » sur le
+    # code d'équipe ; écritures rapprochées des codes joueurs (« HERRAUD » = « HERAUD », « FANTCHO TAMBO »…).
+    _noms = list(rows)
+    _cache_noms = {}
+    for i in instances:
+        for l in i.get("labels") or []:
+            if _normalize_tag(l.get("group")) not in ("CHASSE", "CHASSES"):
+                continue
+            txt = (l.get("text") or "").strip()
+            if txt not in _cache_noms:
+                cle = _name_key(txt)
+                exact = next((n for n in _noms if _name_key(n) == cle), None)
+                if exact is None:
+                    inverse = " ".join(reversed(cle.split()))
+                    exact = next((n for n in _noms if _name_key(n) == inverse), None)
+                _cache_noms[txt] = exact or _best_match(txt, _noms, threshold=0.8)
+            nom = _cache_noms[txt]
+            if nom:
+                rows[nom]["chasses"] += 1
+    # Nombre de chasses codées dans tout le match : 0 = chasses pas codées (le critère n'est alors pas noté).
+    _chasses_match = sum(r["chasses"] for r in rows.values())
+    for r in rows.values():
+        r["chasses_match"] = _chasses_match
 
     couvert = False  # fautes : la Discipline collective du match fait foi (voir compute_player_attack_table)
     for i in instances:
@@ -3719,7 +3745,7 @@ def _zero_defense_row(name):
         "combattant_plus": 0, "combattant_neutre": 0, "combattant_minus": 0, "combattant_balle": 0,
         "combattant_total": 0,
         "chasseur_plus": 0, "chasseur_neutre": 0, "chasseur_minus": 0, "chasseur_total": 0,
-        "ballons_recuperes": 0,
+        "ballons_recuperes": 0, "contre_ruck": 0,
     }
 
 
@@ -3736,7 +3762,7 @@ def _zero_ruck_row(name):
         "jap": 0, "coup_envoi": 0, "recep_ce": 0, "coup_envoi_recep_total": 0,
         "rce_plus": 0, "rce_neutre": 0, "rce_minus": 0, "rce_total": 0,
         "duels_aer_plus": 0, "duels_aer_neutre": 0, "duels_aer_moins": 0, "duels_aer_total": 0,
-        "jap_plus": 0, "jap_neutre": 0, "jap_moins": 0,
+        "jap_plus": 0, "jap_neutre": 0, "jap_moins": 0, "chasses": 0, "chasses_match": 0,
         "essai": 0, "transfo_reussies": 0, "transfo_tentees": 0,
         "penalite_reussies": 0, "penalite_tentees": 0, "drop_reussis": 0, "drop_tentes": 0,
         "points": 0,
