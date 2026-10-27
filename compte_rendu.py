@@ -23,7 +23,7 @@ BANDES = ["Nos 22", "Notre moitié", "Leur moitié", "Leurs 22"]
 _BANDE_NOUS = {"ROUGE": "Nos 22", "COP": "Notre moitié", "RUMBLE": "Leur moitié", "GOLD": "Leurs 22"}
 _BANDE_EUX = {"GOLD": "Nos 22", "RUMBLE": "Notre moitié", "COP": "Leur moitié", "ROUGE": "Leurs 22"}
 
-ORIGINES = ["Touche", "Mêlée", "Renvoi reçu", "Ballon récupéré", "Jeu au pied adverse", "Pénalité jouée vite", "Jeu continu / autre"]
+ORIGINES = ["Touche", "Mêlée", "Renvoi reçu", "Notre renvoi récupéré", "Ballon récupéré", "Jeu au pied adverse", "Pénalité jouée vite", "Jeu continu / autre"]
 ISSUES = ["Essai", "Pénalité obtenue", "Jeu au pied", "Ballon perdu", "Pénalité concédée", "Autre arrêt"]
 ISSUE_TON = {"Essai": "pos", "Pénalité obtenue": "pos", "Jeu au pied": "neu", "Ballon perdu": "neg",
              "Pénalité concédée": "neg", "Autre arrêt": "neu"}
@@ -167,10 +167,14 @@ class _Match:
                 return nom
         if any(ev["s"] - 1 <= s <= ev["s"] + 12 for ev in self.ev[("own", "RCE")]):
             return "Renvoi reçu"
-        if any(s - 4 <= ev["t"] <= s + 2 for ev in self.ev[("adv", "PDB")]):
+        if any(s - 8 <= ev["t"] <= s + 3 for ev in self.ev[("adv", "PDB")]):
             return "Ballon récupéré"
         if any(s - 4 <= ev["t"] <= s + 2 for ev in self.ev[("adv", "JEU AU PIED")]):
             return "Jeu au pied adverse"
+        # Notre coup d'envoi / renvoi (« <ADV> RCE » = l'adversaire réceptionne) : on récupère le ballon
+        # dans les secondes qui suivent la réception, sans perte ni jeu au pied adverse codés.
+        if any(ev["s"] - 1 <= s <= ev["s"] + 10 for ev in self.ev[("adv", "RCE")]):
+            return "Notre renvoi récupéré"
         if any(s - 90 <= ev["t"] <= s + 2 for ev in self.ev[("adv", "DISCIPLINES")]):
             return "Pénalité jouée vite"
         return "Jeu continu / autre"
