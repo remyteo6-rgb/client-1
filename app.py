@@ -3989,6 +3989,7 @@ GP_CRITERES = [
     ("possession", "Possession", " %", 1, "hi"),
     ("occupation", "Occupation", " %", 1, "hi"),
     ("bip", "Ball in play (% du match)", " %", 0, "hi"),
+    ("pts_encaisses", "Points encaissés / match", "", 1, "lo"),
     ("pdb", "Ballons perdus", "", 1, "lo"),
     ("pts_poss", "Points par possession", "", 2, "hi"),
 ]
@@ -4029,6 +4030,7 @@ def _gp_valeurs_match(m):
         "possession": ((ov.get("possession") or {}).get("own_pct")),
         "occupation": ((ov.get("occupation") or {}).get("own_pct")),
         "bip": ((ov.get("ball_in_play") or {}).get("pct_match") or None),
+        "pts_encaisses": _resolve_match_score(m)[1],
         **_cr_valeurs(m),
     }
 
@@ -4041,7 +4043,9 @@ def _cr_valeurs(m):
             "pts_poss": round(sum(p["pts"] for p in x.poss) / len(x.poss), 2) if x.poss else None}
 
 
-GP_CIBLES_DEFAUT = {"offloads": 13, "def_battus": 18}  # cibles déjà fixées par le staff (bilan attaque)
+GP_CIBLES_DEFAUT = {"offloads": 13, "def_battus": 18,  # cibles déjà fixées par le staff (bilan attaque)
+                    "pts_encaisses": 22,               # objectif du club : 22 points encaissés maximum
+                    "pdb": 22}                         # objectif du club : 22 ballons perdus maximum
 GP_MIN_PAR_ISSUE = 3   # victoires ET défaites minimum avant d'afficher un verdict
 
 
