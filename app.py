@@ -3989,7 +3989,7 @@ GP_CRITERES = [
     ("possession", "Possession", " %", 1, "hi"),
     ("occupation", "Occupation", " %", 1, "hi"),
     ("bip", "Ball in play (% du match)", " %", 0, "hi"),
-    ("pts_encaisses", "Points encaissés / match", "", 1, "lo"),
+    ("pts_encaisses", "Points concédés / match", "", 1, "lo"),
     ("pdb", "Ballons perdus", "", 1, "lo"),
     ("pts_poss", "Points par possession", "", 2, "hi"),
 ]
@@ -4247,7 +4247,8 @@ def season_style():
 
 # Critères du tableau de bord du Bilan saison : ceux du club, sauf le Ball in play (temps de jeu effectif),
 # que l'équipe ne maîtrise pas — pas d'objectif dessus (demande de Téo).
-CR_CRITERES = [c for c in GP_CRITERES if c[0] != "bip"]
+# Points par possession : remplacé dans le tableau de bord par les points concédés (demande de Téo).
+CR_CRITERES = [c for c in GP_CRITERES if c[0] not in ("bip", "pts_poss")]
 
 
 def _cr_tableau(selected, reference, cibles, mode_match, pooled=None, ref_pooled=None):
