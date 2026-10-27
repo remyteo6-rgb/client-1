@@ -67,11 +67,11 @@
                     <text x="{{ ax.label_pos[0] }}" y="{{ ax.label_pos[1] }}" text-anchor="{{ ax.anchor }}" font-size="14" font-weight="700" fill="#530d34">{% for ln in ax.label_lines %}<tspan x="{{ ax.label_pos[0] }}" dy="{{ 0 if loop.first else 16 }}">{{ ln }}</tspan>{% endfor %}</text>
                     {% endfor %}
                     <polygon points="{{ radar.poly_moy }}" fill="rgba(110,110,110,.10)" stroke="#6e6e6e" stroke-width="2" stroke-dasharray="6 4"/>
-                    <polygon points="{{ radar.polys[0] }}" fill="rgba(47,93,138,.28)" stroke="#2f5d8a" stroke-width="2.5"/>
-                    <polygon points="{{ radar.polys[1] }}" fill="rgba(165,48,95,.25)" stroke="#a5305f" stroke-width="2.5"/>
+                    <polygon points="{{ radar.polys[0] }}" fill="rgba(107,26,43,.25)" stroke="#6b1a2b" stroke-width="2.5"/>
+                    <polygon points="{{ radar.polys[1] }}" fill="rgba(91,100,114,.22)" stroke="#5b6472" stroke-width="2.5"/>
                     {% for ax in radar.axes %}
-                    <circle cx="{{ ax.points[0][0] }}" cy="{{ ax.points[0][1] }}" r="5" fill="#2f5d8a"><title>{{ display_name(a) }} — {{ ax.label }} : {{ ax.scores[0] if ax.scores[0] is not none else '—' }}/100</title></circle>
-                    <circle cx="{{ ax.points[1][0] }}" cy="{{ ax.points[1][1] }}" r="5" fill="#a5305f"><title>{{ display_name(b) }} — {{ ax.label }} : {{ ax.scores[1] if ax.scores[1] is not none else '—' }}/100</title></circle>
+                    <circle cx="{{ ax.points[0][0] }}" cy="{{ ax.points[0][1] }}" r="5" fill="#6b1a2b"><title>{{ display_name(a) }} — {{ ax.label }} : {{ ax.scores[0] if ax.scores[0] is not none else '—' }}/100</title></circle>
+                    <circle cx="{{ ax.points[1][0] }}" cy="{{ ax.points[1][1] }}" r="5" fill="#5b6472"><title>{{ display_name(b) }} — {{ ax.label }} : {{ ax.scores[1] if ax.scores[1] is not none else '—' }}/100</title></circle>
                     {% endfor %}
                 </svg>
             </div>
@@ -80,8 +80,8 @@
             <div class="bil-panel">
                 <div class="bil-panel-head bil-head-blue">Les deux joueurs</div>
                 <div class="cmp-legend">
-                    <p class="cmp-a"><span class="cmp-sq" style="background:#2f5d8a;"></span><strong>{{ display_name(a) }}</strong> — {{ radar.minutes[0] }} min ({{ radar.matchs[0] }} match{{ 's' if radar.matchs[0] != 1 else '' }} à ce poste) · {% for p in radar.profils[0] %}{{ p.nom }} ({{ p.score }}){{ ' · ' if not loop.last }}{% else %}—{% endfor %}</p>
-                    <p class="cmp-b"><span class="cmp-sq" style="background:#a5305f;"></span><strong>{{ display_name(b) }}</strong> — {{ radar.minutes[1] }} min ({{ radar.matchs[1] }} match{{ 's' if radar.matchs[1] != 1 else '' }} à ce poste) · {% for p in radar.profils[1] %}{{ p.nom }} ({{ p.score }}){{ ' · ' if not loop.last }}{% else %}—{% endfor %}</p>
+                    <p class="cmp-a"><span class="cmp-sq" style="background:#6b1a2b;"></span><strong>{{ display_name(a) }}</strong> — {{ radar.minutes[0] }} min ({{ radar.matchs[0] }} match{{ 's' if radar.matchs[0] != 1 else '' }} à ce poste) · {% for p in radar.profils[0] %}{{ p.nom }} ({{ p.score }}){{ ' · ' if not loop.last }}{% else %}—{% endfor %}</p>
+                    <p class="cmp-b"><span class="cmp-sq" style="background:#5b6472;"></span><strong>{{ display_name(b) }}</strong> — {{ radar.minutes[1] }} min ({{ radar.matchs[1] }} match{{ 's' if radar.matchs[1] != 1 else '' }} à ce poste) · {% for p in radar.profils[1] %}{{ p.nom }} ({{ p.score }}){{ ' · ' if not loop.last }}{% else %}—{% endfor %}</p>
                     <p class="cmp-moy"><span class="cmp-sq" style="background:#6e6e6e;"></span><strong>Moyenne au poste</strong> — {{ radar.pool }} joueurs (trait pointillé)</p>
                 </div>
                 <p class="gp-note" style="padding-top:2px; color:#6a6a6a;">Chaque axe regroupe les critères de l'attente du club (page Barème), pondérés comme dans la note. 100 = la cible du poste atteinte, sans dépasser. Discipline : 100 = aucune pénalité, 0 = 3 pénalités ou plus par 80 min. Moyenne au poste : {{ radar.pool }} joueurs ayant tenu ce poste au moins 40 min. Passe la souris sur un point pour voir sa note.</p>

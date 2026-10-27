@@ -12,7 +12,8 @@
 </div>
 {% include "_season_select.html" %}
 
-{% set PAL = ['#c4453a', '#e8a33d', '#3f8a4f', '#2f6fb5', '#7a3b8f', '#17a3a3', '#8a8f9c', '#d97aa6'] %}
+{# Charte : nuances de bordeaux, d'or et d'anthracite (pas de couleurs génériques). #}
+{% set PAL = ['#6b1a2b', '#e8a33d', '#5b6472', '#b35a72', '#a7adb8', '#c98a1f', '#3a0f26', '#e3c79a'] %}
 {% macro donut(items, centre='', pal=PAL, max_parts=7) %}
 {% set tot = items|sum(attribute=1) %}
 {% if tot %}
@@ -45,7 +46,7 @@
 {% endmacro %}
 {% macro fmt(v, dec=1, unite='') %}{% if v is none %}—{% else %}{{ ('%.' ~ dec ~ 'f')|format(v) }}{{ unite }}{% endif %}{% endmacro %}
 {% macro pct(v) %}{% if v is none %}—{% else %}{{ v }} %{% endif %}{% endmacro %}
-{% macro duo(a, b, mx, ca='sty-g', cb='sty-r') %}
+{% macro duo(a, b, mx, ca='cr-ubb', cb='cr-adv') %}
 <div class="sty-duo"><span class="sty-col {{ ca }}" style="height:{{ (a / mx * 100) if mx else 0 }}%"><i>{{ a }}</i></span><span class="sty-col {{ cb }}" style="height:{{ (b / mx * 100) if mx else 0 }}%"><i>{{ b }}</i></span></div>
 {% endmacro %}
 {% set mode_match = False %}
@@ -192,7 +193,7 @@
         <div class="sf-panel sty-span2">
             <div class="sf-panel-head">PROFIL DE SCORE · POINTS PAR TRANCHE DE 20 MIN</div>
             {% set mx = [sj.quarts|map(attribute='own')|max, sj.quarts|map(attribute='adv')|max, 1]|max %}
-            <div class="sty-legend"><span class="sty-g"></span> marqués <span class="sty-r"></span> encaissés</div>
+            <div class="sty-legend"><span class="cr-ubb"></span> marqués <span class="cr-adv"></span> encaissés</div>
             <div class="sty-bars">
                 {% for r in sj.quarts %}<div class="sty-bcol">{{ duo(r.own, r.adv, mx) }}<span class="sty-x">{{ r.q }}</span>
                     <span class="sty-net {{ 'sty-pos' if r.net > 0 else ('sty-neg' if r.net < 0 else '') }}">{{ '%+d'|format(r.net) }}</span></div>{% endfor %}
@@ -202,8 +203,8 @@
         <div class="sf-panel sty-wide">
             <div class="sf-panel-head">MI-TEMPS · POINTS MARQUÉS ET ENCAISSÉS</div>
             <div class="sty-two">
-                <div><h4>Marqués</h4>{{ donut([('1re mi-temps', sj.h1[0]), ('2e mi-temps', sj.h2[0])], pal=['#5ab0e8', '#1f5f99']) }}</div>
-                <div><h4>Encaissés</h4>{{ donut([('1re mi-temps', sj.h1[1]), ('2e mi-temps', sj.h2[1])], pal=['#f0a39b', '#c4453a']) }}</div>
+                <div><h4>Marqués</h4>{{ donut([('1re mi-temps', sj.h1[0]), ('2e mi-temps', sj.h2[0])], pal=['#b35a72', '#6b1a2b']) }}</div>
+                <div><h4>Encaissés</h4>{{ donut([('1re mi-temps', sj.h1[1]), ('2e mi-temps', sj.h2[1])], pal=['#a7adb8', '#5b6472']) }}</div>
             </div>
         </div>
     </div>
@@ -215,7 +216,7 @@
     <div class="sty-grid">
         <div class="sf-panel sty-span2">
             <div class="sf-panel-head">ISSUE DE NOS {{ cr.possessions }} POSSESSIONS</div>
-            {{ donut(cr.issues_items, pal=['#3f8a4f', '#7fbf6a', '#2f6fb5', '#c4453a', '#e8a33d', '#9cc9ee', '#e8908a', '#9aa0ab'], max_parts=8) }}
+            {{ donut(cr.issues_items, pal=['#2f7d46', '#7fb88f', '#5b6472', '#c4453a', '#e0705f', '#a7adb8', '#f0a39b', '#d5d8de'], max_parts=8) }}
             {% set perdu = (cr.issues|selectattr('nom', 'equalto', 'Ballon perdu')|first) %}{% set rendu = (cr.issues|selectattr('nom', 'equalto', 'Arrêt de jeu, ballon rendu')|first) %}
             {% set pc = (cr.issues|selectattr('nom', 'equalto', 'Pénalité concédée')|first) %}
             <p class="sty-obs">{{ cr.pts_tot }} points marqués sur {{ cr.possessions }} possessions ({{ fmt(cr.pts_par_poss, 2) }} par possession).
@@ -276,7 +277,7 @@
     <div class="sty-grid">
         <div class="sf-panel">
             <div class="sf-panel-head">RÉSULTAT DES ENTRÉES</div>
-            {{ donut(cr.gold.res_l, pal=['#3f8a4f', '#c4453a', '#7fbf6a', '#e8a33d', '#9aa0ab']) }}
+            {{ donut(cr.gold.res_l, pal=['#2f7d46', '#c4453a', '#7fb88f', '#e0705f', '#a7adb8']) }}
         </div>
         <div class="sf-panel sty-span2">
             <div class="sf-panel-head">POINTS PAR ENTRÉE SELON LE BALLON DE DÉPART</div>
@@ -327,16 +328,16 @@
         <div class="sf-panel">
             <div class="sty-ban sty-ban-n">NOTRE JEU AU PIED</div>
             <div class="sty-bigtot"><strong>{{ ko }}</strong> total · <strong>{{ (ko / n)|round(1) }}</strong> par match</div>
-            {{ donut(sj.pied_items.own, pal=['#2f6fb5', '#5ab0e8', '#1f4d82', '#9cc9ee']) }}
+            {{ donut(sj.pied_items.own, pal=['#6b1a2b', '#b35a72', '#3a0f26', '#d9a3b3']) }}
         </div>
         <div class="sf-panel">
             <div class="sty-ban sty-ban-adv">JEU AU PIED ADVERSE</div>
             <div class="sty-bigtot"><strong>{{ ka }}</strong> total · <strong>{{ (ka / n)|round(1) }}</strong> par match</div>
-            {{ donut(sj.pied_items.adv, pal=['#c4453a', '#f0a39b', '#8c2a21', '#e8a33d']) }}
+            {{ donut(sj.pied_items.adv, pal=['#5b6472', '#a7adb8', '#3b414b', '#cfd3da']) }}
         </div>
         <div class="sf-panel">
             <div class="sf-panel-head">DUELS AÉRIENS</div>
-            {{ donut([('Gagnés', sj.aer.plus), ('Neutres', sj.aer.neutre), ('Perdus', sj.aer.moins)], pal=['#3f8a4f', '#9aa0ab', '#c4453a']) }}
+            {{ donut([('Gagnés', sj.aer.plus), ('Neutres', sj.aer.neutre), ('Perdus', sj.aer.moins)], pal=['#2f7d46', '#a7adb8', '#c4453a']) }}
         </div>
         <div class="sf-panel sty-span2">
             <div class="sf-panel-head">OBSERVATIONS</div>
@@ -401,7 +402,7 @@
                 <div><strong>{{ a.nous_pris5 }}</strong><span>points encaissés dans les 5 minutes ({{ a.nous_pris5_n }} fois)</span></div>
             </div>
             <div class="sf-panel-head cr-sub">NOTRE PREMIÈRE POSSESSION SUR LE RENVOI</div>
-            {{ donut(a.nous_premiere, pal=['#2f6fb5', '#c4453a', '#9aa0ab', '#d0d3da', '#3f8a4f', '#e8a33d', '#7fbf6a']) }}
+            {{ donut(a.nous_premiere, pal=['#5b6472', '#c4453a', '#a7adb8', '#d5d8de', '#2f7d46', '#e0705f', '#7fb88f']) }}
         </div>
         <div class="sf-panel">
             <div class="sty-ban sty-ban-r">APRÈS AVOIR ENCAISSÉ ({{ a.eux_n }})</div>
