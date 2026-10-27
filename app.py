@@ -4325,10 +4325,10 @@ RADAR_EQUIPE = [
     ("casses_porteur", "Plaquages cassés / porteur", "Attaque", 0, 0.35, 2, "", "Tackle breaks / carry"),
     ("ligne_avantage", "Ligne d'avantage gagnée", "Attaque", 0, 60, 0, " %", "PCM / carry (mètres après contact non codés) — codes « UBB GLA », peu nombreux"),
     ("dominance", "Contacts dominants", "Attaque", 0, 60, 0, " %", "% DVD"),
-    ("pts_entree", "Points / entrée (22)", "Attaque", 0, 5, 2, "", "PPR ratio"),
+    ("pts_entree", "Points / entrée (22)", "Attaque", 1, 3, 2, "", "PPR ratio"),
     ("franchi_subis", "Franchissements subis / match", "Défense", 8, 0, 1, "", "Opp ruck speed (non codée)"),
     ("plaquage_pct", "Plaquages réussis", "Défense", 60, 100, 0, " %", "% tackle success"),
-    ("pts_entree_adv", "Points encaissés / entrée adverse", "Défense", 5, 0, 2, "", "PPR ratio against"),
+    ("pts_entree_adv", "Points encaissés / entrée adverse", "Défense", 3, 1, 2, "", "PPR ratio against"),
     ("grattages", "Ballons arrachés (grattage, interception) / match", "Défense", 0, 12, 1, "", "Jackals / game"),
     ("jap_qualite", "Jeu au pied de qualité (+)", "Jeu au pied", 20, 80, 0, " %", "% attacking kick"),
     ("aeriens", "Duels aériens gagnés", "Jeu au pied", 20, 90, 0, " %", "% aerial battle win"),
@@ -4391,7 +4391,7 @@ def _radar_equipe_valeurs(selected, cr):
         "grattages": tot["recup"] / nb,
         "jap_qualite": ratio(tot["jap_plus"], jap, 100),
         "aeriens": ratio(tot["duels_aer_plus"], aer, 100),
-        "renvois": ratio(ap["eux_recup"], ap["eux_recup_n"], 100),
+        "renvois": ratio(cr["renvois"]["recup"], cr["renvois"]["n"], 100),
         "occupation": moy(occ),
         "touches": moy(tch),
         "touches_volees": tot["volees"] / nb,
@@ -4444,7 +4444,9 @@ def _radar_equipe(selected, cr):
         best = max(lst, key=lambda ax: ax["score"])
         worst = min(lst, key=lambda ax: ax["score"])
         moyen = sum(ax["score"] for ax in lst) / len(lst)
-        lecture.append({"fam": fam, "col": col, "best": best, "worst": worst if worst is not best else None,
+        # On ne nomme un « point fort » qu'au-dessus du milieu de l'échelle, et un « à travailler » qu'en dessous.
+        lecture.append({"fam": fam, "col": col, "best": best if best["score"] >= 0.5 else None,
+                        "worst": worst if (worst is not best and worst["score"] < 0.5) else None,
                         "niveau": round(100 * moyen)})
     return {"axes": axes, "rings": rings, "arcs": arcs, "poly": poly, "cx": cx, "cy": cy, "R": R, "lecture": lecture}
 

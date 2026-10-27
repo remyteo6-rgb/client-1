@@ -157,8 +157,8 @@
             {% for f in radar.lecture %}
             <div class="rd-fam">
                 <h4><i style="background:{{ f.col }}"></i>{{ f.fam|upper }}</h4>
-                <p>Point fort : <strong>{{ f.best.label|lower }}</strong> ({{ fmt(f.best.val, f.best.dec, f.best.unite) }}).
-                {% if f.worst %}À travailler : <strong>{{ f.worst.label|lower }}</strong> ({{ fmt(f.worst.val, f.worst.dec, f.worst.unite) }}).{% endif %}</p>
+                <p>{% if f.best %}Point fort : <strong>{{ f.best.label|lower }}</strong> ({{ fmt(f.best.val, f.best.dec, f.best.unite) }}).{% endif %}
+                {% if f.worst %}À travailler : <strong>{{ f.worst.label|lower }}</strong> ({{ fmt(f.worst.val, f.worst.dec, f.worst.unite) }}).{% elif f.best %}Aucun indicateur sous le milieu de l'échelle.{% else %}Tous les indicateurs sont sous le milieu de l'échelle.{% endif %}</p>
             </div>
             {% endfor %}
             <details class="rd-echelles">

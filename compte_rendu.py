@@ -222,6 +222,18 @@ class _Match:
                         "joueur": joueur.title() if joueur else None, "cout": cout})
         return out
 
+    # --- nos coups d'envoi / renvois ---------------------------------------------------------------
+    def renvois(self):
+        """Pour chaque coup d'envoi UBB : ballon récupéré ? Oui si l'adversaire perd le ballon (« <ADV> PDB »)
+        dans les 12 s qui suivent, ou si la première vraie possession (≥ 3 s) après le renvoi est à nous."""
+        out = []
+        for ce in self.ev[("own", "CE")]:
+            pdb = [e for e in self.ev[("adv", "PDB")] if ce["s"] <= e["s"] <= ce["s"] + 12]
+            prem_eux = next((p["s"] for p in self.poss_adv if p["s"] >= ce["s"] - 1), 1e12)
+            nous = [p for p in self.poss if ce["s"] - 1 <= p["s"] < prem_eux and p["s"] <= ce["s"] + 20 and p["e"] - p["s"] >= 3]
+            out.append({"s": ce["s"], "recup": bool(pdb or nous)})
+        return out
+
     # --- après un score -----------------------------------------------------------------------
     def apres_scores(self):
         """Pour chaque score (essai + transfo regroupés), ce qui se passe ensuite."""
@@ -251,13 +263,8 @@ class _Match:
                 r["zone_sortie"] = p["z1"] if p else None
             else:
                 # On renvoie : avons-nous récupéré le ballon sur le renvoi ?
-                ce = next((ev for ev in self.ev[("own", "CE")] if ev["s"] > g["t"]), None)
-                if ce:
-                    prem_nous = next((p["s"] for p in self.poss if p["s"] >= ce["s"]), 1e12)
-                    prem_eux = next((p["s"] for p in self.poss_adv if p["s"] >= ce["s"]), 1e12)
-                    r["recupere"] = prem_nous < prem_eux if (prem_nous < 1e12 or prem_eux < 1e12) else None
-                else:
-                    r["recupere"] = None
+                rv = next((v for v in self.renvois() if v["s"] > g["t"]), None)
+                r["recupere"] = rv["recup"] if rv else None
             out.append(r)
         return out
 
@@ -431,10 +438,12 @@ def compte_rendu(selected):
         txt = f"Après avoir marqué, l'adversaire marque juste derrière {sum(1 for r in nous if r['suivant'] == 'adv')} fois sur {len(nous)}"
         n_rec = sum(1 for r in eux if r.get("recupere") is not None)
         if n_rec:
-            txt += f" ; on récupère {sum(1 for r in eux if r.get('recupere'))} de nos {n_rec} renvois"
+            rv_all = [v for x in ms for v in x.renvois()]
+            txt += f" ; on récupère {sum(1 for v in rv_all if v['recup'])} de nos {len(rv_all)} coups d'envoi"
         messages.append(txt + ".")
 
-    return {"nb": len(ms), "messages": messages, "possessions": tot, "vols_renvoi": sum(x.vols_renvoi for x in ms), "poss_par_match": round(tot / nb, 1), "pts_par_poss": round(pts_tot / tot, 2) if tot else None,
+    rv = [v for x in ms for v in x.renvois()]
+    return {"nb": len(ms), "renvois": {"n": len(rv), "recup": sum(1 for v in rv if v["recup"])}, "messages": messages, "possessions": tot, "vols_renvoi": sum(x.vols_renvoi for x in ms), "poss_par_match": round(tot / nb, 1), "pts_par_poss": round(pts_tot / tot, 2) if tot else None,
             "pts_tot": pts_tot, "pdb_det": dict(pdb_det), "issues": issues_l, "issues_items": [(r["nom"], r["n"]) for r in issues_l], "pertes_zone": pertes_zone, "par_zone_depart": par_zone_depart,
             "zones_codees": any(x.zones for x in ms),
             "origines": origines, "meilleure": meilleure, "pire": pire, "gold": gold,
