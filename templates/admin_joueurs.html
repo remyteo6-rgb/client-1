@@ -140,8 +140,8 @@
 <section class="staff-access">
     <div class="page-header no-print">
         <div>
-            <h2>{{ icons.key() }} Accès « cahier d'entraînement »</h2>
-            <p class="subtitle">Pour un membre du staff qui ne doit voir que le cahier d'entraînement : il y saisit les points d'étape, les entretiens, les tâches et les documents des joueurs, et n'a accès à aucune autre page du site.</p>
+            <h2>{{ icons.key() }} Accès staff</h2>
+            <p class="subtitle">Pour les coachs et le staff. <strong>Tout le site</strong> : voit toutes les pages (analyse vidéo, stats, effectif, calendrier, documents, cahier d'entraînement) mais ne peut ni importer, ni supprimer, ni modifier les réglages réservés à l'administrateur. <strong>Cahier d'entraînement seul</strong> : n'a accès qu'au cahier (points d'étape, entretiens, tâches, documents des joueurs).</p>
         </div>
     </div>
 
@@ -163,8 +163,12 @@
                     <label>Email</label>
                     <input type="email" name="email" required>
                 </div>
+                <div class="form-group">
+                    <label>Accès</label>
+                    <select name="scope">{% for k, lib in staff_scopes.items() %}<option value="{{ k }}">{{ lib }}</option>{% endfor %}</select>
+                </div>
                 <button type="submit" class="btn">Créer l'accès</button>
-                <p class="docs-hint">{{ icons.idea() }} Un mot de passe par défaut est attribué automatiquement (affiché juste après la création, à transmettre à la personne). À sa première connexion, elle devra obligatoirement en choisir un personnel avant d'accéder au cahier d'entraînement.</p>
+                <p class="docs-hint">{{ icons.idea() }} Un mot de passe par défaut est attribué automatiquement (affiché juste après la création, à transmettre à la personne). À sa première connexion, elle devra obligatoirement en choisir un personnel avant d'accéder au site.</p>
             </form>
         </details>
     </div>
@@ -187,7 +191,13 @@
                 <tr>
                     <td class="docs-td-name demo-sensitive">{{ membre['first_name'] }} {{ membre['last_name'] }}</td>
                     <td class="demo-sensitive">{{ membre['email'] }}</td>
-                    <td><span class="ppid-badge">Cahier d'entraînement</span></td>
+                    <td>
+                        <form method="POST" action="{{ url_for('admin_staff_scope', staff_id=membre['id']) }}" class="staff-scope-form">
+                            <select name="scope" onchange="this.form.submit()" title="Changer l'accès">
+                                {% for k, lib in staff_scopes.items() %}<option value="{{ k }}" {{ 'selected' if membre['scope'] == k }}>{{ lib }}</option>{% endfor %}
+                            </select>
+                        </form>
+                    </td>
                     <td>
                         {% if membre['must_change_password'] %}
                         <span class="ppid-badge ppid-badge-warn">En attente (défaut)</span>
@@ -212,7 +222,7 @@
         </table>
     </div>
     {% else %}
-    <div class="empty-state"><p>Aucun accès « cahier d'entraînement » pour le moment.</p></div>
+    <div class="empty-state"><p>Aucun accès staff pour le moment.</p></div>
     {% endif %}
 </section>
 

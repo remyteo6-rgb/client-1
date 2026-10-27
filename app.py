@@ -220,13 +220,18 @@ STAFF_CHANGER_MDP_ENDPOINTS = {
 }
 
 
+# Portée d'un accès staff créé depuis le site : « complet » = voit tout le site (analyse vidéo, stats, effectif,
+# calendrier, documents, cahier) sans les actions réservées à l'admin ; « cahier » = cahier d'entraînement seul.
+STAFF_SCOPES = {"complet": "Tout le site", "cahier": "Cahier d'entraînement seul"}
+
+
 @app.before_request
 def gate_staff_cahier():
-    if session.get("staff_scope") != "cahier" or not request.endpoint:
+    if session.get("staff_scope") not in STAFF_SCOPES or not request.endpoint:
         return
     if session.get("staff_must_change_password") and request.endpoint not in STAFF_CHANGER_MDP_ENDPOINTS:
         return redirect(url_for("staff_changer_mdp"))
-    if request.endpoint in STAFF_CAHIER_ALLOWED_ENDPOINTS:
+    if session.get("staff_scope") != "cahier" or request.endpoint in STAFF_CAHIER_ALLOWED_ENDPOINTS:
         return
     return redirect(url_for("cahier_charges"))
 
@@ -764,7 +769,9 @@ def login():
                     flash(f"Bienvenue {staff['first_name']} ! Choisis ton propre mot de passe avant de continuer.", "success")
                     return redirect(url_for("staff_changer_mdp"))
                 flash("Connecté.", "success")
-                return redirect(url_for("cahier_charges"))
+                if staff["scope"] == "cahier":
+                    return redirect(url_for("cahier_charges"))
+                return redirect(next_target)
             _connexion_ratee(ip)
             flash("Email ou mot de passe incorrect.", "error")
             return render_template("login.html", next_url=next_url)
@@ -1158,6 +1165,12 @@ def init_db():
     # bons critères de la grille d'octobre 2026 (une seule fois).
     _ppid_migrer_grille_2026(db)
     _migrer_talonneur_pourcentages(db)
+    # Octobre 2026 : les accès donnés aux coachs voient tout le site (une seule fois ; réglable ensuite par accès).
+    db.execute("CREATE TABLE IF NOT EXISTS app_migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL)")
+    if not db.execute("SELECT 1 FROM app_migrations WHERE name = 'staff_acces_complet_2026'").fetchone():
+        db.execute("UPDATE staff_accounts SET scope = 'complet' WHERE scope = 'cahier'")
+        db.execute("INSERT INTO app_migrations (name, applied_at) VALUES ('staff_acces_complet_2026', %s)",
+                   (datetime.utcnow().isoformat(),))
     # Groupes de joueurs par défaut (l'admin peut en ajouter d'autres ensuite).
     for default_group in ("Avants", "Trois-quarts"):
         db.execute(
@@ -7496,7 +7509,7 @@ def admin_joueurs():
     staff_accounts = db.execute(
         "SELECT * FROM staff_accounts ORDER BY last_name, first_name"
     ).fetchall()
-    return render_template("admin_joueurs.html", groups=groups, players=players,
+    return render_template("admin_joueurs.html", staff_scopes=STAFF_SCOPES, groups=groups, players=players,
                            ppid_positions=PPID_POSITIONS, staff_accounts=staff_accounts)
 
 
@@ -8031,11 +8044,12 @@ def admin_staff_ajouter():
     if db.execute("SELECT 1 FROM players WHERE email = %s", (email,)).fetchone():
         flash("Cet email est déjà celui d'un compte joueur.", "error")
         return redirect(url_for("admin_joueurs"))
+    scope = request.form.get("scope") if request.form.get("scope") in STAFF_SCOPES else "complet"
     db.execute(
         """INSERT INTO staff_accounts
            (first_name, last_name, email, password_hash, scope, created_by, created_at, must_change_password)
-           VALUES (%s, %s, %s, %s, 'cahier', %s, %s, TRUE)""",
-        (first_name, last_name, email, generate_password_hash(STAFF_DEFAULT_PASSWORD),
+           VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE)""",
+        (first_name, last_name, email, generate_password_hash(STAFF_DEFAULT_PASSWORD), scope,
          session.get("user_email", ""), datetime.utcnow().isoformat()),
     )
     db.commit()
@@ -8066,7 +8080,7 @@ def staff_changer_mdp():
     """Étape obligatoire à la première connexion d'un accès staff (ou après une
     réinitialisation) : impossible d'atteindre le cahier d'entraînement tant que ce
     mot de passe par défaut n'a pas été remplacé par un mot de passe personnel."""
-    if session.get("staff_scope") != "cahier":
+    if session.get("staff_scope") not in STAFF_SCOPES:
         abort(404)
     if request.method == "POST":
         nouveau = request.form.get("password", "")
@@ -8088,8 +8102,25 @@ def staff_changer_mdp():
         db.commit()
         session["staff_must_change_password"] = False
         flash("Mot de passe personnel enregistré — ressers-t'en pour te reconnecter la prochaine fois.", "success")
-        return redirect(url_for("cahier_charges"))
+        return redirect(url_for("cahier_charges") if session.get("staff_scope") == "cahier" else url_for("landing"))
     return render_template("staff_changer_mdp.html")
+
+
+@app.route("/admin/staff/<int:staff_id>/portee", methods=["POST"])
+@admin_required
+def admin_staff_scope(staff_id):
+    scope = request.form.get("scope")
+    if scope not in STAFF_SCOPES:
+        abort(400)
+    db = get_db()
+    staff = db.execute("SELECT * FROM staff_accounts WHERE id = %s", (staff_id,)).fetchone()
+    if not staff:
+        abort(404)
+    db.execute("UPDATE staff_accounts SET scope = %s WHERE id = %s", (scope, staff_id))
+    db.commit()
+    flash(f"Accès de {staff['first_name']} {staff['last_name']} : {STAFF_SCOPES[scope].lower()} "
+          f"(effectif à sa prochaine connexion).", "success")
+    return redirect(url_for("admin_joueurs"))
 
 
 @app.route("/admin/staff/<int:staff_id>/supprimer", methods=["POST"])

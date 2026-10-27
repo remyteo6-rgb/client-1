@@ -3582,3 +3582,4 @@ body.slide-fs-on { overflow: hidden; }
 .cr-stats > div.cr-chrono { grid-column: 1 / -1; background: #fbf3e4; } .cr-chrono strong { color: #b8730f; }
 .cr-lecture { margin: 12px 14px 0; font-size: 14px; font-weight: 700; color: #1b2540; line-height: 1.45; }
 .cr-stats span b { color: #1b2540; }
+.staff-scope-form select { padding: 4px 8px; border-radius: 4px; border: 1px solid #c9bfb2; font: inherit; font-size: 13px; background: #fff; }
