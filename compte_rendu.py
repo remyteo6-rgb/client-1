@@ -64,6 +64,7 @@ class _Match:
         self.adv = _normalize_tag(_detect_adverse_token(ins) or "ADV")
         self.ev = defaultdict(list)
         self.zones = []
+        self.zones_eq = []
         for i in ins:
             t = _normalize_tag(i.get("code_raw")).split()
             if not t:
@@ -79,6 +80,8 @@ class _Match:
                 z = _BANDE_EUX[t[1]]
             if z:
                 self.zones.append((s, e, z, i))
+                # Qui a le ballon dans ce segment de zone : zone nue = nous ; « A » ou préfixe adverse = eux.
+                self.zones_eq.append((s, e, z, "own" if len(t) == 1 else "adv"))
                 continue
             side = "own" if t[0] == "UBB" else ("adv" if (t[0] == self.adv or t[0] in ("ADV", "ADVERSE")) else None)
             if side and len(t) >= 2:
@@ -283,6 +286,22 @@ class _Match:
             out.append({"s": ce["s"], "recup": bool(pdb or nous)})
         return out
 
+    def _recup_camp_adverse(self, g, suivant):
+        """Après une marque : secondes entre la réception du renvoi et le premier moment où l'équipe qui a marqué
+        a de nouveau le ballon dans le camp adverse (segment de zone Rumble / Gold à elle, dans son sens).
+        None si pas de renvoi codé ; « non » si ça n'arrive pas avant la marque suivante (10 min au plus)."""
+        cle = ("own", "RCE") if g["side"] == "own" else ("adv", "RCE")
+        rce = next((ev for ev in self.ev[cle] if ev["s"] > g["t"]), None)
+        if rce is None or rce["s"] - g["t"] > 240:
+            return None
+        t0 = rce["s"] + 4   # réception du coup d'envoi
+        fin = min(suivant["t"] if suivant else 1e12, t0 + 600)
+        camp = (Z_RUMBLE, Z_GOLD) if g["side"] == "own" else (Z_COP, Z_ROUGE)
+        debuts = [zs for zs, ze, z, eq in self.zones_eq if eq == g["side"] and z in camp and ze >= t0 and zs <= fin]
+        if not debuts:
+            return "non"
+        return max(0.0, min(debuts) - t0)
+
     # --- après un score -----------------------------------------------------------------------
     def apres_scores(self):
         """Pour chaque score (essai + transfo regroupés), ce qui se passe ensuite."""
@@ -304,6 +323,7 @@ class _Match:
             marques = sum(sc["pts"] for sc in self.scores if sc["side"] == "own" and g["t"] + 1 < sc["t"] <= fen)
             r = {"side": g["side"], "pts": g["pts"], "minute": self.minute(g["t"]), "pris5": pris, "marques5": marques,
                  "suivant": (suivant["side"] if suivant else None)}
+            r["recup_camp_adv"] = self._recup_camp_adverse(g, suivant)
             if g["side"] == "own":
                 # On reçoit le renvoi : notre première possession derrière.
                 rce = next((ev for ev in self.ev[("own", "RCE")] if ev["s"] > g["t"]), None)
@@ -316,6 +336,16 @@ class _Match:
                 r["recupere"] = rv["recup"] if rv else None
             out.append(r)
         return out
+
+
+def _delais(lst):
+    """Temps moyen (et médian) de récupération dans le camp adverse après les marques de `lst`."""
+    d = sorted(r["recup_camp_adv"] for r in lst if isinstance(r.get("recup_camp_adv"), float))
+    non = sum(1 for r in lst if r.get("recup_camp_adv") == "non")
+    fmt = lambda x: f"{int(x // 60)}:{int(round(x % 60)):02d}" if x is not None else "—"
+    moy = sum(d) / len(d) if d else None
+    med = d[len(d) // 2] if d else None
+    return {"n": len(d), "non": non, "moy": fmt(moy), "med": fmt(med), "moy_s": moy}
 
 
 def _pct(a, b):
@@ -461,6 +491,7 @@ def compte_rendu(selected):
         "eux_reponse": sum(1 for r in eux if r["suivant"] == "own"),
         "eux_encore": sum(1 for r in eux if r["suivant"] == "adv"),
         "eux_marques5": sum(r["marques5"] for r in eux),
+        "nous_recup": _delais(nous), "eux_recup_camp": _delais(eux),
         "eux_pris5": sum(r["pris5"] for r in eux),
     }
 

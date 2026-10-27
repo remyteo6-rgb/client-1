@@ -401,6 +401,7 @@
                 <div><strong>{{ a.nous_enchaine }} / {{ a.nous_n }}</strong><span>fois le score suivant est encore pour nous</span></div>
                 <div><strong>{{ a.nous_rend }} / {{ a.nous_n }}</strong><span>fois l'adversaire marque juste derrière</span></div>
                 <div><strong>{{ a.nous_pris5 }}</strong><span>points encaissés dans les 3 minutes ({{ a.nous_pris5_n }} fois)</span></div>
+                <div class="cr-chrono"><strong>{{ a.nous_recup.moy }}</strong><span>temps moyen pour avoir de nouveau le ballon dans le camp adverse (médiane {{ a.nous_recup.med }} · {{ a.nous_recup.n }} marques{% if a.nous_recup.non %} ; {{ a.nous_recup.non }} fois pas avant la marque suivante{% endif %})</span></div>
             </div>
             <div class="sf-panel-head cr-sub">NOTRE PREMIÈRE POSSESSION SUR LE RENVOI</div>
             {% set coul = {'Jeu au pied': '#5b6472', 'Ballon perdu': '#c4453a', 'Arrêt de jeu, ballon rendu': '#f0a39b', 'Pénalité concédée': '#e0705f', 'Arrêt de jeu, ballon gardé': '#a7adb8', 'Pénalité obtenue': '#7fb88f', 'Essai': '#2f7d46', 'Autre arrêt': '#d5d8de', 'Non retrouvée': '#ecedf0'} %}
@@ -414,10 +415,11 @@
                 <div><strong>{{ a.eux_reponse }} / {{ a.eux_n }}</strong><span>fois on répond avec le score suivant</span></div>
                 <div><strong>{{ a.eux_encore }} / {{ a.eux_n }}</strong><span>fois l'adversaire marque encore derrière</span></div>
                 <div><strong>{{ a.eux_marques5 }}</strong><span>points marqués dans les 3 minutes</span></div>
+                <div class="cr-chrono"><strong>{{ a.eux_recup_camp.moy }}</strong><span>temps moyen pour que l'adversaire ait de nouveau le ballon dans notre camp (médiane {{ a.eux_recup_camp.med }} · {{ a.eux_recup_camp.n }} marques{% if a.eux_recup_camp.non %} ; {{ a.eux_recup_camp.non }} fois pas avant la marque suivante{% endif %})</span></div>
             </div>
         </div>
     </div>
-    <p class="sty-obs">Une marque = un essai et sa transformation (réussie ou manquée), ou une pénalité / un drop réussi. « 3 minutes » = les 3 minutes qui suivent la marque, comptées après la transformation pour un essai.</p>
+    <p class="sty-obs">Une marque = un essai et sa transformation (réussie ou manquée), ou une pénalité / un drop réussi. « 3 minutes » = les 3 minutes qui suivent la marque, comptées après la transformation pour un essai. Temps moyen : chrono vidéo lancé à la réception du coup d'envoi qui suit la marque, arrêté dès que l'équipe qui a marqué a le ballon en Zone Rumble ou Gold (camp adverse, d'après les zones codées).</p>
 </div>
 
 <div class="card cr-methode no-print">

@@ -3579,3 +3579,4 @@ body.slide-fs-on { overflow: hidden; }
 .cr-ubb { background: #6b1a2b; } .cr-adv { background: #5b6472; }
 .sty-ban-adv { background: #5b6472; }
 .rd-fam-txt { font-size: 13px; font-weight: 800; letter-spacing: .14em; font-family: var(--font-display, inherit); }
+.cr-stats > div.cr-chrono { grid-column: 1 / -1; background: #fbf3e4; } .cr-chrono strong { color: #b8730f; }
