@@ -140,8 +140,10 @@
         <div class="sf-panel rd-panel">
             <div class="sf-panel-head">PROFIL COMPLET · 16 INDICATEURS, 4 FAMILLES</div>
             <p class="rd-sub">Plus le point est loin du centre, mieux c'est. Valeur réelle écrite sous chaque indicateur.</p>
-            <svg viewBox="-150 -10 820 540" class="rd-svg" role="img" aria-label="Radar du profil d'équipe">
-                {% for a in radar.arcs %}<path d="{{ a.d }}" fill="{{ a.col }}"/>{% endfor %}
+            <svg viewBox="-160 -25 840 570" class="rd-svg" role="img" aria-label="Radar du profil d'équipe">
+                {% for a in radar.arcs %}<path d="{{ a.d }}" fill="{{ a.col }}"/>
+                <path id="{{ a.id }}" d="{{ a.texte }}" fill="none"/>
+                <text class="rd-fam-txt" fill="{{ a.txtcol }}"><textPath href="#{{ a.id }}" startOffset="50%" text-anchor="middle">{{ a.fam|upper }}</textPath></text>{% endfor %}
                 {% for r in radar.rings %}<circle cx="{{ radar.cx }}" cy="{{ radar.cy }}" r="{{ r }}" fill="none" stroke="#c9c2c0" stroke-width="1"/>{% endfor %}
                 {% for ax in radar.axes %}<line x1="{{ radar.cx }}" y1="{{ radar.cy }}" x2="{{ ax.end[0] }}" y2="{{ ax.end[1] }}" stroke="#d9d3cf" stroke-width="1"/>{% endfor %}
                 <polygon points="{{ radar.poly }}" fill="rgba(122,31,61,.32)" stroke="#5a1430" stroke-width="3" stroke-linejoin="round"/>
@@ -151,7 +153,6 @@
                 <text x="{{ ax.lab[0] }}" y="{{ ax.lab[1] + 14 }}" text-anchor="{{ ax.anchor }}" class="rd-val">{{ fmt(ax.val, ax.dec, ax.unite) }}</text>
                 {% endfor %}
             </svg>
-            <div class="rd-leg">{% for f in radar.lecture %}<span><i style="background:{{ f.col }}"></i>{{ f.fam }}</span>{% endfor %}</div>
         </div>
         <div class="sf-panel rd-panel">
             <div class="sf-panel-head">LE PROFIL</div>

@@ -4425,7 +4425,7 @@ def _radar_equipe(selected, cr):
         v = vals.get(key)
         sc = None if v is None else max(0.0, min(1.0, (v - lo) / (hi - lo)))
         r = R * (sc if sc is not None else 0)
-        lx, ly = cx + (R + 30) * math.cos(a), cy + (R + 30) * math.sin(a) + (-6 if math.sin(a) < -0.9 else (8 if math.sin(a) > 0.9 else 0))
+        lx, ly = cx + (R + 40) * math.cos(a), cy + (R + 40) * math.sin(a) + (-6 if math.sin(a) < -0.9 else (8 if math.sin(a) > 0.9 else 0))
         axes.append({"key": key, "label": label, "fam": fam, "val": v, "score": sc, "dec": dec, "unite": unite,
                      "lo": lo, "hi": hi, "staff": staff,
                      "end": (round(cx + R * math.cos(a), 1), round(cy + R * math.sin(a), 1)),
@@ -4442,11 +4442,21 @@ def _radar_equipe(selected, cr):
         idx = [k for k, ax in enumerate(RADAR_EQUIPE) if ax[2] == fam]
         a0 = -math.pi / 2 + 2 * math.pi * idx[0] / n
         a1 = -math.pi / 2 + 2 * math.pi * (idx[-1] + 1) / n
-        ro, ri = R + 16, R + 4
+        ro, ri = R + 26, R + 4
         p = lambda rr, aa: f"{cx + rr * math.cos(aa):.1f},{cy + rr * math.sin(aa):.1f}"
         d = (f"M{p(ro, a0)} A{ro},{ro} 0 0 1 {p(ro, a1)} L{p(ri, a1)} A{ri},{ri} 0 0 0 {p(ri, a0)} Z")
         am = (a0 + a1) / 2
-        arcs.append({"fam": fam, "col": col, "d": d})
+        # Nom de la famille écrit dans l'anneau (comme le profil du staff) : chemin dans le sens de lecture —
+        # horaire en haut (lettres vers l'extérieur), anti-horaire en bas (lettres vers le centre).
+        if math.sin(am) < 0:
+            rt = ri + 7
+            texte = f"M{p(rt, a0)} A{rt},{rt} 0 0 1 {p(rt, a1)}"
+        else:
+            rt = ro - 7
+            texte = f"M{p(rt, a1)} A{rt},{rt} 0 0 0 {p(rt, a0)}"
+        clair = fam in ("Conquête", "Jeu au pied")
+        arcs.append({"fam": fam, "col": col, "d": d, "texte": texte, "id": f"rd-fam-{i}",
+                     "txtcol": "#3a0d1f" if clair else "#ffffff"})
     poly = " ".join(f"{ax['pt'][0]},{ax['pt'][1]}" for ax in axes)
     lecture = []
     for fam, col in RADAR_FAMILLES:
