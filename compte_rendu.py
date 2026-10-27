@@ -91,6 +91,13 @@ class _Match:
             self.scores.append({"side": "own" if sc["side"] == "own" else "adv", "kind": sc["kind"], "pts": sc["points"], "t": t})
         self.scores.sort(key=lambda x: x["t"])
         self.poss = [{"s": p["s"], "e": p["e"]} for p in self.ev[("own", "POSSESSION")]]
+        # Notre coup d'envoi : la « possession UBB » codée pendant le vol du ballon (quelques secondes,
+        # jusqu'à la réception adverse « <ADV> RCE ») n'est pas une vraie possession. On l'écarte, sinon elle
+        # compte comme une possession sans points (18 sur la saison, 0 point).
+        rce_adv = self.ev[("adv", "RCE")]
+        vols = [p for p in self.poss if p["e"] - p["s"] < 6 and any(ev["s"] - 1 <= p["s"] <= ev["s"] + 10 for ev in rce_adv)]
+        self.vols_renvoi = len(vols)
+        self.poss = [p for p in self.poss if p not in vols]
         self.poss_adv = [{"s": p["s"], "e": p["e"]} for p in self.ev[("adv", "POSSESSION")]]
         self._possessions()
 
@@ -139,7 +146,12 @@ class _Match:
             if any(i == "Pénalité obtenue" for _t, i in c):
                 p["issue"] = "Pénalité obtenue"
             else:
-                p["issue"] = min(c)[1]
+                t0, issue = min(c)
+                # Faute en attaque : Téo code aussi la perte de balle qui en découle, au même instant.
+                # La cause est la pénalité, pas la perte.
+                if issue != "Pénalité concédée" and any(i == "Pénalité concédée" and abs(t - t0) <= 4 for t, i in c):
+                    issue = "Pénalité concédée"
+                p["issue"] = issue
         # Points : toute action de score à nous entre le début de la possession et le début de la suivante.
         for sc in self.scores:
             if sc["side"] != "own" or not sc["pts"]:
@@ -265,6 +277,20 @@ def compte_rendu(selected):
     tot = len(P)
     issues_l = [{"nom": n, "n": issues.get(n, 0), "pct": _pct(issues.get(n, 0), tot), "ton": ISSUE_TON[n]} for n in ISSUES]
     pts_tot = sum(p["pts"] for p in P)
+    # Toutes nos pertes de balle codées (« UBB PDB ») : combien terminent vraiment une possession.
+    pdb_det = Counter()
+    for x in ms:
+        vus = set()
+        for ev in x.ev[("own", "PDB")]:
+            p = x.poss_at(ev["t"])
+            if p is None:
+                pdb_det["hors"] += 1
+            elif id(p) in vus:
+                pdb_det["autre"] += 1
+            else:
+                vus.add(id(p))
+                pdb_det[{"Ballon perdu": "fin", "Pénalité concédée": "faute"}.get(p["issue"], "autre")] += 1
+    pdb_det["total"] = sum(pdb_det.values())
     perte_zone = Counter(p["z1"] or "Zone non codée" for p in P if p["issue"] == "Ballon perdu")
     pertes_zone = [{"z": z, "n": perte_zone.get(z, 0)} for z in BANDES + ["Zone non codée"] if perte_zone.get(z)]
     par_zone_depart = []
@@ -286,18 +312,24 @@ def compte_rendu(selected):
                          "pts": round(sum(p["pts"] for p in lst) / len(lst), 2),
                          "essais": sum(p["essais"] for p in lst),
                          "issues": {n: _pct(c.get(n, 0), len(lst)) for n in ISSUES}})
-    utiles = [o for o in origines if o["n"] >= 5]
+    utiles = [o for o in origines if o["n"] >= 10 and o["nom"] != "Jeu continu / autre"]
     meilleure = max(utiles, key=lambda o: o["pts"]) if utiles else None
     pire = min(utiles, key=lambda o: o["pts"]) if utiles else None
 
     # 4. Zone Gold
-    gold = {"entrees": 0, "points": 0, "res": Counter(), "orig": defaultdict(lambda: [0, 0]), "liste": [], "avec_points": 0, "ratios": []}
+    gold = {"entrees": 0, "points": 0, "res": Counter(), "orig": defaultdict(lambda: [0, 0]), "liste": [], "avec_points": 0, "ratios": [], "pen_sans_points": 0, "pen_puis_essai": 0}
     for x in ms:
         g = (compute_zone_gold_log(x.m["instances"]) or {}).get("own") or {}
         for r in g.get("rows") or []:
             gold["entrees"] += 1
             pts = r.get("points") or 0
             gold["avec_points"] += 1 if pts else 0
+            if not pts and _normalize_tag(r.get("result")) in ("PENALITE POUR", "PENALITES POUR"):
+                gold["pen_sans_points"] += 1
+                # Pénalité jouée en touche : l'essai arrive souvent sur l'entrée SUIVANTE (dans les 4 min de vidéo).
+                fin = float(r.get("end") or s)
+                if any(sc["side"] == "own" and sc["kind"] == "tries" and fin - 5 <= sc["t"] <= fin + 240 for sc in x.scores):
+                    gold["pen_puis_essai"] += 1
             res = (r.get("result_display") or r.get("result") or "?").capitalize()
             gold["res"][res] += 1
             s = float(r.get("start") or 0)
@@ -375,8 +407,35 @@ def compte_rendu(selected):
         "eux_pris5": sum(r["pris5"] for r in eux),
     }
 
-    return {"nb": len(ms), "possessions": tot, "poss_par_match": round(tot / nb, 1), "pts_par_poss": round(pts_tot / tot, 2) if tot else None,
-            "pts_tot": pts_tot, "issues": issues_l, "issues_items": [(r["nom"], r["n"]) for r in issues_l], "pertes_zone": pertes_zone, "par_zone_depart": par_zone_depart,
+    # Messages clés : 5 phrases chiffrées pour le staff, tirées des blocs ci-dessous.
+    messages = []
+    if meilleure and pire and meilleure["nom"] != pire["nom"] and tot:
+        messages.append(f"Notre meilleur ballon est la {meilleure['nom'].lower()} : {meilleure['pts']:.2f} point par possession, "
+                        f"contre {pts_tot / tot:.2f} en moyenne et {pire['pts']:.2f} sur {pire['nom'].lower()}.")
+    if gold["entrees"]:
+        res = dict(gold["res_l"])
+        perdues = res.get("Perte de balle", 0) + res.get("Pénalité contre", 0)
+        messages.append(f"Zone Gold : {perdues} entrées sur {gold['entrees']} rendues à l'adversaire "
+                        f"({res.get('Perte de balle', 0)} pertes de balle, {res.get('Pénalité contre', 0)} pénalités contre). "
+                        f"Sur {gold['pen_sans_points']} pénalités obtenues jouées en touche, {gold['pen_puis_essai']} ont donné un essai juste après.")
+    if pens and pts_encaisses:
+        pic = max(pen_tranches, key=lambda r: r["n"])
+        messages.append(f"{round(100 * cout_tot / pts_encaisses)} % des points encaissés arrivent juste après une de nos pénalités. "
+                        f"Pic de fautes entre {pic['t']} min ({pic['n']}).")
+    perdu = issues.get("Ballon perdu", 0) + issues.get("Pénalité concédée", 0)
+    if tot and perdu:
+        z = max(pertes_zone, key=lambda r: r["n"])["z"] if pertes_zone else None
+        messages.append(f"{round(100 * perdu / tot)} % de nos possessions se terminent par un ballon rendu ou une faute"
+                        + (f", le plus souvent dans {z.lower()}." if z and z != "Zone non codée" else "."))
+    if nous:
+        txt = f"Après avoir marqué, l'adversaire marque juste derrière {sum(1 for r in nous if r['suivant'] == 'adv')} fois sur {len(nous)}"
+        n_rec = sum(1 for r in eux if r.get("recupere") is not None)
+        if n_rec:
+            txt += f" ; on récupère {sum(1 for r in eux if r.get('recupere'))} de nos {n_rec} renvois"
+        messages.append(txt + ".")
+
+    return {"nb": len(ms), "messages": messages, "possessions": tot, "vols_renvoi": sum(x.vols_renvoi for x in ms), "poss_par_match": round(tot / nb, 1), "pts_par_poss": round(pts_tot / tot, 2) if tot else None,
+            "pts_tot": pts_tot, "pdb_det": dict(pdb_det), "issues": issues_l, "issues_items": [(r["nom"], r["n"]) for r in issues_l], "pertes_zone": pertes_zone, "par_zone_depart": par_zone_depart,
             "zones_codees": any(x.zones for x in ms),
             "origines": origines, "meilleure": meilleure, "pire": pire, "gold": gold,
             "vitesse": vit, "rucks": tr,

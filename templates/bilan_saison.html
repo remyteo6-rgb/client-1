@@ -63,16 +63,22 @@
         <div><strong>{{ fmt(cr.pts_par_poss, 2) }}</strong><span>Points par possession</span></div>
         <div><strong>{{ fmt(cr.gold.pts_entree, 2) }}</strong><span>Points par entrée (22)</span></div>
     </div>
+    {% if cr.messages %}
+    <div class="sf-panel cr-msgs">
+        <div class="sf-panel-head">CE QU'IL FAUT RETENIR</div>
+        <ol>{% for m in cr.messages %}<li>{{ m }}</li>{% endfor %}</ol>
+    </div>
+    {% endif %}
     <div class="sty-two sty-cols">
         <div class="sf-panel">
-            <div class="sty-ban sty-ban-g">POINTS FORTS</div>
+            <div class="sty-ban sty-ban-g">OBJECTIF ATTEINT OU EN PROGRÈS</div>
             {% for l in tb.forces %}
             <div class="cr-fa"><strong>{{ l.label }}</strong><span>{{ fmt(l.val, l.dec, l.unite) }}
                 {% if l.cible is not none %}· objectif {{ fmt(l.cible, l.dec, l.unite) }}{% elif mode_match %}· moyenne {{ fmt(l.moy_ref, l.dec, l.unite) }}{% else %}· en progrès sur les derniers matchs{% endif %}</span></div>
             {% else %}<p class="cr-vide">{% if season_mode and not tb.nb_cibles %}Fixe des objectifs (en bas du tableau) pour faire ressortir les points forts.{% else %}Aucun critère au-dessus de la référence.{% endif %}</p>{% endfor %}
         </div>
         <div class="sf-panel">
-            <div class="sty-ban sty-ban-r">AXES DE TRAVAIL</div>
+            <div class="sty-ban sty-ban-r">OBJECTIF RATÉ OU EN RECUL</div>
             {% for l in tb.axes %}
             <div class="cr-fa"><strong>{{ l.label }}</strong><span>{{ fmt(l.val, l.dec, l.unite) }}
                 {% if l.cible is not none %}· objectif {{ fmt(l.cible, l.dec, l.unite) }}{% elif mode_match %}· moyenne {{ fmt(l.moy_ref, l.dec, l.unite) }}{% else %}· en baisse sur les derniers matchs{% endif %}</span></div>
@@ -107,7 +113,7 @@
         </div>
         <p class="sty-obs"><span class="cr-dot cr-ok"></span> objectif atteint · <span class="cr-dot cr-proche"></span> à moins de 10 % · <span class="cr-dot cr-ko"></span> raté.
             {% if not mode_match %}Barres : un match chacune, dans l'ordre chronologique ; ▲ / ▼ = les 2 derniers matchs comparés aux précédents.{% endif %}
-            Points forts et axes : d'abord l'écart à l'objectif, sinon {{ 'l’écart à la moyenne de la saison' if mode_match else 'l’évolution récente' }}.</p>
+            Les deux encadrés du haut parlent de direction (objectif, évolution sur les 2 derniers matchs), pas de niveau : le niveau de chaque secteur est dans le radar « Notre profil ».</p>
         {% if is_admin %}
         <details class="cr-cibles no-print">
             <summary>Fixer les objectifs du club</summary>
@@ -213,7 +219,9 @@
             {% set perdu = (cr.issues|selectattr('nom', 'equalto', 'Ballon perdu')|first) %}
             {% set pc = (cr.issues|selectattr('nom', 'equalto', 'Pénalité concédée')|first) %}
             <p class="sty-obs">{{ cr.pts_tot }} points marqués sur {{ cr.possessions }} possessions ({{ fmt(cr.pts_par_poss, 2) }} par possession).
-                {{ (perdu.pct or 0) + (pc.pct or 0) }} % de nos possessions se terminent par un ballon rendu ou une pénalité contre nous.</p>
+                {{ (perdu.pct or 0) + (pc.pct or 0) }} % de nos possessions se terminent par un ballon rendu ou une pénalité contre nous.
+                {% set d = cr.pdb_det %}{% if d.total %}<br>Pertes de balle codées : {{ d.total }} ({{ (d.total / n)|round(1) }} par match). {{ d.fin or 0 }} terminent la possession ; {{ d.faute or 0 }} vont avec une faute en attaque (comptées en « pénalité concédée ») ; {{ d.hors or 0 }} sont hors d'une possession codée ; {{ d.autre or 0 }} autres (avantage, contre-ruck…).{% endif %}
+                {% if cr.vols_renvoi %}<br>{{ cr.vols_renvoi }} « possessions » de quelques secondes pendant le vol de nos coups d'envoi sont écartées.{% endif %}</p>
         </div>
         <div class="sf-panel">
             <div class="sf-panel-head">OÙ ON PERD LE BALLON</div>
@@ -276,7 +284,8 @@
             <div class="cr-pad">{% for r in cr.gold.orig_l %}
                 <div class="sty-hb cr-hb3"><span>{{ r.nom }} <small>({{ r.n }})</small></span><div class="sty-hb-bar"><span class="sty-g" style="width:{{ (100 * r.pts / mxg) if mxg else 0 }}%"></span></div><span class="sty-hb-v">{{ fmt(r.pts, 2) }}</span></div>
             {% else %}<p class="cr-vide">Aucune entrée codée.</p>{% endfor %}</div>
-            <p class="sty-obs">Entre parenthèses : nombre d'entrées. Le ballon de départ est celui de la possession pendant laquelle on entre dans les 22.</p>
+            <p class="sty-obs">Entre parenthèses : nombre d'entrées. Le ballon de départ est celui de la possession pendant laquelle on entre dans les 22.
+                {% if cr.gold.pen_sans_points %}« Entrées sans points » compte aussi {{ cr.gold.pen_sans_points }} pénalités obtenues jouées en touche : la touche relance une nouvelle entrée, et {{ cr.gold.pen_puis_essai }} ont donné un essai juste après. Les entrées vraiment rendues à l'adversaire sont les pertes de balle et pénalités contre.{% endif %}</p>
         </div>
     </div>
     {% if cr.gold.liste %}
@@ -310,10 +319,10 @@
     {{ entete('LE BALLON', 'RÉCUPÉRATIONS, JEU AU PIED, AIR') }}
     <div class="sty-grid">
         <div class="sf-panel">
-            <div class="sty-ban sty-ban-g">BALLONS RÉCUPÉRÉS</div>
+            <div class="sty-ban sty-ban-g">BALLONS PERDUS PAR L'ADVERSAIRE</div>
             <div class="sty-bigtot"><strong>{{ tg }}</strong> total · <strong>{{ (tg / n)|round(1) }}</strong> par match</div>
             {{ donut(sj.pdb_adv) }}
-            <p class="sty-obs">Ballons perdus par l'adversaire, par type. Nos ballons perdus sont dans « Nos possessions » (où et comment).</p>
+            <p class="sty-obs">Toutes les pertes de balle adverses codées, par type (en-avant, ruck, contact…). Nos propres pertes sont dans « Nos possessions ».</p>
         </div>
         <div class="sf-panel">
             <div class="sty-ban sty-ban-n">NOTRE JEU AU PIED</div>

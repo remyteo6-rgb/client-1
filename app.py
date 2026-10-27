@@ -4323,19 +4323,19 @@ def _cr_render(selected, reference, mode_match, ctx):
 # (clé, libellé, famille, plancher, plafond, décimales, unité, équivalent dans le profil du staff)
 RADAR_EQUIPE = [
     ("casses_porteur", "Plaquages cassés / porteur", "Attaque", 0, 0.35, 2, "", "Tackle breaks / carry"),
-    ("ligne_avantage", "Ligne d'avantage gagnée", "Attaque", 0, 60, 0, " %", "PCM / carry (mètres après contact non codés)"),
+    ("ligne_avantage", "Ligne d'avantage gagnée", "Attaque", 0, 60, 0, " %", "PCM / carry (mètres après contact non codés) — codes « UBB GLA », peu nombreux"),
     ("dominance", "Contacts dominants", "Attaque", 0, 60, 0, " %", "% DVD"),
     ("pts_entree", "Points / entrée (22)", "Attaque", 0, 5, 2, "", "PPR ratio"),
     ("franchi_subis", "Franchissements subis / match", "Défense", 8, 0, 1, "", "Opp ruck speed (non codée)"),
     ("plaquage_pct", "Plaquages réussis", "Défense", 60, 100, 0, " %", "% tackle success"),
     ("pts_entree_adv", "Points encaissés / entrée adverse", "Défense", 5, 0, 2, "", "PPR ratio against"),
-    ("grattages", "Ballons récupérés / match", "Défense", 0, 12, 1, "", "Jackals / game"),
+    ("grattages", "Ballons arrachés (grattage, interception) / match", "Défense", 0, 12, 1, "", "Jackals / game"),
     ("jap_qualite", "Jeu au pied de qualité (+)", "Jeu au pied", 20, 80, 0, " %", "% attacking kick"),
     ("aeriens", "Duels aériens gagnés", "Jeu au pied", 20, 90, 0, " %", "% aerial battle win"),
-    ("renvois", "Renvois récupérés", "Jeu au pied", 0, 60, 0, " %", "% contestable kick (non codé)"),
+    ("renvois", "Renvois récupérés", "Jeu au pied", 0, 30, 0, " %", "% contestable kick (non codé)"),
     ("occupation", "Occupation", "Jeu au pied", 30, 70, 0, " %", "Kick meter difference (non codée)"),
     ("touches", "Touches gagnées", "Conquête", 50, 100, 0, " %", "Lineout win"),
-    ("touches_volees", "Touches adverses volées / match", "Conquête", 0, 4, 1, "", "Lineout steal"),
+    ("touches_volees", "Touches adverses perdues / match", "Conquête", 0, 4, 1, "", "Lineout steal (vols non distingués des autres touches perdues)"),
     ("melees", "Mêlées gagnées", "Conquête", 50, 100, 0, " %", "Efficient maul (non codé)"),
     ("pen_melee", "Balance pénalités mêlée / match", "Conquête", -3, 3, 1, "", "Pen balance scrum"),
 ]
