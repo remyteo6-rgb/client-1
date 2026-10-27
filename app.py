@@ -4241,6 +4241,11 @@ def season_style():
     return redirect(url_for("season_bilan", m=request.args.getlist("m")))
 
 
+# Critères du tableau de bord du Bilan saison : ceux du club, sauf le Ball in play (temps de jeu effectif),
+# que l'équipe ne maîtrise pas — pas d'objectif dessus (demande de Téo).
+CR_CRITERES = [c for c in GP_CRITERES if c[0] != "bip"]
+
+
 def _cr_tableau(selected, reference, cibles, mode_match, pooled=None, ref_pooled=None):
     """Tableau de bord : chaque critère du club, sa valeur, l'objectif (s'il est fixé), la tendance
     match par match, et 3 points forts / 3 axes de travail tirés automatiquement.
@@ -4250,7 +4255,7 @@ def _cr_tableau(selected, reference, cibles, mode_match, pooled=None, ref_pooled
     sel = _cached_result("cr_vals", selected, lambda: vals(selected), copy_result=False)
     ref = _cached_result("cr_vals", reference, lambda: vals(reference), copy_result=False)
     lignes = []
-    for key, label, unite, dec, sens in GP_CRITERES:
+    for key, label, unite, dec, sens in CR_CRITERES:
         serie = [(m.get("opponent") or "?", v[key]) for m, v in ref if v.get(key) is not None]
         pts = [v[key] for _m, v in sel if v.get(key) is not None]
         if not pts:
@@ -4311,7 +4316,7 @@ def _cr_render(selected, reference, mode_match, ctx):
         ref_pooled = {"pts_poss": cr_ref["pts_par_poss"]}
     tb = _cr_tableau(selected, reference, cibles, mode_match,
                      pooled={"pts_poss": cr["pts_par_poss"]}, ref_pooled=ref_pooled)
-    return render_template("bilan_saison.html", cr=cr, tb=tb, cibles=cibles, criteres=GP_CRITERES, mode_match=mode_match,
+    return render_template("bilan_saison.html", cr=cr, tb=tb, cibles=cibles, criteres=CR_CRITERES, mode_match=mode_match,
                            bandes=compte_rendu.BANDES, issues_noms=compte_rendu.ISSUES, sj=_style_de_jeu(selected),
                            radar=_radar_equipe(selected, cr),
                            pen_joueurs=[dict(p, nom=_joueur_nom_affiche(p["name"])) for p in _discipline_joueurs_saison(selected)][:8],
