@@ -4312,7 +4312,141 @@ def _cr_render(selected, reference, mode_match, ctx):
     tb = _cr_tableau(selected, reference, cibles, mode_match,
                      pooled={"pts_poss": cr["pts_par_poss"]}, ref_pooled=ref_pooled)
     return render_template("bilan_saison.html", cr=cr, tb=tb, cibles=cibles, criteres=GP_CRITERES, mode_match=mode_match,
-                           bandes=compte_rendu.BANDES, issues_noms=compte_rendu.ISSUES, sj=_style_de_jeu(selected), **ctx)
+                           bandes=compte_rendu.BANDES, issues_noms=compte_rendu.ISSUES, sj=_style_de_jeu(selected),
+                           radar=_radar_equipe(selected, cr), **ctx)
+
+
+# ---- Radar d'équipe (Bilan saison · Notre profil) --------------------------------------------
+# Mêmes 16 indicateurs et mêmes 4 familles que le profil d'équipe du staff (radar « Team profile »).
+# Pas de base de données de championnat : chaque axe va d'un plancher (centre) à un plafond (bord)
+# fixés ici, et la valeur réelle est écrite sur le point. Plus le point est loin du centre, mieux c'est.
+# (clé, libellé, famille, plancher, plafond, décimales, unité, équivalent dans le profil du staff)
+RADAR_EQUIPE = [
+    ("casses_porteur", "Plaquages cassés / porteur", "Attaque", 0, 0.35, 2, "", "Tackle breaks / carry"),
+    ("ligne_avantage", "Ligne d'avantage gagnée", "Attaque", 0, 60, 0, " %", "PCM / carry (mètres après contact non codés)"),
+    ("dominance", "Contacts dominants", "Attaque", 0, 60, 0, " %", "% DVD"),
+    ("pts_entree", "Points / entrée (22)", "Attaque", 0, 5, 2, "", "PPR ratio"),
+    ("franchi_subis", "Franchissements subis / match", "Défense", 8, 0, 1, "", "Opp ruck speed (non codée)"),
+    ("plaquage_pct", "Plaquages réussis", "Défense", 60, 100, 0, " %", "% tackle success"),
+    ("pts_entree_adv", "Points encaissés / entrée adverse", "Défense", 5, 0, 2, "", "PPR ratio against"),
+    ("grattages", "Ballons récupérés / match", "Défense", 0, 12, 1, "", "Jackals / game"),
+    ("jap_qualite", "Jeu au pied de qualité (+)", "Jeu au pied", 20, 80, 0, " %", "% attacking kick"),
+    ("aeriens", "Duels aériens gagnés", "Jeu au pied", 20, 90, 0, " %", "% aerial battle win"),
+    ("renvois", "Renvois récupérés", "Jeu au pied", 0, 60, 0, " %", "% contestable kick (non codé)"),
+    ("occupation", "Occupation", "Jeu au pied", 30, 70, 0, " %", "Kick meter difference (non codée)"),
+    ("touches", "Touches gagnées", "Conquête", 50, 100, 0, " %", "Lineout win"),
+    ("touches_volees", "Touches adverses volées / match", "Conquête", 0, 4, 1, "", "Lineout steal"),
+    ("melees", "Mêlées gagnées", "Conquête", 50, 100, 0, " %", "Efficient maul (non codé)"),
+    ("pen_melee", "Balance pénalités mêlée / match", "Conquête", -3, 3, 1, "", "Pen balance scrum"),
+]
+RADAR_FAMILLES = [("Attaque", "#4a0f2a"), ("Conquête", "#d7aeba"), ("Jeu au pied", "#b8869a"), ("Défense", "#7a2f4e")]
+
+
+def _radar_equipe_valeurs(selected, cr):
+    def moy(lst):
+        lst = [x for x in lst if x is not None]
+        return sum(lst) / len(lst) if lst else None
+
+    def ratio(a, b, k=1):
+        return k * a / b if b else None
+    from collections import Counter
+    tot = Counter()
+    gl, occ, tch, mel, adv_pe, franchi = [], [], [], [], [], []
+    for m in selected:
+        ins = m["instances"] or []
+        att = compute_bilan_attaque(ins) or {}
+        tot["casses"] += att.get("plaquages_casses") or 0
+        tot["contacts"] += att.get("contacts") or 0
+        tot["dominants"] += att.get("dominants") or 0
+        gl.append(att.get("gain_line_pct"))
+        d = compute_player_defense_table(ins).get("totals") or {}
+        tot["made"] += d.get("plaquage_dominant", 0) + d.get("plaquage_neutre", 0) + d.get("plaquage_passif", 0)
+        tot["rate"] += d.get("plaquage_rate", 0)
+        tot["recup"] += d.get("ballons_recuperes", 0)
+        r = (compute_player_ruck_table(ins) or {}).get("totals") or {}
+        for k in ("jap_plus", "jap_neutre", "jap_moins", "duels_aer_plus", "duels_aer_neutre", "duels_aer_moins",
+                  "melee_off_obtenue", "melee_def_obtenue", "melee_off_penalisee", "melee_def_penalisee"):
+            tot[k] += r.get(k, 0)
+        v = _gp_valeurs_match(m)
+        occ.append(v.get("occupation")); tch.append(v.get("touches_pct")); mel.append(v.get("melees_pct"))
+        g = (compute_zone_gold_log(ins) or {}).get("adverse") or {}
+        adv_pe.append(g.get("points_par_entree"))
+        bd = compute_bilan_defense(ins) or {}
+        franchi.append(bd.get("franchissements"))
+        adv = _normalize_tag(_detect_adverse_token(ins) or "ADV")
+        tot["volees"] += sum(1 for i in ins if _normalize_tag(i.get("code_raw")) == adv + " TOUCHES"
+                             and any(_normalize_tag(l.get("text")) in ("PERDU", "PERDUE") for l in i.get("labels") or []))
+    nb = len(selected) or 1
+    jap = tot["jap_plus"] + tot["jap_neutre"] + tot["jap_moins"]
+    aer = tot["duels_aer_plus"] + tot["duels_aer_neutre"] + tot["duels_aer_moins"]
+    ap = cr["apres"]
+    return {
+        "casses_porteur": ratio(tot["casses"], tot["contacts"]),
+        "ligne_avantage": moy(gl),
+        "dominance": ratio(tot["dominants"], tot["contacts"], 100),
+        "pts_entree": cr["gold"]["pts_entree"],
+        "franchi_subis": moy(franchi),
+        "plaquage_pct": ratio(tot["made"], tot["made"] + tot["rate"], 100),
+        "pts_entree_adv": moy(adv_pe),
+        "grattages": tot["recup"] / nb,
+        "jap_qualite": ratio(tot["jap_plus"], jap, 100),
+        "aeriens": ratio(tot["duels_aer_plus"], aer, 100),
+        "renvois": ratio(ap["eux_recup"], ap["eux_recup_n"], 100),
+        "occupation": moy(occ),
+        "touches": moy(tch),
+        "touches_volees": tot["volees"] / nb,
+        "melees": moy(mel),
+        "pen_melee": (tot["melee_off_obtenue"] + tot["melee_def_obtenue"] - tot["melee_off_penalisee"] - tot["melee_def_penalisee"]) / nb,
+    }
+
+
+def _radar_equipe(selected, cr):
+    """Géométrie SVG du radar d'équipe + lecture par famille (meilleur / moins bon axe)."""
+    import math
+    vals = _cached_result("radar_equipe", selected, lambda: _radar_equipe_valeurs(selected, cr))
+    n = len(RADAR_EQUIPE)
+    cx = cy = 260
+    R = 175
+    axes = []
+    for k, (key, label, fam, lo, hi, dec, unite, staff) in enumerate(RADAR_EQUIPE):
+        a = -math.pi / 2 + 2 * math.pi * (k + 0.5) / n
+        v = vals.get(key)
+        sc = None if v is None else max(0.0, min(1.0, (v - lo) / (hi - lo)))
+        r = R * (sc if sc is not None else 0)
+        lx, ly = cx + (R + 30) * math.cos(a), cy + (R + 30) * math.sin(a) + (-6 if math.sin(a) < -0.9 else (8 if math.sin(a) > 0.9 else 0))
+        axes.append({"key": key, "label": label, "fam": fam, "val": v, "score": sc, "dec": dec, "unite": unite,
+                     "lo": lo, "hi": hi, "staff": staff,
+                     "end": (round(cx + R * math.cos(a), 1), round(cy + R * math.sin(a), 1)),
+                     "pt": (round(cx + r * math.cos(a), 1), round(cy + r * math.sin(a), 1)),
+                     "lab": (round(lx, 1), round(ly, 1)),
+                     # Jamais centré : les deux axes proches du haut (et du bas) partent chacun de leur côté.
+                     "anchor": "start" if math.cos(a) > 0 else "end"})
+    rings = []
+    for f in (0.25, 0.5, 0.75, 1):
+        rings.append(round(R * f, 1))
+    # Arcs de famille autour du radar (4 axes consécutifs par famille).
+    arcs = []
+    for i, (fam, col) in enumerate(RADAR_FAMILLES):
+        idx = [k for k, ax in enumerate(RADAR_EQUIPE) if ax[2] == fam]
+        a0 = -math.pi / 2 + 2 * math.pi * idx[0] / n
+        a1 = -math.pi / 2 + 2 * math.pi * (idx[-1] + 1) / n
+        ro, ri = R + 16, R + 4
+        p = lambda rr, aa: f"{cx + rr * math.cos(aa):.1f},{cy + rr * math.sin(aa):.1f}"
+        d = (f"M{p(ro, a0)} A{ro},{ro} 0 0 1 {p(ro, a1)} L{p(ri, a1)} A{ri},{ri} 0 0 0 {p(ri, a0)} Z")
+        am = (a0 + a1) / 2
+        arcs.append({"fam": fam, "col": col, "d": d})
+    poly = " ".join(f"{ax['pt'][0]},{ax['pt'][1]}" for ax in axes)
+    lecture = []
+    for fam, col in RADAR_FAMILLES:
+        lst = [ax for ax in axes if ax["fam"] == fam and ax["score"] is not None]
+        if not lst:
+            continue
+        best = max(lst, key=lambda ax: ax["score"])
+        worst = min(lst, key=lambda ax: ax["score"])
+        moyen = sum(ax["score"] for ax in lst) / len(lst)
+        lecture.append({"fam": fam, "col": col, "best": best, "worst": worst if worst is not best else None,
+                        "niveau": round(100 * moyen)})
+    return {"axes": axes, "rings": rings, "arcs": arcs, "poly": poly, "cx": cx, "cy": cy, "R": R, "lecture": lecture}
 
 
 @app.route("/season/bilan")

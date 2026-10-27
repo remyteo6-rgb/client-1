@@ -128,6 +128,41 @@
 {# ======================= 2. NOTRE PROFIL ======================= #}
 <div class="report-board board-free sty-board">
     {{ entete('NOTRE PROFIL', 'COMMENT ON MARQUE ET ON ENCAISSE') }}
+    {% if radar %}
+    <div class="rd-wrap">
+        <div class="sf-panel rd-panel">
+            <div class="sf-panel-head">PROFIL COMPLET · 16 INDICATEURS, 4 FAMILLES</div>
+            <p class="rd-sub">Plus le point est loin du centre, mieux c'est. Valeur réelle écrite sous chaque indicateur.</p>
+            <svg viewBox="-150 -10 820 540" class="rd-svg" role="img" aria-label="Radar du profil d'équipe">
+                {% for a in radar.arcs %}<path d="{{ a.d }}" fill="{{ a.col }}"/>{% endfor %}
+                {% for r in radar.rings %}<circle cx="{{ radar.cx }}" cy="{{ radar.cy }}" r="{{ r }}" fill="none" stroke="#c9c2c0" stroke-width="1"/>{% endfor %}
+                {% for ax in radar.axes %}<line x1="{{ radar.cx }}" y1="{{ radar.cy }}" x2="{{ ax.end[0] }}" y2="{{ ax.end[1] }}" stroke="#d9d3cf" stroke-width="1"/>{% endfor %}
+                <polygon points="{{ radar.poly }}" fill="rgba(122,31,61,.32)" stroke="#5a1430" stroke-width="3" stroke-linejoin="round"/>
+                {% for ax in radar.axes %}{% if ax.score is not none %}<circle cx="{{ ax.pt[0] }}" cy="{{ ax.pt[1] }}" r="5.5" fill="#fff" stroke="#e0473c" stroke-width="3"/>{% endif %}{% endfor %}
+                {% for ax in radar.axes %}
+                <text x="{{ ax.lab[0] }}" y="{{ ax.lab[1] }}" text-anchor="{{ ax.anchor }}" class="rd-lab">{{ ax.label|upper }}</text>
+                <text x="{{ ax.lab[0] }}" y="{{ ax.lab[1] + 14 }}" text-anchor="{{ ax.anchor }}" class="rd-val">{{ fmt(ax.val, ax.dec, ax.unite) }}</text>
+                {% endfor %}
+            </svg>
+            <div class="rd-leg">{% for f in radar.lecture %}<span><i style="background:{{ f.col }}"></i>{{ f.fam }}</span>{% endfor %}</div>
+        </div>
+        <div class="sf-panel rd-panel">
+            <div class="sf-panel-head">LE PROFIL</div>
+            {% for f in radar.lecture %}
+            <div class="rd-fam">
+                <h4><i style="background:{{ f.col }}"></i>{{ f.fam|upper }}</h4>
+                <p>Point fort : <strong>{{ f.best.label|lower }}</strong> ({{ fmt(f.best.val, f.best.dec, f.best.unite) }}).
+                {% if f.worst %}À travailler : <strong>{{ f.worst.label|lower }}</strong> ({{ fmt(f.worst.val, f.worst.dec, f.worst.unite) }}).{% endif %}</p>
+            </div>
+            {% endfor %}
+            <details class="rd-echelles">
+                <summary>Échelle de chaque axe</summary>
+                <table class="cr-tb"><thead><tr><th>Indicateur</th><th>Centre</th><th>Bord</th><th>Équivalent staff</th></tr></thead>
+                <tbody>{% for ax in radar.axes %}<tr><td class="cr-tb-l">{{ ax.label }}</td><td>{{ ax.lo }}</td><td>{{ ax.hi }}</td><td><small>{{ ax.staff }}</small></td></tr>{% endfor %}</tbody></table>
+            </details>
+        </div>
+    </div>
+    {% endif %}
     <div class="sty-grid">
         <div class="sf-panel">
             <div class="sf-panel-head">FORME · ÉCART DE SCORE PAR MATCH</div>

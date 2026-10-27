@@ -3552,3 +3552,20 @@ body.slide-fs-on { overflow: hidden; }
 .bil-bar-blue { background: #4a74b0; }
 .bil-t-type { color: #3c5f93; }
 .bil-panel-body > .bil-mini-title + .bil-duo { margin-top: 4px; }
+
+/* ---- Radar d'équipe (Bilan saison · Notre profil) ---- */
+.rd-wrap { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 14px; margin-bottom: 14px; }
+.rd-sub { margin: 8px 14px 0; font-size: 12.5px; color: #666; }
+.rd-svg { width: 100%; height: auto; display: block; }
+.rd-lab { font-size: 11px; font-weight: 800; fill: #2b1a20; letter-spacing: .02em; font-family: var(--font-display, inherit); }
+.rd-val { font-size: 12px; font-weight: 700; fill: #c4453a; }
+.rd-leg { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; padding: 0 14px 14px; font-size: 12.5px; font-weight: 700; color: #333; }
+.rd-leg i, .rd-fam h4 i { display: inline-block; width: 13px; height: 13px; border-radius: 2px; margin-right: 6px; vertical-align: -2px; }
+.rd-fam { padding: 12px 16px 4px; border-bottom: 1px solid #eceef2; }
+.rd-fam h4 { margin: 0 0 6px; font-size: 15px; color: #3a0d1f; letter-spacing: .03em; }
+.rd-fam h4 small { float: right; font-size: 12px; color: #7a6a70; font-weight: 700; }
+.rd-fam p { margin: 0 0 8px; font-size: 13px; color: #444; line-height: 1.45; }
+.rd-echelles { margin: 10px 14px 14px; }
+.rd-echelles summary { cursor: pointer; font-weight: 700; font-size: 12.5px; color: #530d34; }
+.rd-echelles .cr-tb { font-size: 12px; margin-top: 8px; }
+@media (max-width: 900px) { .rd-wrap { grid-template-columns: 1fr; } }
