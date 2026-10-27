@@ -1726,7 +1726,7 @@ DEFENSE_FRANCHI_RESULTATS = [
 ]
 DEFENSE_FRANCHI_ORIGINES = [
     # Coup d'envoi compté en contre-attaque (demande de Téo).
-    ("Franchi Contre Attaque", ["CONTRE ATTAQUE", "CE", "CA", "COUP D'ENVOI", "COUPS D'ENVOI",
+    ("Franchi Contre Attaque", ["CONTRE ATTAQUE", "CE", "CA", "C.A", "C A", "COUP D'ENVOI", "COUPS D'ENVOI",
                                 "COUP D ENVOI", "COUPS D ENVOI", "COUP DENVOI", "COUP D'ENVOIE"]),
     ("Franchi Turnovers", ["TURNOVER", "TURNOVERS"]),
     ("Franchi Touches", ["TOUCHE", "TOUCHES"]),
@@ -1782,7 +1782,11 @@ DEFENSE_CLASH = [
 def _loose_key(text):
     """Comme _label_key, mais sans les pluriels (« Pénalités Jouée Vite » = « Pénalité
     jouée vite », « Mêlées » = « Mêlée ») : le libellé tagué n'a pas à coller au mot près."""
-    return " ".join(w[:-1] if len(w) > 3 and w.endswith("S") else w for w in _label_key(text).split())
+    mots = _label_key(text).split()
+    # « Sur CA » = « CA », « Sur touche » = « Touche » : le « sur » de tête ne change pas la catégorie.
+    if len(mots) > 1 and mots[0] == "SUR":
+        mots = mots[1:]
+    return " ".join(w[:-1] if len(w) > 3 and w.endswith("S") else w for w in mots)
 
 
 def _defense_ligne(libelles, compte):
