@@ -18,8 +18,24 @@
         <span class="report-title">JEU AU PIED</span>
         <span class="report-subtitle">SAISON</span>
     </div>
-    {% set editable = false %}{% set joueurs = [] %}
-    {% include "_jap_board.html" %}
+    <div class="sf-panel" style="margin:14px 16px 0;">
+        <div class="sf-panel-head">BILAN PAR JOUEUR</div>
+        <div class="m-scroll">
+        <table class="stat-table zebra-table tch-perf tch-zone">
+            <thead><tr><th>Joueur</th><th>Total</th>{% for code, lab, col in types %}<th>{{ lab }}</th>{% endfor %}<th>Long. moy.</th><th>Gain moy.</th></tr></thead>
+            <tbody>
+            {% for j in joueurs %}
+            <tr><td>{{ j.nom }}</td><td><strong>{{ j.total }}</strong></td>{% for code, lab, col in types %}<td>{{ j.types[code] or '·' }}</td>{% endfor %}
+                <td>{{ j.longueur }} m</td><td>{{ '%+d'|format(j.gain) }} m</td></tr>
+            {% else %}
+            <tr><td colspan="{{ types|length + 4 }}">Aucun jeu au pied saisi sur les matchs sélectionnés.</td></tr>
+            {% endfor %}
+            {% if joueurs %}<tr class="mel-total"><td><strong>Équipe</strong></td><td><strong>{{ bilan.total }}</strong></td>{% for code, lab, col in types %}<td><strong>{{ bilan.types[code] or '·' }}</strong></td>{% endfor %}
+                <td><strong>{{ bilan.longueur }} m</strong></td><td><strong>{{ '%+d'|format(bilan.gain) }} m</strong></td></tr>{% endif %}
+            </tbody>
+        </table>
+        </div>
+    </div>
     <div class="sf-panel" style="margin:14px 16px 16px;">
         <div class="sf-panel-head">MATCH PAR MATCH</div>
         <div class="m-scroll">

@@ -3357,7 +3357,21 @@ def season_jap():
         par_match.append({"id": m["id"], "date": m.get("match_date"), "opponent": m.get("opponent") or "?",
                           "saisis": len(jap), "xml": _jap_xml_total(m.get("instances")),
                           "types": {c: sum(1 for t in jap if t["type"] == c) for c, _l, _k in JAP_TYPES}})
-    return render_template("season_jap.html", jap=tous, par_match=par_match, types=JAP_TYPES, **ctx)
+    def _long(t):
+        return ((t["x2"] - t["x1"]) * 70) ** 2 + ((t["y2"] - t["y1"]) * 110) ** 2
+
+    def _bilan(lst):
+        n = len(lst)
+        return {"total": n,
+                "types": {c: sum(1 for t in lst if t["type"] == c) for c, _l, _k in JAP_TYPES},
+                "longueur": round(sum(_long(t) ** 0.5 for t in lst) / n) if n else None,
+                "gain": round(sum((t["y1"] - t["y2"]) * 110 for t in lst) / n) if n else None}
+    groupes = {}
+    for t in tous:
+        groupes.setdefault(t.get("player") or "Non précisé", []).append(t)
+    joueurs = sorted(({"nom": k, **_bilan(v)} for k, v in groupes.items()), key=lambda r: (-r["total"], r["nom"]))
+    return render_template("season_jap.html", jap=tous, par_match=par_match, types=JAP_TYPES,
+                           joueurs=joueurs, bilan=_bilan(tous), **ctx)
 
 
 @app.route("/match/<int:match_id>/melees")
