@@ -3605,3 +3605,4 @@ body.slide-fs-on { overflow: hidden; }
 .mel-season .mel-gstart { border-left:2px solid #d5d8dd; }
 .mel-wrap .stat-neg + .stat-pos, .mel-wrap .stat-pos + .stat-neg { margin-left:6px; }
 @media (max-width: 900px) { .mel-wrap { grid-template-columns:1fr; padding:0 8px 12px; } }
+.mel-total td { border-top:2px solid #d5d8dd; background:#f4f5f7; }

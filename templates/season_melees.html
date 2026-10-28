@@ -44,32 +44,37 @@
         {{ bloc(cumul.off, 'MÊLÉE OFFENSIVE · NOTRE INTRODUCTION', 'Gagnée = on sort le ballon.', 'sty-ban-n') }}
         {{ bloc(cumul['def'], 'MÊLÉE DÉFENSIVE · LEUR INTRODUCTION', 'Gagnée = on les empêche de sortir un ballon jouable.', 'sty-ban-adv') }}
     </div>
+    {% for c, titre, cls in (('off', 'NOS INTRODUCTIONS · MATCH PAR MATCH', 'sty-ban-n'), ('def', 'LEURS INTRODUCTIONS · MATCH PAR MATCH', 'sty-ban-adv')) %}
     <div class="sf-panel" style="margin-top:14px;">
-        <div class="sf-panel-head">MATCH PAR MATCH</div>
+        <div class="sty-ban {{ cls }}">{{ titre }}</div>
         <div class="m-scroll">
         <table class="stat-table zebra-table mel-season">
-            <thead>
-                <tr><th rowspan="2">Match</th><th colspan="5">Notre introduction</th><th colspan="5">Leur introduction</th></tr>
-                <tr><th>Jouées</th><th>Conquête</th><th>Rejouées</th><th>Pén. pour</th><th>Pén. contre</th>
-                    <th>Jouées</th><th>Conquête</th><th>Rejouées</th><th>Pén. pour</th><th>Pén. contre</th></tr>
-            </thead>
+            <thead><tr><th>Match</th><th>Jouées</th><th>Gagnées</th><th>Perdues</th><th>Conquête</th><th>Rejouées</th><th>TQB +</th><th>Pén. pour</th><th>Pén. contre</th></tr></thead>
             <tbody>
-            {% for r in rows %}
+            {% for r in rows %}{% set st = r[c] %}
             <tr>
                 <td class="mel-match">{{ r.date or '—' }} — {{ r.opponent }}</td>
-                {% for c in ('off', 'def') %}{% set st = r[c] %}
-                <td{{ ' class=mel-gstart'|safe if c == 'def' }}>{{ st.jouees }}</td>
+                <td>{{ st.jouees }}</td>
+                <td>{{ st.gagnees }}</td>
+                <td>{{ st.perdues }}</td>
                 <td>{{ (st.pct ~ ' %') if st.pct is not none else '—' }}</td>
                 <td>{{ st.rejouees or '·' }}</td>
+                <td>{{ st.tqb_plus }}{% if st.tqb_total %}/{{ st.tqb_total }}{% endif %}</td>
                 <td class="{{ 'stat-pos' if st.pen_pour }}">{{ st.pen_pour or '·' }}</td>
                 <td class="{{ 'stat-neg' if st.pen_contre }}">{{ st.pen_contre or '·' }}</td>
-                {% endfor %}
             </tr>
             {% endfor %}
+            <tr class="mel-total"><td class="mel-match"><strong>Saison</strong></td>
+                <td><strong>{{ cumul[c].jouees }}</strong></td><td><strong>{{ cumul[c].gagnees }}</strong></td><td><strong>{{ cumul[c].perdues }}</strong></td>
+                <td><strong>{{ (cumul[c].pct ~ ' %') if cumul[c].pct is not none else '—' }}</strong></td>
+                <td><strong>{{ cumul[c].rejouees }}</strong></td>
+                <td><strong>{{ cumul[c].tqb_plus }}{% if cumul[c].tqb_total %}/{{ cumul[c].tqb_total }}{% endif %}</strong></td>
+                <td><strong>{{ cumul[c].pen_pour }}</strong></td><td><strong>{{ cumul[c].pen_contre }}</strong></td></tr>
             </tbody>
         </table>
         </div>
     </div>
+    {% endfor %}
 </div>
 
 <div class="card no-print mel-notes">

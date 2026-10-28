@@ -47,21 +47,27 @@
 
     <div class="mel-wrap">
         <div class="mel-left">
-            <table class="stat-table zebra-table mel-table">
-                <thead><tr><th>N°</th><th>Période</th><th>Mêlée</th><th>Résultat</th><th>TQB</th><th>Pénalité</th></tr></thead>
-                <tbody>
-                {% for r in data.rows %}
-                <tr>
-                    <td>{{ r.num }}</td>
-                    <td>{{ r.periode or '—' }}</td>
-                    <td><span class="mel-tag {{ 'mel-tag-off' if r.cote == 'off' else 'mel-tag-def' }}">{{ 'Notre intro' if r.cote == 'off' else 'Leur intro' }}</span></td>
-                    <td>{{ mark(r.resultat) }}</td>
-                    <td>{% if r.tqb is not none %}{{ mark(r.tqb) }}{% else %}·{% endif %}</td>
-                    <td>{% if r.pen_pour %}<span class="stat-pos">Pour nous</span>{% endif %}{% if r.pen_contre %}<span class="stat-neg">Contre nous</span>{% endif %}{% if not r.pen_pour and not r.pen_contre %}·{% endif %}</td>
-                </tr>
-                {% endfor %}
-                </tbody>
-            </table>
+            {% for cote, titre, cls in (('off', 'NOS INTRODUCTIONS', 'sty-ban-n'), ('def', 'LEURS INTRODUCTIONS', 'sty-ban-adv')) %}
+            <div class="sf-panel mel-panel">
+                <div class="sty-ban {{ cls }}">{{ titre }}</div>
+                <table class="stat-table zebra-table mel-table">
+                    <thead><tr><th>N°</th><th>Période</th><th>Résultat</th><th>TQB</th><th>Pénalité</th></tr></thead>
+                    <tbody>
+                    {% for r in data.rows if r.cote == cote %}
+                    <tr>
+                        <td>{{ r.num }}</td>
+                        <td>{{ r.periode or '—' }}</td>
+                        <td>{{ mark(r.resultat) }}</td>
+                        <td>{% if r.tqb is not none %}{{ mark(r.tqb) }}{% else %}·{% endif %}</td>
+                        <td>{% if r.pen_pour %}<span class="stat-pos">Pour nous</span>{% endif %}{% if r.pen_contre %}<span class="stat-neg">Contre nous</span>{% endif %}{% if not r.pen_pour and not r.pen_contre %}·{% endif %}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="mel-rejouee">Aucune mêlée</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endfor %}
         </div>
         <div class="mel-right">
             {{ bloc(data.off, 'MÊLÉE OFFENSIVE · NOTRE INTRODUCTION', 'Résultat de notre côté : gagnée = on sort le ballon.', 'sty-ban-n') }}
