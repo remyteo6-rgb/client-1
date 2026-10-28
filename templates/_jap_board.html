@@ -139,7 +139,7 @@
             var l = by[n], cnt = {};
             l.forEach(function (t) { cnt[t.type] = (cnt[t.type] || 0) + 1; });
             var txt = TYPES.filter(function (t) { return cnt[t[0]]; }).map(function (t) { return t[1] + ' ' + cnt[t[0]]; }).join(' · ');
-            var tr = el('tr'); [n, l.length, fmt(moy(l, gain)), txt].forEach(function (v, i) { var td = el('td', null, v); if (i === 3) td.style.textAlign = 'left'; tr.appendChild(td); });
+            var tr = el('tr'); [n, l.length, fmt(moy(l, gain)), txt].forEach(function (v, i) { var td = el('td', null, v); tr.appendChild(td); });
             bp.appendChild(tr);
         });
         document.getElementById('jap-empty').hidden = jap.length > 0;
