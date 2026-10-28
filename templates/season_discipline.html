@@ -139,6 +139,11 @@
             </div>
             {% endfor %}
         </div>
+        <div class="dis-types-cartons">
+            <span class="dis-cat-label">Cartons</span>
+            <span class="dis-types-carton"><i class="dis-card"></i> Jaunes <b>{{ cartons.jaunes }}</b></span>
+            <span class="dis-types-carton"><i class="dis-card dis-card-red"></i> Rouges <b>{{ cartons.rouges }}</b></span>
+        </div>
         {% if fautes_groupes.sans_detail %}
         <p class="dis-types-note">{{ icons.warning() }} Pas de détail des fautes saisi pour : {{ fautes_groupes.sans_detail|join(', ') }}.</p>
         {% endif %}

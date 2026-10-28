@@ -3625,3 +3625,8 @@ body.slide-fs-on { overflow: hidden; }
 @media (max-width: 900px) { .dis-types-grid { grid-template-columns:1fr 1fr; } }
 @media (max-width: 560px) { .dis-types-grid { grid-template-columns:1fr; } }
 @media (max-width: 560px) { .dis-types .dis-block-head { font-size:.9rem; gap:6px; flex-wrap:wrap; } .dis-types .dis-block-head span { font-size:1rem; } }
+.dis-types-cartons { display:flex; align-items:center; gap:22px; margin:6px 14px 8px; padding-top:8px; border-top:1px solid #e3c9d1; }
+.dis-types-cartons .dis-cat-label { margin:0; font-size:1.05rem; }
+.dis-types-carton { display:inline-flex; align-items:center; gap:7px; font-weight:700; font-size:.95rem; }
+.dis-types-carton b { font-size:1.3rem; font-weight:800; }
+.dis-types-carton .dis-card { width:14px; height:19px; }

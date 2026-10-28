@@ -5971,7 +5971,9 @@ def season_discipline():
     }
     assets = {"own_crest": url_for("static", filename="logo.png"), "adverse_crest": None}
     return render_template("season_discipline.html", data=data, suivi=suivi, assets=assets, fmt=_avg_fmt,
-                           fautes_groupes=_fautes_par_groupe(selected), **ctx)
+                           fautes_groupes=_fautes_par_groupe(selected),
+                           cartons={"jaunes": sum(p["jaunes"] for p in players.values()),
+                                    "rouges": sum(p["rouges"] for p in players.values())}, **ctx)
 
 
 @app.route("/season/entrainement", methods=["GET", "POST"])
