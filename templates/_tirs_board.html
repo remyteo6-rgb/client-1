@@ -29,18 +29,13 @@
             <p class="sfs-note" id="tir-buteurs-vide" style="padding:12px 16px;" hidden>Aucun tir saisi pour l'instant.</p>
         </div>
         <div class="sf-panel" style="margin-top:12px;">
-            <div class="sf-panel-head">RÉUSSITE PAR DISTANCE</div>
-            <table class="stat-table zebra-table tch-perf tch-zone">
-                <thead><tr><th>Distance</th><th>Tirs</th><th>Réussis</th><th>%</th></tr></thead>
-                <tbody id="tir-lignes"></tbody>
+            <div class="sf-panel-head">RÉUSSITE SELON LA DIFFICULTÉ</div>
+            <table class="stat-table tir-diff">
+                <thead><tr><th></th><th>Face aux perches</th><th>Intermédiaire</th><th>Angle</th></tr></thead>
+                <tbody id="tir-diff"></tbody>
             </table>
-        </div>
-        <div class="sf-panel" style="margin-top:12px;">
-            <div class="sf-panel-head">RÉUSSITE PAR COULOIR</div>
-            <table class="stat-table zebra-table tch-perf tch-zone">
-                <thead><tr><th>Couloir</th><th>Tirs</th><th>Réussis</th><th>%</th></tr></thead>
-                <tbody id="tir-couloirs"></tbody>
-            </table>
+            <div class="tir-diff-sum" id="tir-diff-sum"></div>
+            <p class="tir-foot" style="padding:0 12px 10px;">Face : couloir centre · intermédiaire : couloirs gauche et droite · angle : les deux touches. Près : 0-20 m · moyen : 20-40 m · loin : 40 m et +. Le fond de chaque case indique la difficulté (vert facile, orange moyen, rouge difficile).</p>
         </div>
     </div>
 </div>
@@ -118,15 +113,34 @@
             tb.appendChild(tr);
         });
         document.getElementById('tir-buteurs-vide').hidden = names.length > 0;
-        // Distance et couloir
-        function remplir(id, labels, key) {
-            var body = document.getElementById(id); body.innerHTML = '';
-            labels.forEach(function (lab, i) {
-                var tr = el('tr'); ligneStat(lab, tirs.filter(function (t) { return t[key] === i; })).forEach(function (v) { tr.appendChild(el('td', null, v)); });
-                body.appendChild(tr);
+        // Difficulté : distance (près / moyen / loin) x angle (face / intermédiaire / angle)
+        var DIST = [['Près (0-20 m)', [0, 1]], ['Moyen (20-40 m)', [2, 3]], ['Loin (40 m et +)', [4, 5]]];
+        var ANG = [[2], [1, 3], [0, 4]];
+        var NIV = ['facile', 'moyen', 'difficile'];
+        var bd = document.getElementById('tir-diff'); bd.innerHTML = '';
+        var niv = [[], [], []];
+        DIST.forEach(function (d, di) {
+            var tr = el('tr'); tr.appendChild(el('th', null, d[0]));
+            ANG.forEach(function (cols, ai) {
+                var l = tirs.filter(function (t) { return d[1].indexOf(t.row) >= 0 && cols.indexOf(t.col) >= 0; });
+                var ok = l.filter(function (t) { return t.ok; }).length;
+                var level = (di + ai) <= 1 ? 0 : ((di + ai) === 2 ? 1 : 2);
+                niv[level] = niv[level].concat(l);
+                var td = el('td', 'tir-d-' + NIV[level]);
+                td.appendChild(el('b', null, l.length ? pct(ok, l.length) + ' %' : '·'));
+                td.appendChild(el('small', null, l.length ? ok + ' / ' + l.length : ''));
+                tr.appendChild(td);
             });
-        }
-        remplir('tir-lignes', LIGNES, 'row'); remplir('tir-couloirs', COULOIRS, 'col');
+            bd.appendChild(tr);
+        });
+        var sm = document.getElementById('tir-diff-sum'); sm.innerHTML = '';
+        NIV.forEach(function (n, i) {
+            var l = niv[i], ok = l.filter(function (t) { return t.ok; }).length;
+            var d = el('div', 'tir-d-' + n);
+            d.appendChild(el('span', null, 'Tirs ' + (i === 0 ? 'faciles' : i === 1 ? 'moyens' : 'difficiles')));
+            d.appendChild(el('strong', null, l.length ? pct(ok, l.length) + ' % (' + ok + '/' + l.length + ')' : '·'));
+            sm.appendChild(d);
+        });
     }
 
     {% if editable %}

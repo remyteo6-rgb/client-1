@@ -3671,3 +3671,13 @@ body.slide-fs-on { overflow: hidden; }
 .tir-link { background:none; border:0; color:#7d3653; text-decoration:underline; cursor:pointer; font-size:.8rem; padding:0; } .tir-del { color:#c0392b; }
 .tir-notes { margin-top:12px; }
 @media (max-width: 900px) { .tir-wrap { grid-template-columns:1fr; padding:0 8px 12px; } .tir-grid { grid-template-columns:48px repeat(5, 1fr); } .tir-cell { min-height:52px; } .tir-cell b { font-size:.95rem; } }
+
+/* Tirs au but : tableau de difficulté */
+.tir-diff { width:100%; border-collapse:separate; border-spacing:3px; table-layout:fixed; }
+.tir-diff th { font-size:.78rem; text-transform:uppercase; letter-spacing:.4px; color:#444; padding:4px 6px; text-align:center; }
+.tir-diff tbody th { text-align:left; white-space:nowrap; }
+.tir-diff td { text-align:center; padding:8px 4px; border-radius:6px; }
+.tir-diff td b { display:block; font-size:1.15rem; } .tir-diff td small { font-size:.75rem; font-weight:700; opacity:.75; }
+.tir-d-facile { background:#dff1e2; } .tir-d-moyen { background:#fdebc8; } .tir-d-difficile { background:#f9d6d1; }
+.tir-diff-sum { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; padding:6px 10px 8px; text-align:center; }
+.tir-diff-sum div { border-radius:6px; padding:6px 4px; } .tir-diff-sum span { display:block; font-size:.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.3px; color:#444; } .tir-diff-sum strong { font-size:1rem; }
