@@ -1,0 +1,12 @@
+{
+ "label": "Journée 3 — Colomiers (tableau des touches)",
+ "touches": [
+  {"num": 1, "lancement": "61 TANK", "lance": "ko", "annonce": "ok", "qb": false, "resultat": true},
+  {"num": 2, "lancement": "50",      "lance": "ok", "annonce": "ok", "qb": true,  "resultat": true},
+  {"num": 3, "lancement": "40 MIG",  "lance": "ok", "annonce": "ok", "qb": false, "resultat": true},
+  {"num": 4, "lancement": "50",      "lance": "ok", "annonce": "ko", "qb": false, "resultat": false},
+  {"num": 5, "lancement": "21",      "lance": "ok", "annonce": "ok", "qb": true,  "resultat": true},
+  {"num": 6, "lancement": "61 SPÉ",  "lance": "ok", "annonce": "ko", "qb": false, "resultat": true},
+  {"num": 7, "lancement": "51",      "lance": "ok", "annonce": "ko", "qb": false, "resultat": false}
+ ]
+}
