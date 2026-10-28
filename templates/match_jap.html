@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
+{% block title %}Jeu au pied — {{ match_title(match) }}{% endblock %}
+{% set active = 'jap' %}
+{% block content %}
+<div class="page-header no-print">
+    <div>
+        <h1>{{ icons.rugby() }} Jeu au pied — {{ match_title(match) }}</h1>
+        <p class="subtitle">{{ match['competition'] or 'Journée' }}{% if match['match_date'] %} · {{ match['match_date'] }}{% endif %}</p>
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
+</div>
+
+<div class="report-board board-free">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">JEU AU PIED</span>
+        <span class="report-subtitle">NOS COUPS DE PIED</span>
+    </div>
+    {% set save_url = url_for('match_jap_save', match_id=match['id']) %}
+    {% include "_jap_board.html" %}
+</div>
+
+<div class="card no-print tir-notes">
+    <p class="subtitle">{% if editable %}Clique le point de départ puis le point d'arrivée : une flèche se crée, tu choisis ensuite le type et le joueur. Clique une flèche pour changer son type, son joueur, inverser son sens ou la supprimer. Échap annule la saisie en cours. {% endif %}
+        Longueur = distance du coup de pied ; gain = mètres gagnés vers l'en-but adverse (négatif si le coup de pied recule).</p>
+    {% if xml_total %}<p class="subtitle">Pour contrôle, le XML contient {{ xml_total }} jeu{{ 'x' if xml_total > 1 else '' }} au pied de notre équipe (code « UBB Jeu au pied »).</p>{% endif %}
+</div>
+<script>function preparePrint() { setTimeout(function () { window.print(); }, 100); }</script>
+{% endblock %}

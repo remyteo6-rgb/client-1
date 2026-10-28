@@ -1,0 +1,219 @@
+{# Terrain + flèches de jeu au pied. Variables : jap, types, editable, joueurs (match), save_url (match). #}
+<div class="jap-wrap">
+    <div class="jap-left">
+        <div class="jap-map-head"><span>Nous attaquons vers le haut</span><span id="jap-hint" class="jap-hint"></span></div>
+        <div class="jap-pitch"><svg id="jap-svg" viewBox="0 0 700 1100" role="img" aria-label="Terrain complet, jeux au pied"></svg></div>
+        <p class="tir-foot">{% if editable %}Clique le point de départ, puis le point d'arrivée : la flèche se crée et tu choisis le type et le joueur. Clique une flèche pour la modifier.{% else %}Flèche = un jeu au pied, du point de départ au point d'arrivée. Filtre par type ou par joueur à droite.{% endif %}</p>
+    </div>
+    <div class="jap-right">
+        <div class="sf-panel">
+            <div class="sf-panel-head">TYPES DE JEU AU PIED</div>
+            <div class="jap-types" id="jap-types"></div>
+            <div class="jap-filter"><label>Joueur <select id="jap-filter-player"><option value="">Tous</option></select></label></div>
+        </div>
+        <div class="sf-panel" style="margin-top:12px;">
+            <div class="sf-panel-head">PAR TYPE</div>
+            <table class="stat-table zebra-table tch-perf tch-zone">
+                <thead><tr><th>Type</th><th>Nb</th><th>Longueur moy.</th><th>Gain moy.</th></tr></thead>
+                <tbody id="jap-bytype"></tbody>
+            </table>
+        </div>
+        <div class="sf-panel" style="margin-top:12px;">
+            <div class="sf-panel-head">PAR JOUEUR</div>
+            <table class="stat-table zebra-table tch-perf tch-zone">
+                <thead><tr><th>Joueur</th><th>Total</th><th>Gain moy.</th><th>Types</th></tr></thead>
+                <tbody id="jap-byplayer"></tbody>
+            </table>
+            <p class="sfs-note" id="jap-empty" style="padding:12px 16px;" hidden>Aucun jeu au pied saisi pour l'instant.</p>
+        </div>
+    </div>
+</div>
+
+{% if editable %}
+<div id="jap-pop" class="tir-pop" hidden>
+    <div class="tir-pop-title" id="jap-pop-title">Jeu au pied</div>
+    <div class="jap-pop-types" id="jap-pop-types">{% for code, lab, col in types %}<button type="button" class="jap-ptype" data-type="{{ code }}" style="--c:{{ col }}">{{ lab }}</button>{% endfor %}</div>
+    <label class="tir-pop-row">Joueur
+        <input id="jap-pop-player" list="jap-joueurs" type="text" maxlength="60" placeholder="Choisis ou tape un nom" autocomplete="off">
+        <datalist id="jap-joueurs">{% for j in joueurs %}<option value="{{ j.nom }}">{{ j.numero }}</option>{% endfor %}</datalist>
+    </label>
+    <div class="tir-pop-row">
+        <button type="button" class="tir-btn tir-ok" id="jap-pop-save">Enregistrer</button>
+        <button type="button" class="tir-btn" id="jap-pop-cancel">Annuler</button>
+    </div>
+    <div class="tir-pop-row" id="jap-pop-edit" hidden>
+        <button type="button" class="tir-link" id="jap-pop-swap">inverser le sens</button>
+        <button type="button" class="tir-link tir-del" id="jap-pop-del">supprimer</button>
+    </div>
+</div>
+{% endif %}
+
+<script>
+(function () {
+    var EDIT = {{ 'true' if editable else 'false' }};
+    var TYPES = {{ (types|map('list')|list)|tojson }};   // [code, libellé, couleur]
+    var LAB = {}, COL = {};
+    TYPES.forEach(function (t) { LAB[t[0]] = t[1]; COL[t[0]] = t[2]; });
+    var jap = {{ jap|tojson }};
+    {% if editable %}var SAVE_URL = {{ save_url|tojson }};{% endif %}
+    var NS = 'http://www.w3.org/2000/svg', W = 700, H = 1100;
+    var fType = '', fPlayer = '', start = null, end = null, editing = null, lastType = TYPES[0][0], lastPlayer = '', saveTimer = null;
+    var svg = document.getElementById('jap-svg');
+
+    function sv(tag, attrs, parent, txt) {
+        var e = document.createElementNS(NS, tag);
+        Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+        if (txt != null) e.textContent = txt;
+        if (parent) parent.appendChild(e); return e;
+    }
+    function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+    function uid() { return 'j' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+    function metres(t) { return Math.hypot((t.x2 - t.x1) * W, (t.y2 - t.y1) * H) / 10; }
+    function gain(t) { return (t.y1 - t.y2) * H / 10; }
+    function moy(list, f) { return list.length ? list.reduce(function (s, t) { return s + f(t); }, 0) / list.length : null; }
+    function fmt(v) { return v == null ? '·' : (v > 0 && f1(v) !== '0' ? '+' : '') + f1(v) + ' m'; }
+    function f1(v) { return String(Math.round(v)); }
+    function visibles() { return jap.filter(function (t) { return (!fType || t.type === fType) && (!fPlayer || t.player === fPlayer); }); }
+
+    function pitch() {
+        svg.innerHTML = '';
+        for (var r = 0; r < 10; r++) sv('rect', {x: 0, y: 50 + r * 100, width: W, height: 100, fill: r % 2 ? '#559f5b' : '#4f9a55'}, svg);
+        sv('rect', {x: 0, y: 0, width: W, height: 50, fill: '#3d7f43'}, svg); sv('rect', {x: 0, y: 1050, width: W, height: 50, fill: '#3d7f43'}, svg);
+        var g = sv('g', {stroke: '#fff', fill: 'none', 'stroke-width': 3}, svg);
+        [50, 1050, 270, 830, 550].forEach(function (y) { sv('line', {x1: 0, y1: y, x2: W, y2: y}, g); });
+        [100, 1000, 150, 950].forEach(function (y) { sv('line', {x1: 0, y1: y, x2: W, y2: y, 'stroke-dasharray': '10 8', 'stroke-width': 2, 'stroke-opacity': .8}, g); });
+        sv('line', {x1: 1.5, y1: 0, x2: 1.5, y2: H}, g); sv('line', {x1: W - 1.5, y1: 0, x2: W - 1.5, y2: H}, g);
+        [[318, 50], [1050, 1050]].forEach(function () {});
+        var po = sv('g', {stroke: '#fff', 'stroke-width': 5, 'stroke-linecap': 'round'}, svg);
+        sv('line', {x1: 318, y1: 50, x2: 318, y2: 8}, po); sv('line', {x1: 382, y1: 50, x2: 382, y2: 8}, po); sv('line', {x1: 318, y1: 28, x2: 382, y2: 28}, po);
+        sv('line', {x1: 318, y1: 1050, x2: 318, y2: 1092}, po); sv('line', {x1: 382, y1: 1050, x2: 382, y2: 1092}, po); sv('line', {x1: 318, y1: 1072, x2: 382, y2: 1072}, po);
+        [[270, '22'], [550, '50'], [830, '22']].forEach(function (d) { sv('text', {x: 8, y: d[0] - 6, 'font-size': 16, 'font-weight': 800, fill: '#fff', 'fill-opacity': .85}, svg, d[1]); });
+        // flèches
+        visibles().forEach(function (t) {
+            var x1 = t.x1 * W, y1 = t.y1 * H, x2 = t.x2 * W, y2 = t.y2 * H, c = COL[t.type] || '#333';
+            var a = Math.atan2(y2 - y1, x2 - x1), L = 26;
+            var bx = x2 - Math.cos(a) * L * .8, by = y2 - Math.sin(a) * L * .8;
+            var head = [x2, y2, x2 - Math.cos(a - .42) * L, y2 - Math.sin(a - .42) * L, x2 - Math.cos(a + .42) * L, y2 - Math.sin(a + .42) * L].join(',');
+            var g2 = sv('g', {'class': 'jap-arrow'}, svg);
+            sv('line', {x1: x1, y1: y1, x2: bx, y2: by, stroke: '#fff', 'stroke-width': 11, 'stroke-linecap': 'round'}, g2);
+            sv('polygon', {points: head, fill: '#fff', stroke: '#fff', 'stroke-width': 6, 'stroke-linejoin': 'round'}, g2);
+            sv('line', {x1: x1, y1: y1, x2: bx, y2: by, stroke: c, 'stroke-width': 6, 'stroke-linecap': 'round'}, g2);
+            sv('polygon', {points: head, fill: c}, g2);
+            sv('circle', {cx: x1, cy: y1, r: 8, fill: c, stroke: '#fff', 'stroke-width': 3}, g2);
+            sv('line', {x1: x1, y1: y1, x2: x2, y2: y2, stroke: 'transparent', 'stroke-width': 26}, g2);
+            sv('title', {}, g2, (LAB[t.type] || t.type) + (t.player ? ' · ' + t.player : '') + ' · ' + f1(metres(t)) + ' m');
+            if (EDIT) g2.addEventListener('click', function (ev) { ev.stopPropagation(); ouvrir(t, ev); });
+        });
+        // saisie en cours
+        if (start) sv('circle', {cx: start.x * W, cy: start.y * H, r: 10, fill: '#fff', stroke: '#530d34', 'stroke-width': 4}, svg);
+        if (start && end) sv('line', {x1: start.x * W, y1: start.y * H, x2: end.x * W, y2: end.y * H, stroke: '#fff', 'stroke-width': 4, 'stroke-dasharray': '10 8'}, svg);
+    }
+
+    function stats() {
+        var vis = visibles();
+        // types (filtre)
+        var tb = document.getElementById('jap-types'); tb.innerHTML = '';
+        var all = el('button', 'jap-chip' + (fType ? '' : ' on'), 'Tous · ' + jap.length); all.type = 'button';
+        all.onclick = function () { fType = ''; refresh(); }; tb.appendChild(all);
+        TYPES.forEach(function (t) {
+            var n = jap.filter(function (x) { return x.type === t[0]; }).length;
+            var b = el('button', 'jap-chip' + (fType === t[0] ? ' on' : ''));
+            b.type = 'button'; b.style.setProperty('--c', t[2]);
+            b.appendChild(el('i')); b.appendChild(document.createTextNode(t[1] + ' · ' + n));
+            b.onclick = function () { fType = fType === t[0] ? '' : t[0]; refresh(); }; tb.appendChild(b);
+        });
+        // par type
+        var bt = document.getElementById('jap-bytype'); bt.innerHTML = '';
+        TYPES.forEach(function (t) {
+            var l = vis.filter(function (x) { return x.type === t[0]; });
+            if (!l.length) return;
+            var tr = el('tr'); [t[1], l.length, fmt(moy(l, metres)).replace('+', ''), fmt(moy(l, gain))].forEach(function (v) { tr.appendChild(el('td', null, v)); });
+            bt.appendChild(tr);
+        });
+        // par joueur
+        var by = {};
+        vis.forEach(function (t) { (by[t.player || 'Non précisé'] = by[t.player || 'Non précisé'] || []).push(t); });
+        var names = Object.keys(by).sort(function (a, b) { return by[b].length - by[a].length || a.localeCompare(b); });
+        var bp = document.getElementById('jap-byplayer'); bp.innerHTML = '';
+        names.forEach(function (n) {
+            var l = by[n], cnt = {};
+            l.forEach(function (t) { cnt[t.type] = (cnt[t.type] || 0) + 1; });
+            var txt = TYPES.filter(function (t) { return cnt[t[0]]; }).map(function (t) { return t[1] + ' ' + cnt[t[0]]; }).join(' · ');
+            var tr = el('tr'); [n, l.length, fmt(moy(l, gain)), txt].forEach(function (v, i) { var td = el('td', null, v); if (i === 3) td.style.textAlign = 'left'; tr.appendChild(td); });
+            bp.appendChild(tr);
+        });
+        document.getElementById('jap-empty').hidden = jap.length > 0;
+        // filtre joueur
+        var sel = document.getElementById('jap-filter-player');
+        var noms = Array.from(new Set(jap.map(function (t) { return t.player; }).filter(Boolean))).sort();
+        sel.innerHTML = '<option value="">Tous</option>' + noms.map(function (n) { return '<option>' + n.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</option>'; }).join('');
+        sel.value = noms.indexOf(fPlayer) >= 0 ? fPlayer : '';
+        fPlayer = sel.value;
+    }
+    function refresh() { pitch(); stats(); }
+    document.getElementById('jap-filter-player').addEventListener('change', function () { fPlayer = this.value; refresh(); });
+
+    {% if editable %}
+    var pop = document.getElementById('jap-pop'); document.body.appendChild(pop);
+    var hint = document.getElementById('jap-hint');
+    function save() {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(function () {
+            fetch(SAVE_URL, {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({jap: jap})})
+                .then(function (r) { if (!r.ok) throw new Error(r.status); })
+                .catch(function () { alert("La saisie n'a pas pu être enregistrée. Recharge la page et réessaie."); });
+        }, 200);
+    }
+    function majTypes(code) { pop.querySelectorAll('.jap-ptype').forEach(function (b) { b.classList.toggle('on', b.dataset.type === code); }); }
+    function placer(ev) {
+        pop.hidden = false;
+        var w = pop.offsetWidth, h = pop.offsetHeight;
+        var x = Math.min(window.innerWidth - w - 8, Math.max(8, ev.clientX - w / 2));
+        var y = ev.clientY + 14; if (y + h > window.innerHeight - 8) y = Math.max(8, ev.clientY - h - 14);
+        pop.style.left = x + window.scrollX + 'px'; pop.style.top = y + window.scrollY + 'px';
+    }
+    function ouvrir(t, ev) {   // modification d'une flèche existante
+        editing = t; start = end = null;
+        document.getElementById('jap-pop-title').textContent = 'Modifier le jeu au pied';
+        majTypes(t.type); document.getElementById('jap-pop-player').value = t.player || '';
+        document.getElementById('jap-pop-edit').hidden = false; document.getElementById('jap-pop-save').textContent = 'Valider';
+        placer(ev);
+    }
+    function fermer() { pop.hidden = true; editing = null; start = end = null; hint.textContent = ''; pitch(); }
+    svg.addEventListener('click', function (ev) {
+        if (!pop.hidden && editing) { fermer(); return; }
+        var r = svg.getBoundingClientRect();
+        var p = {x: Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height))};
+        if (!start || (start && end)) {
+            start = p; end = null; pop.hidden = true; editing = null; hint.textContent = "Clique maintenant le point d'arrivée"; pitch(); return;
+        }
+        end = p; hint.textContent = ''; pitch();
+        document.getElementById('jap-pop-title').textContent = 'Nouveau jeu au pied · ' + f1(Math.hypot((end.x - start.x) * W, (end.y - start.y) * H) / 10) + ' m';
+        majTypes(lastType); document.getElementById('jap-pop-player').value = lastPlayer;
+        document.getElementById('jap-pop-edit').hidden = true; document.getElementById('jap-pop-save').textContent = 'Enregistrer';
+        placer(ev); ev.stopPropagation();
+    });
+    pop.querySelectorAll('.jap-ptype').forEach(function (b) {
+        b.addEventListener('click', function () {
+            lastType = b.dataset.type; majTypes(lastType);
+            if (editing) { editing.type = lastType; save(); refresh(); }
+        });
+    });
+    document.getElementById('jap-pop-save').addEventListener('click', function () {
+        var nom = document.getElementById('jap-pop-player').value.trim(); lastPlayer = nom;
+        if (editing) { editing.player = nom; editing.type = lastType; }
+        else if (start && end) { jap.push({id: uid(), x1: start.x, y1: start.y, x2: end.x, y2: end.y, type: lastType, player: nom}); }
+        pop.hidden = true; editing = null; start = end = null; hint.textContent = ''; save(); refresh();
+    });
+    document.getElementById('jap-pop-cancel').addEventListener('click', fermer);
+    document.getElementById('jap-pop-swap').addEventListener('click', function () {
+        if (!editing) return; var t = editing; var a = t.x1, b = t.y1; t.x1 = t.x2; t.y1 = t.y2; t.x2 = a; t.y2 = b; save(); refresh();
+    });
+    document.getElementById('jap-pop-del').addEventListener('click', function () {
+        if (!editing) return; jap = jap.filter(function (x) { return x !== editing; }); pop.hidden = true; editing = null; save(); refresh();
+    });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') fermer(); });
+    {% endif %}
+    refresh();
+})();
+</script>

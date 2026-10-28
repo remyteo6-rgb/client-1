@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
+{% set active = 'jap' %}
+{% block title %}Jeu au pied — Saison{% endblock %}
+{% block content %}
+<div class="page-header no-print">
+    <div>
+        <h1>{{ icons.rugby() }} Jeu au pied — Saison</h1>
+        <p class="subtitle">Jeux au pied saisis sur {{ season_selected_count }} match{{ 's' if season_selected_count != 1 else '' }}.</p>
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
+</div>
+{% include "_season_select.html" %}
+
+<div class="report-board board-free">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">JEU AU PIED</span>
+        <span class="report-subtitle">SAISON</span>
+    </div>
+    {% set editable = false %}{% set joueurs = [] %}
+    {% include "_jap_board.html" %}
+    <div class="sf-panel" style="margin:14px 16px 16px;">
+        <div class="sf-panel-head">MATCH PAR MATCH</div>
+        <div class="m-scroll">
+        <table class="stat-table zebra-table tch-perf tch-zone">
+            <thead><tr><th>Match</th><th>Saisis</th><th>XML</th>{% for code, lab, col in types %}<th>{{ lab }}</th>{% endfor %}</tr></thead>
+            <tbody>
+            {% for r in par_match %}
+            <tr><td>{{ r.date or '—' }} — {{ r.opponent }}</td><td><strong>{{ r.saisis or '·' }}</strong></td><td>{{ r.xml or '·' }}</td>
+                {% for code, lab, col in types %}<td>{{ r.types[code] or '·' }}</td>{% endfor %}</tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+<div class="card no-print tir-notes">
+    <p class="subtitle">Les jeux au pied se saisissent sur la page Jeu au pied de chaque match. « XML » = nombre de codes « UBB Jeu au pied » du match, pour repérer ce qui reste à saisir.</p>
+</div>
+<script>function preparePrint() { setTimeout(function () { window.print(); }, 100); }</script>
+{% endblock %}

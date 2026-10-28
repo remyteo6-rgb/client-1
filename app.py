@@ -3289,6 +3289,78 @@ def season_tirs():
                            lignes=TIRS_LIGNES, **ctx)
 
 
+# ---- Jeu au pied (page « JEU AU PIED », match et saison) -------------------------------------
+# Saisie à la main : un clic sur le point de départ, un clic sur le point d'arrivée -> une flèche ; puis le type de
+# jeu au pied et le joueur. Positions normalisées : x 0-1 (gauche -> droite en regardant l'en-but adverse),
+# y 0-1 de l'en-but adverse (0) à notre en-but (1), en-buts compris.
+JAP_TYPES = (
+    ("CHA", "Chandelle", "#f2b134"), ("DEG", "Dégagement", "#6c7280"), ("TCH", "Touche trouvée", "#2f6fb5"),
+    ("CTA", "Contre-attaque", "#2e9b45"), ("RAS", "Rasant", "#8a5cc2"), ("DIA", "Diagonale", "#d9574a"),
+    ("5022", "50-22", "#00a3a3"), ("KO", "Coup d'envoi / renvoi", "#3b3b3b"),
+)
+
+
+def _jap_saisis(manual):
+    """Jeux au pied enregistrés d'un match : [{id, x1, y1, x2, y2, type, player}]."""
+    codes = {c for c, _l, _k in JAP_TYPES}
+    out = []
+    for t in ((manual or {}).get("jap") or []):
+        try:
+            if t.get("type") not in codes:
+                continue
+            f = {k: round(min(1.0, max(0.0, float(t[k]))), 4) for k in ("x1", "y1", "x2", "y2")}
+            out.append({"id": str(t.get("id") or "")[:24], **f, "type": t["type"], "player": str(t.get("player") or "")[:60]})
+        except (TypeError, ValueError, KeyError, AttributeError):
+            continue
+    return out
+
+
+def _jap_xml_total(instances):
+    return sum(1 for i in instances or [] if _normalize_tag(i.get("code_raw")) == "UBB JEU AU PIED")
+
+
+@app.route("/match/<int:match_id>/jeu-au-pied")
+def match_jap(match_id):
+    match = _get_match_or_404(match_id)
+    joueurs = [{"nom": n, "numero": i + 1} for i, n in enumerate((match.get("composition") or [])[:23]) if n]
+    deja = {j["nom"] for j in joueurs}
+    jap = _jap_saisis(match.get("manual_stats"))
+    for n in list(match.get("row_order") or []) + list((match.get("player_match_stats") or {}).keys()) + \
+            [t["player"] for t in jap if t["player"]]:
+        if n and n not in deja:
+            deja.add(n)
+            joueurs.append({"nom": n, "numero": "·"})
+    return render_template("match_jap.html", match=match, jap=jap, joueurs=joueurs, types=JAP_TYPES,
+                           xml_total=_jap_xml_total(match.get("instances")), assets=_review_assets(match),
+                           editable=bool(session.get("is_admin")))
+
+
+@app.route("/match/<int:match_id>/jeu-au-pied/saisie", methods=["POST"])
+@admin_required
+def match_jap_save(match_id):
+    match = _get_match_or_404(match_id)
+    payload = request.get_json(silent=True) or {}
+    manual = match.get("manual_stats") or {}
+    manual["jap"] = _jap_saisis({"jap": (payload.get("jap") or [])[:400]})
+    db = get_db()
+    db.execute("UPDATE matches SET manual_stats_json = %s WHERE id = %s", (json.dumps(manual), match_id))
+    db.commit()
+    return jsonify({"ok": True, "total": len(manual["jap"])})
+
+
+@app.route("/season/jeu-au-pied")
+def season_jap():
+    selected, ctx = _season_common("jap")
+    tous, par_match = [], []
+    for m in selected:
+        jap = _jap_saisis(m.get("manual_stats"))
+        tous += jap
+        par_match.append({"id": m["id"], "date": m.get("match_date"), "opponent": m.get("opponent") or "?",
+                          "saisis": len(jap), "xml": _jap_xml_total(m.get("instances")),
+                          "types": {c: sum(1 for t in jap if t["type"] == c) for c, _l, _k in JAP_TYPES}})
+    return render_template("season_jap.html", jap=tous, par_match=par_match, types=JAP_TYPES, **ctx)
+
+
 @app.route("/match/<int:match_id>/melees")
 def match_melees(match_id):
     """Page « Mêlées » d'un match : nos mêlées et celles de l'adversaire, résultat, TQB, rejouées

@@ -3688,3 +3688,20 @@ body.slide-fs-on { overflow: hidden; }
 .tir-mark { cursor:pointer; }
 .tir-typebtn { font-weight:800; text-decoration:none; border:1px solid #c9a3ad; border-radius:10px; padding:1px 8px; background:#fbf3f5; }
 .tir-typebtn:hover { background:#7d3653; color:#fff; }
+
+/* ===== Page Jeu au pied ===== */
+.jap-wrap { display:grid; grid-template-columns:minmax(0, 0.8fr) minmax(0, 1fr); gap:18px; padding:0 16px 14px; align-items:start; }
+.jap-map-head { display:flex; justify-content:space-between; align-items:center; font-weight:800; text-transform:uppercase; font-size:.85rem; letter-spacing:.6px; color:var(--bg-header); margin-bottom:6px; }
+.jap-hint { color:#7d3653; font-style:italic; text-transform:none; letter-spacing:0; }
+.jap-pitch { background:#3d7f43; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,.2); overflow:hidden; line-height:0; }
+.jap-pitch svg { width:100%; height:auto; display:block; cursor:crosshair; }
+.jap-arrow { cursor:pointer; }
+.jap-types { display:flex; flex-wrap:wrap; gap:6px; padding:10px 12px; }
+.jap-chip { display:inline-flex; align-items:center; gap:6px; border:1.5px solid #c9ccd6; background:#fff; border-radius:16px; padding:4px 11px; font-weight:700; font-size:.85rem; cursor:pointer; }
+.jap-chip i { width:12px; height:12px; border-radius:50%; background:var(--c, #999); display:inline-block; }
+.jap-chip.on { background:#7d3653; border-color:#7d3653; color:#fff; }
+.jap-filter { padding:0 12px 10px; font-size:.9rem; font-weight:700; } .jap-filter select { margin-left:6px; padding:4px 6px; font:inherit; }
+.jap-pop-types { display:flex; flex-wrap:wrap; gap:5px; margin:4px 0 6px; }
+.jap-ptype { border:2px solid var(--c); background:#fff; border-radius:14px; padding:3px 9px; font-weight:700; font-size:.8rem; cursor:pointer; }
+.jap-ptype.on { background:var(--c); color:#fff; }
+@media (max-width: 900px) { .jap-wrap { grid-template-columns:1fr; padding:0 8px 12px; } }
