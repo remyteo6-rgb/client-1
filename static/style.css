@@ -3686,3 +3686,5 @@ body.slide-fs-on { overflow: hidden; }
 .tir-pitch { background:#3d7f43; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,.2); overflow:hidden; line-height:0; }
 .tir-pitch svg { width:100%; height:auto; display:block; cursor:crosshair; }
 .tir-mark { cursor:pointer; }
+.tir-typebtn { font-weight:800; text-decoration:none; border:1px solid #c9a3ad; border-radius:10px; padding:1px 8px; background:#fbf3f5; }
+.tir-typebtn:hover { background:#7d3653; color:#fff; }

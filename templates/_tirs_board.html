@@ -184,7 +184,10 @@
         tirs.filter(function (t) { return t.row === cur.row && t.col === cur.col; }).forEach(function (t) {
             var line = el('div', 'tir-line');
             line.appendChild(el('span', t.ok ? 'tir-ok-txt' : 'tir-ko-txt', t.ok ? '✓' : '✗'));
-            line.appendChild(el('span', null, (TYPES[t.type] || t.type) + (t.player ? ' · ' + t.player : '')));
+            var tp = el('button', 'tir-link tir-typebtn', t.type === 'T' ? 'Transfo' : 'Pénalité'); tp.type = 'button'; tp.title = 'Changer pénalité / transformation';
+            tp.onclick = function () { t.type = t.type === 'P' ? 'T' : 'P'; save(); render(); listePop(); };
+            line.appendChild(tp);
+            line.appendChild(el('span', null, t.player || ''));
             var tog = el('button', 'tir-link', 'inverser'); tog.type = 'button';
             tog.onclick = function () { t.ok = !t.ok; save(); render(); listePop(); };
             var del = el('button', 'tir-link tir-del', 'supprimer'); del.type = 'button';
