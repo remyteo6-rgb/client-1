@@ -2781,27 +2781,27 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
 @media print { .dis-grp-tag { display: none; } }
 
 /* ---- Page TOUCHES du rapport vidéo ----------------------------------------- */
-.tch-board { display: grid; grid-template-columns: 0.66fr 1fr; gap: 22px; align-items: stretch; margin-top: 6px; }
+.tch-board { display: grid; grid-template-columns: 0.9fr 1fr; gap: 26px; align-items: stretch; margin-top: 6px; }
 .tch-left { display: flex; flex-direction: column; min-width: 0; }
 .tch-heads {
     display: grid; grid-template-columns: 13% 23% 16% 16% 16% 16%; text-align: center; white-space: nowrap;
-    font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-weight: 700; font-size: .85rem;
-    letter-spacing: .3px; text-transform: uppercase; color: #111; padding-bottom: 6px;
+    font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-weight: 700; font-size: 1rem;
+    letter-spacing: .3px; text-transform: uppercase; color: #111; padding-bottom: 8px;
 }
 .tch-table { width: 100%; border-collapse: collapse; table-layout: fixed; background: #fff; }
 .tch-table td {
     border: 2.5px solid #111; text-align: center; vertical-align: middle;
-    font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: 1.15rem; color: #111; padding: 2px 2px; border-width: 2px;
+    font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: 1.5rem; color: #111; padding: 4px 2px;
 }
-.tch-ok { color: #2e9b45; font-size: 1.45rem; font-weight: 800; line-height: 1; }
-.tch-ko { color: #d63b30; font-size: 1.45rem; font-weight: 800; line-height: 1; }
+.tch-ok { color: #2e9b45; font-size: 2rem; font-weight: 800; line-height: 1; }
+.tch-ko { color: #d63b30; font-size: 2rem; font-weight: 800; line-height: 1; }
 .tch-in {
     width: 100%; border: 0; background: transparent; text-align: center; text-transform: uppercase;
     font: inherit; color: inherit; padding: 0;
 }
 .tch-in:hover, .tch-toggle:hover { background: rgba(125,54,83,.06); }
 .tch-in:focus-visible, .tch-toggle:focus-visible { outline: 2px solid var(--accent-gold); outline-offset: -3px; }
-.tch-toggle { width: 100%; height: 100%; min-height: 26px; border: 0; background: transparent; cursor: pointer; }
+.tch-toggle { width: 100%; height: 100%; min-height: 34px; border: 0; background: transparent; cursor: pointer; }
 .tch-chart-card {
     position: relative; background: rgba(255,255,255,.88); border: 1px solid #eee; border-radius: 4px;
     padding: 14px 18px 8px; display: flex; flex-direction: column; min-width: 0; align-self: center;
@@ -2826,9 +2826,9 @@ circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-d
 .tch-cause { fill: #c0392b; font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: 13px; }
 .tch-notes { margin-top: 12px; }
 .report-slide .tch-board { flex: 1; min-height: 0; }
-.report-slide .tch-table { flex: 0 0 auto; height: auto; }
+.report-slide .tch-table { flex: 1 1 auto; height: auto; }
 .tch-table col.c-num { width: 13%; } .tch-table col.c-lan { width: 23%; } .tch-table col.c-x { width: 16%; }
-.tch-table td.tch-lan { font-size: .95rem; white-space: nowrap; overflow: hidden; }
+.tch-table td.tch-lan { font-size: 1.25rem; white-space: nowrap; overflow: hidden; }
 
 /* ---- Page Joueurs : diapo « BILAN » (même lecture que le rapport du staff) ---- */
 .bjr-panel { background: rgba(255,255,255,.94); border: 1px solid #c9ccd6; border-top: 3px solid #6b1a2b; margin-top: 4px; }
@@ -3630,3 +3630,8 @@ body.slide-fs-on { overflow: hidden; }
 .dis-types-carton { display:inline-flex; align-items:center; gap:7px; font-weight:700; font-size:.95rem; }
 .dis-types-carton b { font-size:1.3rem; font-weight:800; }
 .dis-types-carton .dis-card { width:14px; height:19px; }
+
+/* Touches : page 2 (détail), panneaux sur deux colonnes */
+.tch-detail { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 6px 16px 16px; align-items: start; }
+.tch-detail .sf-panel { margin-top: 0 !important; }
+@media (max-width: 900px) { .tch-detail { grid-template-columns: 1fr; padding: 6px 8px 12px; } }

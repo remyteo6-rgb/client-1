@@ -12,7 +12,7 @@
 </div>
 {% include "_season_select.html" %}
 
-<div class="report-board sfs-board">
+<div class="report-board board-free sfs-board">
     <div class="report-head">
         <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
         <span class="report-title">TOUCHES</span>
@@ -43,6 +43,60 @@
             <tr><td>{{ r.date or '—' }} — {{ r.opponent }}</td><td>{{ r.total }}</td><td>{{ r.gagnees }}</td>
                 <td>{{ fmt(r.pct, 1, ' %') }}</td><td>{{ fmt(r.qb_pct, 1, ' %') }}</td>
                 <td>{{ r.tank_total }}</td><td>{{ fmt(r.tank_ratio, 1, ' %') }}</td><td>{{ fmt(r.tank_pct, 1, ' %') }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="tch-detail" style="padding:0; margin-top:14px;">
+        <div class="sf-panel">
+            <div class="sf-panel-head">RÉUSSITE DES LANCEURS · SAISON</div>
+            {% if detail.lanceurs %}
+            <table class="stat-table zebra-table tch-perf">
+                <thead><tr><th>Joueur</th><th>Lancés</th><th>Réussis</th><th>%</th></tr></thead>
+                <tbody>{% for r in detail.lanceurs %}<tr><td>{{ r.name }}</td><td>{{ r.tot }}</td><td><span class="stat-pos">{{ r.ok }}</span> / <span class="stat-neg">{{ r.ko }}</span></td><td><strong>{{ r.pct }} %</strong></td></tr>{% endfor %}</tbody>
+            </table>
+            {% else %}<p class="sfs-note" style="padding:12px 16px;">Lanceurs non codés sur ces matchs.</p>{% endif %}
+        </div>
+        <div class="sf-panel">
+            <div class="sf-panel-head">RÉUSSITE DES SAUTEURS · SAISON</div>
+            {% if detail.sauteurs %}
+            <table class="stat-table zebra-table tch-perf">
+                <thead><tr><th>Joueur</th><th>Ballons</th><th>Pris</th><th>%</th></tr></thead>
+                <tbody>{% for r in detail.sauteurs %}<tr><td>{{ r.name }}</td><td>{{ r.tot }}</td><td><span class="stat-pos">{{ r.ok }}</span> / <span class="stat-neg">{{ r.ko }}</span></td><td><strong>{{ r.pct }} %</strong></td></tr>{% endfor %}</tbody>
+            </table>
+            {% else %}<p class="sfs-note" style="padding:12px 16px;">Sauteurs non codés sur ces matchs.</p>{% endif %}
+        </div>
+        <div class="sf-panel">
+            <div class="sf-panel-head">RÉUSSITE PAR ZONE · SAISON</div>
+            <table class="stat-table zebra-table tch-perf">
+                <thead><tr><th>Zone</th><th>Touches</th><th>Gagnées</th><th>%</th><th>Tanks</th></tr></thead>
+                <tbody>{% for z in detail.zones %}<tr><td>{{ z.zone }}</td><td>{{ z.touches }}</td>
+                    <td>{% if z.touches %}<span class="stat-pos">{{ z.gagnees }}</span> / <span class="stat-neg">{{ z.touches - z.gagnees }}</span>{% else %}·{% endif %}</td>
+                    <td>{% if z.pct is not none %}<strong>{{ z.pct }} %</strong>{% else %}·{% endif %}</td>
+                    <td>{% if z.tanks %}{{ z.tanks_plus }} / {{ z.tanks }}{% else %}·{% endif %}</td></tr>{% endfor %}</tbody>
+            </table>
+        </div>
+        <div class="sf-panel">
+            <div class="sf-panel-head">TANK · MAUL APRÈS TOUCHE · SAISON</div>
+            {% if detail.tank.total %}
+            <table class="stat-table zebra-table tch-perf"><tbody>
+                <tr><td>Touches jouées au tank</td><td><strong>{{ detail.tank.total }}</strong> / {{ detail.tank.touches }}</td></tr>
+                <tr><td>Ratio tank / touches</td><td><strong>{{ detail.tank.ratio }} %</strong></td></tr>
+                <tr><td>Tanks positifs / négatifs</td><td><span class="stat-pos">{{ detail.tank.plus }}</span> / <span class="stat-neg">{{ detail.tank.moins }}</span></td></tr>
+                <tr><td>Réussite du tank</td><td><strong>{{ detail.tank.pct }} %</strong></td></tr>
+            </tbody></table>
+            {% else %}<p class="sfs-note" style="padding:12px 16px;">Aucun tank tagué sur ces matchs.</p>{% endif %}
+        </div>
+    </div>
+    <div class="sf-panel sfs-panel" style="margin-top:14px;">
+        <div class="sf-panel-head">ZONES · MATCH PAR MATCH (gagnées / touches)</div>
+        <table class="stat-table zebra-table tch-season-table">
+            <thead><tr><th>Match</th><th>GOLD</th><th>RUMBLE</th><th>COP</th><th>ROUGE</th></tr></thead>
+            <tbody>
+            {% for r in detail.par_match_zone %}
+            <tr><td>{{ r.date or '—' }} — {{ r.opponent }}</td>
+                {% for zn in ('GOLD', 'RUMBLE', 'COP', 'ROUGE') %}{% set z = r.zones[zn] %}
+                <td>{% if z.touches %}{{ z.gagnees }} / {{ z.touches }}{% else %}·{% endif %}</td>{% endfor %}</tr>
             {% endfor %}
             </tbody>
         </table>

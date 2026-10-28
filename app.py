@@ -5822,7 +5822,49 @@ def season_touches():
                # pas autant qu'un match à 14).
                "tank_ratio": _avg_fmt(100 * tanks / sum(r["total"] for r in rows), 1) if rows else "—",
                "tank_pct": _avg_fmt(100 * sum(1 for m in selected for x in (compute_touches_page(m["instances"], (m.get("manual_stats") or {}).get("touches")) or {"rows": []})["rows"] if x["tank"]) / tanks, 1) if tanks else "—"}
-    return render_template("season_touches.html", rows=rows, summary=summary, fmt=_avg_fmt, **ctx)
+    # Tableaux de détail de la saison (mêmes que la page d'un match, cumulés) : lanceurs, sauteurs, zones, tank.
+    joueurs = {"lance": {}, "saut": {}}
+    zones = {z: {"zone": z, "touches": 0, "gagnees": 0, "tanks": 0, "tanks_plus": 0} for z in ("GOLD", "RUMBLE", "COP", "ROUGE")}
+    par_match_zone = []
+    tk_tot = tk_plus = n_touches = 0
+    for m in selected:
+        d = compute_touches_page(m["instances"], (m.get("manual_stats") or {}).get("touches"))
+        if not d:
+            continue
+        n_touches += d["total"]
+        tk_tot += d["tank_total"]
+        tk_plus += d["tank_plus"]
+        ligne = {"id": m["id"], "date": m.get("match_date"), "opponent": m.get("opponent"), "zones": {}}
+        for z in d["zones"]:
+            acc = zones[z["zone"]]
+            for k in ("touches", "gagnees", "tanks", "tanks_plus"):
+                acc[k] += z[k]
+            ligne["zones"][z["zone"]] = z
+        par_match_zone.append(ligne)
+        for r in (compute_player_ruck_table(m["instances"]) or {}).get("rows") or []:
+            for cle, ok, ko in (("lance", "lancer_gagne", "lancer_perdu"), ("saut", "sauteur_plus", "sauteur_moins")):
+                n_ok, n_ko = _v(r, ok), _v(r, ko)
+                if n_ok + n_ko:
+                    nom = _joueur_nom_affiche(r["name"])
+                    e = joueurs[cle].setdefault(nom, {"name": nom, "ok": 0, "ko": 0})
+                    e["ok"] += n_ok
+                    e["ko"] += n_ko
+
+    def _cl(dico):
+        out = [{"name": e["name"], "ok": e["ok"], "ko": e["ko"], "tot": e["ok"] + e["ko"],
+                "pct": round(100 * e["ok"] / (e["ok"] + e["ko"]))} for e in dico.values()]
+        return sorted(out, key=lambda x: (-x["tot"], -x["pct"], x["name"]))
+    zl = []
+    for z in zones.values():
+        z = dict(z)
+        z["pct"] = round(100 * z["gagnees"] / z["touches"]) if z["touches"] else None
+        zl.append(z)
+    detail = {"lanceurs": _cl(joueurs["lance"]), "sauteurs": _cl(joueurs["saut"]), "zones": zl,
+              "par_match_zone": par_match_zone,
+              "tank": {"total": tk_tot, "plus": tk_plus, "moins": tk_tot - tk_plus, "touches": n_touches,
+                       "ratio": round(100 * tk_tot / n_touches, 1) if n_touches else None,
+                       "pct": round(100 * tk_plus / tk_tot, 1) if tk_tot else None}}
+    return render_template("season_touches.html", rows=rows, summary=summary, fmt=_avg_fmt, detail=detail, **ctx)
 
 
 @app.route("/season/surfeurs")
