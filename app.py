@@ -3300,7 +3300,7 @@ JAP_TYPES = (
 
 
 def _jap_saisis(manual):
-    """Jeux au pied enregistrés d'un match : [{id, x1, y1, x2, y2, type, player}]."""
+    """Jeux au pied enregistrés d'un match : [{id, x1, y1, x2, y2, type, player, sec}] (sec = temps de suspension en secondes, optionnel)."""
     codes = {c for c, _l, _k in JAP_TYPES}
     out = []
     for t in ((manual or {}).get("jap") or []):
@@ -3308,7 +3308,12 @@ def _jap_saisis(manual):
             if t.get("type") not in codes:
                 continue
             f = {k: round(min(1.0, max(0.0, float(t[k]))), 4) for k in ("x1", "y1", "x2", "y2")}
-            out.append({"id": str(t.get("id") or "")[:24], **f, "type": t["type"], "player": str(t.get("player") or "")[:60]})
+            try:
+                sec = round(min(15.0, max(0.0, float(t.get("sec")))), 1)
+            except (TypeError, ValueError):
+                sec = None
+            out.append({"id": str(t.get("id") or "")[:24], **f, "type": t["type"], "player": str(t.get("player") or "")[:60], "sec": sec,
+                        "mt": 2 if str(t.get("mt")) == "2" else 1})
         except (TypeError, ValueError, KeyError, AttributeError):
             continue
     return out
@@ -3366,7 +3371,9 @@ def season_jap():
         return {"total": n,
                 "types": {c: sum(1 for t in lst if t["type"] == c) for c, _l, _k in JAP_TYPES},
                 "longueur": round(sum(_long(t) ** 0.5 for t in lst) / n) if n else None,
-                "gain": round(sum((t["y1"] - t["y2"]) * 110 for t in lst) / n) if n else None}
+                "gain": round(sum((t["y1"] - t["y2"]) * 110 for t in lst) / n) if n else None,
+                "susp": (round(sum(t["sec"] for t in lst if t.get("sec") is not None) / len([t for t in lst if t.get("sec") is not None]), 1)
+                         if any(t.get("sec") is not None for t in lst) else None)}
     groupes = {}
     for t in tous:
         groupes.setdefault(t.get("player") or "Non précisé", []).append(t)

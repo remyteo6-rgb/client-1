@@ -3690,7 +3690,7 @@ body.slide-fs-on { overflow: hidden; }
 .tir-typebtn:hover { background:#7d3653; color:#fff; }
 
 /* ===== Page Jeu au pied ===== */
-.jap-wrap { display:grid; grid-template-columns:minmax(0, 400px) minmax(0, 1fr); gap:18px; padding:0 16px 14px; align-items:start; }
+.jap-wrap { display:grid; grid-template-columns:minmax(0, 1fr); gap:18px; padding:0 16px 14px; align-items:start; }
 .jap-map-head { display:flex; justify-content:space-between; align-items:center; font-weight:800; text-transform:uppercase; font-size:.85rem; letter-spacing:.6px; color:var(--bg-header); margin-bottom:6px; }
 .jap-hint { color:#7d3653; font-style:italic; text-transform:none; letter-spacing:0; }
 .jap-pitch { background:#3d7f43; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,.2); overflow:hidden; line-height:0; }
@@ -3710,3 +3710,15 @@ body.slide-fs-on { overflow: hidden; }
 /* ===== Tous les tableaux du site : contenu centré (demande Téo) ===== */
 table th, table td { text-align: center !important; }
 table td > .player-cell, table td .mel-match { text-align: center; }
+
+.jap-pitches { display:flex; gap:16px; justify-content:center; align-items:flex-start; }
+.jap-half { flex:0 1 340px; min-width:0; }
+.jap-half-head { text-align:center; font-weight:800; text-transform:uppercase; font-size:.85rem; letter-spacing:.6px; color:#7d3653; margin-bottom:4px; }
+.jap-right { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px; align-items:start; }
+.jap-right .sf-panel { margin-top:0 !important; }
+@media (max-width: 1100px) { .jap-right { grid-template-columns:1fr; } }
+@media (max-width: 600px) { .jap-pitches { gap:8px; } }
+.jap-right { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+.jap-right .sf-panel:nth-child(3) { grid-column:1 / -1; }
+.tir-pop-row[hidden] { display:none !important; }
+@media (max-width: 1100px) { .jap-right { grid-template-columns:1fr; } }

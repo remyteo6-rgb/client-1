@@ -2,7 +2,14 @@
 <div class="jap-wrap">
     <div class="jap-left">
         <div class="jap-map-head"><span>Nous attaquons vers le haut</span><span id="jap-hint" class="jap-hint"></span></div>
-        <div class="jap-pitch"><svg id="jap-svg" viewBox="0 0 650 1100" role="img" aria-label="Terrain complet, jeux au pied"></svg></div>
+        <div class="jap-pitches">
+            {% for mt, lab in ((1, '1re mi-temps'), (2, '2e mi-temps')) %}
+            <div class="jap-half">
+                <div class="jap-half-head">{{ lab }} · <span id="jap-count-{{ mt }}">0</span></div>
+                <div class="jap-pitch"><svg id="jap-svg-{{ mt }}" viewBox="0 0 650 1100" role="img" aria-label="Terrain, {{ lab }}"></svg></div>
+            </div>
+            {% endfor %}
+        </div>
         <p class="tir-foot">{% if editable %}Clique le point de départ, puis le point d'arrivée : la flèche se crée et tu choisis le type et le joueur. Clique une flèche pour la modifier.{% else %}Flèche = un jeu au pied, du point de départ au point d'arrivée. Filtre par type ou par joueur à droite.{% endif %}</p>
     </div>
     <div class="jap-right">
@@ -14,7 +21,7 @@
         <div class="sf-panel" style="margin-top:12px;">
             <div class="sf-panel-head">PAR TYPE</div>
             <table class="stat-table zebra-table tch-perf tch-zone">
-                <thead><tr><th>Type</th><th>Nb</th><th>Longueur moy.</th><th>Gain moy.</th></tr></thead>
+                <thead><tr><th>Type</th><th>Nb</th><th>Longueur moy.</th><th>Gain moy.</th><th>Suspension moy.</th></tr></thead>
                 <tbody id="jap-bytype"></tbody>
             </table>
         </div>
@@ -35,6 +42,9 @@
     <div class="jap-pop-types" id="jap-pop-types">{% for code, lab, col in types %}<button type="button" class="jap-ptype" data-type="{{ code }}" style="--c:{{ col }}">{{ lab }}</button>{% endfor %}</div>
     <label class="tir-pop-row">Joueur
         <select id="jap-pop-player"><option value="">— Choisir un joueur —</option>{% for j in joueurs %}<option value="{{ j.nom }}">{% if j.numero != '·' %}{{ j.numero }} · {% endif %}{{ j.nom }}</option>{% endfor %}</select>
+    </label>
+    <label class="tir-pop-row" id="jap-pop-sec-row">Suspension (s)
+        <input id="jap-pop-sec" type="number" min="0" max="15" step="0.1" inputmode="decimal" placeholder="ex. 4.2">
     </label>
     <div class="tir-pop-row">
         <button type="button" class="tir-btn tir-ok" id="jap-pop-save">Enregistrer</button>
@@ -57,7 +67,7 @@
     {% if editable %}var SAVE_URL = {{ save_url|tojson }};{% endif %}
     var NS = 'http://www.w3.org/2000/svg', W = 650, H = 1100;
     var fType = '', fPlayer = '', start = null, end = null, editing = null, lastType = TYPES[0][0], lastPlayer = '', saveTimer = null;
-    var svg = document.getElementById('jap-svg');
+    var svgs = {1: document.getElementById('jap-svg-1'), 2: document.getElementById('jap-svg-2')};
 
     function sv(tag, attrs, parent, txt) {
         var e = document.createElementNS(NS, tag);
@@ -72,9 +82,11 @@
     function moy(list, f) { return list.length ? list.reduce(function (s, t) { return s + f(t); }, 0) / list.length : null; }
     function fmt(v) { return v == null ? '·' : (v > 0 && f1(v) !== '0' ? '+' : '') + f1(v) + ' m'; }
     function f1(v) { return String(Math.round(v)); }
+    function susp(l) { var s = l.filter(function (t) { return t.sec != null; }); return s.length ? (s.reduce(function (a, t) { return a + t.sec; }, 0) / s.length).toFixed(1) + ' s' : '·'; }
     function visibles() { return jap.filter(function (t) { return (!fType || t.type === fType) && (!fPlayer || t.player === fPlayer); }); }
 
-    function pitch() {
+    function pitch() { [1, 2].forEach(function (mt) { drawOne(svgs[mt], mt); }); }
+    function drawOne(svg, mt) {
         svg.innerHTML = '';
         for (var r = 0; r < 10; r++) sv('rect', {x: 0, y: 50 + r * 100, width: W, height: 100, fill: r % 2 ? '#559f5b' : '#4f9a55'}, svg);
         sv('rect', {x: 0, y: 0, width: W, height: 50, fill: '#3d7f43'}, svg); sv('rect', {x: 0, y: 1050, width: W, height: 50, fill: '#3d7f43'}, svg);
@@ -88,7 +100,8 @@
         sv('line', {x1: 293, y1: 1050, x2: 293, y2: 1092}, po); sv('line', {x1: 357, y1: 1050, x2: 357, y2: 1092}, po); sv('line', {x1: 293, y1: 1072, x2: 357, y2: 1072}, po);
         [[270, '22'], [550, '50'], [830, '22']].forEach(function (d) { sv('text', {x: 8, y: d[0] - 6, 'font-size': 16, 'font-weight': 800, fill: '#fff', 'fill-opacity': .85}, svg, d[1]); });
         // flèches
-        var vs = visibles(), k = vs.length > 15 ? 0.55 : 1;
+        var vs = visibles().filter(function (t) { return (t.mt || 1) === mt; }), k = vs.length > 12 ? 0.55 : 1;
+        document.getElementById('jap-count-' + mt).textContent = vs.length;
         vs.forEach(function (t) {
             var x1 = t.x1 * W, y1 = t.y1 * H, x2 = t.x2 * W, y2 = t.y2 * H, c = COL[t.type] || '#333';
             var a = Math.atan2(y2 - y1, x2 - x1), L = 26 * (k < 1 ? .75 : 1);
@@ -101,12 +114,12 @@
             sv('polygon', {points: head, fill: c}, g2);
             sv('circle', {cx: x1, cy: y1, r: 8 * k, fill: c, stroke: '#fff', 'stroke-width': 3 * k}, g2);
             sv('line', {x1: x1, y1: y1, x2: x2, y2: y2, stroke: 'transparent', 'stroke-width': 26}, g2);
-            sv('title', {}, g2, (LAB[t.type] || t.type) + (t.player ? ' · ' + t.player : '') + ' · ' + f1(metres(t)) + ' m');
+            sv('title', {}, g2, (LAB[t.type] || t.type) + (t.player ? ' · ' + t.player : '') + ' · ' + f1(metres(t)) + ' m' + (t.sec != null ? ' · ' + t.sec + ' s' : ''));
             if (EDIT) g2.addEventListener('click', function (ev) { ev.stopPropagation(); ouvrir(t, ev); });
         });
         // saisie en cours
-        if (start) sv('circle', {cx: start.x * W, cy: start.y * H, r: 10, fill: '#fff', stroke: '#530d34', 'stroke-width': 4}, svg);
-        if (start && end) sv('line', {x1: start.x * W, y1: start.y * H, x2: end.x * W, y2: end.y * H, stroke: '#fff', 'stroke-width': 4, 'stroke-dasharray': '10 8'}, svg);
+        if (start && start.mt === mt) sv('circle', {cx: start.x * W, cy: start.y * H, r: 10, fill: '#fff', stroke: '#530d34', 'stroke-width': 4}, svg);
+        if (start && end && start.mt === mt) sv('line', {x1: start.x * W, y1: start.y * H, x2: end.x * W, y2: end.y * H, stroke: '#fff', 'stroke-width': 4, 'stroke-dasharray': '10 8'}, svg);
     }
 
     function stats() {
@@ -127,7 +140,7 @@
         TYPES.forEach(function (t) {
             var l = vis.filter(function (x) { return x.type === t[0]; });
             if (!l.length) return;
-            var tr = el('tr'); [t[1], l.length, fmt(moy(l, metres)).replace('+', ''), fmt(moy(l, gain))].forEach(function (v) { tr.appendChild(el('td', null, v)); });
+            var tr = el('tr'); [t[1], l.length, fmt(moy(l, metres)).replace('+', ''), fmt(moy(l, gain)), susp(l)].forEach(function (v) { tr.appendChild(el('td', null, v)); });
             bt.appendChild(tr);
         });
         // par joueur
@@ -164,7 +177,9 @@
                 .catch(function () { alert("La saisie n'a pas pu être enregistrée. Recharge la page et réessaie."); });
         }, 200);
     }
-    function majTypes(code) { pop.querySelectorAll('.jap-ptype').forEach(function (b) { b.classList.toggle('on', b.dataset.type === code); }); }
+    function majSec() { document.getElementById('jap-pop-sec-row').hidden = lastType !== 'PRE'; }
+    function readSec() { var v = parseFloat(document.getElementById('jap-pop-sec').value); return isFinite(v) && lastType === 'PRE' ? Math.round(v * 10) / 10 : null; }
+    function majTypes(code) { pop.querySelectorAll('.jap-ptype').forEach(function (b) { b.classList.toggle('on', b.dataset.type === code); }); majSec(); }
     function placer(ev) {
         pop.hidden = false;
         var w = pop.offsetWidth, h = pop.offsetHeight;
@@ -175,34 +190,34 @@
     function ouvrir(t, ev) {   // modification d'une flèche existante
         editing = t; start = end = null;
         document.getElementById('jap-pop-title').textContent = 'Modifier le jeu au pied';
-        majTypes(t.type); document.getElementById('jap-pop-player').value = t.player || '';
+        lastType = t.type; majTypes(t.type); document.getElementById('jap-pop-player').value = t.player || ''; document.getElementById('jap-pop-sec').value = t.sec != null ? t.sec : '';
         document.getElementById('jap-pop-edit').hidden = false; document.getElementById('jap-pop-save').textContent = 'Valider';
         placer(ev);
     }
     function fermer() { pop.hidden = true; editing = null; start = end = null; hint.textContent = ''; pitch(); }
-    svg.addEventListener('click', function (ev) {
+    [1, 2].forEach(function (mt) { svgs[mt].addEventListener('click', function (ev) {
         if (!pop.hidden && editing) { fermer(); return; }
-        var r = svg.getBoundingClientRect();
+        var r = svgs[mt].getBoundingClientRect();
         var p = {x: Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height))};
-        if (!start || (start && end)) {
-            start = p; end = null; pop.hidden = true; editing = null; hint.textContent = "Clique maintenant le point d'arrivée"; pitch(); return;
+        if (!start || (start && end) || start.mt !== mt) {
+            start = p; start.mt = mt; end = null; pop.hidden = true; editing = null; hint.textContent = "Clique maintenant le point d'arrivée"; pitch(); return;
         }
         end = p; hint.textContent = ''; pitch();
-        document.getElementById('jap-pop-title').textContent = 'Nouveau jeu au pied · ' + f1(Math.hypot((end.x - start.x) * W, (end.y - start.y) * H) / 10) + ' m';
-        majTypes(lastType); document.getElementById('jap-pop-player').value = lastPlayer;
+        document.getElementById('jap-pop-title').textContent = 'Nouveau jeu au pied · ' + (mt === 1 ? '1re' : '2e') + ' mi-temps · ' + f1(Math.hypot((end.x - start.x) * W, (end.y - start.y) * H) / 10) + ' m';
+        majTypes(lastType); document.getElementById('jap-pop-player').value = lastPlayer; document.getElementById('jap-pop-sec').value = '';
         document.getElementById('jap-pop-edit').hidden = true; document.getElementById('jap-pop-save').textContent = 'Enregistrer';
         placer(ev); ev.stopPropagation();
-    });
+    }); });
     pop.querySelectorAll('.jap-ptype').forEach(function (b) {
         b.addEventListener('click', function () {
             lastType = b.dataset.type; majTypes(lastType);
-            if (editing) { editing.type = lastType; save(); refresh(); }
+            if (editing) { editing.type = lastType; if (lastType !== 'PRE') editing.sec = null; save(); refresh(); }
         });
     });
     document.getElementById('jap-pop-save').addEventListener('click', function () {
         var nom = document.getElementById('jap-pop-player').value.trim(); lastPlayer = nom;
-        if (editing) { editing.player = nom; editing.type = lastType; }
-        else if (start && end) { jap.push({id: uid(), x1: start.x, y1: start.y, x2: end.x, y2: end.y, type: lastType, player: nom}); }
+        if (editing) { editing.player = nom; editing.type = lastType; editing.sec = readSec(); }
+        else if (start && end) { jap.push({id: uid(), x1: start.x, y1: start.y, x2: end.x, y2: end.y, mt: start.mt, type: lastType, player: nom, sec: readSec()}); }
         pop.hidden = true; editing = null; start = end = null; hint.textContent = ''; save(); refresh();
     });
     document.getElementById('jap-pop-cancel').addEventListener('click', fermer);
