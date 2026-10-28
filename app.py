@@ -5816,6 +5816,99 @@ def _discipline_joueurs_saison(selected):
                   key=lambda p: (-p["fautes"], -p["rouges"], -p["jaunes"], p["name"]))
 
 
+_FAUTES_GROUPES = [("Attack", "Attaque"), ("Defence", "Défense"), ("Set Piece", "Conquête"), ("Other", "Autre")]
+
+
+def _faute_type_canon(txt):
+    """Nom commun d'un type de faute : les variantes de saisie (« Garde le ballon au sol »,
+    « Ballon gardé au sol »…) tombent dans la même ligne du bilan."""
+    import re as _re
+    import unicodedata as _ud
+    t = _ud.normalize("NFKD", txt or "").encode("ascii", "ignore").decode().lower()
+    t = _re.sub(r"[^a-z0-9 ]+", " ", t)
+    t = " ".join(t.split())
+    if not t:
+        return None
+    if "ballon" in t and ("sol" in t or "garde" in t):
+        return "Ballon gardé au sol"
+    if "hors jeu" in t or t.startswith("hj"):
+        return "Hors-jeu sur jeu au pied" if ("jap" in t or "pied" in t) else "Hors-jeu"
+    if "melee" in t:
+        return "Mêlée"
+    if "maul" in t:
+        if "ecroul" in t:
+            return "Maul écroulé"
+        if "lateral" in t:
+            return "Entrée latérale au maul"
+        if "def" in t:
+            return "Maul (défense)"
+        if "off" in t:
+            return "Maul (attaque)"
+        return "Maul"
+    if "ruck" in t or "truck" in t:
+        return "Main dans les rucks"
+    if "zone" in t and "sort" in t:
+        return "Ne sort pas de la zone"
+    if "10" in t and "m" in t:
+        return "Pas à 10 m"
+    if "plaquage dangereux" in t:
+        return "Plaquage dangereux"
+    if "neck" in t:
+        return "Neck roll"
+    if "en avant" in t:
+        return "En avant"
+    if "soutien" in t:
+        return "Soutien off"
+    if "jumping" in t:
+        return "Jumping"
+    if "bras" in t:
+        return "Prise du bras"
+    return txt.strip()[:1].upper() + txt.strip()[1:]
+
+
+def _fautes_par_groupe(selected):
+    """Bilan saison des types de fautes par groupe (Attaque / Défense / Conquête / Autre) à partir
+    des raisons saisies par catégorie sur la page Discipline de chaque match."""
+    import re as _re
+    groupes = {k: {"label": lab, "total": 0, "detail": 0, "types": {}} for k, lab in _FAUTES_GROUPES}
+    sans_detail, matchs_avec = [], 0
+    for m in selected:
+        d = compute_discipline(m["instances"], m.get("row_order"), m.get("player_match_stats"),
+                               m.get("composition"), (m.get("manual_stats") or {}).get("discipline"))
+        if not d:
+            continue
+        a_detail = False
+        for c in d["categories"]:
+            g = groupes.get(c["label"])
+            if g is None:
+                continue
+            g["total"] += c["count"] or 0
+            for r in c.get("reasons") or []:
+                r = _re.sub(r"^\s*x\s+", "", r.strip())
+                mm = _re.search(r"\s+x\s*(\d+)\s*$", r)
+                n = int(mm.group(1)) if mm else 1
+                nom = _faute_type_canon(r[:mm.start()] if mm else r)
+                if nom:
+                    g["types"][nom] = g["types"].get(nom, 0) + n
+                    g["detail"] += n
+                    a_detail = True
+        if a_detail:
+            matchs_avec += 1
+        else:
+            sans_detail.append(m.get("opponent") or "?")
+    total = sum(g["total"] for g in groupes.values())
+    out = []
+    for k, _lab in _FAUTES_GROUPES:
+        g = groupes[k]
+        types = sorted(g["types"].items(), key=lambda kv: (-kv[1], kv[0]))
+        mx = max([v for _n, v in types] + [1])
+        out.append({"label": g["label"], "total": g["total"],
+                    "pct": round(100 * g["total"] / total) if total else 0,
+                    "non_detaille": max(0, g["total"] - g["detail"]),
+                    "types": [{"nom": n, "n": v, "w": round(100 * v / mx)} for n, v in types]})
+    return {"groupes": out, "total": total, "sans_detail": sans_detail, "matchs_avec": matchs_avec}
+
+
 @app.route("/season/discipline")
 def season_discipline():
     selected, ctx = _season_common("discipline")
@@ -5868,7 +5961,8 @@ def season_discipline():
         "categories": [{"label": k, "count": mean(v) or 0} for k, v in cats.items()],
     }
     assets = {"own_crest": url_for("static", filename="logo.png"), "adverse_crest": None}
-    return render_template("season_discipline.html", data=data, suivi=suivi, assets=assets, fmt=_avg_fmt, **ctx)
+    return render_template("season_discipline.html", data=data, suivi=suivi, assets=assets, fmt=_avg_fmt,
+                           fautes_groupes=_fautes_par_groupe(selected), **ctx)
 
 
 @app.route("/season/entrainement", methods=["GET", "POST"])
