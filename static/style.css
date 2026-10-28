@@ -3596,7 +3596,7 @@ body.slide-fs-on { overflow: hidden; }
 .mel-table { width:100%; }
 .mel-table th, .mel-table td { text-align:center; padding:5px 8px; }
 .mel-tag { display:inline-block; padding:2px 8px; border-radius:10px; font-size:.8rem; font-weight:600; color:#fff; }
-.mel-tag-off { background:#1b3a6b; }
+.mel-tag-off { background:#530d34; }
 .mel-tag-def { background:#6b6f76; }
 .mel-rejouee { font-style:italic; color:#8a8f98; font-size:.85rem; }
 .mel-notes { margin-top:14px; }
@@ -3607,20 +3607,21 @@ body.slide-fs-on { overflow: hidden; }
 @media (max-width: 900px) { .mel-wrap { grid-template-columns:1fr; padding:0 8px 12px; } }
 .mel-total td { border-top:2px solid #d5d8dd; background:#f4f5f7; }
 
-/* ===== Discipline saison : types de fautes par groupe ===== */
-.dis-types { margin-top:14px; }
-.dis-types-title { margin:0 0 12px; font-size:1.05rem; }
-.dis-types-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
+/* ===== Discipline saison : types de fautes par groupe (même DA que la page Discipline) ===== */
+.dis-types-board { margin-top:14px; padding:12px; }
+.dis-types-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:18px; padding:12px 14px 8px; }
 .dis-types-col { min-width:0; }
-.dis-types-head { display:flex; align-items:baseline; gap:8px; border-bottom:2px solid #1b3a6b; padding-bottom:4px; margin-bottom:6px; }
-.dis-types-head span { font-weight:800; text-transform:uppercase; font-size:.9rem; flex:1; }
-.dis-types-head b { font-size:1.4rem; }
+.dis-types-head { display:flex; align-items:baseline; gap:8px; border-bottom:2px solid #7d3653; padding-bottom:3px; margin-bottom:6px; }
+.dis-types-head .dis-cat-label { flex:1; margin:0; font-size:1.1rem; }
+.dis-types-head b { font-size:1.5rem; font-weight:800; }
 .dis-types-head i { color:#777; font-size:.85rem; }
-.dis-types-row { display:grid; grid-template-columns:1fr 46px 22px; gap:6px; align-items:center; font-size:.85rem; padding:2px 0; }
-.dis-types-nom { overflow:hidden; text-overflow:ellipsis; }
-.dis-types-bar { background:#e8eaee; height:8px; border-radius:4px; overflow:hidden; }
-.dis-types-bar span { display:block; height:100%; background:#1b3a6b; }
+.dis-types-row { display:grid; grid-template-columns:1fr 54px 22px; gap:6px; align-items:center; font-size:.88rem; font-weight:700; padding:2px 0; }
+.dis-types-nom { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dis-types-bar { background:#f6e3e0; height:10px; border-radius:6px; overflow:hidden; }
+.dis-types-bar span { display:block; height:100%; background:#f2998d; border-radius:6px; border:1px solid #d9574a; box-sizing:border-box; }
 .dis-types-row b { text-align:right; }
 .dis-types-vide { margin:4px 0; font-size:.8rem; font-style:italic; color:#8a8f98; }
+.dis-types-note { margin:4px 14px 10px; font-size:.8rem; font-style:italic; color:#666; }
 @media (max-width: 900px) { .dis-types-grid { grid-template-columns:1fr 1fr; } }
 @media (max-width: 560px) { .dis-types-grid { grid-template-columns:1fr; } }
+@media (max-width: 560px) { .dis-types .dis-block-head { font-size:.9rem; gap:6px; flex-wrap:wrap; } .dis-types .dis-block-head span { font-size:1rem; } }

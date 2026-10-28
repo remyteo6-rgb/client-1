@@ -5819,9 +5819,12 @@ def _discipline_joueurs_saison(selected):
 _FAUTES_GROUPES = [("Attack", "Attaque"), ("Defence", "Défense"), ("Set Piece", "Conquête"), ("Other", "Autre")]
 
 
-def _faute_type_canon(txt):
+def _faute_type_canon(txt, groupe=None):
     """Nom commun d'un type de faute : les variantes de saisie (« Garde le ballon au sol »,
-    « Ballon gardé au sol »…) tombent dans la même ligne du bilan."""
+    « Ballon gardé au sol »…) tombent dans la même ligne du bilan. Regroupements voulus par Téo :
+    tous les hors-jeu ensemble ; grattage / mains dans les rucks / mains au sol = « Grattage
+    illicite » ; dans Conquête, tout ce qui parle de maul = « Maul » ; les cartons ne sont pas un
+    type de faute (None)."""
     import re as _re
     import unicodedata as _ud
     t = _ud.normalize("NFKD", txt or "").encode("ascii", "ignore").decode().lower()
@@ -5829,10 +5832,16 @@ def _faute_type_canon(txt):
     t = " ".join(t.split())
     if not t:
         return None
+    if "carton" in t or "jaune" in t or t in ("rouge", "cj", "cr"):
+        return None
+    if groupe == "Set Piece" and "maul" in t:
+        return "Maul"
+    if "hors jeu" in t or t.startswith("hj") or "offside" in t:
+        return "Hors-jeu"
+    if "gratt" in t or "ruck" in t or "truck" in t or t.startswith("main") or " main" in t:
+        return "Grattage illicite"
     if "ballon" in t and ("sol" in t or "garde" in t):
         return "Ballon gardé au sol"
-    if "hors jeu" in t or t.startswith("hj"):
-        return "Hors-jeu sur jeu au pied" if ("jap" in t or "pied" in t) else "Hors-jeu"
     if "melee" in t:
         return "Mêlée"
     if "maul" in t:
@@ -5887,7 +5896,7 @@ def _fautes_par_groupe(selected):
                 r = _re.sub(r"^\s*x\s+", "", r.strip())
                 mm = _re.search(r"\s+x\s*(\d+)\s*$", r)
                 n = int(mm.group(1)) if mm else 1
-                nom = _faute_type_canon(r[:mm.start()] if mm else r)
+                nom = _faute_type_canon(r[:mm.start()] if mm else r, c["label"])
                 if nom:
                     g["types"][nom] = g["types"].get(nom, 0) + n
                     g["detail"] += n

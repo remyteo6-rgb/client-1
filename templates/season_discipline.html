@@ -119,32 +119,32 @@
 </div>
 
 {% if fautes_groupes and fautes_groupes.total %}
-<div class="card dis-types">
-    <h3 class="dis-types-title">Types de fautes par groupe · {{ fautes_groupes.total }} fautes sur {{ season_selected_count }} match{{ 's' if season_selected_count != 1 else '' }}</h3>
-    <div class="dis-types-grid">
-        {% for g in fautes_groupes.groupes %}
-        <div class="dis-types-col">
-            <div class="dis-types-head"><span>{{ g.label }}</span><b>{{ g.total }}</b><i>{{ g.pct }} %</i></div>
-            {% for t in g.types %}
-            <div class="dis-types-row">
-                <span class="dis-types-nom">{{ t.nom }}</span>
-                <span class="dis-types-bar"><span style="width:{{ t.w }}%"></span></span>
-                <b>{{ t.n }}</b>
+<div class="report-board board-free dis-types-board">
+    <div class="dis-block dis-types">
+        <div class="dis-block-head">Types de fautes par groupe <span>{{ fautes_groupes.total }} fautes · {{ season_selected_count }} match{{ 's' if season_selected_count != 1 else '' }}</span></div>
+        <div class="dis-types-grid">
+            {% for g in fautes_groupes.groupes %}
+            <div class="dis-types-col">
+                <div class="dis-types-head"><span class="dis-cat-label">{{ g.label }}</span><b>{{ g.total }}</b><i>{{ g.pct }} %</i></div>
+                {% for t in g.types %}
+                <div class="dis-types-row">
+                    <span class="dis-types-nom">{{ t.nom }}</span>
+                    <span class="dis-types-bar"><span style="width:{{ t.w }}%"></span></span>
+                    <b>{{ t.n }}</b>
+                </div>
+                {% else %}
+                <p class="dis-types-vide">Aucun détail saisi.</p>
+                {% endfor %}
+                {% if g.non_detaille and g.types %}<p class="dis-types-vide">+ {{ g.non_detaille }} sans détail</p>{% endif %}
             </div>
-            {% else %}
-            <p class="dis-types-vide">Aucun détail saisi.</p>
             {% endfor %}
-            {% if g.non_detaille and g.types %}<p class="dis-types-vide">+ {{ g.non_detaille }} sans détail</p>{% endif %}
         </div>
-        {% endfor %}
+        {% if fautes_groupes.sans_detail %}
+        <p class="dis-types-note">{{ icons.warning() }} Pas de détail des fautes saisi pour : {{ fautes_groupes.sans_detail|join(', ') }}.</p>
+        {% endif %}
     </div>
-    {% if fautes_groupes.sans_detail %}
-    <p class="subtitle">{{ icons.warning() }} Pas de détail des fautes saisi pour : {{ fautes_groupes.sans_detail|join(', ') }}. Leurs fautes sont comptées dans le total de chaque groupe mais pas dans le détail.</p>
-    {% endif %}
 </div>
-{% endif %}
-
-<div class="card no-print dis-notes">
+{% endif %}class="card no-print dis-notes">
     <p class="subtitle">Fautes d'équipe, par période, par catégorie et par joueur : moyennes par match sur les matchs sélectionnés (fautes d'un joueur ÷ nombre de matchs sélectionnés). Cartons : total sur la période. Le suivi reprend les matchs sélectionnés un par un.</p>
 </div>
 <script>
