@@ -3681,3 +3681,8 @@ body.slide-fs-on { overflow: hidden; }
 .tir-d-facile { background:#dff1e2; } .tir-d-moyen { background:#fdebc8; } .tir-d-difficile { background:#f9d6d1; }
 .tir-diff-sum { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; padding:6px 10px 8px; text-align:center; }
 .tir-diff-sum div { border-radius:6px; padding:6px 4px; } .tir-diff-sum span { display:block; font-size:.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.3px; color:#444; } .tir-diff-sum strong { font-size:1rem; }
+
+/* Tirs au but : vrai terrain */
+.tir-pitch { background:#3d7f43; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,.2); overflow:hidden; line-height:0; }
+.tir-pitch svg { width:100%; height:auto; display:block; cursor:crosshair; }
+.tir-mark { cursor:pointer; }

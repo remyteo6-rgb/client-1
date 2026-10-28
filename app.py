@@ -3203,15 +3203,26 @@ TIRS_COULOIRS = 5
 
 
 def _tirs_saisis(manual):
-    """Tirs enregistrés d'un match : [{id, col, row, type, player, ok}] (col 0-4 de gauche à droite en
-    regardant les perches adverses, row 0 = 0-10 m de la ligne d'en-but adverse)."""
+    """Tirs enregistrés d'un match : [{id, x, y, col, row, type, player, ok}]. x (0-1, de gauche à droite en
+    regardant les perches adverses) et y (0-1, de la ligne d'en-but adverse à 60 m) donnent la position exacte
+    cliquée sur le terrain ; col (0-4) et row (0-5, tranches de 10 m) en sont déduits. Un tir ancien sans x/y
+    est placé au centre de sa case."""
     out = []
+    nl = len(TIRS_LIGNES)
     for t in ((manual or {}).get("tirs") or []):
         try:
-            col, row = int(t.get("col")), int(t.get("row"))
-            if 0 <= col < TIRS_COULOIRS and 0 <= row < len(TIRS_LIGNES) and t.get("type") in ("P", "T"):
-                out.append({"id": str(t.get("id") or "")[:24], "col": col, "row": row, "type": t["type"],
-                            "player": str(t.get("player") or "")[:60], "ok": bool(t.get("ok"))})
+            if t.get("type") not in ("P", "T"):
+                continue
+            if t.get("x") is not None and t.get("y") is not None:
+                x, y = min(1.0, max(0.0, float(t["x"]))), min(1.0, max(0.0, float(t["y"])))
+                col, row = min(TIRS_COULOIRS - 1, int(x * TIRS_COULOIRS)), min(nl - 1, int(y * nl))
+            else:
+                col, row = int(t.get("col")), int(t.get("row"))
+                if not (0 <= col < TIRS_COULOIRS and 0 <= row < nl):
+                    continue
+                x, y = (col + 0.5) / TIRS_COULOIRS, (row + 0.5) / nl
+            out.append({"id": str(t.get("id") or "")[:24], "x": round(x, 4), "y": round(y, 4), "col": col, "row": row,
+                        "type": t["type"], "player": str(t.get("player") or "")[:60], "ok": bool(t.get("ok"))})
         except (TypeError, ValueError, AttributeError):
             continue
     return out

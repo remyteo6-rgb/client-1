@@ -6,18 +6,8 @@
             <span>Perches adverses</span>
             <span class="tir-legend"><i style="background:hsl(0,60%,80%)"></i>0 %<i style="background:hsl(60,60%,78%)"></i>50 %<i style="background:hsl(120,50%,70%)"></i>100 %</span>
         </div>
-        <div class="tir-field">
-            <div class="tir-posts" aria-hidden="true"><span></span><span></span></div>
-            <div class="tir-grid" id="tir-grid">
-                {% for r in range(lignes|length) %}
-                <div class="tir-rowlab">{{ lignes[r] }}</div>
-                {% for c in range(5) %}
-                <button type="button" class="tir-cell" data-row="{{ r }}" data-col="{{ c }}" {{ '' if editable else 'tabindex="-1"' }}><b></b><small></small></button>
-                {% endfor %}
-                {% endfor %}
-            </div>
-        </div>
-        <p class="tir-foot">Chaque case : % de réussite et tirs réussis / tentés. {% if editable %}Clique une case pour ajouter ou modifier un tir.{% endif %}</p>
+        <div class="tir-pitch"><svg id="tir-svg" viewBox="0 0 700 650" role="img" aria-label="Terrain, moitié de terrain adverse"></svg></div>
+        <p class="tir-foot">Chaque zone : % de réussite et tirs réussis / tentés ; ✓ = réussi, ✗ = raté. {% if editable %}Clique sur le terrain à l'endroit du tir pour l'ajouter, ou sur un tir pour le modifier.{% endif %}</p>
     </div>
     <div class="tir-right">
         <div class="sf-panel">
@@ -77,18 +67,51 @@
         return [label, list.length || '·', list.length ? ok : '·', p == null ? '·' : p + ' %'];
     }
 
-    function render() {
-        // Terrain
-        document.querySelectorAll('.tir-cell').forEach(function (b) {
-            var r = +b.dataset.row, c = +b.dataset.col;
-            var l = tirs.filter(function (t) { return t.row === r && t.col === c; });
-            var ok = l.filter(function (t) { return t.ok; }).length;
-            var p = pct(ok, l.length);
-            b.style.background = p == null ? '' : teinte(p);
-            b.classList.toggle('tir-vide', p == null);
-            b.querySelector('b').textContent = p == null ? '' : p + ' %';
-            b.querySelector('small').textContent = l.length ? ok + ' / ' + l.length : '';
+    var NS = 'http://www.w3.org/2000/svg', OY = 50, PW = 700, PH = 600;
+    function sv(tag, attrs, parent, txt) {
+        var e = document.createElementNS(NS, tag);
+        Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+        if (txt != null) e.textContent = txt;
+        if (parent) parent.appendChild(e); return e;
+    }
+    function drawPitch() {
+        var svg = document.getElementById('tir-svg'); svg.innerHTML = '';
+        for (var r = 0; r < 6; r++) sv('rect', {x: 0, y: OY + r * 100, width: PW, height: 100, fill: r % 2 ? '#559f5b' : '#4f9a55'}, svg);
+        sv('rect', {x: 0, y: 0, width: PW, height: OY, fill: '#3d7f43'}, svg);
+        for (var rr = 0; rr < 6; rr++) for (var cc = 0; cc < 5; cc++) {
+            (function (rr, cc) {
+                var l = tirs.filter(function (t) { return t.row === rr && t.col === cc; });
+                if (!l.length) return;
+                var ok = l.filter(function (t) { return t.ok; }).length, p = pct(ok, l.length);
+                sv('rect', {x: cc * 140 + 3, y: OY + rr * 100 + 3, width: 134, height: 94, rx: 6, fill: teinte(p), 'fill-opacity': .5}, svg);
+                sv('text', {x: cc * 140 + 132, y: OY + rr * 100 + 90, 'text-anchor': 'end', 'font-size': 17, 'font-weight': 800, fill: '#fff', stroke: 'rgba(0,0,0,.5)', 'stroke-width': .6}, svg, p + ' % · ' + ok + '/' + l.length);
+            })(rr, cc);
+        }
+        var g = sv('g', {stroke: '#fff', fill: 'none', 'stroke-width': 3}, svg);
+        sv('line', {x1: 0, y1: OY, x2: PW, y2: OY}, g);
+        sv('line', {x1: 0, y1: OY + 50, x2: PW, y2: OY + 50, 'stroke-dasharray': '10 8', 'stroke-width': 2}, g);
+        sv('line', {x1: 0, y1: OY + 220, x2: PW, y2: OY + 220}, g);
+        sv('line', {x1: 0, y1: OY + 500, x2: PW, y2: OY + 500, 'stroke-width': 2, 'stroke-dasharray': '10 8'}, g);
+        [100, 200, 300, 400].forEach(function (y) { sv('line', {x1: 0, y1: OY + y, x2: PW, y2: OY + y, 'stroke-width': 1, 'stroke-opacity': .45, 'stroke-dasharray': '3 6'}, g); });
+        [140, 280, 420, 560].forEach(function (x) { sv('line', {x1: x, y1: OY, x2: x, y2: OY + PH, 'stroke-width': 1, 'stroke-opacity': .45, 'stroke-dasharray': '3 6'}, g); });
+        sv('line', {x1: 1.5, y1: 0, x2: 1.5, y2: OY + PH}, g); sv('line', {x1: PW - 1.5, y1: 0, x2: PW - 1.5, y2: OY + PH}, g);
+        var po = sv('g', {stroke: '#fff', 'stroke-width': 5, 'stroke-linecap': 'round'}, svg);
+        sv('line', {x1: 318, y1: OY, x2: 318, y2: 6}, po); sv('line', {x1: 382, y1: OY, x2: 382, y2: 6}, po); sv('line', {x1: 318, y1: OY - 22, x2: 382, y2: OY - 22}, po);
+        [[100, '10 m'], [200, '20 m'], [300, '30 m'], [400, '40 m'], [500, '50 m']].forEach(function (d) {
+            sv('text', {x: 8, y: OY + d[0] - 5, 'font-size': 15, 'font-weight': 700, fill: '#fff', 'fill-opacity': .85}, svg, d[1]);
         });
+        tirs.forEach(function (t) {
+            var m = sv('g', {'class': 'tir-mark', transform: 'translate(' + (t.x * PW) + ',' + (OY + t.y * PH) + ')'}, svg);
+            sv('circle', {r: 15, fill: t.ok ? '#2e9b45' : '#d63b30', stroke: '#fff', 'stroke-width': 3}, m);
+            sv('text', {'text-anchor': 'middle', y: 6, 'font-size': 17, 'font-weight': 900, fill: '#fff'}, m, t.ok ? '✓' : '✗');
+            var ini = (t.player || '').split(' ').pop().slice(0, 3).toUpperCase();
+            if (ini) sv('text', {'text-anchor': 'middle', y: 31, 'font-size': 11, 'font-weight': 800, fill: '#fff', stroke: 'rgba(0,0,0,.5)', 'stroke-width': .5}, m, ini + (t.type === 'T' ? ' T' : ''));
+            m.addEventListener('click', function (ev) { ev.stopPropagation(); if (EDIT) ouvrir({x: t.x, y: t.y}, ev); });
+        });
+    }
+
+    function render() {
+        drawPitch();
         // KPI
         var kp = document.getElementById('tir-kpis'); kp.innerHTML = '';
         var tot = tirs.length, okT = tirs.filter(function (t) { return t.ok; }).length;
@@ -169,25 +192,29 @@
     function majType() {
         pop.querySelectorAll('.tir-type').forEach(function (b) { b.classList.toggle('on', b.dataset.type === lastType); });
     }
-    document.querySelectorAll('.tir-cell').forEach(function (b) {
-        b.addEventListener('click', function (ev) {
-            cur = {row: +b.dataset.row, col: +b.dataset.col};
-            document.getElementById('tir-pop-title').textContent = LIGNES[cur.row] + ' · ' + COULOIRS[cur.col];
-            document.getElementById('tir-pop-player').value = lastPlayer;
-            majType(); listePop();
-            pop.hidden = false;
-            var r = b.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
-            var x = Math.min(window.innerWidth - w - 8, Math.max(8, r.left + r.width / 2 - w / 2));
-            var y = r.bottom + 6; if (y + h > window.innerHeight - 8) y = Math.max(8, r.top - h - 6);
-            pop.style.left = x + window.scrollX + 'px'; pop.style.top = y + window.scrollY + 'px';
-            ev.stopPropagation();
-        });
+    function ouvrir(pt, ev) {
+        cur = {x: pt.x, y: pt.y, col: Math.min(4, Math.floor(pt.x * 5)), row: Math.min(5, Math.floor(pt.y * 6))};
+        document.getElementById('tir-pop-title').textContent = LIGNES[cur.row] + ' · ' + COULOIRS[cur.col];
+        document.getElementById('tir-pop-player').value = lastPlayer;
+        majType(); listePop();
+        pop.hidden = false;
+        var w = pop.offsetWidth, h = pop.offsetHeight;
+        var x = Math.min(window.innerWidth - w - 8, Math.max(8, ev.clientX - w / 2));
+        var y = ev.clientY + 14; if (y + h > window.innerHeight - 8) y = Math.max(8, ev.clientY - h - 14);
+        pop.style.left = x + window.scrollX + 'px'; pop.style.top = y + window.scrollY + 'px';
+    }
+    document.getElementById('tir-svg').addEventListener('click', function (ev) {
+        var r = this.getBoundingClientRect();
+        var px = (ev.clientX - r.left) / r.width * PW, py = (ev.clientY - r.top) / r.height * (PH + OY) - OY;
+        if (py < 0) return;
+        ouvrir({x: Math.min(1, Math.max(0, px / PW)), y: Math.min(1, Math.max(0, py / PH))}, ev);
+        ev.stopPropagation();
     });
     pop.querySelectorAll('.tir-type').forEach(function (b) { b.addEventListener('click', function () { lastType = b.dataset.type; majType(); }); });
     pop.querySelectorAll('[data-ok]').forEach(function (b) {
         b.addEventListener('click', function () {
             lastPlayer = document.getElementById('tir-pop-player').value;
-            tirs.push({id: uid(), row: cur.row, col: cur.col, type: lastType, player: lastPlayer, ok: b.dataset.ok === '1'});
+            tirs.push({id: uid(), x: cur.x, y: cur.y, row: cur.row, col: cur.col, type: lastType, player: lastPlayer, ok: b.dataset.ok === '1'});
             save(); render(); listePop();
         });
     });

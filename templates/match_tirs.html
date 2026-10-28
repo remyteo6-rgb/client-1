@@ -22,8 +22,8 @@
 </div>
 
 <div class="card no-print tir-notes">
-    <p class="subtitle">Le terrain se lit de haut en bas : la ligne du haut est la plus proche des perches adverses (0-10 m), avec 5 couloirs en largeur.
-        {% if editable %}Clique une case, choisis pénalité ou transformation, le buteur, puis Réussi ou Raté : c'est enregistré tout de suite. Tu peux ajouter plusieurs tirs dans la même case.{% endif %}</p>
+    <p class="subtitle">Le terrain est la moitié adverse, vue de face : les perches en haut, les lignes tous les 10 m, 5 couloirs en largeur. Le % de chaque zone s'affiche en bas à droite de la zone.
+        {% if editable %}Clique à l'endroit exact du tir, choisis pénalité ou transformation, le buteur, puis Réussi ou Raté : c'est enregistré tout de suite. Clique sur un tir déjà posé pour l'inverser ou le supprimer.{% endif %}</p>
     {% if xml %}
     <p class="subtitle">Pour contrôle, le XML contient : pénalités {{ xml.pen.ok }} réussies sur {{ xml.pen.total }}, transformations {{ xml.conv.ok }} réussies sur {{ xml.conv.total }}.</p>
     {% endif %}
