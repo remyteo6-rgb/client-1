@@ -21,14 +21,14 @@
         <div class="sf-panel" style="margin-top:12px;">
             <div class="sf-panel-head">PAR TYPE</div>
             <table class="stat-table zebra-table tch-perf tch-zone">
-                <thead><tr><th>Type</th><th>Nb</th><th>Longueur moy.</th><th>Gain moy.</th><th>Suspension moy.</th></tr></thead>
+                <thead><tr><th>Type</th><th>Nb</th><th>Longueur moy.</th><th>Gain moy.</th><th>Suspension moy.</th><th>Ballon récupéré</th></tr></thead>
                 <tbody id="jap-bytype"></tbody>
             </table>
         </div>
         <div class="sf-panel" style="margin-top:12px;">
             <div class="sf-panel-head">PAR JOUEUR</div>
             <table class="stat-table tch-perf tch-zone jap-pj">
-                <thead><tr><th>Joueur</th><th>Type</th><th>Nb</th><th>Long. moy.</th><th>Gain moy.</th><th>Suspension moy.</th></tr></thead>
+                <thead><tr><th>Joueur</th><th>Type</th><th>Nb</th><th>Long. moy.</th><th>Gain moy.</th><th>Suspension moy.</th><th>Ballon récupéré</th></tr></thead>
                 <tbody id="jap-byplayer"></tbody>
             </table>
             <p class="sfs-note" id="jap-empty" style="padding:12px 16px;" hidden>Aucun jeu au pied saisi pour l'instant.</p>
@@ -46,6 +46,12 @@
     <label class="tir-pop-row" id="jap-pop-sec-row">Suspension (s)
         <input id="jap-pop-sec" type="number" min="0" max="15" step="0.1" inputmode="decimal" placeholder="ex. 4.2">
     </label>
+    <div class="tir-pop-row" id="jap-pop-res-row">
+        <span>Ballon</span>
+        <button type="button" class="jap-pres" data-res="REC">Récupéré</button>
+        <button type="button" class="jap-pres" data-res="CON">Contesté</button>
+        <button type="button" class="jap-pres" data-res="PER">Perdu</button>
+    </div>
     <div class="tir-pop-row">
         <button type="button" class="tir-btn tir-ok" id="jap-pop-save">Enregistrer</button>
         <button type="button" class="tir-btn" id="jap-pop-cancel">Annuler</button>
@@ -83,6 +89,7 @@
     function fmt(v) { return v == null ? '·' : (v > 0 && f1(v) !== '0' ? '+' : '') + f1(v) + ' m'; }
     function f1(v) { return String(Math.round(v)); }
     function susp(l) { var s = l.filter(function (t) { return t.sec != null; }); return s.length ? (s.reduce(function (a, t) { return a + t.sec; }, 0) / s.length).toFixed(1) + ' s' : '·'; }
+    function recup(l) { var r = l.filter(function (t) { return t.res; }); if (!r.length) return '·'; var n = r.filter(function (t) { return t.res === 'REC'; }).length; return n + '/' + r.length + ' · ' + Math.round(100 * n / r.length) + ' %'; }
     function visibles() { return jap.filter(function (t) { return (!fType || t.type === fType) && (!fPlayer || t.player === fPlayer); }); }
 
     function pitch() { [1, 2].forEach(function (mt) { drawOne(svgs[mt], mt); }); }
@@ -114,7 +121,7 @@
             sv('polygon', {points: head, fill: c}, g2);
             sv('circle', {cx: x1, cy: y1, r: 8 * k, fill: c, stroke: '#fff', 'stroke-width': 3 * k}, g2);
             sv('line', {x1: x1, y1: y1, x2: x2, y2: y2, stroke: 'transparent', 'stroke-width': 26}, g2);
-            sv('title', {}, g2, (LAB[t.type] || t.type) + (t.player ? ' · ' + t.player : '') + ' · ' + f1(metres(t)) + ' m' + (t.sec != null ? ' · ' + t.sec + ' s' : ''));
+            sv('title', {}, g2, (LAB[t.type] || t.type) + (t.player ? ' · ' + t.player : '') + ' · ' + f1(metres(t)) + ' m' + (t.sec != null ? ' · ' + t.sec + ' s' : '') + (t.res ? ' · ' + {REC: 'ballon récupéré', CON: 'ballon contesté', PER: 'ballon perdu'}[t.res] : ''));
             if (EDIT) g2.addEventListener('click', function (ev) { ev.stopPropagation(); ouvrir(t, ev); });
         });
         // saisie en cours
@@ -140,7 +147,7 @@
         TYPES.forEach(function (t) {
             var l = vis.filter(function (x) { return x.type === t[0]; });
             if (!l.length) return;
-            var tr = el('tr'); [t[1], l.length, fmt(moy(l, metres)).replace('+', ''), fmt(moy(l, gain)), susp(l)].forEach(function (v) { tr.appendChild(el('td', null, v)); });
+            var tr = el('tr'); [t[1], l.length, fmt(moy(l, metres)).replace('+', ''), fmt(moy(l, gain)), susp(l), recup(l)].forEach(function (v) { tr.appendChild(el('td', null, v)); });
             bt.appendChild(tr);
         });
         // par joueur
@@ -155,7 +162,7 @@
                 if (i === 0) { var td0 = el('td', 'jap-pj-name', n + ' · ' + l.length); td0.rowSpan = rows.length; tr.appendChild(td0); }
                 else tr.className = 'jap-pj-cont';
                 var ty = r[0], li = r[1], c1 = el('td'); var dot = el('i', 'jap-dot'); dot.style.background = ty[2]; c1.appendChild(dot); c1.appendChild(document.createTextNode(ty[1])); tr.appendChild(c1);
-                [li.length, fmt(moy(li, metres)).replace('+', ''), fmt(moy(li, gain)), susp(li)].forEach(function (v) { tr.appendChild(el('td', null, v)); });
+                [li.length, fmt(moy(li, metres)).replace('+', ''), fmt(moy(li, gain)), susp(li), recup(li)].forEach(function (v) { tr.appendChild(el('td', null, v)); });
                 bp.appendChild(tr);
             });
         });
@@ -181,7 +188,9 @@
                 .catch(function () { alert("La saisie n'a pas pu être enregistrée. Recharge la page et réessaie."); });
         }, 200);
     }
-    function majSec() { document.getElementById('jap-pop-sec-row').hidden = lastType !== 'PRE'; }
+    var lastRes = '';
+    function majSec() { document.getElementById('jap-pop-sec-row').hidden = lastType !== 'PRE'; document.getElementById('jap-pop-res-row').hidden = lastType !== 'PRE'; pop.querySelectorAll('.jap-pres').forEach(function (b) { b.classList.toggle('on', b.dataset.res === lastRes); }); }
+    function readRes() { return lastType === 'PRE' && lastRes ? lastRes : null; }
     function readSec() { var v = parseFloat(document.getElementById('jap-pop-sec').value); return isFinite(v) && lastType === 'PRE' ? Math.round(v * 10) / 10 : null; }
     function majTypes(code) { pop.querySelectorAll('.jap-ptype').forEach(function (b) { b.classList.toggle('on', b.dataset.type === code); }); majSec(); }
     function placer(ev) {
@@ -194,7 +203,7 @@
     function ouvrir(t, ev) {   // modification d'une flèche existante
         editing = t; start = end = null;
         document.getElementById('jap-pop-title').textContent = 'Modifier le jeu au pied';
-        lastType = t.type; majTypes(t.type); document.getElementById('jap-pop-player').value = t.player || ''; document.getElementById('jap-pop-sec').value = t.sec != null ? t.sec : '';
+        lastType = t.type; majTypes(t.type); document.getElementById('jap-pop-player').value = t.player || ''; document.getElementById('jap-pop-sec').value = t.sec != null ? t.sec : ''; lastRes = t.res || ''; majSec();
         document.getElementById('jap-pop-edit').hidden = false; document.getElementById('jap-pop-save').textContent = 'Valider';
         placer(ev);
     }
@@ -208,20 +217,21 @@
         }
         end = p; hint.textContent = ''; pitch();
         document.getElementById('jap-pop-title').textContent = 'Nouveau jeu au pied · ' + (mt === 1 ? '1re' : '2e') + ' mi-temps · ' + f1(Math.hypot((end.x - start.x) * W, (end.y - start.y) * H) / 10) + ' m';
-        majTypes(lastType); document.getElementById('jap-pop-player').value = lastPlayer; document.getElementById('jap-pop-sec').value = '';
+        majTypes(lastType); document.getElementById('jap-pop-player').value = lastPlayer; document.getElementById('jap-pop-sec').value = ''; lastRes = ''; majSec();
         document.getElementById('jap-pop-edit').hidden = true; document.getElementById('jap-pop-save').textContent = 'Enregistrer';
         placer(ev); ev.stopPropagation();
     }); });
+    pop.querySelectorAll('.jap-pres').forEach(function (b) { b.addEventListener('click', function () { lastRes = lastRes === b.dataset.res ? '' : b.dataset.res; majSec(); }); });
     pop.querySelectorAll('.jap-ptype').forEach(function (b) {
         b.addEventListener('click', function () {
             lastType = b.dataset.type; majTypes(lastType);
-            if (editing) { editing.type = lastType; if (lastType !== 'PRE') editing.sec = null; save(); refresh(); }
+            if (editing) { editing.type = lastType; if (lastType !== 'PRE') { editing.sec = null; editing.res = null; } save(); refresh(); }
         });
     });
     document.getElementById('jap-pop-save').addEventListener('click', function () {
         var nom = document.getElementById('jap-pop-player').value.trim(); lastPlayer = nom;
-        if (editing) { editing.player = nom; editing.type = lastType; editing.sec = readSec(); }
-        else if (start && end) { jap.push({id: uid(), x1: start.x, y1: start.y, x2: end.x, y2: end.y, mt: start.mt, type: lastType, player: nom, sec: readSec()}); }
+        if (editing) { editing.player = nom; editing.type = lastType; editing.sec = readSec(); editing.res = readRes(); }
+        else if (start && end) { jap.push({id: uid(), x1: start.x, y1: start.y, x2: end.x, y2: end.y, mt: start.mt, type: lastType, player: nom, sec: readSec(), res: readRes()}); }
         pop.hidden = true; editing = null; start = end = null; hint.textContent = ''; save(); refresh();
     });
     document.getElementById('jap-pop-cancel').addEventListener('click', fermer);

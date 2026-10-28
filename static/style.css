@@ -3732,3 +3732,5 @@ table td > .player-cell, table td .mel-match { text-align: center; }
 .jap-pj-name { font-weight:800; background:#fff; border-right:1px solid rgba(42,23,18,.14); }
 .jap-dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:baseline; }
 .jap-pj tbody tr:hover { background:transparent; }
+.jap-pres { border:1.5px solid #7d3653; background:#fff; border-radius:12px; padding:2px 8px; font-weight:700; font-size:.78rem; cursor:pointer; }
+.jap-pres.on { background:#7d3653; color:#fff; }

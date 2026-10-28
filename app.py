@@ -3312,7 +3312,8 @@ def _jap_saisis(manual):
                 sec = round(min(15.0, max(0.0, float(t.get("sec")))), 1)
             except (TypeError, ValueError):
                 sec = None
-            out.append({"id": str(t.get("id") or "")[:24], **f, "type": t["type"], "player": str(t.get("player") or "")[:60], "sec": sec,
+            res = t.get("res") if (t["type"] == "PRE" and t.get("res") in ("REC", "CON", "PER")) else None
+            out.append({"id": str(t.get("id") or "")[:24], **f, "type": t["type"], "player": str(t.get("player") or "")[:60], "sec": sec, "res": res,
                         "mt": 2 if str(t.get("mt")) == "2" else 1})
         except (TypeError, ValueError, KeyError, AttributeError):
             continue
@@ -3372,6 +3373,7 @@ def season_jap():
                 "types": {c: sum(1 for t in lst if t["type"] == c) for c, _l, _k in JAP_TYPES},
                 "longueur": round(sum(_long(t) ** 0.5 for t in lst) / n) if n else None,
                 "gain": round(sum((t["y1"] - t["y2"]) * 110 for t in lst) / n) if n else None,
+                "rec": sum(1 for t in lst if t.get("res") == "REC"), "res_n": sum(1 for t in lst if t.get("res")),
                 "susp": (round(sum(t["sec"] for t in lst if t.get("sec") is not None) / len([t for t in lst if t.get("sec") is not None]), 1)
                          if any(t.get("sec") is not None for t in lst) else None)}
     groupes = {}
@@ -3383,7 +3385,7 @@ def season_jap():
             li = [t for t in lst if t["type"] == c]
             if li:
                 b = _bilan(li)
-                out.append({"label": lab, "couleur": col, "nb": b["total"], "longueur": b["longueur"], "gain": b["gain"], "susp": b["susp"]})
+                out.append({"label": lab, "couleur": col, "nb": b["total"], "longueur": b["longueur"], "gain": b["gain"], "susp": b["susp"], "rec": b["rec"], "res_n": b["res_n"]})
         return out
     joueurs = sorted(({"nom": k, "lignes": _lignes(v), **_bilan(v)} for k, v in groupes.items()), key=lambda r: (-r["total"], r["nom"]))
     equipe = _lignes(tous)

@@ -22,17 +22,17 @@
         <div class="sf-panel-head">BILAN PAR JOUEUR</div>
         <div class="m-scroll">
         <table class="stat-table tch-perf tch-zone jap-pj">
-            <thead><tr><th>Joueur</th><th>Type</th><th>Nb</th><th>Long. moy.</th><th>Gain moy.</th><th>Suspension moy.</th></tr></thead>
+            <thead><tr><th>Joueur</th><th>Type</th><th>Nb</th><th>Long. moy.</th><th>Gain moy.</th><th>Suspension moy.</th><th>Ballon récupéré</th></tr></thead>
             <tbody>
             {% for j in joueurs %}{% for l in j.lignes %}
             <tr>{% if loop.first %}<td class="jap-pj-name" rowspan="{{ j.lignes|length }}">{{ j.nom }} · {{ j.total }}</td>{% endif %}
-                <td><i class="jap-dot" style="background:{{ l.couleur }}"></i>{{ l.label }}</td><td>{{ l.nb }}</td><td>{{ l.longueur }} m</td><td>{{ '%+d'|format(l.gain) }} m</td><td>{{ (l.susp ~ ' s') if l.susp is not none else '·' }}</td></tr>
+                <td><i class="jap-dot" style="background:{{ l.couleur }}"></i>{{ l.label }}</td><td>{{ l.nb }}</td><td>{{ l.longueur }} m</td><td>{{ '%+d'|format(l.gain) }} m</td><td>{{ (l.susp ~ ' s') if l.susp is not none else '·' }}</td><td>{% if l.res_n %}{{ l.rec }}/{{ l.res_n }} · {{ (100 * l.rec / l.res_n)|round|int }} %{% else %}·{% endif %}</td></tr>
             {% endfor %}{% else %}
-            <tr><td colspan="6">Aucun jeu au pied saisi sur les matchs sélectionnés.</td></tr>
+            <tr><td colspan="7">Aucun jeu au pied saisi sur les matchs sélectionnés.</td></tr>
             {% endfor %}
             {% for l in equipe %}
             <tr class="mel-total">{% if loop.first %}<td class="jap-pj-name" rowspan="{{ equipe|length }}">Équipe · {{ bilan.total }}</td>{% endif %}
-                <td><i class="jap-dot" style="background:{{ l.couleur }}"></i>{{ l.label }}</td><td>{{ l.nb }}</td><td>{{ l.longueur }} m</td><td>{{ '%+d'|format(l.gain) }} m</td><td>{{ (l.susp ~ ' s') if l.susp is not none else '·' }}</td></tr>
+                <td><i class="jap-dot" style="background:{{ l.couleur }}"></i>{{ l.label }}</td><td>{{ l.nb }}</td><td>{{ l.longueur }} m</td><td>{{ '%+d'|format(l.gain) }} m</td><td>{{ (l.susp ~ ' s') if l.susp is not none else '·' }}</td><td>{% if l.res_n %}{{ l.rec }}/{{ l.res_n }} · {{ (100 * l.rec / l.res_n)|round|int }} %{% else %}·{% endif %}</td></tr>
             {% endfor %}
             </tbody>
         </table>
