@@ -22,7 +22,7 @@
         <div class="sf-panel-head">BILAN PAR JOUEUR</div>
         <div class="m-scroll">
         <table class="stat-table tch-perf tch-zone jap-pj">
-            <thead><tr><th>Joueur</th><th>Type</th><th>Nb</th><th>Long. moy.</th><th>Gain moy.</th><th>Suspension moy.</th><th>Ballon récupéré</th></tr></thead>
+            <thead><tr><th>Joueur</th><th>Type</th><th>Nb</th><th>Long.</th><th>Gain</th><th>Susp.</th><th>Récup.</th></tr></thead>
             <tbody>
             {% for j in joueurs %}{% for l in j.lignes %}
             <tr>{% if loop.first %}<td class="jap-pj-name" rowspan="{{ j.lignes|length }}">{{ j.nom }} · {{ j.total }}</td>{% endif %}
