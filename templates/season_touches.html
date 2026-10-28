@@ -68,12 +68,12 @@
         </div>
         <div class="sf-panel">
             <div class="sf-panel-head">RÉUSSITE PAR ZONE · SAISON</div>
-            <table class="stat-table zebra-table tch-perf">
+            <table class="stat-table zebra-table tch-perf tch-zone">
                 <thead><tr><th>Zone</th><th>Touches</th><th>Gagnées</th><th>%</th><th>TQB +</th><th>Tanks</th></tr></thead>
                 <tbody>{% for z in detail.zones %}<tr><td>{{ z.zone }}</td><td>{{ z.touches }}</td>
                     <td>{% if z.touches %}<span class="stat-pos">{{ z.gagnees }}</span> / <span class="stat-neg">{{ z.touches - z.gagnees }}</span>{% else %}·{% endif %}</td>
                     <td>{% if z.pct is not none %}<strong>{{ z.pct }} %</strong>{% else %}·{% endif %}</td>
-                    <td>{% if z.tqb %}{{ z.tqb_plus }} / {{ z.tqb }} · <strong>{{ z.tqb_pct }} %</strong>{% else %}·{% endif %}</td>
+                    <td>{% if z.tqb %}<strong>{{ z.tqb_pct }} %</strong> <small>({{ z.tqb_plus }}/{{ z.tqb }})</small>{% else %}·{% endif %}</td>
                     <td>{% if z.tanks %}{{ z.tanks_plus }} / {{ z.tanks }}{% else %}·{% endif %}</td></tr>{% endfor %}</tbody>
             </table>
         </div>

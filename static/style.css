@@ -3635,3 +3635,9 @@ body.slide-fs-on { overflow: hidden; }
 .tch-detail { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 6px 16px 16px; align-items: start; }
 .tch-detail .sf-panel { margin-top: 0 !important; }
 @media (max-width: 900px) { .tch-detail { grid-template-columns: 1fr; padding: 6px 8px 12px; } }
+
+/* Réussite par zone : une ligne par zone, sans retour à la ligne */
+.tch-zone td, .tch-zone th { white-space: nowrap; padding: 5px 8px; }
+.tch-zone { font-size: 1rem; }
+.tch-zone small { color: #777; font-size: .8em; font-weight: 600; }
+.tch-zone td:first-child, .tch-zone th:first-child { text-align: left; }
