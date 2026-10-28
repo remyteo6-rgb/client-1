@@ -89,17 +89,18 @@
         sv('line', {x1: 318, y1: 1050, x2: 318, y2: 1092}, po); sv('line', {x1: 382, y1: 1050, x2: 382, y2: 1092}, po); sv('line', {x1: 318, y1: 1072, x2: 382, y2: 1072}, po);
         [[270, '22'], [550, '50'], [830, '22']].forEach(function (d) { sv('text', {x: 8, y: d[0] - 6, 'font-size': 16, 'font-weight': 800, fill: '#fff', 'fill-opacity': .85}, svg, d[1]); });
         // flèches
-        visibles().forEach(function (t) {
+        var vs = visibles(), k = vs.length > 15 ? 0.55 : 1;
+        vs.forEach(function (t) {
             var x1 = t.x1 * W, y1 = t.y1 * H, x2 = t.x2 * W, y2 = t.y2 * H, c = COL[t.type] || '#333';
-            var a = Math.atan2(y2 - y1, x2 - x1), L = 26;
+            var a = Math.atan2(y2 - y1, x2 - x1), L = 26 * (k < 1 ? .75 : 1);
             var bx = x2 - Math.cos(a) * L * .8, by = y2 - Math.sin(a) * L * .8;
             var head = [x2, y2, x2 - Math.cos(a - .42) * L, y2 - Math.sin(a - .42) * L, x2 - Math.cos(a + .42) * L, y2 - Math.sin(a + .42) * L].join(',');
             var g2 = sv('g', {'class': 'jap-arrow'}, svg);
-            sv('line', {x1: x1, y1: y1, x2: bx, y2: by, stroke: '#fff', 'stroke-width': 11, 'stroke-linecap': 'round'}, g2);
-            sv('polygon', {points: head, fill: '#fff', stroke: '#fff', 'stroke-width': 6, 'stroke-linejoin': 'round'}, g2);
-            sv('line', {x1: x1, y1: y1, x2: bx, y2: by, stroke: c, 'stroke-width': 6, 'stroke-linecap': 'round'}, g2);
+            sv('line', {x1: x1, y1: y1, x2: bx, y2: by, stroke: '#fff', 'stroke-width': 11 * k, 'stroke-linecap': 'round'}, g2);
+            sv('polygon', {points: head, fill: '#fff', stroke: '#fff', 'stroke-width': 6 * k, 'stroke-linejoin': 'round'}, g2);
+            sv('line', {x1: x1, y1: y1, x2: bx, y2: by, stroke: c, 'stroke-width': 6 * k, 'stroke-linecap': 'round'}, g2);
             sv('polygon', {points: head, fill: c}, g2);
-            sv('circle', {cx: x1, cy: y1, r: 8, fill: c, stroke: '#fff', 'stroke-width': 3}, g2);
+            sv('circle', {cx: x1, cy: y1, r: 8 * k, fill: c, stroke: '#fff', 'stroke-width': 3 * k}, g2);
             sv('line', {x1: x1, y1: y1, x2: x2, y2: y2, stroke: 'transparent', 'stroke-width': 26}, g2);
             sv('title', {}, g2, (LAB[t.type] || t.type) + (t.player ? ' · ' + t.player : '') + ' · ' + f1(metres(t)) + ' m');
             if (EDIT) g2.addEventListener('click', function (ev) { ev.stopPropagation(); ouvrir(t, ev); });
