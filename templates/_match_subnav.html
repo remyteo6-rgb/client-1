@@ -90,7 +90,7 @@
         {% endif %}
 
         {% if match is defined %}
-        {% set page_labels = {'overview': "Vue d'ensemble", 'bilan_attaque': 'Bilan attaque', 'surfeurs': 'Surfeurs', 'bilan_defense': 'Bilan défense', 'csc': 'CSC', 'discipline': 'Discipline', 'touches': 'Touches', 'possessions': 'Nos possessions', 'zone_gold': 'Zone Gold', 'joueurs': 'Joueurs', 'notes': 'Notes', 'composition': 'Composition', 'tableaux': 'Tableaux', 'comparer': 'Comparer', 'bareme': 'Barème', 'donnees': 'Qualité des données', 'fiche': 'Fiche indiv', 'gagner_perdre': 'Gagner / Perdre', 'style': 'Style de jeu', 'compte_rendu': 'Compte rendu', 'bilan': 'Bilan saison'} %}
+        {% set page_labels = {'overview': "Vue d'ensemble", 'bilan_attaque': 'Bilan attaque', 'surfeurs': 'Surfeurs', 'bilan_defense': 'Bilan défense', 'csc': 'CSC', 'discipline': 'Discipline', 'touches': 'Touches', 'melees': 'Mêlées', 'possessions': 'Nos possessions', 'zone_gold': 'Zone Gold', 'joueurs': 'Joueurs', 'notes': 'Notes', 'composition': 'Composition', 'tableaux': 'Tableaux', 'comparer': 'Comparer', 'bareme': 'Barème', 'donnees': 'Qualité des données', 'fiche': 'Fiche indiv', 'gagner_perdre': 'Gagner / Perdre', 'style': 'Style de jeu', 'compte_rendu': 'Compte rendu', 'bilan': 'Bilan saison'} %}
         {# Ordre des onglets = ordre du rapport (demande de Téo), Composition à la suite.
            « Nos possessions » est de retour dans le menu (page à remplir, oct. 2026). Une seule liste pour la barre
            et le menu déroulant. En mode saison : mêmes onglets, versions « moyenne par
@@ -106,6 +106,7 @@
             ('csc', 'season_csc', 'CSC'),
             ('discipline', 'season_discipline', 'Discipline'),
             ('touches', 'season_touches', 'Touches'),
+            ('melees', 'season_melees', 'Mêlées'),
             ('joueurs', 'season_joueurs', 'Joueurs'),
             ('notes', 'season_notes', 'Notes'),
             ('fiche', 'season_fiche', 'Fiche indiv'),
@@ -123,6 +124,7 @@
             ('csc', 'match_csc', 'CSC'),
             ('discipline', 'match_discipline', 'Discipline'),
             ('touches', 'match_touches', 'Touches'),
+            ('melees', 'match_melees', 'Mêlées'),
             ('joueurs', 'match_joueurs', 'Joueurs'),
             ('notes', 'match_notes', 'Notes'),
             ('composition', 'match_composition', 'Composition'),

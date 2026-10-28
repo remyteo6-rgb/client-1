@@ -38,6 +38,7 @@ from parser import (
     composition_ordered_names, _composition_name_score, _name_key,
     player_row_order,
     compute_momentum, render_momentum_svg,
+    compute_melees_page,
     compute_zone_gold_log, compute_new_convention_tries, compute_new_convention_score,
     compute_new_convention_overview, compute_csc, compute_bilan_attaque, gold_points_par_entree_matchs,
     compute_bilan_defense,
@@ -3132,6 +3133,48 @@ def match_touches_save(match_id):
     db.commit()
     data = compute_touches_page(match["instances"], manual["touches"])
     return jsonify({"ok": True, "rows": [{"key": r["key"], "cause": r["cause"]} for r in data["rows"]]})
+
+
+@app.route("/match/<int:match_id>/melees")
+def match_melees(match_id):
+    """Page « Mêlées » d'un match : nos mêlées et celles de l'adversaire, résultat, TQB, rejouées
+    et pénalités rattachées."""
+    match = _get_match_or_404(match_id)
+    if _no_instances_guard(match):
+        flash("Ce match a été importé avant la mise à jour détaillée par secteur : réimporte le fichier XML pour voir cette page.", "error")
+        return redirect(url_for("match_detail", match_id=match_id))
+    return render_template("match_melees.html", match=match, data=compute_melees_page(match["instances"]),
+                           assets=_review_assets(match))
+
+
+@app.route("/season/melees")
+def season_melees():
+    selected, ctx = _season_common("melees")
+    rows, cumul = [], {c: {k: 0 for k in ("jouees", "gagnees", "perdues", "rejouees", "tqb_plus", "tqb_moins",
+                                          "pen_pour", "pen_contre")} for c in ("off", "def")}
+    sans_conquete = []
+    for m in selected:
+        d = compute_melees_page(m["instances"])
+        if not d:
+            continue
+        if not d["conquete_taguee"]:
+            sans_conquete.append(m.get("opponent") or "?")
+        rows.append({"id": m["id"], "date": m.get("match_date"), "opponent": m.get("opponent") or "?",
+                     "off": d["off"], "def": d["def"], "total": d["total"]})
+        for c in ("off", "def"):
+            for k in cumul[c]:
+                cumul[c][k] += d[c][k]
+    for c in ("off", "def"):
+        st = cumul[c]
+        dec = st["gagnees"] + st["perdues"]
+        st["decidees"] = dec
+        st["pct"] = round(100 * st["gagnees"] / dec, 1) if dec else None
+        tq = st["tqb_plus"] + st["tqb_moins"]
+        st["tqb_total"] = tq
+        st["tqb_pct"] = round(100 * st["tqb_plus"] / tq, 1) if tq else None
+        st["par_match"] = round(st["jouees"] / len(rows), 1) if rows else 0
+    return render_template("season_melees.html", rows=rows, cumul=cumul, fmt=_avg_fmt,
+                           sans_conquete=sans_conquete, **ctx)
 
 
 @app.route("/match/<int:match_id>/csc")

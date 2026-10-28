@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
+{% block title %}Mêlées — {{ match_title(match) }}{% endblock %}
+{% set active = 'melees' %}
+{% block content %}
+
+<div class="page-header no-print">
+    <div>
+        <h1>{{ icons.rugby() }} Mêlées — {{ match_title(match) }}</h1>
+        <p class="subtitle">{{ match['competition'] or 'Journée' }}{% if match['match_date'] %} · {{ match['match_date'] }}{% endif %}</p>
+    </div>
+    <button class="btn btn-secondary" onclick="window.print()">{{ icons.print() }} Imprimer / Exporter PDF</button>
+</div>
+
+{% if not data %}
+<div class="card empty-state">
+    <p>Aucune mêlée taguée dans ce match (codes « UBB Mêlées » et « {{ match['opponent'] or 'ADV' }} Mêlées »).</p>
+</div>
+{% else %}
+
+{% macro mark(v) %}{% if v is sameas true %}<span class="tch-ok">✓</span>{% elif v is sameas false %}<span class="tch-ko">✗</span>{% else %}<span class="mel-rejouee">rejouée</span>{% endif %}{% endmacro %}
+{% macro bloc(st, titre, sous, cls) %}
+<div class="sf-panel mel-panel">
+    <div class="sty-ban {{ cls }}">{{ titre }}</div>
+    <p class="mel-sous">{{ sous }}</p>
+    <table class="stat-table zebra-table tch-perf">
+        <tbody>
+            <tr><td>Mêlées jouées</td><td><strong>{{ st.jouees }}</strong></td></tr>
+            <tr><td>Gagnées / perdues</td><td><span class="stat-pos">{{ st.gagnees }}</span> / <span class="stat-neg">{{ st.perdues }}</span></td></tr>
+            <tr><td>Conquête</td><td><strong>{{ (st.pct ~ ' %') if st.pct is not none else '—' }}</strong></td></tr>
+            <tr><td>Mêlées rejouées</td><td>{{ st.rejouees }}</td></tr>
+            <tr><td>{{ 'Ballon propre (TQB +)' if cls == 'sty-ban-n' else 'Ballon propre concédé (TQB +)' }}</td>
+                <td>{{ st.tqb_plus }}{% if st.tqb_total %} / {{ st.tqb_total }} · <strong>{{ st.tqb_pct }} %</strong>{% endif %}</td></tr>
+            <tr><td>Pénalités récupérées</td><td><span class="stat-pos">{{ st.pen_pour }}</span></td></tr>
+            <tr><td>Pénalités concédées</td><td><span class="stat-neg">{{ st.pen_contre }}</span></td></tr>
+        </tbody>
+    </table>
+</div>
+{% endmacro %}
+
+<div class="report-board">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">MÊLÉES</span>
+        <span class="report-subtitle">{{ data.total }} MÊLÉES JOUÉES</span>
+    </div>
+
+    <div class="mel-wrap">
+        <div class="mel-left">
+            <table class="stat-table zebra-table mel-table">
+                <thead><tr><th>N°</th><th>Période</th><th>Mêlée</th><th>Résultat</th><th>TQB</th><th>Pénalité</th></tr></thead>
+                <tbody>
+                {% for r in data.rows %}
+                <tr>
+                    <td>{{ r.num }}</td>
+                    <td>{{ r.periode or '—' }}</td>
+                    <td><span class="mel-tag {{ 'mel-tag-off' if r.cote == 'off' else 'mel-tag-def' }}">{{ 'Notre intro' if r.cote == 'off' else 'Leur intro' }}</span></td>
+                    <td>{{ mark(r.resultat) }}</td>
+                    <td>{% if r.tqb is not none %}{{ mark(r.tqb) }}{% else %}·{% endif %}</td>
+                    <td>{% if r.pen_pour %}<span class="stat-pos">Pour nous</span>{% endif %}{% if r.pen_contre %}<span class="stat-neg">Contre nous</span>{% endif %}{% if not r.pen_pour and not r.pen_contre %}·{% endif %}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="mel-right">
+            {{ bloc(data.off, 'MÊLÉE OFFENSIVE · NOTRE INTRODUCTION', 'Résultat de notre côté : gagnée = on sort le ballon.', 'sty-ban-n') }}
+            {{ bloc(data['def'], 'MÊLÉE DÉFENSIVE · LEUR INTRODUCTION', 'Gagnée = on les empêche de sortir un ballon jouable.', 'sty-ban-adv') }}
+        </div>
+    </div>
+</div>
+
+<div class="card no-print mel-notes">
+    <p class="subtitle">Résultat et TQB viennent du groupe Conquête du XML, lus du point de vue de l'équipe qui a l'introduction : sur une mêlée adverse, « Gagné » veut dire qu'ils sortent le ballon, donc une mêlée défensive perdue pour nous.
+        Une mêlée sans descripteur est comptée comme <strong>rejouée</strong> et n'entre pas dans le pourcentage de conquête. Une pénalité ne change pas le résultat : c'est la sortie du ballon qui décide.</p>
+    <p class="subtitle"><strong>Pénalités.</strong> Concédées : nos codes Disciplines marqués « Conquête » dont la mêlée est l'action de conquête la plus proche (moins de 25 s).
+        Récupérées : les pénalités adverses n'ont aucun descripteur dans le XML, elles sont rattachées par le temps seul — <strong>à lire comme une estimation</strong>.
+        {% if not data.conquete_taguee %}<br>{{ icons.warning() }} Aucune pénalité n'est marquée « Conquête » dans ce match : les pénalités concédées sur mêlée ne peuvent pas être comptées.{% endif %}</p>
+</div>
+{% endif %}
+{% endblock %}

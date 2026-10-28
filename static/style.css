@@ -3588,3 +3588,20 @@ body.slide-fs-on { overflow: hidden; }
 .chg-saisie textarea { width: 100%; font-family: ui-monospace, monospace; font-size: 12.5px; padding: 8px; border: 1px solid #c9bfb2; border-radius: 6px; }
 .chg-actions { display: flex; gap: 10px; margin-top: 10px; }
 .chg-table { margin-top: 14px; max-width: 520px; }
+
+/* ===== Page Mêlées ===== */
+.mel-wrap { display:grid; grid-template-columns:1.1fr 1fr; gap:14px; padding:0 16px 16px; align-items:start; }
+.mel-panel { margin-bottom:12px; }
+.mel-sous { margin:6px 12px 8px; font-size:.85rem; color:#666; }
+.mel-table { width:100%; }
+.mel-table th, .mel-table td { text-align:center; padding:5px 8px; }
+.mel-tag { display:inline-block; padding:2px 8px; border-radius:10px; font-size:.8rem; font-weight:600; color:#fff; }
+.mel-tag-off { background:#1b3a6b; }
+.mel-tag-def { background:#6b6f76; }
+.mel-rejouee { font-style:italic; color:#8a8f98; font-size:.85rem; }
+.mel-notes { margin-top:14px; }
+.mel-season th, .mel-season td { text-align:center; padding:5px 8px; }
+.mel-season .mel-match { text-align:left; white-space:nowrap; }
+.mel-season .mel-gstart { border-left:2px solid #d5d8dd; }
+.mel-wrap .stat-neg + .stat-pos, .mel-wrap .stat-pos + .stat-neg { margin-left:6px; }
+@media (max-width: 900px) { .mel-wrap { grid-template-columns:1fr; padding:0 8px 12px; } }

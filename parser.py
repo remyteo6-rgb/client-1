@@ -1524,6 +1524,123 @@ def compute_touches_page(instances, manual=None):
             "tank_ratio": round(100 * len(tanks) / len(rows), 1) if rows else None}
 
 
+# ---- Mêlées (page "MÊLÉES", match et saison) --------------------------------
+# Convention validée avec Téo (28 oct. 2026) :
+#   « UBB Mêlées »  = mêlée avec NOTRE introduction (offensive)
+#   « <ADV> Mêlées » = mêlée avec LEUR introduction (défensive pour nous)
+#   groupe Conquête : « Gagné » / « Perdu » = qui sort le ballon, du point de vue de l'équipe du
+#   préfixe ; une pénalité n'y change rien. Pas de descripteur = mêlée rejouée.
+#   « TQB + » / « TQB − » : qualité du ballon sorti.
+# Pénalités : croisement avec les codes Disciplines. Nos pénalités portent un descripteur
+# (Off / Def / Conquête) : « Conquête » + mêlée la plus proche = pénalité concédée sur mêlée.
+# Les pénalités adverses n'ont aucun descripteur : elles sont rattachées par le temps seul.
+MELEE_FENETRE = 25.0   # secondes entre le début de la mêlée et celui du code Discipline
+
+
+def _melee_cote(tokens, adv_token):
+    if len(tokens) == 2 and tokens[1] in ("MELEES", "MELEE"):
+        if tokens[0] == "UBB":
+            return "off"
+        if tokens[0] in ("ADV", "ADVERSE") or (adv_token and tokens[0] == adv_token):
+            return "def"
+    return None
+
+
+def compute_melees_page(instances):
+    """Mêlées du match : résultat (de NOTRE point de vue), TQB, mêlées rejouées et pénalités
+    rattachées. Renvoie None si aucune mêlée n'est taguée."""
+    adv_token = _detect_adverse_token(instances)
+    melees, disc_own, disc_adv, touches = [], [], [], []
+    conquete_taguee = False
+    for inst in instances:
+        tokens = _normalize_tag(inst.get("code_raw")).split()
+        cote = _melee_cote(tokens, adv_token)
+        if cote:
+            melees.append((cote, inst))
+            continue
+        if len(tokens) == 2 and tokens[1] == "TOUCHES":
+            touches.append(inst)
+        elif len(tokens) == 2 and tokens[1] == "DISCIPLINES":
+            textes = {_normalize_tag(l.get("text")) for l in inst.get("labels") or []
+                      if _normalize_tag(l.get("group")) == "DISCIPLINES"}
+            if tokens[0] == "UBB":
+                conquete_taguee = conquete_taguee or "CONQUETE" in textes
+                disc_own.append((inst, "CONQUETE" in textes))
+            elif tokens[0] in ("ADV", "ADVERSE") or (adv_token and tokens[0] == adv_token):
+                disc_adv.append((inst, False))
+    if not melees:
+        return None
+    melees.sort(key=lambda c_i: c_i[1].get("start") or 0)
+    debut = lambda i: float(i.get("start") or 0)
+
+    def rattacher(inst):
+        """Mêlée la plus proche du code Discipline, si elle est plus proche qu'une touche."""
+        if not melees:
+            return None
+        t = debut(inst)
+        k = min(range(len(melees)), key=lambda j: abs(t - debut(melees[j][1])))
+        ecart = abs(t - debut(melees[k][1]))
+        if ecart > MELEE_FENETRE:
+            return None
+        if touches and min(abs(t - debut(x)) for x in touches) < ecart:
+            return None      # la pénalité colle à une touche, pas à une mêlée
+        return k
+
+    pen = {}
+    for inst, conquete in disc_own:
+        if not conquete:
+            continue        # règle de Téo : seules les pénalités « Conquête » viennent d'une mêlée ou d'une touche
+        k = rattacher(inst)
+        if k is not None:
+            pen.setdefault(k, {})["contre"] = True
+    for inst, _c in disc_adv:
+        k = rattacher(inst)
+        if k is not None:
+            pen.setdefault(k, {})["pour"] = True
+
+    rows, stats = [], {c: {"jouees": 0, "gagnees": 0, "perdues": 0, "rejouees": 0,
+                           "tqb_plus": 0, "tqb_moins": 0, "pen_pour": 0, "pen_contre": 0} for c in ("off", "def")}
+    for n, (cote, inst) in enumerate(melees, start=1):
+        vals = {_normalize_tag(l.get("text")) for l in inst.get("labels") or []
+                if _normalize_tag(l.get("group")) in ("CONQUETE", "CONQUÊTE")}
+        gagne_prefixe = "GAGNE" in vals or "GAGNEE" in vals
+        perdu_prefixe = "PERDU" in vals or "PERDUE" in vals
+        brut = True if gagne_prefixe else (False if perdu_prefixe else None)
+        # Sur une mêlée adverse, « Gagné » veut dire qu'EUX sortent le ballon : pour nous c'est perdu.
+        resultat = brut if cote == "off" else (None if brut is None else not brut)
+        tqb = True if "TQB +" in vals else (False if "TQB -" in vals else None)
+        p = pen.get(n - 1) or {}
+        st = stats[cote]
+        st["jouees"] += 1
+        if resultat is None:
+            st["rejouees"] += 1
+        elif resultat:
+            st["gagnees"] += 1
+        else:
+            st["perdues"] += 1
+        if tqb is True:
+            st["tqb_plus"] += 1
+        elif tqb is False:
+            st["tqb_moins"] += 1
+        st["pen_pour"] += 1 if p.get("pour") else 0
+        st["pen_contre"] += 1 if p.get("contre") else 0
+        rows.append({"num": n, "start": inst.get("start"), "cote": cote,
+                     "periode": _new_convention_period(inst),
+                     "resultat": resultat, "tqb": tqb,
+                     "pen_pour": bool(p.get("pour")), "pen_contre": bool(p.get("contre"))})
+    for st in stats.values():
+        decidees = st["gagnees"] + st["perdues"]
+        st["decidees"] = decidees
+        st["pct"] = round(100 * st["gagnees"] / decidees, 1) if decidees else None
+        tqb_tot = st["tqb_plus"] + st["tqb_moins"]
+        st["tqb_total"] = tqb_tot
+        st["tqb_pct"] = round(100 * st["tqb_plus"] / tqb_tot, 1) if tqb_tot else None
+    return {"rows": rows, "off": stats["off"], "def": stats["def"],
+            "total": len(rows), "conquete_taguee": conquete_taguee,
+            "pen_pour_total": stats["off"]["pen_pour"] + stats["def"]["pen_pour"],
+            "pen_contre_total": stats["off"]["pen_contre"] + stats["def"]["pen_contre"]}
+
+
 # ---- Bilan attaque (page "ATTAQUE / BILAN" du rapport vidéo) -----------------
 # Cibles fixées par le staff, affichées en titre des blocs correspondants.
 BILAN_CIBLES = {"zone_gold": 7, "offloads": 13, "plaquages_casses": 18}
