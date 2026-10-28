@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
+{% set active = 'tirs' %}
+{% block title %}Tirs au but — Saison{% endblock %}
+{% block content %}
+<div class="page-header no-print">
+    <div>
+        <h1>{{ icons.rugby() }} Tirs au but — Saison</h1>
+        <p class="subtitle">Tirs saisis sur {{ season_selected_count }} match{{ 's' if season_selected_count != 1 else '' }}.</p>
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
+</div>
+{% include "_season_select.html" %}
+
+<div class="report-board board-free">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">TIRS AU BUT</span>
+        <span class="report-subtitle">SAISON</span>
+    </div>
+    {% set editable = false %}{% set joueurs = [] %}
+    {% include "_tirs_board.html" %}
+    <div class="sf-panel" style="margin:14px 16px 16px;">
+        <div class="sf-panel-head">MATCH PAR MATCH</div>
+        <table class="stat-table zebra-table tch-perf tch-zone">
+            <thead><tr><th>Match</th><th>Pénalités</th><th>Transformations</th><th>Total</th><th>%</th></tr></thead>
+            <tbody>
+            {% for r in par_match %}{% set n = r.pen + r.con %}{% set o = r.pen_ok + r.con_ok %}
+            <tr><td>{{ r.date or '—' }} — {{ r.opponent }}</td>
+                <td>{{ (r.pen_ok ~ ' / ' ~ r.pen) if r.pen else '·' }}</td>
+                <td>{{ (r.con_ok ~ ' / ' ~ r.con) if r.con else '·' }}</td>
+                <td>{{ (o ~ ' / ' ~ n) if n else '·' }}</td>
+                <td>{% if n %}<strong>{{ (100 * o / n)|round|int }} %</strong>{% else %}·{% endif %}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<div class="card no-print tir-notes">
+    <p class="subtitle">Les tirs se saisissent sur la page Tirs au but de chaque match. Ici : tous les matchs sélectionnés cumulés.</p>
+</div>
+<script>function preparePrint() { setTimeout(function () { window.print(); }, 100); }</script>
+{% endblock %}

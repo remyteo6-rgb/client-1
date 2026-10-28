@@ -17,7 +17,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, g, 
 import bareme
 import compte_rendu
 from parser import (
-    _normalize_tag, _detect_adverse_token,
+    _normalize_tag, _detect_adverse_token, _scoring_events,
     ZONE_GOLD_CHOICES,
     compute_touches_page,
     compute_discipline,
@@ -3192,6 +3192,83 @@ def match_touches_import(match_id):
     db.execute("UPDATE matches SET manual_stats_json = %s WHERE id = %s", (json.dumps(manual), match_id))
     db.commit()
     return jsonify({"ok": True, "total": len(saisies), "ecarts": ecarts})
+
+
+# ---- Tirs au but (page « TIRS AU BUT », match et saison) ------------------------------------
+# Saisie à la main : on clique la case du terrain d'où le tir est pris (5 couloirs en largeur, une ligne
+# tous les 10 m depuis la ligne d'en-but adverse), puis type (pénalité / transformation), buteur, réussi ou non.
+TIRS_TYPES = (("P", "Pénalité"), ("T", "Transformation"))
+TIRS_LIGNES = ("0-10 m", "10-20 m", "20-30 m", "30-40 m", "40-50 m", "50 m et +")
+TIRS_COULOIRS = 5
+
+
+def _tirs_saisis(manual):
+    """Tirs enregistrés d'un match : [{id, col, row, type, player, ok}] (col 0-4 de gauche à droite en
+    regardant les perches adverses, row 0 = 0-10 m de la ligne d'en-but adverse)."""
+    out = []
+    for t in ((manual or {}).get("tirs") or []):
+        try:
+            col, row = int(t.get("col")), int(t.get("row"))
+            if 0 <= col < TIRS_COULOIRS and 0 <= row < len(TIRS_LIGNES) and t.get("type") in ("P", "T"):
+                out.append({"id": str(t.get("id") or "")[:24], "col": col, "row": row, "type": t["type"],
+                            "player": str(t.get("player") or "")[:60], "ok": bool(t.get("ok"))})
+        except (TypeError, ValueError, AttributeError):
+            continue
+    return out
+
+
+def _tirs_xml(instances):
+    """Tirs de notre équipe codés dans le XML (Pénalité / Transfo / drop) : sert à repérer ceux qui restent à saisir."""
+    try:
+        evs = [e for e in _scoring_events(instances, _detect_adverse_token(instances)) if e["side"] == "own"]
+    except Exception:
+        return None
+    out = {}
+    for k, lab in (("penalties", "pen"), ("conversions", "conv")):
+        sel = [e for e in evs if e["kind"] == k]
+        out[lab] = {"total": len(sel), "ok": sum(1 for e in sel if e["points"] > 0)}
+    return out
+
+
+@app.route("/match/<int:match_id>/tirs")
+def match_tirs(match_id):
+    match = _get_match_or_404(match_id)
+    joueurs = [{"nom": n, "numero": i + 1} for i, n in enumerate((match.get("composition") or [])[:23]) if n]
+    tirs = _tirs_saisis(match.get("manual_stats"))
+    return render_template("match_tirs.html", match=match, tirs=tirs, joueurs=joueurs, types=TIRS_TYPES,
+                           lignes=TIRS_LIGNES, xml=_tirs_xml(match["instances"]) if match.get("instances") else None,
+                           assets=_review_assets(match), editable=bool(session.get("is_admin")))
+
+
+@app.route("/match/<int:match_id>/tirs/saisie", methods=["POST"])
+@admin_required
+def match_tirs_save(match_id):
+    """Enregistre la liste complète des tirs (la page renvoie tout à chaque ajout, changement ou suppression)."""
+    match = _get_match_or_404(match_id)
+    payload = request.get_json(silent=True) or {}
+    manual = match.get("manual_stats") or {}
+    manual["tirs"] = _tirs_saisis({"tirs": (payload.get("tirs") or [])[:300]})
+    db = get_db()
+    db.execute("UPDATE matches SET manual_stats_json = %s WHERE id = %s", (json.dumps(manual), match_id))
+    db.commit()
+    return jsonify({"ok": True, "total": len(manual["tirs"])})
+
+
+@app.route("/season/tirs")
+def season_tirs():
+    selected, ctx = _season_common("tirs")
+    tous, par_match = [], []
+    for m in selected:
+        tirs = _tirs_saisis(m.get("manual_stats"))
+        tous += tirs
+        pen = [t for t in tirs if t["type"] == "P"]
+        con = [t for t in tirs if t["type"] == "T"]
+        par_match.append({"id": m["id"], "date": m.get("match_date"), "opponent": m.get("opponent") or "?",
+                          "pen": len(pen), "pen_ok": sum(t["ok"] for t in pen),
+                          "con": len(con), "con_ok": sum(t["ok"] for t in con),
+                          "xml": _tirs_xml(m["instances"]) if m.get("instances") else None})
+    return render_template("season_tirs.html", tirs=tous, par_match=par_match, types=TIRS_TYPES,
+                           lignes=TIRS_LIGNES, **ctx)
 
 
 @app.route("/match/<int:match_id>/melees")

@@ -3641,3 +3641,33 @@ body.slide-fs-on { overflow: hidden; }
 .tch-zone { font-size: 1rem; }
 .tch-zone small { color: #777; font-size: .8em; font-weight: 600; }
 .tch-zone td:first-child, .tch-zone th:first-child { text-align: left; }
+
+/* ===== Page Tirs au but ===== */
+.tir-kpis { display:flex; gap:14px; justify-content:space-around; flex-wrap:wrap; padding:6px 16px 10px; }
+.tir-kpi { text-align:center; } .tir-kpi strong { display:block; font-size:1.5rem; font-weight:800; } .tir-kpi span { font-size:.85rem; color:#555; font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
+.tir-wrap { display:grid; grid-template-columns:1fr 1fr; gap:18px; padding:0 16px 14px; align-items:start; }
+.tir-map-head { display:flex; justify-content:space-between; align-items:center; font-weight:800; text-transform:uppercase; font-size:.85rem; letter-spacing:.6px; color:var(--bg-header); margin-bottom:6px; }
+.tir-legend { display:inline-flex; align-items:center; gap:5px; font-size:.75rem; color:#555; font-weight:700; }
+.tir-legend i { width:14px; height:14px; border-radius:3px; display:inline-block; margin-left:6px; border:1px solid rgba(0,0,0,.15); }
+.tir-field { position:relative; background:#4f9a55; border-radius:8px; padding:26px 8px 8px; box-shadow:0 1px 4px rgba(0,0,0,.2); }
+.tir-posts { position:absolute; top:0; left:0; right:0; height:24px; display:flex; justify-content:center; gap:38px; align-items:flex-end; }
+.tir-posts span { width:4px; height:22px; background:#fff; border-radius:2px; }
+.tir-grid { display:grid; grid-template-columns:62px repeat(5, 1fr); gap:3px; }
+.tir-rowlab { color:#fff; font-weight:800; font-size:.8rem; display:flex; align-items:center; }
+.tir-cell { min-height:62px; border:1.5px solid rgba(255,255,255,.7); border-radius:6px; background:rgba(255,255,255,.12); color:#1b1b1b; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; padding:2px; font:inherit; }
+.tir-cell b { font-size:1.1rem; font-weight:800; line-height:1.1; } .tir-cell small { font-size:.75rem; font-weight:700; opacity:.8; }
+.tir-cell:hover { outline:2px solid var(--accent-gold, #d4a017); }
+.tir-foot { font-size:.8rem; color:#666; font-style:italic; margin:6px 2px 0; }
+.tir-pop { position:absolute; z-index:60; width:270px; background:#fff; border:1.5px solid #7d3653; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,.25); padding:10px 12px; }
+.tir-pop-title { font-weight:800; color:var(--bg-header); margin-bottom:6px; }
+.tir-pop-row { display:flex; gap:6px; align-items:center; margin:6px 0; font-size:.9rem; } .tir-pop-row select { flex:1; }
+.tir-btn { flex:1; border:1.5px solid #c9ccd6; background:#fff; border-radius:6px; padding:6px 4px; font-weight:700; cursor:pointer; }
+.tir-btn.on { background:#7d3653; border-color:#7d3653; color:#fff; }
+.tir-ok { color:#2e7d46; border-color:#2e7d46; } .tir-ko { color:#c0392b; border-color:#c0392b; }
+.tir-ok:hover { background:#e6f4ea; } .tir-ko:hover { background:#fbe9e7; }
+.tir-line { display:flex; gap:8px; align-items:center; font-size:.85rem; padding:2px 0; border-bottom:1px dashed #e3e3e3; }
+.tir-line span:nth-child(2) { flex:1; }
+.tir-ok-txt { color:#2e7d46; font-weight:800; } .tir-ko-txt { color:#c0392b; font-weight:800; }
+.tir-link { background:none; border:0; color:#7d3653; text-decoration:underline; cursor:pointer; font-size:.8rem; padding:0; } .tir-del { color:#c0392b; }
+.tir-notes { margin-top:12px; }
+@media (max-width: 900px) { .tir-wrap { grid-template-columns:1fr; padding:0 8px 12px; } .tir-grid { grid-template-columns:48px repeat(5, 1fr); } .tir-cell { min-height:52px; } .tir-cell b { font-size:.95rem; } }

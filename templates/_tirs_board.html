@@ -1,0 +1,185 @@
+{# Terrain quadrillé des tirs au but + tableaux. Variables : tirs, lignes, editable, joueurs (match), types, save_url (match). #}
+<div class="tir-kpis" id="tir-kpis"></div>
+<div class="tir-wrap">
+    <div class="tir-left">
+        <div class="tir-map-head">
+            <span>Perches adverses</span>
+            <span class="tir-legend"><i style="background:hsl(0,60%,80%)"></i>0 %<i style="background:hsl(60,60%,78%)"></i>50 %<i style="background:hsl(120,50%,70%)"></i>100 %</span>
+        </div>
+        <div class="tir-field">
+            <div class="tir-posts" aria-hidden="true"><span></span><span></span></div>
+            <div class="tir-grid" id="tir-grid">
+                {% for r in range(lignes|length) %}
+                <div class="tir-rowlab">{{ lignes[r] }}</div>
+                {% for c in range(5) %}
+                <button type="button" class="tir-cell" data-row="{{ r }}" data-col="{{ c }}" {{ '' if editable else 'tabindex="-1"' }}><b></b><small></small></button>
+                {% endfor %}
+                {% endfor %}
+            </div>
+        </div>
+        <p class="tir-foot">Chaque case : % de réussite et tirs réussis / tentés. {% if editable %}Clique une case pour ajouter ou modifier un tir.{% endif %}</p>
+    </div>
+    <div class="tir-right">
+        <div class="sf-panel">
+            <div class="sf-panel-head">RÉUSSITE DES BUTEURS</div>
+            <table class="stat-table zebra-table tch-perf tch-zone">
+                <thead><tr><th>Joueur</th><th>Pénalités</th><th>Transfo</th><th>Total</th><th>%</th></tr></thead>
+                <tbody id="tir-buteurs"></tbody>
+            </table>
+            <p class="sfs-note" id="tir-buteurs-vide" style="padding:12px 16px;" hidden>Aucun tir saisi pour l'instant.</p>
+        </div>
+        <div class="sf-panel" style="margin-top:12px;">
+            <div class="sf-panel-head">RÉUSSITE PAR DISTANCE</div>
+            <table class="stat-table zebra-table tch-perf tch-zone">
+                <thead><tr><th>Distance</th><th>Tirs</th><th>Réussis</th><th>%</th></tr></thead>
+                <tbody id="tir-lignes"></tbody>
+            </table>
+        </div>
+        <div class="sf-panel" style="margin-top:12px;">
+            <div class="sf-panel-head">RÉUSSITE PAR COULOIR</div>
+            <table class="stat-table zebra-table tch-perf tch-zone">
+                <thead><tr><th>Couloir</th><th>Tirs</th><th>Réussis</th><th>%</th></tr></thead>
+                <tbody id="tir-couloirs"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% if editable %}
+<div id="tir-pop" class="tir-pop" hidden>
+    <div class="tir-pop-title" id="tir-pop-title"></div>
+    <div id="tir-pop-list" class="tir-pop-list"></div>
+    <div class="tir-pop-form">
+        <div class="tir-pop-row">{% for code, lab in types %}<button type="button" class="tir-btn tir-type" data-type="{{ code }}">{{ lab }}</button>{% endfor %}</div>
+        <label class="tir-pop-row">Buteur
+            <select id="tir-pop-player"><option value="">—</option>{% for j in joueurs %}<option value="{{ j.nom }}">{{ j.numero }} · {{ j.nom }}</option>{% endfor %}</select>
+        </label>
+        <div class="tir-pop-row">
+            <button type="button" class="tir-btn tir-ok" data-ok="1">✓ Réussi</button>
+            <button type="button" class="tir-btn tir-ko" data-ok="0">✗ Raté</button>
+        </div>
+        <button type="button" class="tir-link" id="tir-pop-close">Fermer</button>
+    </div>
+</div>
+{% endif %}
+
+<script>
+(function () {
+    var EDIT = {{ 'true' if editable else 'false' }};
+    var LIGNES = {{ lignes|tojson }};
+    var COULOIRS = ['Touche gauche', 'Gauche', 'Centre', 'Droite', 'Touche droite'];
+    var TYPES = {P: 'Pénalité', T: 'Transformation'};
+    var tirs = {{ tirs|tojson }};
+    {% if editable %}var SAVE_URL = {{ save_url|tojson }};{% endif %}
+    var cur = null, lastPlayer = '', lastType = 'P', saveTimer = null;
+
+    function pct(ok, n) { return n ? Math.round(100 * ok / n) : null; }
+    function teinte(p) { return 'hsl(' + Math.round(p * 1.2) + ',' + (p < 50 ? 60 : 50) + '%,' + (p < 50 ? 80 : 70) + '%)'; }
+    function uid() { return 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+    function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+    function ligneStat(label, list) {
+        var ok = list.filter(function (t) { return t.ok; }).length, p = pct(ok, list.length);
+        return [label, list.length || '·', list.length ? ok : '·', p == null ? '·' : p + ' %'];
+    }
+
+    function render() {
+        // Terrain
+        document.querySelectorAll('.tir-cell').forEach(function (b) {
+            var r = +b.dataset.row, c = +b.dataset.col;
+            var l = tirs.filter(function (t) { return t.row === r && t.col === c; });
+            var ok = l.filter(function (t) { return t.ok; }).length;
+            var p = pct(ok, l.length);
+            b.style.background = p == null ? '' : teinte(p);
+            b.classList.toggle('tir-vide', p == null);
+            b.querySelector('b').textContent = p == null ? '' : p + ' %';
+            b.querySelector('small').textContent = l.length ? ok + ' / ' + l.length : '';
+        });
+        // KPI
+        var kp = document.getElementById('tir-kpis'); kp.innerHTML = '';
+        var tot = tirs.length, okT = tirs.filter(function (t) { return t.ok; }).length;
+        [['Tirs', tot ? okT + ' / ' + tot : '·'], ['Réussite', tot ? pct(okT, tot) + ' %' : '·']].concat(['P', 'T'].map(function (k) {
+            var l = tirs.filter(function (t) { return t.type === k; }), o = l.filter(function (t) { return t.ok; }).length;
+            return [TYPES[k] + 's', l.length ? o + ' / ' + l.length + ' · ' + pct(o, l.length) + ' %' : '·'];
+        })).forEach(function (kv) {
+            var d = el('div', 'tir-kpi'); d.appendChild(el('strong', null, kv[1])); d.appendChild(el('span', null, kv[0])); kp.appendChild(d);
+        });
+        // Buteurs
+        var by = {};
+        tirs.forEach(function (t) { var k = t.player || 'Buteur non précisé'; (by[k] = by[k] || []).push(t); });
+        var names = Object.keys(by).sort(function (a, b) { return by[b].length - by[a].length || a.localeCompare(b); });
+        var tb = document.getElementById('tir-buteurs'); tb.innerHTML = '';
+        names.forEach(function (n) {
+            var l = by[n], tr = el('tr');
+            function cell(list) { var o = list.filter(function (t) { return t.ok; }).length; return list.length ? o + ' / ' + list.length : '·'; }
+            var ok = l.filter(function (t) { return t.ok; }).length;
+            [n, cell(l.filter(function (t) { return t.type === 'P'; })), cell(l.filter(function (t) { return t.type === 'T'; })), cell(l), pct(ok, l.length) + ' %'].forEach(function (v, i) {
+                var td = el('td', null, v); if (i === 4) { td.style.fontWeight = '800'; } tr.appendChild(td);
+            });
+            tb.appendChild(tr);
+        });
+        document.getElementById('tir-buteurs-vide').hidden = names.length > 0;
+        // Distance et couloir
+        function remplir(id, labels, key) {
+            var body = document.getElementById(id); body.innerHTML = '';
+            labels.forEach(function (lab, i) {
+                var tr = el('tr'); ligneStat(lab, tirs.filter(function (t) { return t[key] === i; })).forEach(function (v) { tr.appendChild(el('td', null, v)); });
+                body.appendChild(tr);
+            });
+        }
+        remplir('tir-lignes', LIGNES, 'row'); remplir('tir-couloirs', COULOIRS, 'col');
+    }
+
+    {% if editable %}
+    var pop = document.getElementById('tir-pop');
+    function save() {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(function () {
+            fetch(SAVE_URL, {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({tirs: tirs})})
+                .then(function (r) { if (!r.ok) throw new Error(r.status); })
+                .catch(function () { alert("La saisie n'a pas pu être enregistrée. Recharge la page et réessaie."); });
+        }, 200);
+    }
+    function listePop() {
+        var box = document.getElementById('tir-pop-list'); box.innerHTML = '';
+        tirs.filter(function (t) { return t.row === cur.row && t.col === cur.col; }).forEach(function (t) {
+            var line = el('div', 'tir-line');
+            line.appendChild(el('span', t.ok ? 'tir-ok-txt' : 'tir-ko-txt', t.ok ? '✓' : '✗'));
+            line.appendChild(el('span', null, (TYPES[t.type] || t.type) + (t.player ? ' · ' + t.player : '')));
+            var tog = el('button', 'tir-link', 'inverser'); tog.type = 'button';
+            tog.onclick = function () { t.ok = !t.ok; save(); render(); listePop(); };
+            var del = el('button', 'tir-link tir-del', 'supprimer'); del.type = 'button';
+            del.onclick = function () { tirs = tirs.filter(function (x) { return x !== t; }); save(); render(); listePop(); };
+            line.appendChild(tog); line.appendChild(del); box.appendChild(line);
+        });
+    }
+    function majType() {
+        pop.querySelectorAll('.tir-type').forEach(function (b) { b.classList.toggle('on', b.dataset.type === lastType); });
+    }
+    document.querySelectorAll('.tir-cell').forEach(function (b) {
+        b.addEventListener('click', function (ev) {
+            cur = {row: +b.dataset.row, col: +b.dataset.col};
+            document.getElementById('tir-pop-title').textContent = LIGNES[cur.row] + ' · ' + COULOIRS[cur.col];
+            document.getElementById('tir-pop-player').value = lastPlayer;
+            majType(); listePop();
+            pop.hidden = false;
+            var r = b.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+            var x = Math.min(window.innerWidth - w - 8, Math.max(8, r.left + r.width / 2 - w / 2));
+            var y = r.bottom + 6; if (y + h > window.innerHeight - 8) y = Math.max(8, r.top - h - 6);
+            pop.style.left = x + window.scrollX + 'px'; pop.style.top = y + window.scrollY + 'px';
+            ev.stopPropagation();
+        });
+    });
+    pop.querySelectorAll('.tir-type').forEach(function (b) { b.addEventListener('click', function () { lastType = b.dataset.type; majType(); }); });
+    pop.querySelectorAll('[data-ok]').forEach(function (b) {
+        b.addEventListener('click', function () {
+            lastPlayer = document.getElementById('tir-pop-player').value;
+            tirs.push({id: uid(), row: cur.row, col: cur.col, type: lastType, player: lastPlayer, ok: b.dataset.ok === '1'});
+            save(); render(); listePop();
+        });
+    });
+    document.getElementById('tir-pop-close').addEventListener('click', function () { pop.hidden = true; });
+    document.addEventListener('click', function (e) { if (!pop.hidden && !pop.contains(e.target)) pop.hidden = true; });
+    {% endif %}
+    render();
+})();
+</script>

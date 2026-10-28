@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% import "_ppid_icons.html" as icons %}
+{% block title %}Tirs au but — {{ match_title(match) }}{% endblock %}
+{% set active = 'tirs' %}
+{% block content %}
+<div class="page-header no-print">
+    <div>
+        <h1>{{ icons.rugby() }} Tirs au but — {{ match_title(match) }}</h1>
+        <p class="subtitle">{{ match['competition'] or 'Journée' }}{% if match['match_date'] %} · {{ match['match_date'] }}{% endif %}</p>
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
+</div>
+
+<div class="report-board">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">TIRS AU BUT</span>
+        <span class="report-subtitle">PÉNALITÉS ET TRANSFORMATIONS</span>
+    </div>
+    {% set save_url = url_for('match_tirs_save', match_id=match['id']) %}
+    {% include "_tirs_board.html" %}
+</div>
+
+<div class="card no-print tir-notes">
+    <p class="subtitle">Le terrain se lit de haut en bas : la ligne du haut est la plus proche des perches adverses (0-10 m), avec 5 couloirs en largeur.
+        {% if editable %}Clique une case, choisis pénalité ou transformation, le buteur, puis Réussi ou Raté : c'est enregistré tout de suite. Tu peux ajouter plusieurs tirs dans la même case.{% endif %}</p>
+    {% if xml %}
+    <p class="subtitle">Pour contrôle, le XML contient : pénalités {{ xml.pen.ok }} réussies sur {{ xml.pen.total }}, transformations {{ xml.conv.ok }} réussies sur {{ xml.conv.total }}.</p>
+    {% endif %}
+</div>
+<script>function preparePrint() { setTimeout(function () { window.print(); }, 100); }</script>
+{% endblock %}
