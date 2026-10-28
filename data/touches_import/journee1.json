@@ -1,16 +1,93 @@
 {
  "label": "Journée 1 — Bayonne (tableau des touches)",
  "touches": [
-  {"num": 1,  "lancement": "GOLD",   "lance": "ok", "annonce": "ok", "qb": true,  "resultat": true},
-  {"num": 2,  "lancement": "GOLD",   "lance": "ko", "annonce": "ko", "qb": false, "resultat": false},
-  {"num": 3,  "lancement": "ROUGE",  "lance": "ok", "annonce": "ok", "qb": true,  "resultat": true},
-  {"num": 4,  "lancement": "RUMBLE", "lance": "ok", "annonce": "ko", "qb": false, "resultat": true},
-  {"num": 5,  "lancement": "RUMBLE", "lance": "ok", "annonce": "ok", "qb": true,  "resultat": true},
-  {"num": 6,  "lancement": "COP",    "lance": "ok", "annonce": "ok", "qb": true,  "resultat": true},
-  {"num": 7,  "lancement": "ROUGE",  "lance": "ok", "annonce": "ok", "qb": true,  "resultat": true},
-  {"num": 8,  "lancement": "GOLD",   "lance": "ko", "annonce": "ok", "qb": false, "resultat": false},
-  {"num": 9,  "lancement": "RUMBLE", "lance": "ko", "annonce": "ok", "qb": false, "resultat": false},
-  {"num": 10, "lancement": "GOLD",   "lance": "ok", "annonce": "ok", "qb": true,  "resultat": true},
-  {"num": 11, "lancement": "RUMBLE", "lance": "ok", "annonce": "ko", "qb": false, "resultat": false}
+  {
+   "num": 1,
+   "lance": "ok",
+   "annonce": "ok",
+   "qb": true,
+   "resultat": true,
+   "zone": "GOLD"
+  },
+  {
+   "num": 2,
+   "lance": "ko",
+   "annonce": "ko",
+   "qb": false,
+   "resultat": false,
+   "zone": "GOLD"
+  },
+  {
+   "num": 3,
+   "lance": "ok",
+   "annonce": "ok",
+   "qb": true,
+   "resultat": true,
+   "zone": "ROUGE"
+  },
+  {
+   "num": 4,
+   "lance": "ok",
+   "annonce": "ko",
+   "qb": false,
+   "resultat": true,
+   "zone": "RUMBLE"
+  },
+  {
+   "num": 5,
+   "lance": "ok",
+   "annonce": "ok",
+   "qb": true,
+   "resultat": true,
+   "zone": "RUMBLE"
+  },
+  {
+   "num": 6,
+   "lance": "ok",
+   "annonce": "ok",
+   "qb": true,
+   "resultat": true,
+   "zone": "COP"
+  },
+  {
+   "num": 7,
+   "lance": "ok",
+   "annonce": "ok",
+   "qb": true,
+   "resultat": true,
+   "zone": "ROUGE"
+  },
+  {
+   "num": 8,
+   "lance": "ko",
+   "annonce": "ok",
+   "qb": false,
+   "resultat": false,
+   "zone": "GOLD"
+  },
+  {
+   "num": 9,
+   "lance": "ko",
+   "annonce": "ok",
+   "qb": false,
+   "resultat": false,
+   "zone": "RUMBLE"
+  },
+  {
+   "num": 10,
+   "lance": "ok",
+   "annonce": "ok",
+   "qb": true,
+   "resultat": true,
+   "zone": "GOLD"
+  },
+  {
+   "num": 11,
+   "lance": "ok",
+   "annonce": "ko",
+   "qb": false,
+   "resultat": false,
+   "zone": "RUMBLE"
+  }
  ]
 }

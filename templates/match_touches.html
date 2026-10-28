@@ -134,6 +134,16 @@ document.getElementById('tch-import-go').addEventListener('click', function () {
                 {% else %}<p class="sfs-note" style="padding:12px 16px;">Sauteurs non codés sur ce match (label « Touches OFF sauteur » + / − sur le joueur).</p>{% endif %}
             </div>
             <div class="sf-panel" style="margin-top:12px;">
+                <div class="sf-panel-head">RÉUSSITE PAR ZONE</div>
+                <table class="stat-table zebra-table tch-perf">
+                    <thead><tr><th>Zone</th><th>Touches</th><th>Gagnées</th><th>%</th><th>Tanks</th></tr></thead>
+                    <tbody>{% for z in data.zones %}<tr><td>{{ z.zone }}</td><td>{{ z.touches }}</td>
+                        <td>{% if z.touches %}<span class="stat-pos">{{ z.gagnees }}</span> / <span class="stat-neg">{{ z.touches - z.gagnees }}</span>{% else %}·{% endif %}</td>
+                        <td>{% if z.pct is not none %}<strong>{{ z.pct }} %</strong>{% else %}·{% endif %}</td>
+                        <td>{% if z.tanks %}{{ z.tanks_plus }} / {{ z.tanks }}{% else %}·{% endif %}</td></tr>{% endfor %}</tbody>
+                </table>
+            </div>
+            <div class="sf-panel" style="margin-top:12px;">
                 <div class="sf-panel-head">TANK · MAUL APRÈS TOUCHE</div>
                 {% if data.tank_total %}
                 <table class="stat-table zebra-table tch-perf">
@@ -160,7 +170,7 @@ document.getElementById('tch-import-go').addEventListener('click', function () {
     <p class="subtitle">QB et Résultat viennent du XML (groupe Conquête : TQB + / Gagné). Courbe : +1 par touche gagnée, −1 par touche perdue.
         Sous une touche perdue, la cause affichée est l'annonce (si elle est invalidée), sinon le lancer.
         {{ data.gagnees }}/{{ data.total }} touches gagnées{% if data.tank_total %}, dont {{ data.tank_total }} jouées au tank ({{ data.tank_ratio }} %){% endif %}.
-        Une touche sans label « TANK » n'est pas un tank raté : elle a été jouée autrement.</p>
+        Une touche sans label « TANK » n'est pas un tank raté : elle a été jouée autrement. Zone d'une touche : lue sur le code de zone codé au moment du lancer ; tanks = positifs / joués.</p>
     {% if is_admin %}
     <p class="subtitle">{{ icons.edit() }} Tape le lancement dans sa case (« 61 TANK », « 50 »…) puis Entrée. Pour Lancé et Annonce, clique sur la case :
         vide → ✓ → ✗ → vide. C'est enregistré tout de suite. <span id="tchStatus" class="zg-status" role="status"></span></p>

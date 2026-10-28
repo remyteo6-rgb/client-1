@@ -1479,6 +1479,9 @@ def _match_card(name, cards):
 
 
 # ---- Touches (page "TOUCHES" du rapport vidéo) --------------------------------
+TOUCHES_ZONES = ("ROUGE", "COP", "RUMBLE", "GOLD")
+
+
 def compute_touches_page(instances, manual=None):
     """Nos touches dans l'ordre du match, pour la page TOUCHES du rapport.
 
@@ -1489,6 +1492,23 @@ def compute_touches_page(instances, manual=None):
     manual = manual or {}
     touches = sorted((i for i in instances if _normalize_tag(i.get("code_raw")) == "UBB TOUCHES"),
                      key=lambda i: i.get("start") or 0)
+    # Zone de chaque touche : le code de zone (nue = notre ballon) qui démarre environ 6 à 11 s après le
+    # début du code Touches (la touche est jouée ~8 s après son début). Validé sur la J1 (11 touches sur 11).
+    adv_tok = _normalize_tag(_detect_adverse_token(instances) or "ADV")
+    bande_eux = {"GOLD": "ROUGE", "RUMBLE": "COP", "COP": "RUMBLE", "ROUGE": "GOLD"}
+    zsegs = []
+    for i in instances:
+        tk = _normalize_tag(i.get("code_raw")).split()
+        zn = None
+        if len(tk) == 1 and tk[0] in TOUCHES_ZONES:
+            zn = tk[0]
+        elif len(tk) == 2 and tk[0] in TOUCHES_ZONES and tk[1] in ("A", "ADV"):
+            zn = bande_eux[tk[0]]
+        elif len(tk) == 2 and tk[1] in TOUCHES_ZONES and tk[0] in (adv_tok, "ADV", "ADVERSE"):
+            zn = bande_eux[tk[1]]
+        if zn:
+            zsegs.append((float(i.get("start") or 0), float(i.get("end") or 0), zn))
+    zsegs.sort(key=lambda z: z[0])
     rows, cumul = [], 0
     for n, inst in enumerate(touches, start=1):
         vals = {_normalize_tag(l.get("text")) for l in inst.get("labels") or []
@@ -1508,7 +1528,12 @@ def compute_touches_page(instances, manual=None):
         cause = ""
         if resultat is False:
             cause = "ANNONCE" if annonce == "ko" else ("LANCÉ" if lance == "ko" else "")
-        rows.append({"num": n, "key": key, "lancement": man.get("lancement") or "",
+        t0 = float(inst.get("start") or 0)
+        zc = [z for z in zsegs if t0 + 5 <= z[0] <= t0 + 11]
+        if not zc:
+            zc = [z for z in zsegs if z[0] - 0.5 <= t0 + 8 <= z[1] + 0.5]
+        zone = zc[0][2] if zc else ""
+        rows.append({"num": n, "key": key, "zone": zone, "lancement": man.get("lancement") or "",
                      "lance": lance, "annonce": annonce, "qb": qb, "tank": tank, "resultat": resultat,
                      "cumul": cumul, "cause": cause})
     if not rows:
@@ -1516,7 +1541,15 @@ def compute_touches_page(instances, manual=None):
     gagnees = sum(1 for r in rows if r["resultat"])
     tanks = [r["tank"] for r in rows if r["tank"] is not None]
     tank_plus = sum(1 for t in tanks if t)
-    return {"rows": rows, "total": len(rows), "gagnees": gagnees,
+    zones = []
+    for zn in TOUCHES_ZONES[::-1]:
+        zr = [r for r in rows if r["zone"] == zn]
+        zg = sum(1 for r in zr if r["resultat"])
+        zt = [r["tank"] for r in zr if r["tank"] is not None]
+        zones.append({"zone": zn, "touches": len(zr), "gagnees": zg,
+                      "pct": round(100 * zg / len(zr)) if zr else None,
+                      "tanks": len(zt), "tanks_plus": sum(1 for t in zt if t)})
+    return {"rows": rows, "zones": zones, "total": len(rows), "gagnees": gagnees,
             "pct": round(100 * gagnees / len(rows), 1) if rows else None,
             # Tank : nombre de mauls joués après touche, leur réussite, et la part des touches jouées au tank.
             "tank_total": len(tanks), "tank_plus": tank_plus, "tank_moins": len(tanks) - tank_plus,

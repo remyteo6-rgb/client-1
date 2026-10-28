@@ -3171,7 +3171,7 @@ def match_touches_import(match_id):
     if len(saisies) != page["total"]:
         return jsonify({"ok": False, "erreur": f"Le tableau a {len(saisies)} touches, ce match en a {page['total']} "
                         "dans le XML : import annulé."}), 422
-    deja = any(r["lancement"] or r["lance"] or r["annonce"] for r in page["rows"])
+    deja = any(r["lance"] or r["annonce"] for r in page["rows"])
     if deja and not payload.get("remplacer"):
         return jsonify({"ok": False, "erreur": "Ce match a déjà des touches saisies."}), 409
     ecarts = []
@@ -3180,7 +3180,12 @@ def match_touches_import(match_id):
         for champ in ("qb", "resultat"):
             if t.get(champ) is not None and row[champ] is not None and bool(t[champ]) != bool(row[champ]):
                 ecarts.append(f"n°{row['num']} {champ}")
-        touches[row["key"]] = {"lancement": str(t.get("lancement") or "")[:30],
+        if t.get("zone") and row.get("zone") and t["zone"].upper() != row["zone"]:
+            ecarts.append(f"n°{row['num']} zone ({t['zone']} dans le tableau, {row['zone']} dans le XML)")
+        ancien = touches.get(row["key"]) or {}
+        # « lancement » absent du fichier (tableau avec une colonne Zone) : on garde celui déjà saisi.
+        lancement = str(t["lancement"])[:30] if "lancement" in t else (ancien.get("lancement") or "")
+        touches[row["key"]] = {"lancement": lancement,
                                "lance": t.get("lance") if t.get("lance") in ("ok", "ko") else "",
                                "annonce": t.get("annonce") if t.get("annonce") in ("ok", "ko") else ""}
     db = get_db()
