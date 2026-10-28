@@ -152,7 +152,6 @@ document.getElementById('tch-import-go').addEventListener('click', function () {
                         <td>{% if z.touches %}<span class="stat-pos">{{ z.gagnees }}</span> / <span class="stat-neg">{{ z.touches - z.gagnees }}</span>{% else %}·{% endif %}</td>
                         <td>{% if z.pct is not none %}<strong>{{ z.pct }} %</strong>{% else %}·{% endif %}</td>
                         <td>{% if z.tqb %}{{ z.tqb_plus }} / {{ z.tqb }} · <strong>{{ z.tqb_pct }} %</strong>{% else %}·{% endif %}</td>
-                        <td>{% if z.tqb %}{{ z.tqb_plus }} / {{ z.tqb }} · <strong>{{ z.tqb_pct }} %</strong>{% else %}·{% endif %}</td>
                     <td>{% if z.tanks %}{{ z.tanks_plus }} / {{ z.tanks }}{% else %}·{% endif %}</td></tr>{% endfor %}</tbody>
                 </table>
             </div>
