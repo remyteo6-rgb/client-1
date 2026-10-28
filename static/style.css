@@ -3705,3 +3705,4 @@ body.slide-fs-on { overflow: hidden; }
 .jap-ptype { border:2px solid var(--c); background:#fff; border-radius:14px; padding:3px 9px; font-weight:700; font-size:.8rem; cursor:pointer; }
 .jap-ptype.on { background:var(--c); color:#fff; }
 @media (max-width: 900px) { .jap-wrap { grid-template-columns:1fr; padding:0 8px 12px; } }
+.tir-pop-row select { font-weight:700; }

@@ -34,8 +34,7 @@
     <div class="tir-pop-title" id="jap-pop-title">Jeu au pied</div>
     <div class="jap-pop-types" id="jap-pop-types">{% for code, lab, col in types %}<button type="button" class="jap-ptype" data-type="{{ code }}" style="--c:{{ col }}">{{ lab }}</button>{% endfor %}</div>
     <label class="tir-pop-row">Joueur
-        <input id="jap-pop-player" list="jap-joueurs" type="text" maxlength="60" placeholder="Choisis ou tape un nom" autocomplete="off">
-        <datalist id="jap-joueurs">{% for j in joueurs %}<option value="{{ j.nom }}">{{ j.numero }}</option>{% endfor %}</datalist>
+        <select id="jap-pop-player"><option value="">— Choisir un joueur —</option>{% for j in joueurs %}<option value="{{ j.nom }}">{% if j.numero != '·' %}{{ j.numero }} · {% endif %}{{ j.nom }}</option>{% endfor %}</select>
     </label>
     <div class="tir-pop-row">
         <button type="button" class="tir-btn tir-ok" id="jap-pop-save">Enregistrer</button>
