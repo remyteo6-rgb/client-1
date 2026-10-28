@@ -3690,7 +3690,7 @@ body.slide-fs-on { overflow: hidden; }
 .tir-typebtn:hover { background:#7d3653; color:#fff; }
 
 /* ===== Page Jeu au pied ===== */
-.jap-wrap { display:grid; grid-template-columns:minmax(0, 0.8fr) minmax(0, 1fr); gap:18px; padding:0 16px 14px; align-items:start; }
+.jap-wrap { display:grid; grid-template-columns:minmax(0, 400px) minmax(0, 1fr); gap:18px; padding:0 16px 14px; align-items:start; }
 .jap-map-head { display:flex; justify-content:space-between; align-items:center; font-weight:800; text-transform:uppercase; font-size:.85rem; letter-spacing:.6px; color:var(--bg-header); margin-bottom:6px; }
 .jap-hint { color:#7d3653; font-style:italic; text-transform:none; letter-spacing:0; }
 .jap-pitch { background:#3d7f43; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,.2); overflow:hidden; line-height:0; }
