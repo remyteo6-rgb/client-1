@@ -3245,6 +3245,13 @@ def _tirs_xml(instances):
 def match_tirs(match_id):
     match = _get_match_or_404(match_id)
     joueurs = [{"nom": n, "numero": i + 1} for i, n in enumerate((match.get("composition") or [])[:23]) if n]
+    deja = {j["nom"] for j in joueurs}
+    # Composition absente ou incomplète : on propose aussi les joueurs de la feuille de match et ceux déjà saisis.
+    for n in list(match.get("row_order") or []) + list((match.get("player_match_stats") or {}).keys()) + \
+            [t["player"] for t in _tirs_saisis(match.get("manual_stats")) if t["player"]]:
+        if n and n not in deja:
+            deja.add(n)
+            joueurs.append({"nom": n, "numero": "·"})
     tirs = _tirs_saisis(match.get("manual_stats"))
     return render_template("match_tirs.html", match=match, tirs=tirs, joueurs=joueurs, types=TIRS_TYPES,
                            lignes=TIRS_LIGNES, xml=_tirs_xml(match["instances"]) if match.get("instances") else None,

@@ -3660,7 +3660,7 @@ body.slide-fs-on { overflow: hidden; }
 .tir-foot { font-size:.8rem; color:#666; font-style:italic; margin:6px 2px 0; }
 .tir-pop { position:absolute; z-index:60; width:270px; background:#fff; border:1.5px solid #7d3653; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,.25); padding:10px 12px; }
 .tir-pop-title { font-weight:800; color:var(--bg-header); margin-bottom:6px; }
-.tir-pop-row { display:flex; gap:6px; align-items:center; margin:6px 0; font-size:.9rem; } .tir-pop-row select { flex:1; }
+.tir-pop-row { display:flex; gap:6px; align-items:center; margin:6px 0; font-size:.9rem; } .tir-pop-row select, .tir-pop-row input { flex:1; min-width:0; padding:5px 6px; font:inherit; }
 .tir-btn { flex:1; border:1.5px solid #c9ccd6; background:#fff; border-radius:6px; padding:6px 4px; font-weight:700; cursor:pointer; }
 .tir-btn.on { background:#7d3653; border-color:#7d3653; color:#fff; }
 .tir-ok { color:#2e7d46; border-color:#2e7d46; } .tir-ko { color:#c0392b; border-color:#c0392b; }

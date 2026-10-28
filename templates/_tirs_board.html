@@ -37,7 +37,8 @@
     <div class="tir-pop-form">
         <div class="tir-pop-row">{% for code, lab in types %}<button type="button" class="tir-btn tir-type" data-type="{{ code }}">{{ lab }}</button>{% endfor %}</div>
         <label class="tir-pop-row">Buteur
-            <select id="tir-pop-player"><option value="">—</option>{% for j in joueurs %}<option value="{{ j.nom }}">{{ j.numero }} · {{ j.nom }}</option>{% endfor %}</select>
+            <input id="tir-pop-player" list="tir-joueurs" type="text" maxlength="60" placeholder="Choisis ou tape un nom" autocomplete="off">
+            <datalist id="tir-joueurs">{% for j in joueurs %}<option value="{{ j.nom }}">{{ j.numero }}</option>{% endfor %}</datalist>
         </label>
         <div class="tir-pop-row">
             <button type="button" class="tir-btn tir-ok" data-ok="1">✓ Réussi</button>
@@ -168,6 +169,7 @@
 
     {% if editable %}
     var pop = document.getElementById('tir-pop');
+    document.body.appendChild(pop);   // hors du cadre mis à l'échelle : sinon la fenêtre est mal placée
     function save() {
         clearTimeout(saveTimer);
         saveTimer = setTimeout(function () {
