@@ -3358,7 +3358,7 @@ def season_jap():
                           "saisis": len(jap), "xml": _jap_xml_total(m.get("instances")),
                           "types": {c: sum(1 for t in jap if t["type"] == c) for c, _l, _k in JAP_TYPES}})
     def _long(t):
-        return ((t["x2"] - t["x1"]) * 70) ** 2 + ((t["y2"] - t["y1"]) * 110) ** 2
+        return ((t["x2"] - t["x1"]) * 65) ** 2 + ((t["y2"] - t["y1"]) * 110) ** 2
 
     def _bilan(lst):
         n = len(lst)
