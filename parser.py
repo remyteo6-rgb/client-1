@@ -1497,6 +1497,9 @@ def compute_touches_page(instances, manual=None):
         perdu = "PERDU" in vals or "PERDUE" in vals
         resultat = True if gagne else (False if perdu else None)
         qb = True if "TQB +" in vals else (False if (vals or resultat is not None) else None)
+        # Tank (maul joué après la touche) : seulement quand il est tagué (TANK + / TANK −) ;
+        # une touche sans label Tank n'est pas un tank raté, c'est une touche jouée autrement.
+        tank = True if "TANK +" in vals else (False if "TANK -" in vals else None)
         key = gold_entry_key(inst.get("start"))
         man = manual.get(key) or {}
         lance = man.get("lance") if man.get("lance") in ("ok", "ko") else ""
@@ -1506,13 +1509,19 @@ def compute_touches_page(instances, manual=None):
         if resultat is False:
             cause = "ANNONCE" if annonce == "ko" else ("LANCÉ" if lance == "ko" else "")
         rows.append({"num": n, "key": key, "lancement": man.get("lancement") or "",
-                     "lance": lance, "annonce": annonce, "qb": qb, "resultat": resultat,
+                     "lance": lance, "annonce": annonce, "qb": qb, "tank": tank, "resultat": resultat,
                      "cumul": cumul, "cause": cause})
     if not rows:
         return None
     gagnees = sum(1 for r in rows if r["resultat"])
+    tanks = [r["tank"] for r in rows if r["tank"] is not None]
+    tank_plus = sum(1 for t in tanks if t)
     return {"rows": rows, "total": len(rows), "gagnees": gagnees,
-            "pct": round(100 * gagnees / len(rows), 1) if rows else None}
+            "pct": round(100 * gagnees / len(rows), 1) if rows else None,
+            # Tank : nombre de mauls joués après touche, leur réussite, et la part des touches jouées au tank.
+            "tank_total": len(tanks), "tank_plus": tank_plus, "tank_moins": len(tanks) - tank_plus,
+            "tank_pct": round(100 * tank_plus / len(tanks), 1) if tanks else None,
+            "tank_ratio": round(100 * len(tanks) / len(rows), 1) if rows else None}
 
 
 # ---- Bilan attaque (page "ATTAQUE / BILAN" du rapport vidéo) -----------------

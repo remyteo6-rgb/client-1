@@ -5708,12 +5708,18 @@ def season_touches():
         qb = [r["qb"] for r in d["rows"] if r["qb"] is not None]
         rows.append({"id": m["id"], "date": m.get("match_date"), "opponent": m.get("opponent"),
                      "total": d["total"], "gagnees": d["gagnees"], "pct": d["pct"],
-                     "qb_pct": round(100 * sum(1 for x in qb if x) / len(qb), 1) if qb else None})
+                     "qb_pct": round(100 * sum(1 for x in qb if x) / len(qb), 1) if qb else None,
+                     "tank_total": d["tank_total"], "tank_ratio": d["tank_ratio"], "tank_pct": d["tank_pct"]})
     def avg(key, dec=1):
         v = [r[key] for r in rows if r[key] is not None]
         return _avg_fmt(sum(v) / len(v), dec) if v else "—"
+    tanks = sum(r["tank_total"] for r in rows)
     summary = {"n": len(rows), "total": avg("total"), "gagnees": avg("gagnees"),
-               "pct": avg("pct"), "qb_pct": avg("qb_pct")}
+               "pct": avg("pct"), "qb_pct": avg("qb_pct"),
+               # Tank : totaux de la saison, pas une moyenne de pourcentages (un match à 1 touche ne pèse
+               # pas autant qu'un match à 14).
+               "tank_ratio": _avg_fmt(100 * tanks / sum(r["total"] for r in rows), 1) if rows else "—",
+               "tank_pct": _avg_fmt(100 * sum(1 for m in selected for x in (compute_touches_page(m["instances"], (m.get("manual_stats") or {}).get("touches")) or {"rows": []})["rows"] if x["tank"]) / tanks, 1) if tanks else "—"}
     return render_template("season_touches.html", rows=rows, summary=summary, fmt=_avg_fmt, **ctx)
 
 

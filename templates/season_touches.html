@@ -29,17 +29,20 @@
             <div><strong>{{ summary.gagnees }}</strong><span>Gagnées / match</span></div>
             <div><strong>{{ summary.pct }} %</strong><span>Conquête</span></div>
             <div><strong>{{ summary.qb_pct }} %</strong><span>QB (TQB +)</span></div>
+            <div><strong>{{ summary.tank_ratio }} %</strong><span>Touches jouées au tank</span></div>
+            <div><strong>{{ summary.tank_pct }} %</strong><span>Réussite du tank</span></div>
         </div>
         <p class="sfs-note">Moyenne sur {{ summary.n }} match{{ 's' if summary.n != 1 else '' }} avec touches taguées.</p>
     </div>
     <div class="sf-panel sfs-panel" style="margin-top:14px;">
         <div class="sf-panel-head">MATCH PAR MATCH</div>
         <table class="stat-table zebra-table tch-season-table">
-            <thead><tr><th>Match</th><th>Touches</th><th>Gagnées</th><th>Conquête</th><th>QB</th></tr></thead>
+            <thead><tr><th>Match</th><th>Touches</th><th>Gagnées</th><th>Conquête</th><th>QB</th><th>Tanks</th><th>Ratio tank</th><th>Réussite tank</th></tr></thead>
             <tbody>
             {% for r in rows %}
             <tr><td>{{ r.date or '—' }} — {{ r.opponent }}</td><td>{{ r.total }}</td><td>{{ r.gagnees }}</td>
-                <td>{{ fmt(r.pct, 1, ' %') }}</td><td>{{ fmt(r.qb_pct, 1, ' %') }}</td></tr>
+                <td>{{ fmt(r.pct, 1, ' %') }}</td><td>{{ fmt(r.qb_pct, 1, ' %') }}</td>
+                <td>{{ r.tank_total }}</td><td>{{ fmt(r.tank_ratio, 1, ' %') }}</td><td>{{ fmt(r.tank_pct, 1, ' %') }}</td></tr>
             {% endfor %}
             </tbody>
         </table>
