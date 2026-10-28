@@ -12,6 +12,34 @@
     <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
 
+{% if is_admin and imports and data %}
+<div class="sf-import no-print">
+    <span>Reprendre un tableau de touches déjà saisi :</span>
+    <select id="tch-import-cle">{% for k, l in imports %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select>
+    <button type="button" id="tch-import-go" class="btn">Importer dans ce match</button>
+    <span id="tch-import-msg"></span>
+</div>
+<script>
+document.getElementById('tch-import-go').addEventListener('click', function () {
+    var msg = document.getElementById('tch-import-msg');
+    function envoyer(remplacer) {
+        msg.textContent = 'Import…';
+        fetch({{ url_for('match_touches_import', match_id=match['id'])|tojson }}, {method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({cle: document.getElementById('tch-import-cle').value, remplacer: remplacer})})
+            .then(function (r) { return r.json().then(function (d) { return [r.status, d]; }); })
+            .then(function (x) {
+                var d = x[1];
+                if (d.ok) { if (d.ecarts && d.ecarts.length) alert('Importé. Écarts avec le XML : ' + d.ecarts.join(', ')); location.reload(); }
+                else if (x[0] === 409 && confirm('Ce match a déjà des touches saisies. Les remplacer ?')) envoyer(true);
+                else msg.textContent = d.erreur || 'Échec de l\'import.';
+            })
+            .catch(function () { msg.textContent = 'Échec de l\'import.'; });
+    }
+    envoyer(false);
+});
+</script>
+{% endif %}
+
 {% if not data %}
 <div class="card empty-state">
     <p>Aucune touche UBB taguée dans ce match (code « UBB Touches »).</p>

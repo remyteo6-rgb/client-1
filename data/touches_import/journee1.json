@@ -1,0 +1,16 @@
+{
+ "label": "Journée 1 — Bayonne (tableau des touches)",
+ "touches": [
+  {"num": 1,  "lancement": "GOLD",   "lance": "ok", "annonce": "ok", "qb": true,  "resultat": true},
+  {"num": 2,  "lancement": "GOLD",   "lance": "ko", "annonce": "ko", "qb": false, "resultat": false},
+  {"num": 3,  "lancement": "ROUGE",  "lance": "ok", "annonce": "ok", "qb": true,  "resultat": true},
+  {"num": 4,  "lancement": "RUMBLE", "lance": "ok", "annonce": "ko", "qb": false, "resultat": true},
+  {"num": 5,  "lancement": "RUMBLE", "lance": "ok", "annonce": "ok", "qb": true,  "resultat": true},
+  {"num": 6,  "lancement": "COP",    "lance": "ok", "annonce": "ok", "qb": true,  "resultat": true},
+  {"num": 7,  "lancement": "ROUGE",  "lance": "ok", "annonce": "ok", "qb": true,  "resultat": true},
+  {"num": 8,  "lancement": "GOLD",   "lance": "ko", "annonce": "ok", "qb": false, "resultat": false},
+  {"num": 9,  "lancement": "RUMBLE", "lance": "ko", "annonce": "ok", "qb": false, "resultat": false},
+  {"num": 10, "lancement": "GOLD",   "lance": "ok", "annonce": "ok", "qb": true,  "resultat": true},
+  {"num": 11, "lancement": "RUMBLE", "lance": "ok", "annonce": "ko", "qb": false, "resultat": false}
+ ]
+}

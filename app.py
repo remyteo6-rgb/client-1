@@ -3109,7 +3109,8 @@ def match_touches(match_id):
     # Mise en page « tableaux lanceurs / sauteurs + courbe en bas » sur tous les matchs (avant : Pau seulement).
     nouvelle_page = True
     return render_template("match_touches.html", match=match, data=data, assets=_review_assets(match),
-                           lanceurs=lanceurs, sauteurs=sauteurs, nouvelle_page=nouvelle_page)
+                           lanceurs=lanceurs, sauteurs=sauteurs, nouvelle_page=nouvelle_page,
+                           imports=[(k, v.get("label") or k) for k, v in _touches_imports().items()])
 
 
 @app.route("/match/<int:match_id>/touches/saisie", methods=["POST"])
@@ -3133,6 +3134,59 @@ def match_touches_save(match_id):
     db.commit()
     data = compute_touches_page(match["instances"], manual["touches"])
     return jsonify({"ok": True, "rows": [{"key": r["key"], "cause": r["cause"]} for r in data["rows"]]})
+
+
+TOUCHES_IMPORT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "touches_import")
+
+
+def _touches_imports():
+    """Tableaux de touches déjà saisis ailleurs (fichiers data/touches_import/*.json) : {clé: contenu}."""
+    out = {}
+    try:
+        for fn in sorted(os.listdir(TOUCHES_IMPORT_DIR)):
+            if fn.endswith(".json"):
+                with open(os.path.join(TOUCHES_IMPORT_DIR, fn), encoding="utf-8") as f:
+                    out[fn[:-5]] = json.load(f)
+    except (OSError, ValueError):
+        pass
+    return out
+
+
+@app.route("/match/<int:match_id>/touches/importer", methods=["POST"])
+@admin_required
+def match_touches_import(match_id):
+    """Reprend un tableau de touches déjà saisi (lancement / zone, lancé, annonce) : la touche n°N du
+    tableau est rattachée à la Nème touche du XML. QB et résultat restent lus dans le XML ; ceux du
+    tableau ne servent qu'à repérer un décalage. Refuse d'écraser une saisie en cours."""
+    match = _get_match_or_404(match_id)
+    payload = request.get_json(silent=True) or {}
+    data = _touches_imports().get(str(payload.get("cle") or ""))
+    if not data:
+        return jsonify({"ok": False, "erreur": "Tableau introuvable."}), 404
+    manual = match.get("manual_stats") or {}
+    page = compute_touches_page(match["instances"], manual.get("touches"))
+    if not page:
+        return jsonify({"ok": False, "erreur": "Ce match n'a aucune touche taguée."}), 422
+    saisies = data.get("touches") or []
+    if len(saisies) != page["total"]:
+        return jsonify({"ok": False, "erreur": f"Le tableau a {len(saisies)} touches, ce match en a {page['total']} "
+                        "dans le XML : import annulé."}), 422
+    deja = any(r["lancement"] or r["lance"] or r["annonce"] for r in page["rows"])
+    if deja and not payload.get("remplacer"):
+        return jsonify({"ok": False, "erreur": "Ce match a déjà des touches saisies."}), 409
+    ecarts = []
+    touches = manual.setdefault("touches", {})
+    for row, t in zip(page["rows"], saisies):
+        for champ in ("qb", "resultat"):
+            if t.get(champ) is not None and row[champ] is not None and bool(t[champ]) != bool(row[champ]):
+                ecarts.append(f"n°{row['num']} {champ}")
+        touches[row["key"]] = {"lancement": str(t.get("lancement") or "")[:30],
+                               "lance": t.get("lance") if t.get("lance") in ("ok", "ko") else "",
+                               "annonce": t.get("annonce") if t.get("annonce") in ("ok", "ko") else ""}
+    db = get_db()
+    db.execute("UPDATE matches SET manual_stats_json = %s WHERE id = %s", (json.dumps(manual), match_id))
+    db.commit()
+    return jsonify({"ok": True, "total": len(saisies), "ecarts": ecarts})
 
 
 @app.route("/match/<int:match_id>/melees")
