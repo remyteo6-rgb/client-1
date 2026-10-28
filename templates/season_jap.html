@@ -21,17 +21,19 @@
     <div class="sf-panel" style="margin:14px 16px 0;">
         <div class="sf-panel-head">BILAN PAR JOUEUR</div>
         <div class="m-scroll">
-        <table class="stat-table zebra-table tch-perf tch-zone">
-            <thead><tr><th>Joueur</th><th>Total</th>{% for code, lab, col in types %}<th>{{ lab }}</th>{% endfor %}<th>Long. moy.</th><th>Gain moy.</th><th>Suspension moy.</th></tr></thead>
+        <table class="stat-table tch-perf tch-zone jap-pj">
+            <thead><tr><th>Joueur</th><th>Type</th><th>Nb</th><th>Long. moy.</th><th>Gain moy.</th><th>Suspension moy.</th></tr></thead>
             <tbody>
-            {% for j in joueurs %}
-            <tr><td>{{ j.nom }}</td><td><strong>{{ j.total }}</strong></td>{% for code, lab, col in types %}<td>{{ j.types[code] or '·' }}</td>{% endfor %}
-                <td>{{ j.longueur }} m</td><td>{{ '%+d'|format(j.gain) }} m</td><td>{{ (j.susp ~ ' s') if j.susp is not none else '·' }}</td></tr>
-            {% else %}
-            <tr><td colspan="{{ types|length + 5 }}">Aucun jeu au pied saisi sur les matchs sélectionnés.</td></tr>
+            {% for j in joueurs %}{% for l in j.lignes %}
+            <tr>{% if loop.first %}<td class="jap-pj-name" rowspan="{{ j.lignes|length }}">{{ j.nom }} · {{ j.total }}</td>{% endif %}
+                <td><i class="jap-dot" style="background:{{ l.couleur }}"></i>{{ l.label }}</td><td>{{ l.nb }}</td><td>{{ l.longueur }} m</td><td>{{ '%+d'|format(l.gain) }} m</td><td>{{ (l.susp ~ ' s') if l.susp is not none else '·' }}</td></tr>
+            {% endfor %}{% else %}
+            <tr><td colspan="6">Aucun jeu au pied saisi sur les matchs sélectionnés.</td></tr>
             {% endfor %}
-            {% if joueurs %}<tr class="mel-total"><td><strong>Équipe</strong></td><td><strong>{{ bilan.total }}</strong></td>{% for code, lab, col in types %}<td><strong>{{ bilan.types[code] or '·' }}</strong></td>{% endfor %}
-                <td><strong>{{ bilan.longueur }} m</strong></td><td><strong>{{ '%+d'|format(bilan.gain) }} m</strong></td><td><strong>{{ (bilan.susp ~ ' s') if bilan.susp is not none else '·' }}</strong></td></tr>{% endif %}
+            {% for l in equipe %}
+            <tr class="mel-total">{% if loop.first %}<td class="jap-pj-name" rowspan="{{ equipe|length }}">Équipe · {{ bilan.total }}</td>{% endif %}
+                <td><i class="jap-dot" style="background:{{ l.couleur }}"></i>{{ l.label }}</td><td>{{ l.nb }}</td><td>{{ l.longueur }} m</td><td>{{ '%+d'|format(l.gain) }} m</td><td>{{ (l.susp ~ ' s') if l.susp is not none else '·' }}</td></tr>
+            {% endfor %}
             </tbody>
         </table>
         </div>

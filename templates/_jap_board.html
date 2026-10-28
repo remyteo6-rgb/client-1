@@ -27,8 +27,8 @@
         </div>
         <div class="sf-panel" style="margin-top:12px;">
             <div class="sf-panel-head">PAR JOUEUR</div>
-            <table class="stat-table zebra-table tch-perf tch-zone">
-                <thead><tr><th>Joueur</th><th>Total</th><th>Gain moy.</th><th>Types</th></tr></thead>
+            <table class="stat-table tch-perf tch-zone jap-pj">
+                <thead><tr><th>Joueur</th><th>Type</th><th>Nb</th><th>Long. moy.</th><th>Gain moy.</th><th>Suspension moy.</th></tr></thead>
                 <tbody id="jap-byplayer"></tbody>
             </table>
             <p class="sfs-note" id="jap-empty" style="padding:12px 16px;" hidden>Aucun jeu au pied saisi pour l'instant.</p>
@@ -149,11 +149,15 @@
         var names = Object.keys(by).sort(function (a, b) { return by[b].length - by[a].length || a.localeCompare(b); });
         var bp = document.getElementById('jap-byplayer'); bp.innerHTML = '';
         names.forEach(function (n) {
-            var l = by[n], cnt = {};
-            l.forEach(function (t) { cnt[t.type] = (cnt[t.type] || 0) + 1; });
-            var txt = TYPES.filter(function (t) { return cnt[t[0]]; }).map(function (t) { return t[1] + ' ' + cnt[t[0]]; }).join(' · ');
-            var tr = el('tr'); [n, l.length, fmt(moy(l, gain)), txt].forEach(function (v, i) { var td = el('td', null, v); tr.appendChild(td); });
-            bp.appendChild(tr);
+            var l = by[n], rows = TYPES.map(function (ty) { return [ty, l.filter(function (x) { return x.type === ty[0]; })]; }).filter(function (r) { return r[1].length; });
+            rows.forEach(function (r, i) {
+                var tr = el('tr');
+                if (i === 0) { var td0 = el('td', 'jap-pj-name', n + ' · ' + l.length); td0.rowSpan = rows.length; tr.appendChild(td0); }
+                else tr.className = 'jap-pj-cont';
+                var ty = r[0], li = r[1], c1 = el('td'); var dot = el('i', 'jap-dot'); dot.style.background = ty[2]; c1.appendChild(dot); c1.appendChild(document.createTextNode(ty[1])); tr.appendChild(c1);
+                [li.length, fmt(moy(li, metres)).replace('+', ''), fmt(moy(li, gain)), susp(li)].forEach(function (v) { tr.appendChild(el('td', null, v)); });
+                bp.appendChild(tr);
+            });
         });
         document.getElementById('jap-empty').hidden = jap.length > 0;
         // filtre joueur

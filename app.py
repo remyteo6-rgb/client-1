@@ -3377,9 +3377,18 @@ def season_jap():
     groupes = {}
     for t in tous:
         groupes.setdefault(t.get("player") or "Non précisé", []).append(t)
-    joueurs = sorted(({"nom": k, **_bilan(v)} for k, v in groupes.items()), key=lambda r: (-r["total"], r["nom"]))
+    def _lignes(lst):
+        out = []
+        for c, lab, col in JAP_TYPES:
+            li = [t for t in lst if t["type"] == c]
+            if li:
+                b = _bilan(li)
+                out.append({"label": lab, "couleur": col, "nb": b["total"], "longueur": b["longueur"], "gain": b["gain"], "susp": b["susp"]})
+        return out
+    joueurs = sorted(({"nom": k, "lignes": _lignes(v), **_bilan(v)} for k, v in groupes.items()), key=lambda r: (-r["total"], r["nom"]))
+    equipe = _lignes(tous)
     return render_template("season_jap.html", jap=tous, par_match=par_match, types=JAP_TYPES,
-                           joueurs=joueurs, bilan=_bilan(tous), **ctx)
+                           joueurs=joueurs, bilan=_bilan(tous), equipe=equipe, **ctx)
 
 
 @app.route("/match/<int:match_id>/melees")
