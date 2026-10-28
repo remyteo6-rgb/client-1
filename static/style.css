@@ -3722,3 +3722,10 @@ table td > .player-cell, table td .mel-match { text-align: center; }
 .jap-right .sf-panel:nth-child(3) { grid-column:1 / -1; }
 .tir-pop-row[hidden] { display:none !important; }
 @media (max-width: 1100px) { .jap-right { grid-template-columns:1fr; } }
+
+/* Jeu au pied (match) : format diapositive 16/9 — terrains à gauche, tableaux à droite */
+.jap-wrap { grid-template-columns:auto minmax(0, 1fr); }
+.jap-right { grid-template-columns:1fr; }
+.jap-right .sf-panel:nth-child(3) { grid-column:auto; }
+.jap-half { flex:0 1 330px; }
+@media (max-width: 1100px) { .jap-wrap { grid-template-columns:1fr; } }
