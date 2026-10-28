@@ -1546,7 +1546,10 @@ def compute_touches_page(instances, manual=None):
         zr = [r for r in rows if r["zone"] == zn]
         zg = sum(1 for r in zr if r["resultat"])
         zt = [r["tank"] for r in zr if r["tank"] is not None]
+        zq = [r["qb"] for r in zr if r["qb"] is not None]
         zones.append({"zone": zn, "touches": len(zr), "gagnees": zg,
+                      "tqb": len(zq), "tqb_plus": sum(1 for q in zq if q),
+                      "tqb_pct": round(100 * sum(1 for q in zq if q) / len(zq)) if zq else None,
                       "pct": round(100 * zg / len(zr)) if zr else None,
                       "tanks": len(zt), "tanks_plus": sum(1 for t in zt if t)})
     return {"rows": rows, "zones": zones, "total": len(rows), "gagnees": gagnees,

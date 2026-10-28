@@ -5824,7 +5824,7 @@ def season_touches():
                "tank_pct": _avg_fmt(100 * sum(1 for m in selected for x in (compute_touches_page(m["instances"], (m.get("manual_stats") or {}).get("touches")) or {"rows": []})["rows"] if x["tank"]) / tanks, 1) if tanks else "—"}
     # Tableaux de détail de la saison (mêmes que la page d'un match, cumulés) : lanceurs, sauteurs, zones, tank.
     joueurs = {"lance": {}, "saut": {}}
-    zones = {z: {"zone": z, "touches": 0, "gagnees": 0, "tanks": 0, "tanks_plus": 0} for z in ("GOLD", "RUMBLE", "COP", "ROUGE")}
+    zones = {z: {"zone": z, "touches": 0, "gagnees": 0, "tanks": 0, "tanks_plus": 0, "tqb": 0, "tqb_plus": 0} for z in ("GOLD", "RUMBLE", "COP", "ROUGE")}
     par_match_zone = []
     tk_tot = tk_plus = n_touches = 0
     for m in selected:
@@ -5837,7 +5837,7 @@ def season_touches():
         ligne = {"id": m["id"], "date": m.get("match_date"), "opponent": m.get("opponent"), "zones": {}}
         for z in d["zones"]:
             acc = zones[z["zone"]]
-            for k in ("touches", "gagnees", "tanks", "tanks_plus"):
+            for k in ("touches", "gagnees", "tanks", "tanks_plus", "tqb", "tqb_plus"):
                 acc[k] += z[k]
             ligne["zones"][z["zone"]] = z
         par_match_zone.append(ligne)
@@ -5858,6 +5858,7 @@ def season_touches():
     for z in zones.values():
         z = dict(z)
         z["pct"] = round(100 * z["gagnees"] / z["touches"]) if z["touches"] else None
+        z["tqb_pct"] = round(100 * z["tqb_plus"] / z["tqb"]) if z["tqb"] else None
         zl.append(z)
     detail = {"lanceurs": _cl(joueurs["lance"]), "sauteurs": _cl(joueurs["saut"]), "zones": zl,
               "par_match_zone": par_match_zone,
