@@ -85,7 +85,8 @@
                 if (!l.length) return;
                 var ok = l.filter(function (t) { return t.ok; }).length, p = pct(ok, l.length);
                 sv('rect', {x: cc * 140 + 3, y: OY + rr * 100 + 3, width: 134, height: 94, rx: 6, fill: teinte(p), 'fill-opacity': .5}, svg);
-                sv('text', {x: cc * 140 + 132, y: OY + rr * 100 + 90, 'text-anchor': 'end', 'font-size': 17, 'font-weight': 800, fill: '#fff', stroke: 'rgba(0,0,0,.5)', 'stroke-width': .6}, svg, p + ' % · ' + ok + '/' + l.length);
+                sv('rect', {x: cc * 140 + 22, y: OY + rr * 100 + 74, width: 96, height: 20, rx: 10, fill: 'rgba(0,0,0,.5)'}, svg);
+                sv('text', {x: cc * 140 + 70, y: OY + rr * 100 + 89, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': 800, fill: '#fff'}, svg, p + ' % · ' + ok + '/' + l.length);
             })(rr, cc);
         }
         var g = sv('g', {stroke: '#fff', fill: 'none', 'stroke-width': 3}, svg);
@@ -105,8 +106,8 @@
             var m = sv('g', {'class': 'tir-mark', transform: 'translate(' + (t.x * PW) + ',' + (OY + t.y * PH) + ')'}, svg);
             sv('circle', {r: 15, fill: t.ok ? '#2e9b45' : '#d63b30', stroke: '#fff', 'stroke-width': 3}, m);
             sv('text', {'text-anchor': 'middle', y: 6, 'font-size': 17, 'font-weight': 900, fill: '#fff'}, m, t.ok ? '✓' : '✗');
-            var ini = (t.player || '').split(' ').pop().slice(0, 3).toUpperCase();
-            if (ini) sv('text', {'text-anchor': 'middle', y: 31, 'font-size': 11, 'font-weight': 800, fill: '#fff', stroke: 'rgba(0,0,0,.5)', 'stroke-width': .5}, m, ini + (t.type === 'T' ? ' T' : ''));
+            if (t.type === 'T') { sv('circle', {cx: 13, cy: -13, r: 8, fill: '#530d34', stroke: '#fff', 'stroke-width': 2}, m); sv('text', {x: 13, y: -9, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 900, fill: '#fff'}, m, 'T'); }
+            sv('title', {}, m, (t.type === 'T' ? 'Transformation' : 'Pénalité') + (t.player ? ' · ' + t.player : '') + (t.ok ? ' · réussi' : ' · raté'));
             m.addEventListener('click', function (ev) { ev.stopPropagation(); if (EDIT) ouvrir({x: t.x, y: t.y}, ev); });
         });
     }
