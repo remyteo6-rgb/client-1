@@ -3294,9 +3294,8 @@ def season_tirs():
 # jeu au pied et le joueur. Positions normalisées : x 0-1 (gauche -> droite en regardant l'en-but adverse),
 # y 0-1 de l'en-but adverse (0) à notre en-but (1), en-buts compris.
 JAP_TYPES = (
-    ("CHA", "Chandelle", "#f2b134"), ("DEG", "Dégagement", "#6c7280"), ("TCH", "Touche trouvée", "#2f6fb5"),
-    ("CTA", "Contre-attaque", "#2e9b45"), ("RAS", "Rasant", "#8a5cc2"), ("DIA", "Diagonale", "#d9574a"),
-    ("5022", "50-22", "#00a3a3"), ("KO", "Coup d'envoi / renvoi", "#3b3b3b"),
+    ("PRE", "Pression", "#d9574a"), ("LON", "Long", "#2f6fb5"), ("RAS", "Rasant", "#8a5cc2"),
+    ("DES", "Par-dessus", "#f2b134"), ("AUT", "Autres", "#6c7280"),
 )
 
 
