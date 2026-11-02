@@ -3742,3 +3742,5 @@ table td > .player-cell, table td .mel-match { text-align: center; }
 .tir-ctrl { display:flex; gap:16px; align-items:center; margin:0 0 6px; font-weight:700; font-size:.9rem; }
 .tir-ctrl select { margin-left:6px; padding:4px 6px; font:inherit; }
 .tir-ctrl-chk { font-weight:600; cursor:pointer; }
+.tir-grad { display:inline-block; width:90px; height:10px; margin:0 6px; border-radius:5px; vertical-align:middle; background:linear-gradient(90deg, rgb(240,213,221), rgb(83,13,52)); }
+.tir-legend-n { font-weight:500; font-style:italic; opacity:.8; }

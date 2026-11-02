@@ -4,7 +4,7 @@
     <div class="tir-left">
         <div class="tir-map-head">
             <span>Perches adverses</span>
-            <span class="tir-legend"><i style="background:hsl(0,60%,80%)"></i>0 %<i style="background:hsl(60,60%,78%)"></i>50 %<i style="background:hsl(120,50%,70%)"></i>100 %</span>
+            <span class="tir-legend" id="tir-legend"></span>
         </div>
         <div class="tir-ctrl">
             <label>Buteur <select id="tir-filter"><option value="">Tous</option></select></label>
@@ -66,6 +66,7 @@
     function vis() { return fPlayer ? tirs.filter(function (t) { return nomTir(t) === fPlayer; }) : tirs; }
 
     function pct(ok, n) { return n ? Math.round(100 * ok / n) : null; }
+    function bordeaux(p) { var a = [240, 213, 221], b = [83, 13, 52]; return 'rgb(' + a.map(function (v, i) { return Math.round(v + (b[i] - v) * p / 100); }).join(',') + ')'; }
     function teinte(p) { return 'hsl(' + Math.round(p * 1.2) + ',' + (p < 50 ? 60 : 50) + '%,' + (p < 50 ? 80 : 70) + '%)'; }
     function uid() { return 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
     function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
@@ -83,8 +84,12 @@
     }
     function drawPitch() {
         var tirs = vis(), svg = document.getElementById('tir-svg'); svg.innerHTML = '';
-        for (var r = 0; r < 6; r++) sv('rect', {x: 0, y: OY + r * 100, width: PW, height: 100, fill: r % 2 ? '#559f5b' : '#4f9a55'}, svg);
-        sv('rect', {x: 0, y: 0, width: PW, height: OY, fill: '#3d7f43'}, svg);
+        var light = !showMarks, LN = light ? '#b9b1a5' : '#fff', LT = light ? '#8d8579' : '#fff';
+        for (var r = 0; r < 6; r++) sv('rect', {x: 0, y: OY + r * 100, width: PW, height: 100, fill: light ? (r % 2 ? '#f3efe9' : '#f7f4ef') : (r % 2 ? '#559f5b' : '#4f9a55')}, svg);
+        sv('rect', {x: 0, y: 0, width: PW, height: OY, fill: light ? '#e7e1d7' : '#3d7f43'}, svg);
+        var lg = document.getElementById('tir-legend');
+        lg.innerHTML = light ? '0 %<i class="tir-grad"></i>100 %<span class="tir-legend-n"> · couleur atténuée sous 3 tirs</span>' : '<i style="background:hsl(0,60%,80%)"></i>0 %<i style="background:hsl(60,60%,78%)"></i>50 %<i style="background:hsl(120,50%,70%)"></i>100 %';
+        function drawCells() {
         for (var rr = 0; rr < 6; rr++) for (var cc = 0; cc < 5; cc++) {
             (function (rr, cc) {
                 var l = tirs.filter(function (t) { return t.row === rr && t.col === cc; });
@@ -95,13 +100,16 @@
                     sv('rect', {x: cc * 140 + 22, y: OY + rr * 100 + 74, width: 96, height: 20, rx: 10, fill: 'rgba(0,0,0,.5)'}, svg);
                     sv('text', {x: cc * 140 + 70, y: OY + rr * 100 + 89, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': 800, fill: '#fff'}, svg, p + ' % · ' + ok + '/' + l.length);
                 } else {
-                    sv('rect', {x: cc * 140 + 3, y: OY + rr * 100 + 3, width: 134, height: 94, rx: 8, fill: teinte(p), 'fill-opacity': .92, stroke: '#fff', 'stroke-opacity': .7, 'stroke-width': 2}, svg);
-                    sv('text', {x: cc * 140 + 70, y: OY + rr * 100 + 56, 'text-anchor': 'middle', 'font-size': 34, 'font-weight': 900, fill: '#1b1b1b'}, svg, p + ' %');
-                    sv('text', {x: cc * 140 + 70, y: OY + rr * 100 + 82, 'text-anchor': 'middle', 'font-size': 18, 'font-weight': 700, fill: '#1b1b1b', 'fill-opacity': .75}, svg, ok + ' / ' + l.length);
+                    var pe = l.length < 3, fg = p >= 55 && !pe ? '#fff' : '#530d34';
+                    sv('rect', {x: cc * 140 + 4, y: OY + rr * 100 + 4, width: 132, height: 92, rx: 4, fill: bordeaux(p), 'fill-opacity': pe ? .55 : .95}, svg);
+                    sv('text', {x: cc * 140 + 70, y: OY + rr * 100 + 54, 'text-anchor': 'middle', 'font-size': 28, 'font-weight': 800, fill: fg}, svg, p + ' %');
+                    sv('text', {x: cc * 140 + 70, y: OY + rr * 100 + 77, 'text-anchor': 'middle', 'font-size': 15, 'font-weight': 600, fill: fg, 'fill-opacity': .8}, svg, ok + ' / ' + l.length);
                 }
             })(rr, cc);
         }
-        var g = sv('g', {stroke: '#fff', fill: 'none', 'stroke-width': 3}, svg);
+        }
+        if (showMarks) drawCells();
+        var g = sv('g', {stroke: LN, fill: 'none', 'stroke-width': 3}, svg);
         sv('line', {x1: 0, y1: OY, x2: PW, y2: OY}, g);
         sv('line', {x1: 0, y1: OY + 50, x2: PW, y2: OY + 50, 'stroke-dasharray': '10 8', 'stroke-width': 2}, g);
         sv('line', {x1: 0, y1: OY + 220, x2: PW, y2: OY + 220}, g);
@@ -110,10 +118,11 @@
         [140, 280, 420, 560].forEach(function (x) { sv('line', {x1: x, y1: OY, x2: x, y2: OY + PH, 'stroke-width': 1, 'stroke-opacity': .45, 'stroke-dasharray': '3 6'}, g); });
         sv('line', {x1: 1.5, y1: 0, x2: 1.5, y2: OY + PH}, g); sv('line', {x1: PW - 1.5, y1: 0, x2: PW - 1.5, y2: OY + PH}, g);
         [50, PW - 50].forEach(function (x) { sv('line', {x1: x, y1: OY, x2: x, y2: OY + PH, 'stroke-dasharray': '10 8', 'stroke-width': 2, 'stroke-opacity': .8}, g); });   // ligne des 5 m
-        var po = sv('g', {stroke: '#fff', 'stroke-width': 5, 'stroke-linecap': 'round'}, svg);
+        if (!showMarks) drawCells();
+        var po = sv('g', {stroke: light ? '#9d9487' : '#fff', 'stroke-width': 5, 'stroke-linecap': 'round'}, svg);
         sv('line', {x1: 318, y1: OY, x2: 318, y2: 6}, po); sv('line', {x1: 382, y1: OY, x2: 382, y2: 6}, po); sv('line', {x1: 318, y1: OY - 22, x2: 382, y2: OY - 22}, po);
         [[100, '10 m'], [200, '20 m'], [300, '30 m'], [400, '40 m'], [500, '50 m']].forEach(function (d) {
-            sv('text', {x: 8, y: OY + d[0] - 5, 'font-size': 15, 'font-weight': 700, fill: '#fff', 'fill-opacity': .85}, svg, d[1]);
+            sv('text', {x: 8, y: OY + d[0] - 5, 'font-size': 15, 'font-weight': 700, fill: LT, 'fill-opacity': .9}, svg, d[1]);
         });
         if (showMarks) tirs.forEach(function (t) {
             var m = sv('g', {'class': 'tir-mark', transform: 'translate(' + (t.x * PW) + ',' + (OY + t.y * PH) + ')'}, svg);
