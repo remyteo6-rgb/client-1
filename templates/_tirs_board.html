@@ -6,6 +6,10 @@
             <span>Perches adverses</span>
             <span class="tir-legend"><i style="background:hsl(0,60%,80%)"></i>0 %<i style="background:hsl(60,60%,78%)"></i>50 %<i style="background:hsl(120,50%,70%)"></i>100 %</span>
         </div>
+        <div class="tir-ctrl">
+            <label>Buteur <select id="tir-filter"><option value="">Tous</option></select></label>
+            {% if not editable %}<label class="tir-ctrl-chk"><input type="checkbox" id="tir-marks"> Voir chaque tir</label>{% endif %}
+        </div>
         <div class="tir-pitch"><svg id="tir-svg" viewBox="0 0 700 650" role="img" aria-label="Terrain, moitié de terrain adverse"></svg></div>
         <p class="tir-foot">Chaque zone : % de réussite et tirs réussis / tentés ; ✓ = réussi, ✗ = raté. {% if editable %}Clique sur le terrain à l'endroit du tir pour l'ajouter, ou sur un tir pour le modifier.{% endif %}</p>
     </div>
@@ -57,7 +61,9 @@
     var TYPES = {P: 'Pénalité', T: 'Transformation'};
     var tirs = {{ tirs|tojson }};
     {% if editable %}var SAVE_URL = {{ save_url|tojson }};{% endif %}
-    var cur = null, lastPlayer = '', lastType = 'P', saveTimer = null;
+    var cur = null, lastPlayer = '', lastType = 'P', saveTimer = null, fPlayer = '', showMarks = EDIT;
+    function nomTir(t) { return t.player || 'Buteur non précisé'; }
+    function vis() { return fPlayer ? tirs.filter(function (t) { return nomTir(t) === fPlayer; }) : tirs; }
 
     function pct(ok, n) { return n ? Math.round(100 * ok / n) : null; }
     function teinte(p) { return 'hsl(' + Math.round(p * 1.2) + ',' + (p < 50 ? 60 : 50) + '%,' + (p < 50 ? 80 : 70) + '%)'; }
@@ -76,7 +82,7 @@
         if (parent) parent.appendChild(e); return e;
     }
     function drawPitch() {
-        var svg = document.getElementById('tir-svg'); svg.innerHTML = '';
+        var tirs = vis(), svg = document.getElementById('tir-svg'); svg.innerHTML = '';
         for (var r = 0; r < 6; r++) sv('rect', {x: 0, y: OY + r * 100, width: PW, height: 100, fill: r % 2 ? '#559f5b' : '#4f9a55'}, svg);
         sv('rect', {x: 0, y: 0, width: PW, height: OY, fill: '#3d7f43'}, svg);
         for (var rr = 0; rr < 6; rr++) for (var cc = 0; cc < 5; cc++) {
@@ -84,9 +90,15 @@
                 var l = tirs.filter(function (t) { return t.row === rr && t.col === cc; });
                 if (!l.length) return;
                 var ok = l.filter(function (t) { return t.ok; }).length, p = pct(ok, l.length);
-                sv('rect', {x: cc * 140 + 3, y: OY + rr * 100 + 3, width: 134, height: 94, rx: 6, fill: teinte(p), 'fill-opacity': .5}, svg);
-                sv('rect', {x: cc * 140 + 22, y: OY + rr * 100 + 74, width: 96, height: 20, rx: 10, fill: 'rgba(0,0,0,.5)'}, svg);
-                sv('text', {x: cc * 140 + 70, y: OY + rr * 100 + 89, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': 800, fill: '#fff'}, svg, p + ' % · ' + ok + '/' + l.length);
+                if (showMarks) {
+                    sv('rect', {x: cc * 140 + 3, y: OY + rr * 100 + 3, width: 134, height: 94, rx: 6, fill: teinte(p), 'fill-opacity': .5}, svg);
+                    sv('rect', {x: cc * 140 + 22, y: OY + rr * 100 + 74, width: 96, height: 20, rx: 10, fill: 'rgba(0,0,0,.5)'}, svg);
+                    sv('text', {x: cc * 140 + 70, y: OY + rr * 100 + 89, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': 800, fill: '#fff'}, svg, p + ' % · ' + ok + '/' + l.length);
+                } else {
+                    sv('rect', {x: cc * 140 + 3, y: OY + rr * 100 + 3, width: 134, height: 94, rx: 8, fill: teinte(p), 'fill-opacity': .92, stroke: '#fff', 'stroke-opacity': .7, 'stroke-width': 2}, svg);
+                    sv('text', {x: cc * 140 + 70, y: OY + rr * 100 + 56, 'text-anchor': 'middle', 'font-size': 34, 'font-weight': 900, fill: '#1b1b1b'}, svg, p + ' %');
+                    sv('text', {x: cc * 140 + 70, y: OY + rr * 100 + 82, 'text-anchor': 'middle', 'font-size': 18, 'font-weight': 700, fill: '#1b1b1b', 'fill-opacity': .75}, svg, ok + ' / ' + l.length);
+                }
             })(rr, cc);
         }
         var g = sv('g', {stroke: '#fff', fill: 'none', 'stroke-width': 3}, svg);
@@ -103,7 +115,7 @@
         [[100, '10 m'], [200, '20 m'], [300, '30 m'], [400, '40 m'], [500, '50 m']].forEach(function (d) {
             sv('text', {x: 8, y: OY + d[0] - 5, 'font-size': 15, 'font-weight': 700, fill: '#fff', 'fill-opacity': .85}, svg, d[1]);
         });
-        tirs.forEach(function (t) {
+        if (showMarks) tirs.forEach(function (t) {
             var m = sv('g', {'class': 'tir-mark', transform: 'translate(' + (t.x * PW) + ',' + (OY + t.y * PH) + ')'}, svg);
             sv('circle', {r: 15, fill: t.ok ? '#2e9b45' : '#d63b30', stroke: '#fff', 'stroke-width': 3}, m);
             sv('text', {'text-anchor': 'middle', y: 6, 'font-size': 17, 'font-weight': 900, fill: '#fff'}, m, t.ok ? '✓' : '✗');
@@ -115,6 +127,8 @@
 
     function render() {
         drawPitch();
+        var tirs = vis();
+        majFiltre();
         // KPI
         var kp = document.getElementById('tir-kpis'); kp.innerHTML = '';
         var tot = tirs.length, okT = tirs.filter(function (t) { return t.ok; }).length;
@@ -228,6 +242,17 @@
     document.getElementById('tir-pop-close').addEventListener('click', function () { pop.hidden = true; });
     document.addEventListener('click', function (e) { if (!pop.hidden && !pop.contains(e.target)) pop.hidden = true; });
     {% endif %}
+    function majFiltre() {
+        var sel = document.getElementById('tir-filter'), noms = Array.from(new Set(tirs.map(nomTir))).sort(function (a, b) { return a.localeCompare(b); });
+        if (fPlayer && noms.indexOf(fPlayer) < 0) fPlayer = '';
+        sel.innerHTML = '';
+        var o0 = el('option', null, 'Tous'); o0.value = ''; sel.appendChild(o0);
+        noms.forEach(function (n) { var o = el('option', null, n); o.value = n; sel.appendChild(o); });
+        sel.value = fPlayer;
+    }
+    document.getElementById('tir-filter').addEventListener('change', function () { fPlayer = this.value; render(); });
+    var chk = document.getElementById('tir-marks');
+    if (chk) chk.addEventListener('change', function () { showMarks = this.checked; render(); });
     render();
 })();
 </script>
