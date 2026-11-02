@@ -8,10 +8,11 @@
         <p id="rp-status" class="subtitle">Préparation des pages…</p>
     </div>
     <div class="rp-actions">
-        <button type="button" id="rp-print" class="btn" disabled>Enregistrer en PDF</button>
+        <button type="button" id="rp-dl" class="btn btn-primary" disabled>Télécharger le PDF</button>
+        <button type="button" id="rp-print" class="btn btn-secondary" disabled>Imprimer…</button>
     </div>
 </div>
-<p class="rp-help no-print">Dans la fenêtre d'impression : destination <strong>Enregistrer au format PDF</strong>, marges <strong>Aucune</strong>, et coche <strong>Graphiques d'arrière-plan</strong>. Chaque diapo devient une page 16/9, dans l'ordre du rapport.</p>
+<p class="rp-help no-print"><strong>Télécharger le PDF</strong> crée directement un fichier (une page 16/9 par diapo, dans l'ordre du rapport) : fonctionne sur Safari comme sur Chrome. « Imprimer… » reste disponible (Chrome : destination « Enregistrer au format PDF », marges « Aucune », « Graphiques d'arrière-plan » coché).</p>
 <div id="rp-slides" class="rp-slides"></div>
 
 <script>
@@ -74,9 +75,48 @@
         });
         status.textContent = n ? n + ' diapos prêtes.' : 'Aucune diapo trouvée pour ce match.';
         btn.disabled = !n;
-        if (n) setTimeout(function () { window.print(); }, 400);
+        dl.disabled = !n;
     });
     btn.addEventListener('click', function () { window.print(); });
+
+    /* Téléchargement direct : chaque diapo est photographiée (html2canvas) puis assemblée en PDF (jsPDF). */
+    var dl = document.getElementById('rp-dl');
+    function script(src) {
+        return new Promise(function (ok, ko) {
+            var s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = function () { ko(new Error(src)); };
+            document.head.appendChild(s);
+        });
+    }
+    dl.addEventListener('click', function () {
+        dl.disabled = true;
+        status.textContent = 'Création du PDF…';
+        var libs = (window.html2canvas && window.jspdf) ? Promise.resolve() :
+            script('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js')
+                .then(function () { return script('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'); });
+        libs.then(function () {
+            var pages = Array.prototype.slice.call(document.querySelectorAll('.rp-page'));
+            var pdf = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'px', format: [1280, 720], hotfixes: ['px_scaling'], compress: true });
+            var i = 0;
+            function suite() {
+                if (i >= pages.length) return Promise.resolve();
+                var el = pages[i];
+                status.textContent = 'Création du PDF… ' + (i + 1) + ' / ' + pages.length;
+                return window.html2canvas(el, { scale: 1.6, useCORS: true, backgroundColor: '#ffffff', logging: false,
+                                                width: 1280, height: 720, windowWidth: 1500 }).then(function (c) {
+                    if (i > 0) pdf.addPage([1280, 720], 'landscape');
+                    pdf.addImage(c.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 1280, 720, undefined, 'FAST');
+                    i++;
+                    return new Promise(function (r) { setTimeout(r, 20); }).then(suite);
+                });
+            }
+            return suite().then(function () {
+                pdf.save({{ ('Rapport - ' ~ match_title(match))|tojson }} + '.pdf');
+                status.textContent = pages.length + ' diapos — PDF téléchargé.';
+            });
+        }).catch(function (e) {
+            status.textContent = 'Le PDF n\'a pas pu être créé (' + (e && e.message ? e.message : 'erreur') + '). Utilise « Imprimer… ».';
+        }).then(function () { dl.disabled = false; });
+    });
 })();
 </script>
 {% endblock %}
