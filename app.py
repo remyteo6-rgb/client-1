@@ -4758,25 +4758,34 @@ def _possessions_reussite(selected):
     """Bilan saison des tableaux « Nos possessions » : par type d'action, nombre d'actions, résultats saisis et
     part de résultats positifs (essai ou pénalité pour) = pourcentage de réussite."""
     tot = {k: {"titre": t, "n": 0, "saisis": 0, "pos": 0, "neg": 0, "neu": 0} for k, t, _c in POSSESSION_BOARD}
+    par_match = []
     for m in selected:
         board = compute_possession_board(m.get("instances") or [], (m.get("manual_stats") or {}).get("possessions")) or []
+        ligne = {"id": m["id"], "date": m.get("match_date"), "opponent": m.get("opponent") or "?", "sec": {}}
         for sec in board:
             d = tot[sec["key"]]
+            mm = {"n": 0, "saisis": 0, "pos": 0}
             for r in sec["rows"]:
-                d["n"] += 1
+                d["n"] += 1; mm["n"] += 1
                 if (r["vals"].get("resultat") or "").strip() or r.get("tone"):
-                    d["saisis"] += 1
+                    d["saisis"] += 1; mm["saisis"] += 1
                     tone = r.get("tone") or "neu"
                     d[tone if tone in ("pos", "neg", "neu") else "neu"] += 1
+                    if tone == "pos":
+                        mm["pos"] += 1
+            ligne["sec"][sec["key"]] = mm
+        par_match.append(ligne)
     lignes = []
     for k, _t, _c in POSSESSION_BOARD:
         d = tot[k]
         d["pct"] = round(100 * d["pos"] / d["saisis"]) if d["saisis"] else None
+        d["key"] = k
         lignes.append(d)
     n = sum(d["n"] for d in lignes)
     sa = sum(d["saisis"] for d in lignes)
     po = sum(d["pos"] for d in lignes)
-    return {"lignes": lignes, "n": n, "saisis": sa, "pos": po, "pct": round(100 * po / sa) if sa else None}
+    return {"lignes": lignes, "n": n, "saisis": sa, "pos": po, "pct": round(100 * po / sa) if sa else None,
+            "par_match": par_match}
 
 
 def _cr_render(selected, reference, mode_match, ctx):
@@ -4790,7 +4799,7 @@ def _cr_render(selected, reference, mode_match, ctx):
                      pooled={"pts_poss": cr["pts_par_poss"]}, ref_pooled=ref_pooled)
     return render_template("bilan_saison.html", cr=cr, tb=tb, cibles=cibles, criteres=CR_CRITERES, mode_match=mode_match,
                            bandes=compte_rendu.BANDES, issues_noms=compte_rendu.ISSUES, sj=_style_de_jeu(selected),
-                           radar=_radar_equipe(selected, cr), poss=_possessions_reussite(selected),
+                           radar=_radar_equipe(selected, cr),
                            pen_joueurs=[dict(p, nom=_joueur_nom_affiche(p["name"])) for p in _discipline_joueurs_saison(selected)][:8],
                            **ctx)
 
@@ -5974,6 +5983,12 @@ def season_review():
         score = None
     return render_template("season_review.html", review=review, score=score, hide_adverse_crest=True,
                            crest_next=url_for("season_review"), **ctx)
+
+
+@app.route("/season/possessions")
+def season_possessions():
+    selected, ctx = _season_common("possessions")
+    return render_template("season_possessions.html", poss=_possessions_reussite(selected), **ctx)
 
 
 @app.route("/season/bilan-attaque")
