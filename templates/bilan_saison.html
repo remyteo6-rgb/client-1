@@ -267,6 +267,28 @@
     </div>
 </div>
 
+{# ======================= 3c. RÉUSSITE DE NOS POSSESSIONS (tableaux « Nos possessions ») ======================= #}
+{% if poss and poss.n %}
+<div class="report-board board-free sty-board">
+    {{ entete('NOS POSSESSIONS', 'POURCENTAGE DE RÉUSSITE') }}
+    <div class="sty-kpis">
+        <div><strong>{{ (poss.pct ~ ' %') if poss.pct is not none else '—' }}</strong><span>Réussite globale</span></div>
+        <div><strong>{{ poss.pos }} / {{ poss.saisis }}</strong><span>Résultats positifs</span></div>
+        <div><strong>{{ poss.saisis }} / {{ poss.n }}</strong><span>Résultats saisis</span></div>
+    </div>
+    <div class="sf-panel">
+        <div class="sf-panel-head">RÉUSSITE PAR TYPE D'ACTION</div>
+        <div class="m-scroll"><table class="cr-tb">
+            <thead><tr><th>Action</th><th>Actions</th><th>Résultats saisis</th><th>Positifs</th><th>Neutres</th><th>Négatifs</th><th>Réussite</th></tr></thead>
+            <tbody>{% for l in poss.lignes %}<tr><td class="cr-tb-l">{{ l.titre }}</td><td>{{ l.n }}</td><td>{{ l.saisis }}</td>
+                <td class="cr-pos">{{ l.pos }}</td><td>{{ l.neu }}</td><td class="cr-neg">{{ l.neg }}</td>
+                <td class="cr-tb-v">{{ (l.pct ~ ' %') if l.pct is not none else '—' }}</td></tr>{% endfor %}</tbody>
+        </table></div>
+        <p class="sty-obs">Réussite = part des résultats saisis qui sont positifs (essai ou pénalité pour). Neutre : tout autre résultat saisi ; négatif : perte, en-avant, pénalité contre. Seules les actions dont le résultat est saisi dans l'onglet « Nos possessions » de chaque match comptent.</p>
+    </div>
+</div>
+{% endif %}
+
 {# ======================= 4. ZONE GOLD ======================= #}
 <div class="report-board board-free sty-board">
     {{ entete('ZONE GOLD', '22 ADVERSE · RENDEMENT') }}

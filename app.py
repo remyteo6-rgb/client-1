@@ -4754,6 +4754,31 @@ def _cr_tableau(selected, reference, cibles, mode_match, pooled=None, ref_pooled
     return {"lignes": lignes, "forces": forces, "axes": axes, "nb_cibles": sum(1 for l in lignes if l["cible"] is not None)}
 
 
+def _possessions_reussite(selected):
+    """Bilan saison des tableaux « Nos possessions » : par type d'action, nombre d'actions, résultats saisis et
+    part de résultats positifs (essai ou pénalité pour) = pourcentage de réussite."""
+    tot = {k: {"titre": t, "n": 0, "saisis": 0, "pos": 0, "neg": 0, "neu": 0} for k, t, _c in POSSESSION_BOARD}
+    for m in selected:
+        board = compute_possession_board(m.get("instances") or [], (m.get("manual_stats") or {}).get("possessions")) or []
+        for sec in board:
+            d = tot[sec["key"]]
+            for r in sec["rows"]:
+                d["n"] += 1
+                if (r["vals"].get("resultat") or "").strip() or r.get("tone"):
+                    d["saisis"] += 1
+                    tone = r.get("tone") or "neu"
+                    d[tone if tone in ("pos", "neg", "neu") else "neu"] += 1
+    lignes = []
+    for k, _t, _c in POSSESSION_BOARD:
+        d = tot[k]
+        d["pct"] = round(100 * d["pos"] / d["saisis"]) if d["saisis"] else None
+        lignes.append(d)
+    n = sum(d["n"] for d in lignes)
+    sa = sum(d["saisis"] for d in lignes)
+    po = sum(d["pos"] for d in lignes)
+    return {"lignes": lignes, "n": n, "saisis": sa, "pos": po, "pct": round(100 * po / sa) if sa else None}
+
+
 def _cr_render(selected, reference, mode_match, ctx):
     cr = _cached_result("compte_rendu", selected, lambda: compte_rendu.compte_rendu(selected))
     cibles = _gp_cibles()
@@ -4765,7 +4790,7 @@ def _cr_render(selected, reference, mode_match, ctx):
                      pooled={"pts_poss": cr["pts_par_poss"]}, ref_pooled=ref_pooled)
     return render_template("bilan_saison.html", cr=cr, tb=tb, cibles=cibles, criteres=CR_CRITERES, mode_match=mode_match,
                            bandes=compte_rendu.BANDES, issues_noms=compte_rendu.ISSUES, sj=_style_de_jeu(selected),
-                           radar=_radar_equipe(selected, cr),
+                           radar=_radar_equipe(selected, cr), poss=_possessions_reussite(selected),
                            pen_joueurs=[dict(p, nom=_joueur_nom_affiche(p["name"])) for p in _discipline_joueurs_saison(selected)][:8],
                            **ctx)
 
