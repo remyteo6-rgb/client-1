@@ -3374,6 +3374,7 @@ def season_jap():
                 "types": {c: sum(1 for t in lst if t["type"] == c) for c, _l, _k in JAP_TYPES},
                 "longueur": round(sum(_long(t) ** 0.5 for t in lst) / n) if n else None,
                 "gain": round(sum((t["y1"] - t["y2"]) * 110 for t in lst) / n) if n else None,
+                "gain_tot": round(sum((t["y1"] - t["y2"]) * 110 for t in lst)),
                 "rec": sum(1 for t in lst if t.get("res") == "REC"), "res_n": sum(1 for t in lst if t.get("res")),
                 "susp": (round(sum(t["sec"] for t in lst if t.get("sec") is not None) / len([t for t in lst if t.get("sec") is not None]), 1)
                          if any(t.get("sec") is not None for t in lst) else None)}
@@ -3386,7 +3387,7 @@ def season_jap():
             li = [t for t in lst if t["type"] == c]
             if li:
                 b = _bilan(li)
-                out.append({"label": lab, "couleur": col, "nb": b["total"], "longueur": b["longueur"], "gain": b["gain"], "susp": b["susp"], "rec": b["rec"], "res_n": b["res_n"]})
+                out.append({"label": lab, "couleur": col, "nb": b["total"], "longueur": b["longueur"], "gain": b["gain"], "gain_tot": b["gain_tot"], "susp": b["susp"], "rec": b["rec"], "res_n": b["res_n"]})
         return out
     joueurs = sorted(({"nom": k, "lignes": _lignes(v), **_bilan(v)} for k, v in groupes.items()), key=lambda r: (-r["total"], r["nom"]))
     equipe = _lignes(tous)
