@@ -3744,3 +3744,6 @@ table td > .player-cell, table td .mel-match { text-align: center; }
 .tir-ctrl-chk { font-weight:600; cursor:pointer; }
 .tir-grad { display:inline-block; width:90px; height:10px; margin:0 6px; border-radius:5px; vertical-align:middle; background:linear-gradient(90deg, rgb(240,213,221), rgb(83,13,52)); }
 .tir-legend-n { font-weight:500; font-style:italic; opacity:.8; }
+.jap-pj-mat th, .jap-pj-mat td { padding:9px 6px !important; font-size:13.5px; white-space:nowrap; }
+.jap-pj-mat .jap-pj-name { text-align:center; background:transparent; border-right:0; }
+.jap-pj-cell small { font-size:11px; opacity:.8; }

@@ -25,14 +25,6 @@
                 <tbody id="jap-bytype"></tbody>
             </table>
         </div>
-        <div class="sf-panel" style="margin-top:12px;">
-            <div class="sf-panel-head">PAR JOUEUR</div>
-            <table class="stat-table tch-perf tch-zone jap-pj">
-                <thead><tr><th>Joueur</th><th>Type</th><th>Nb</th><th>Long.</th><th>Gain</th><th>Susp.</th><th>Récup.</th></tr></thead>
-                <tbody id="jap-byplayer"></tbody>
-            </table>
-            <p class="sfs-note" id="jap-empty" style="padding:12px 16px;" hidden>Aucun jeu au pied saisi pour l'instant.</p>
-        </div>
     </div>
 </div>
 
@@ -151,23 +143,32 @@
             var tr = el('tr'); [t[1], l.length, fmt(moy(l, metres)).replace('+', ''), fmt(moy(l, gain)), susp(l), recup(l)].forEach(function (v) { tr.appendChild(el('td', null, v)); });
             bt.appendChild(tr);
         });
-        // par joueur
+        // par joueur : une ligne par joueur, une colonne par type
         var by = {};
         vis.forEach(function (t) { (by[t.player || 'Non précisé'] = by[t.player || 'Non précisé'] || []).push(t); });
         var names = Object.keys(by).sort(function (a, b) { return by[b].length - by[a].length || a.localeCompare(b); });
-        var bp = document.getElementById('jap-byplayer'); bp.innerHTML = '';
+        var bp = document.getElementById('jap-byplayer'); if (!bp) return;
+        var hd = document.getElementById('jap-byplayer-head'); hd.innerHTML = '';
+        ['Joueur', 'Total'].forEach(function (h) { hd.appendChild(el('th', null, h)); });
+        TYPES.forEach(function (ty) { var th = el('th'); var d = el('i', 'jap-dot'); d.style.background = ty[2]; th.appendChild(d); th.appendChild(document.createTextNode(ty[1])); hd.appendChild(th); });
+        hd.appendChild(el('th', null, 'Gain moy.'));
+        bp.innerHTML = '';
         names.forEach(function (n) {
-            var l = by[n], rows = TYPES.map(function (ty) { return [ty, l.filter(function (x) { return x.type === ty[0]; })]; }).filter(function (r) { return r[1].length; });
-            rows.forEach(function (r, i) {
-                var tr = el('tr');
-                if (i === 0) { var td0 = el('td', 'jap-pj-name', n + ' · ' + l.length); td0.rowSpan = rows.length; tr.appendChild(td0); }
-                else tr.className = 'jap-pj-cont';
-                var ty = r[0], li = r[1], c1 = el('td'); var dot = el('i', 'jap-dot'); dot.style.background = ty[2]; c1.appendChild(dot); c1.appendChild(document.createTextNode(ty[1])); tr.appendChild(c1);
-                [li.length, fmt(moy(li, metres)).replace('+', ''), fmt(moy(li, gain)), susp(li), recup(li)].forEach(function (v) { tr.appendChild(el('td', null, v)); });
-                bp.appendChild(tr);
+            var l = by[n], tr = el('tr');
+            tr.appendChild(el('td', 'jap-pj-name', n)); tr.appendChild(el('td', null, l.length));
+            TYPES.forEach(function (ty) {
+                var li = l.filter(function (x) { return x.type === ty[0]; }), td = el('td', 'jap-pj-cell');
+                if (!li.length) td.textContent = '·';
+                else {
+                    td.appendChild(el('b', null, li.length)); td.appendChild(document.createTextNode(' · ' + fmt(moy(li, metres)).replace('+', '')));
+                    if (ty[0] === 'PRE') { var sp = susp(li), rc = recup(li); if (sp !== '·' || rc !== '·') { td.appendChild(document.createElement('br')); td.appendChild(el('small', null, (sp !== '·' ? sp : '') + (sp !== '·' && rc !== '·' ? ' · ' : '') + (rc !== '·' ? 'récup. ' + rc : ''))); } }
+                }
+                tr.appendChild(td);
             });
+            tr.appendChild(el('td', null, fmt(moy(l, gain))));
+            bp.appendChild(tr);
         });
-        document.getElementById('jap-empty').hidden = jap.length > 0;
+        var em = document.getElementById('jap-empty'); if (em) em.hidden = jap.length > 0;
         // filtre joueur
         var sel = document.getElementById('jap-filter-player');
         var noms = Array.from(new Set(jap.map(function (t) { return t.player; }).filter(Boolean))).sort();
@@ -244,6 +245,6 @@
     });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') fermer(); });
     {% endif %}
-    refresh();
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', refresh); else refresh();
 })();
 </script>

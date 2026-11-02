@@ -21,6 +21,15 @@
     {% include "_jap_board.html" %}
 </div>
 
+<div class="report-board">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">JEU AU PIED</span>
+        <span class="report-subtitle">BILAN PAR JOUEUR</span>
+    </div>
+    {% include "_jap_joueurs.html" %}
+</div>
+
 <div class="card no-print tir-notes">
     <p class="subtitle">{% if editable %}Clique le point de départ puis le point d'arrivée : une flèche se crée, tu choisis ensuite le type et le joueur. Clique une flèche pour changer son type, son joueur, inverser son sens ou la supprimer. Échap annule la saisie en cours. {% endif %}
         Long. = longueur moyenne du coup de pied ; Susp. = temps de suspension moyen (pression) ; Récup. = pressions dont le ballon est récupéré ; gain = mètres gagnés vers l'en-but adverse (négatif si le coup de pied recule).</p>
