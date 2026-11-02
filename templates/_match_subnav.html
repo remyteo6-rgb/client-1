@@ -191,6 +191,7 @@
     <span class="subnav-breadcrumb-current">{{ page_labels.get(active, '') }}</span>
     {% endif %}
     {% if not season_mode %}
+    <a class="rp-btn" href="{{ url_for('match_rapport_pdf', match_id=match['id']) }}" target="_blank" rel="noopener" title="Toutes les pages du rapport à la suite, au format diapo 16/9, en un seul PDF">PDF du rapport complet</a>
     {# Repère « vs saison » : le bouton n'apparaît que sur les pages qui ont des repères (.vs). #}
     <label class="vs-toggle" id="vsToggle" hidden title="Affiche à côté de chaque chiffre s'il est meilleur (▲), moins bon (▼) ou dans la norme (●) par rapport à la moyenne des autres matchs ; survole le repère pour voir la moyenne.">
         <input type="checkbox" id="vsToggleInput"> Comparer à la saison

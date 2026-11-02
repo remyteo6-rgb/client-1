@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Rapport complet — {{ match_title(match) }}{% endblock %}
+{% set active = 'overview' %}
+{% block content %}
+<div class="rp-bar no-print">
+    <div>
+        <h1>Rapport complet — {{ match_title(match) }}</h1>
+        <p id="rp-status" class="subtitle">Préparation des pages…</p>
+    </div>
+    <div class="rp-actions">
+        <button type="button" id="rp-print" class="btn" disabled>Enregistrer en PDF</button>
+    </div>
+</div>
+<p class="rp-help no-print">Dans la fenêtre d'impression : destination <strong>Enregistrer au format PDF</strong>, marges <strong>Aucune</strong>, et coche <strong>Graphiques d'arrière-plan</strong>. Chaque diapo devient une page 16/9, dans l'ordre du rapport.</p>
+<div id="rp-slides" class="rp-slides"></div>
+
+<script>
+(function () {
+    var PAGES = {{ pages|tojson }};
+    var box = document.getElementById('rp-slides'), status = document.getElementById('rp-status'), btn = document.getElementById('rp-print');
+    var resultats = new Array(PAGES.length), faits = 0, suivant = 0, COUPLES = 3;
+
+    function attendre(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+    function charger(url) {
+        return new Promise(function (resolve) {
+            var f = document.createElement('iframe');
+            f.className = 'rp-frame';
+            f.setAttribute('aria-hidden', 'true');
+            var fini = false;
+            function fin(v) { if (fini) return; fini = true; try { f.remove(); } catch (e) {} resolve(v); }
+            f.onload = function () {
+                var doc, win;
+                try { doc = f.contentDocument; win = f.contentWindow; } catch (e) { return fin([]); }
+                /* Redirigée (match sans données) : pas de diapo propre à cette page. */
+                if (!win || win.location.pathname !== url) return fin([]);
+                attendre(1100).then(function () {
+                    var imgs = Array.prototype.slice.call(doc.images).filter(function (i) { return !i.complete; });
+                    return Promise.race([Promise.all(imgs.map(function (i) { return new Promise(function (r) { i.onload = i.onerror = r; }); })), attendre(4000)]);
+                }).then(function () { return attendre(300); }).then(function () {
+                    win.dispatchEvent(new Event('resize'));
+                    return attendre(300);
+                }).then(function () {
+                    var out = [];
+                    doc.querySelectorAll('.report-slide').forEach(function (s) {
+                        var c = s.cloneNode(true);
+                        c.querySelectorAll('script, .vs, .no-print, button.report-expand, .slide-expand').forEach(function (n) { n.remove(); });
+                        out.push(c);
+                    });
+                    fin(out);
+                });
+            };
+            f.onerror = function () { fin([]); };
+            setTimeout(function () { fin([]); }, 30000);
+            f.src = url;
+            document.body.appendChild(f);
+        });
+    }
+    function suite() {
+        if (suivant >= PAGES.length) return Promise.resolve();
+        var i = suivant++;
+        return charger(PAGES[i]).then(function (s) {
+            resultats[i] = s; faits++;
+            status.textContent = 'Préparation des pages… ' + faits + ' / ' + PAGES.length;
+        }).then(suite);
+    }
+    var travailleurs = [];
+    for (var k = 0; k < COUPLES; k++) travailleurs.push(suite());
+    Promise.all(travailleurs).then(function () {
+        var n = 0;
+        resultats.forEach(function (lst) {
+            (lst || []).forEach(function (s) {
+                var p = document.createElement('section'); p.className = 'rp-page'; p.appendChild(s); box.appendChild(p); n++;
+            });
+        });
+        status.textContent = n ? n + ' diapos prêtes.' : 'Aucune diapo trouvée pour ce match.';
+        btn.disabled = !n;
+        if (n) setTimeout(function () { window.print(); }, 400);
+    });
+    btn.addEventListener('click', function () { window.print(); });
+})();
+</script>
+{% endblock %}

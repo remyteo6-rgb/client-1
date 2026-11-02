@@ -3765,3 +3765,25 @@ html.vs-on .vs.vs { display: inline-block; }
 .vs-toggle input { accent-color: #530d34; cursor: pointer; }
 .vs-toggle[hidden] { display: none; }
 .zg-comp-row > div { white-space: nowrap; }
+
+/* ---- PDF « rapport complet » : toutes les diapos 16/9 à la suite, une par page ---- */
+.rp-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 18px 0 6px; }
+.rp-bar h1 { margin: 0; font-size: 1.3rem; }
+.rp-help { font-size: 13px; color: var(--text-secondary, #666); margin: 0 0 14px; }
+.rp-frame { position: fixed; left: -20000px; top: 0; width: 1600px; height: 1100px; border: 0; visibility: hidden; }
+.rp-slides { display: flex; flex-direction: column; gap: 18px; align-items: center; }
+.rp-page { width: 1280px; max-width: 100%; }
+.rp-page .report-slide { max-width: 1280px; margin: 0; }
+@media print {
+    @page { size: 1280px 720px; margin: 0; }
+    html, body { width: 1280px; background: #fff !important; }
+    .subnav, .subnav-breadcrumb, .site-footer, .rp-bar, .rp-help, .body-watermark, .flash-stack { display: none !important; }
+    main.page { width: 1280px; max-width: none; padding: 0 !important; margin: 0 !important; }
+    .rp-slides { display: block; }
+    .rp-page { width: 1280px; height: 720px; max-width: none; overflow: hidden; break-after: page; page-break-after: always; }
+    .rp-page:last-child { break-after: auto; page-break-after: auto; }
+    .rp-page .report-slide { width: 1280px; height: 720px; max-width: none; margin: 0; }
+}
+.rp-btn { margin-left: auto; font-size: 12px; font-weight: 700; color: #fff !important; background: #530d34; border-radius: 6px; padding: 4px 11px; text-decoration: none !important; }
+.rp-btn:hover { background: #7d3653; }
+.rp-btn ~ .vs-toggle { margin-left: 14px; }

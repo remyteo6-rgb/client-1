@@ -146,7 +146,7 @@ def securite_en_tetes(response):
     d'affichage du site dans une iframe d'un autre site, pas de fuite de l'adresse des pages
     internes vers l'extérieur, et rappel au navigateur de ne revenir qu'en HTTPS."""
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
-    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
     if not LOCAL_DEV:
@@ -1881,6 +1881,20 @@ def _joueurs_detail_slides(bilan_slide, player_cards, tables, avg=False):
         groups = [{**g, "color": _SLIDE_GROUP_COLORS[i % 3]} for i, g in enumerate(spec["groups"])]
         slides.append({**spec, "groups": groups, "cols": cols, "rows": rows, "total": tot})
     return slides
+
+
+# Ordre des diapos du PDF « rapport complet » : l'ordre des onglets du rapport (nom de la route de chaque page).
+RAPPORT_PDF_PAGES = ["match_detail", "match_bilan_attaque", "match_zone_gold", "match_surfeurs", "match_possessions",
+                     "match_bilan_defense", "match_csc", "match_discipline", "match_touches", "match_melees",
+                     "match_tirs", "match_jap", "match_joueurs"]
+
+
+@app.route("/match/<int:match_id>/rapport-pdf")
+def match_rapport_pdf(match_id):
+    """Rapport complet d'un match en une seule suite de diapos 16/9 (ouvre la fenêtre d'enregistrement en PDF)."""
+    match = _get_match_or_404(match_id)
+    pages = [url_for(ep, match_id=match_id) for ep in RAPPORT_PDF_PAGES]
+    return render_template("match_rapport_pdf.html", match=match, pages=pages)
 
 
 @app.route("/match/<int:match_id>/joueurs")
