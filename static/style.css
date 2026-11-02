@@ -3747,3 +3747,6 @@ table td > .player-cell, table td .mel-match { text-align: center; }
 .jap-pj-mat th, .jap-pj-mat td { padding:9px 6px !important; font-size:13.5px; white-space:nowrap; }
 .jap-pj-mat .jap-pj-name { text-align:center; background:transparent; border-right:0; }
 .jap-pj-cell small { font-size:11px; opacity:.8; }
+.jap-right table td { padding:4px 4px !important; }
+.jap-right .jap-types { gap:4px; padding:8px 10px; }
+.jap-right .jap-chip { padding:2px 9px; font-size:.8rem; }
