@@ -3295,7 +3295,7 @@ def season_tirs():
 # y 0-1 de l'en-but adverse (0) à notre en-but (1), en-buts compris.
 JAP_TYPES = (
     ("PRE", "Pression", "#d9574a"), ("LON", "Long", "#2f6fb5"), ("RAS", "Rasant", "#8a5cc2"),
-    ("DES", "Par-dessus", "#f2b134"), ("AUT", "Autres", "#6c7280"),
+    ("DES", "Par-dessus", "#f2b134"), ("5022", "50/22", "#00a3a3"), ("AUT", "Autres", "#6c7280"),
 )
 
 
