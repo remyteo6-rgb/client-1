@@ -4581,7 +4581,12 @@ def _vs_contexte():
             for m in _season_context()[0]:
                 if not m.get("instances"):
                     continue
-                v = _cached_result("vs", [m], lambda m=m: _vs_valeurs(m))
+                try:
+                    v = _cached_result("vs", [m], lambda m=m: _vs_valeurs(m))
+                except Exception:
+                    # Un match aux données inhabituelles ne doit pas priver les autres de leur repère.
+                    app.logger.exception("vs saison : match %s ignoré", m.get("id"))
+                    continue
                 if m["id"] == mid:
                     ctx["cur"] = v
                 else:
