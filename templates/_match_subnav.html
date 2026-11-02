@@ -200,7 +200,7 @@
         var root = document.documentElement, key = 'vsSaison';
         function lire() { try { return localStorage.getItem(key) === '1'; } catch (e) { return false; } }
         root.classList.toggle('vs-on', lire());
-        document.addEventListener('DOMContentLoaded', function () {
+        window.addEventListener('load', function () {
             var box = document.getElementById('vsToggleInput'), lab = document.getElementById('vsToggle');
             if (!box || !document.querySelector('.vs')) return;
             lab.hidden = false;

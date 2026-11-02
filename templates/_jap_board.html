@@ -57,6 +57,9 @@
 {% endif %}
 
 <script>
+window.VS = {{ vs_json("jap_total", "jap_gain", "jap_gain_moy") }};
+</script>
+<script>
 (function () {
     var EDIT = {{ 'true' if editable else 'false' }};
     var TYPES = {{ (types|map('list')|list)|tojson }};   // [code, libellé, couleur]
@@ -126,7 +129,7 @@
     function stats() {
         var vis = visibles();
         var gt = vis.reduce(function (s, x) { return s + gain(x); }, 0), jt = document.getElementById('jap-total'); jt.innerHTML = '';
-        [[vis.length, 'jeux au pied'], [vis.length ? (gt > 0 ? '+' : '') + f1(gt) + ' m' : '·', 'gain total'], [vis.length ? fmt(gt / vis.length) : '·', 'gain moyen']].forEach(function (kv) { var d = el('div'); d.appendChild(el('strong', null, kv[0])); d.appendChild(el('span', null, kv[1])); jt.appendChild(d); });
+        [[vis.length, 'jeux au pied', 'jap_total'], [vis.length ? (gt > 0 ? '+' : '') + f1(gt) + ' m' : '·', 'gain total', 'jap_gain'], [vis.length ? fmt(gt / vis.length) : '·', 'gain moyen', 'jap_gain_moy']].forEach(function (kv) { var d = el('div'), st = el('strong', null, kv[0]); if (kv[2] && !fType && !fPlayer && window.VS && VS[kv[2]]) { st.insertAdjacentHTML('beforeend', VS[kv[2]]); } d.appendChild(st); d.appendChild(el('span', null, kv[1])); jt.appendChild(d); });
         // types (filtre)
         var tb = document.getElementById('jap-types'); tb.innerHTML = '';
         var all = el('button', 'jap-chip' + (fType ? '' : ' on'), 'Tous · ' + jap.length); all.type = 'button';

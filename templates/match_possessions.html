@@ -39,7 +39,7 @@ document.getElementById('ps-import-go').addEventListener('click', function () {
 {% endif %}
 {% macro tableau(sec) %}
 <div class="ps-panel">
-    <div class="ps-panel-head">{{ sec.title }} <span class="ps-count">{{ sec.rows|length }}</span></div>
+    <div class="ps-panel-head">{{ sec.title }} <span class="ps-count">{{ sec.rows|length }}</span>{{ vs('poss_' ~ sec.key) }}</div>
     <table class="ps-table ps-{{ sec.key }}">
         <thead><tr>{% for f, label, kind in sec.cols %}<th class="ps-c-{{ f }}">{{ label }}</th>{% endfor %}</tr></thead>
         <tbody>

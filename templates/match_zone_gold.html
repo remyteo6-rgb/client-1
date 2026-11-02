@@ -99,20 +99,20 @@ document.getElementById('zg-import-go').addEventListener('click', function () {
             <div class="zg-panel-head">Comparatif</div>
             <div class="zg-comp-teams"><span>{{ own_abbr }}</span><span class="zg-adv">{{ adv_abbr }}</span></div>
             <div class="zg-comp-row">
-                <strong data-zg="own.total">{{ data.own.total }}</strong><span>Nombres d'Entrées</span><strong class="zg-adv" data-zg="adverse.total">{{ data.adverse.total }}</strong>
+                <div><strong data-zg="own.total">{{ data.own.total }}</strong>{{ vs('zg_total') }}</div><span>Nombres d'Entrées</span><div><strong class="zg-adv" data-zg="adverse.total">{{ data.adverse.total }}</strong>{{ vs('zga_total') }}</div>
             </div>
             <div class="zg-comp-row zg-comp-alt">
-                <strong data-zg="own.ballons_perdus">{{ data.own.ballons_perdus }}</strong><span>Ballons Perdus</span><strong class="zg-adv" data-zg="adverse.ballons_perdus">{{ data.adverse.ballons_perdus }}</strong>
+                <div><strong data-zg="own.ballons_perdus">{{ data.own.ballons_perdus }}</strong>{{ vs('zg_perdus') }}</div><span>Ballons Perdus</span><div><strong class="zg-adv" data-zg="adverse.ballons_perdus">{{ data.adverse.ballons_perdus }}</strong>{{ vs('zga_perdus') }}</div>
             </div>
             <div class="zg-comp-row">
-                <strong data-zg="own.efficacite">{% if data.own.efficacite is not none %}{{ data.own.efficacite|round|int }} %{% else %}—{% endif %}</strong>
+                <div><strong data-zg="own.efficacite">{% if data.own.efficacite is not none %}{{ data.own.efficacite|round|int }} %{% else %}—{% endif %}</strong>{{ vs('zg_eff') }}</div>
                 <span>% Efficacité</span>
-                <strong class="zg-adv" data-zg="adverse.efficacite">{% if data.adverse.efficacite is not none %}{{ data.adverse.efficacite|round|int }} %{% else %}—{% endif %}</strong>
+                <div><strong class="zg-adv" data-zg="adverse.efficacite">{% if data.adverse.efficacite is not none %}{{ data.adverse.efficacite|round|int }} %{% else %}—{% endif %}</strong>{{ vs('zga_eff') }}</div>
             </div>
             <div class="zg-comp-row zg-comp-alt">
-                <strong data-zg="own.points_par_entree">{{ data.own.points_par_entree|fr2 if data.own.points_par_entree is not none else '—' }}</strong>
+                <div><strong data-zg="own.points_par_entree">{{ data.own.points_par_entree|fr2 if data.own.points_par_entree is not none else '—' }}</strong>{{ vs('zg_ppe') }}</div>
                 <span>Points / Entrée</span>
-                <strong class="zg-adv" data-zg="adverse.points_par_entree">{{ data.adverse.points_par_entree|fr2 if data.adverse.points_par_entree is not none else '—' }}</strong>
+                <div><strong class="zg-adv" data-zg="adverse.points_par_entree">{{ data.adverse.points_par_entree|fr2 if data.adverse.points_par_entree is not none else '—' }}</strong>{{ vs('zga_ppe') }}</div>
             </div>
         </div>
 

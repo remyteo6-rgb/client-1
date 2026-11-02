@@ -4500,7 +4500,20 @@ VS_DEFS = {
     "dz_entrees": (False, 1, ""), "dz_recup": (True, 1, ""), "dz_eff": (False, 0, " %"), "dz_ppe": (False, 2, ""),
     "touches_pct": (True, 0, " %"), "mel_off_pct": (True, 0, " %"), "mel_def_pct": (True, 0, " %"),
     "discipline": (False, 1, ""),
+    # Zone Gold adverse (nos ballons récupérés chez eux = bon pour nous)
+    "zga_total": (False, 1, ""), "zga_perdus": (True, 1, ""), "zga_eff": (False, 0, " %"), "zga_ppe": (False, 2, ""),
+    # CSC (None = pas de jugement : plus de contests / de combats n'est ni bon ni mauvais en soi)
+    "csc_ch_total": (None, 0, ""), "csc_ch_plus": (True, 0, ""),
+    "csc_sn_reussis": (True, 0, ""), "csc_sn_total": (None, 0, ""), "csc_sn_minus": (False, 0, ""), "csc_sn_fautes": (False, 0, ""),
+    "csc_co_total": (None, 0, ""), "csc_co_plus": (True, 0, ""), "csc_co_minus": (False, 0, ""),
+    # Saisies à la main : seulement si le match a des données saisies
+    "tir_total": (None, 1, ""), "tir_pct": (True, 0, " %"),
+    "jap_total": (None, 1, ""), "jap_gain": (True, 0, " m"), "jap_gain_moy": (True, 0, " m"),
+    "jap_rec_pct": (True, 0, " %"), "jap_susp": (True, 1, " s"),
 }
+VS_PREFIXE = {"poss_": (True, 0, " %")}   # Nos possessions : % de résultats positifs par tableau
+VS_LABEL = {"poss_": "Réussite", "jap_rec_pct": "Ballons récupérés sur pression", "jap_susp": "Suspension moyenne",
+            "tir_pct": "Réussite", "csc_sn_fautes": "Fautes"}
 
 
 def _vs_valeurs(m):
@@ -4515,7 +4528,32 @@ def _vs_valeurs(m):
     dz = dfn.get("zone_danger") or {}
     disc = compute_team_discipline_counts(ins)
     mel = compute_melees_page(ins)
+    zga = (zg or {}).get("adverse") or {}
+    csc = compute_csc(ins) or {}
+    ch, sn, co = csc.get("chasseur") or {}, csc.get("sniper") or {}, csc.get("combattant") or {}
+    ms = m.get("manual_stats") or {}
+    tirs, jap = _tirs_saisis(ms), _jap_saisis(ms)
+    gains = [0 if t["type"] == "DIR" else (t["y1"] - t["y2"]) * 110 for t in jap]
+    pre = [t for t in jap if t["type"] == "PRE"]
+    pre_res = [t for t in pre if t.get("res")]
+    pre_sec = [t["sec"] for t in pre if t.get("sec") is not None]
+    poss = {}
+    for sec in compute_possession_board(ins, ms.get("possessions")) or []:
+        saisis = [r for r in sec["rows"] if (r["vals"].get("resultat") or "").strip() or r.get("tone")]
+        poss["poss_" + sec["key"]] = round(100 * sum(1 for r in saisis if r.get("tone") == "pos") / len(saisis)) if saisis else None
     return {
+        **poss,
+        "zga_total": zga.get("total"), "zga_perdus": zga.get("ballons_perdus"),
+        "zga_eff": zga.get("efficacite"), "zga_ppe": zga.get("points_par_entree"),
+        "csc_ch_total": ch.get("total"), "csc_ch_plus": ch.get("plus"),
+        "csc_sn_reussis": sn.get("reussis"), "csc_sn_total": sn.get("total_tentes"), "csc_sn_minus": sn.get("minus"),
+        "csc_sn_fautes": sn.get("fautes"), "csc_co_total": co.get("total"), "csc_co_plus": co.get("plus"),
+        "csc_co_minus": co.get("minus"),
+        "tir_total": len(tirs) or None, "tir_pct": round(100 * sum(1 for t in tirs if t["ok"]) / len(tirs)) if tirs else None,
+        "jap_total": len(jap) or None, "jap_gain": round(sum(gains)) if jap else None,
+        "jap_gain_moy": round(sum(gains) / len(jap)) if jap else None,
+        "jap_rec_pct": round(100 * sum(1 for t in pre_res if t["res"] == "REC") / len(pre_res)) if pre_res else None,
+        "jap_susp": round(sum(pre_sec) / len(pre_sec), 1) if pre_sec else None,
         "att_essais": att.get("essais"), "att_franchissements": att.get("franchissements"),
         "att_contacts": att.get("contacts"), "att_dominants": att.get("dominants_pct"),
         "att_gla": att.get("gain_line_pct"), "att_casses": att.get("plaquages_casses"),
@@ -4559,7 +4597,7 @@ def vs_saison(key, valeur=None):
     """Petit repère HTML « ▲ ▼ ● » d'un chiffre du match par rapport à la moyenne des autres matchs."""
     from markupsafe import Markup, escape
     ctx = _vs_contexte()
-    defn = VS_DEFS.get(key)
+    defn = VS_DEFS.get(key) or next((d for pre, d in VS_PREFIXE.items() if key.startswith(pre)), None)
     if not defn or ctx["cur"] is None:
         return ""
     mieux, dec, suffixe = defn
@@ -4577,16 +4615,26 @@ def vs_saison(key, valeur=None):
     ecart = v - moy
     if abs(ecart) <= tol:
         cls, signe = "flat", "●"
+    elif mieux is None:
+        cls, signe = "flat", ("▲" if ecart > 0 else "▼")
     else:
         cls, signe = ("up" if (ecart > 0) == mieux else "down"), ("▲" if ecart > 0 else "▼")
     rang = 1 + sum(1 for x in autres if (x > v if mieux else x < v))
     rang_txt = "1er" if rang == 1 else f"{rang}e"
     fm = lambda x: _fmt_fr(x, dec, suffixe)
-    titre = f"Saison : {fm(moy)} (moyenne des {n} autres matchs) · ce match : {fm(v)} · {rang_txt} sur {n + 1}"
+    lib = VS_LABEL.get(key) or next((l for pre, l in VS_LABEL.items() if pre.endswith("_") and key.startswith(pre)), "")
+    titre = (f"{lib} · " if lib else "") + f"Saison : {fm(moy)} (moyenne des {n} autres matchs) · ce match : {fm(v)} · {rang_txt} sur {n + 1}"
     return Markup(f'<span class="vs vs-{cls}" title="{escape(titre)}">{signe}</span>')
 
 
+def vs_saison_json(*cles):
+    """{clé: HTML du repère} pour les pages dont les chiffres sont dessinés en JavaScript (tirs, jeu au pied)."""
+    from markupsafe import Markup
+    return Markup(json.dumps({c: str(vs_saison(c)) for c in cles}).replace("</", "<\\/"))
+
+
 app.jinja_env.globals["vs"] = vs_saison
+app.jinja_env.globals["vs_json"] = vs_saison_json
 
 
 GP_CIBLES_DEFAUT = {"offloads": 13, "def_battus": 18,  # cibles déjà fixées par le staff (bilan attaque)

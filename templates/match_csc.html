@@ -47,20 +47,20 @@
         <div class="csc-card">
             <div class="csc-icon">{{ icons.search() }}</div>
             <h2>Chasseur</h2>
-            <div class="csc-total">{{ data.chasseur.total }}</div>
+            <div class="csc-total">{{ data.chasseur.total }}{{ vs('csc_ch_total') }}</div>
             {{ dominance(data.chasseur.dominance) }}
 
             <div class="csc-block-title">Les contests</div>
             <div class="csc-tiles">
                 <div class="csc-tile"><strong>{{ data.chasseur.total }}</strong><span>Tentés</span></div>
-                <div class="csc-tile"><strong>{{ data.chasseur.plus }}</strong><span>Gagnés</span></div>
+                <div class="csc-tile"><strong>{{ data.chasseur.plus }}{{ vs('csc_ch_plus') }}</strong><span>Gagnés</span></div>
             </div>
         </div>
 
         <div class="csc-card csc-card-main">
             <div class="csc-icon">{{ icons.target() }}</div>
             <h2>Sniper</h2>
-            <div class="csc-total">{{ data.sniper.reussis }}<span class="csc-total-sur">/{{ data.sniper.total_tentes }}</span></div>
+            <div class="csc-total">{{ data.sniper.reussis }}<span class="csc-total-sur">/{{ data.sniper.total_tentes }}</span>{{ vs('csc_sn_reussis') }}</div>
             {{ dominance(data.sniper.dominance) }}
 
             <div class="csc-block-title">Efforts</div>
@@ -68,8 +68,8 @@
                 <div class="csc-tile"><strong>{{ data.sniper.plus }}</strong><span>Positif</span></div>
                 <div class="csc-tile"><strong>{{ data.sniper.neutre }}</strong><span>Neutre</span></div>
                 <div class="csc-tile">
-                    <strong>{{ data.sniper.minus }}</strong><span>Négatif</span>
-                    <em class="csc-tile-alert">{{ data.sniper.fautes }} faute{{ 's' if data.sniper.fautes != 1 else '' }}</em>
+                    <strong>{{ data.sniper.minus }}{{ vs('csc_sn_minus') }}</strong><span>Négatif</span>
+                    <em class="csc-tile-alert">{{ data.sniper.fautes }} faute{{ 's' if data.sniper.fautes != 1 else '' }}{{ vs('csc_sn_fautes') }}</em>
                 </div>
             </div>
 
@@ -87,7 +87,7 @@
         <div class="csc-card">
             <div class="csc-icon">{{ icons.swords() }}</div>
             <h2>Combattant</h2>
-            <div class="csc-total">{{ data.combattant.total }}</div>
+            <div class="csc-total">{{ data.combattant.total }}{{ vs('csc_co_total') }}</div>
             {{ dominance(data.combattant.dominance) }}
 
             <div class="csc-block-title">Travail ballon / clash</div>
@@ -96,8 +96,8 @@
                     <strong>{{ (data.combattant.combat_ballon_pct|string)|replace('.', ',') if data.combattant.combat_ballon_pct is not none else '—' }}{% if data.combattant.combat_ballon_pct is not none %} %{% endif %}</strong>
                     <span>Combat au ballon</span>
                 </div>
-                <div class="csc-tile"><strong>{{ data.combattant.plus }}</strong><span>Clash +</span></div>
-                <div class="csc-tile"><strong>{{ data.combattant.minus }}</strong><span>Combats subis</span></div>
+                <div class="csc-tile"><strong>{{ data.combattant.plus }}{{ vs('csc_co_plus') }}</strong><span>Clash +</span></div>
+                <div class="csc-tile"><strong>{{ data.combattant.minus }}{{ vs('csc_co_minus') }}</strong><span>Combats subis</span></div>
             </div>
         </div>
     </div>

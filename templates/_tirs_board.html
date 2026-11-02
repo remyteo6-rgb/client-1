@@ -54,6 +54,9 @@
 {% endif %}
 
 <script>
+window.VS = {{ vs_json("tir_total", "tir_pct") }};
+</script>
+<script>
 (function () {
     var EDIT = {{ 'true' if editable else 'false' }};
     var LIGNES = {{ lignes|tojson }};
@@ -141,11 +144,11 @@
         // KPI
         var kp = document.getElementById('tir-kpis'); kp.innerHTML = '';
         var tot = tirs.length, okT = tirs.filter(function (t) { return t.ok; }).length;
-        [['Tirs', tot ? okT + ' / ' + tot : '·'], ['Réussite', tot ? pct(okT, tot) + ' %' : '·']].concat(['P', 'T'].map(function (k) {
+        [['Tirs', tot ? okT + ' / ' + tot : '·', 'tir_total'], ['Réussite', tot ? pct(okT, tot) + ' %' : '·', 'tir_pct']].concat(['P', 'T'].map(function (k) {
             var l = tirs.filter(function (t) { return t.type === k; }), o = l.filter(function (t) { return t.ok; }).length;
             return [TYPES[k] + 's', l.length ? o + ' / ' + l.length + ' · ' + pct(o, l.length) + ' %' : '·'];
         })).forEach(function (kv) {
-            var d = el('div', 'tir-kpi'); d.appendChild(el('strong', null, kv[1])); d.appendChild(el('span', null, kv[0])); kp.appendChild(d);
+            var d = el('div', 'tir-kpi'), st = el('strong', null, kv[1]); if (kv[2] && !fPlayer && window.VS && VS[kv[2]]) { st.insertAdjacentHTML('beforeend', VS[kv[2]]); } d.appendChild(st); d.appendChild(el('span', null, kv[0])); kp.appendChild(d);
         });
         // Buteurs
         var by = {};
