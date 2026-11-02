@@ -4487,6 +4487,108 @@ def _cr_valeurs(m):
             "pts_poss": round(sum(p["pts"] for p in x.poss) / len(x.poss), 2) if x.poss else None}
 
 
+# ---- Repère « vs saison » sur les pages d'un match -------------------------------------------
+# Bouton « Comparer à la saison » (fil d'Ariane) : un petit repère coloré à côté de chaque chiffre,
+# la moyenne des AUTRES matchs s'affiche au survol. Éteint par défaut pour garder le rapport lisible.
+# clé -> (sens : True = plus haut c'est mieux, False = plus bas c'est mieux, décimales, suffixe)
+VS_DEFS = {
+    "att_essais": (True, 1, ""), "att_franchissements": (True, 1, ""), "att_contacts": (True, 0, ""),
+    "att_dominants": (True, 0, " %"), "att_gla": (True, 0, " %"), "att_casses": (True, 1, ""),
+    "att_offloads": (True, 1, ""), "att_passes": (True, 0, ""), "att_clics": (True, 1, ""),
+    "zg_total": (True, 1, ""), "zg_perdus": (False, 1, ""), "zg_eff": (True, 0, " %"), "zg_ppe": (True, 2, ""),
+    "def_essais": (False, 1, ""), "def_franchi": (False, 1, ""),
+    "dz_entrees": (False, 1, ""), "dz_recup": (True, 1, ""), "dz_eff": (False, 0, " %"), "dz_ppe": (False, 2, ""),
+    "touches_pct": (True, 0, " %"), "mel_off_pct": (True, 0, " %"), "mel_def_pct": (True, 0, " %"),
+    "discipline": (False, 1, ""),
+}
+
+
+def _vs_valeurs(m):
+    """Chiffres d'un match servant à la comparaison « vs saison » (None quand le match n'a pas l'info)."""
+    ins = m["instances"] or []
+    own_pts, adv_pts = _resolve_match_score(m)[:2]
+    zg = compute_zone_gold_log(ins, own_points=own_pts, adverse_points=adv_pts,
+                               overrides=(m.get("manual_stats") or {}).get("zone_gold"))
+    gold = (zg or {}).get("own") or {}
+    att = compute_bilan_attaque(ins) or {}
+    dfn = compute_bilan_defense(ins, adverse_points=adv_pts, zone_gold=zg) or {}
+    dz = dfn.get("zone_danger") or {}
+    disc = compute_team_discipline_counts(ins)
+    mel = compute_melees_page(ins)
+    return {
+        "att_essais": att.get("essais"), "att_franchissements": att.get("franchissements"),
+        "att_contacts": att.get("contacts"), "att_dominants": att.get("dominants_pct"),
+        "att_gla": att.get("gain_line_pct"), "att_casses": att.get("plaquages_casses"),
+        "att_offloads": att.get("offloads"), "att_passes": att.get("passes"), "att_clics": att.get("clics"),
+        "zg_total": gold.get("total"), "zg_perdus": gold.get("ballons_perdus"),
+        "zg_eff": gold.get("efficacite"), "zg_ppe": gold.get("points_par_entree"),
+        "def_essais": dfn.get("essais"), "def_franchi": dfn.get("franchissements"),
+        "dz_entrees": dz.get("entrees"), "dz_recup": dz.get("ballons_recup"),
+        "dz_eff": dz.get("efficacite"), "dz_ppe": dz.get("points_par_entree"),
+        "touches_pct": (compute_touches_page(ins) or {}).get("pct"),
+        "mel_off_pct": ((mel or {}).get("off") or {}).get("pct"), "mel_def_pct": ((mel or {}).get("def") or {}).get("pct"),
+        "discipline": disc["own"] if disc else None,
+    }
+
+
+def _vs_contexte():
+    """Valeurs du match affiché + de tous les autres matchs (calculées une fois par requête)."""
+    ctx = getattr(g, "_vs_ctx", None)
+    if ctx is not None:
+        return ctx
+    ctx = {"cur": None, "autres": []}
+    mid = (request.view_args or {}).get("match_id")
+    try:
+        if mid:
+            for m in _season_context()[0]:
+                if not m.get("instances"):
+                    continue
+                v = _cached_result("vs", [m], lambda m=m: _vs_valeurs(m))
+                if m["id"] == mid:
+                    ctx["cur"] = v
+                else:
+                    ctx["autres"].append(v)
+    except Exception:
+        app.logger.exception("vs saison")
+        ctx = {"cur": None, "autres": []}
+    g._vs_ctx = ctx
+    return ctx
+
+
+def vs_saison(key, valeur=None):
+    """Petit repère HTML « ▲ ▼ ● » d'un chiffre du match par rapport à la moyenne des autres matchs."""
+    from markupsafe import Markup, escape
+    ctx = _vs_contexte()
+    defn = VS_DEFS.get(key)
+    if not defn or ctx["cur"] is None:
+        return ""
+    mieux, dec, suffixe = defn
+    v = ctx["cur"].get(key) if valeur is None else valeur
+    autres = [a[key] for a in ctx["autres"] if a.get(key) is not None]
+    if v is None or len(autres) < 2:
+        return ""
+    n = len(autres)
+    moy = sum(autres) / n
+    if n >= 5:
+        sd = (sum((x - moy) ** 2 for x in autres) / n) ** 0.5
+        tol = max(sd, 10 ** -dec / 2)
+    else:
+        tol = max(0.1 * abs(moy), 0.5 if dec == 0 else 10 ** -dec)
+    ecart = v - moy
+    if abs(ecart) <= tol:
+        cls, signe = "flat", "●"
+    else:
+        cls, signe = ("up" if (ecart > 0) == mieux else "down"), ("▲" if ecart > 0 else "▼")
+    rang = 1 + sum(1 for x in autres if (x > v if mieux else x < v))
+    rang_txt = "1er" if rang == 1 else f"{rang}e"
+    fm = lambda x: _fmt_fr(x, dec, suffixe)
+    titre = f"Saison : {fm(moy)} (moyenne des {n} autres matchs) · ce match : {fm(v)} · {rang_txt} sur {n + 1}"
+    return Markup(f'<span class="vs vs-{cls}" title="{escape(titre)}">{signe}</span>')
+
+
+app.jinja_env.globals["vs"] = vs_saison
+
+
 GP_CIBLES_DEFAUT = {"offloads": 13, "def_battus": 18,  # cibles déjà fixées par le staff (bilan attaque)
                     "pts_encaisses": 22,               # objectif du club : 22 points encaissés maximum
                     "pdb": 22}                         # objectif du club : 22 ballons perdus maximum

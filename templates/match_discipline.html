@@ -32,7 +32,7 @@
         <span class="report-title">DISCIPLINE</span>
         <div class="dis-score">
             {{ crest(assets.adverse_crest, match['opponent'], 'adverse') }}
-            <span class="dis-score-value">{{ data.team.adverse if data.team.adverse is not none else '—' }} – {{ data.team.own if data.team.own is not none else '—' }}</span>
+            <span class="dis-score-value">{{ data.team.adverse if data.team.adverse is not none else '—' }} – {{ data.team.own if data.team.own is not none else '—' }}{{ vs('discipline', data.team.own) }}</span>
             {{ crest(assets.own_crest, match['own_team'], 'own') }}
         </div>
     </div>

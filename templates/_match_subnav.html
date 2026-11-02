@@ -190,6 +190,29 @@
     <span class="subnav-breadcrumb-sep" aria-hidden="true">›</span>
     <span class="subnav-breadcrumb-current">{{ page_labels.get(active, '') }}</span>
     {% endif %}
+    {% if not season_mode %}
+    {# Repère « vs saison » : le bouton n'apparaît que sur les pages qui ont des repères (.vs). #}
+    <label class="vs-toggle" id="vsToggle" hidden title="Affiche à côté de chaque chiffre s'il est meilleur (▲), moins bon (▼) ou dans la norme (●) par rapport à la moyenne des autres matchs ; survole le repère pour voir la moyenne.">
+        <input type="checkbox" id="vsToggleInput"> Comparer à la saison
+    </label>
+    <script>
+    (function () {
+        var root = document.documentElement, key = 'vsSaison';
+        function lire() { try { return localStorage.getItem(key) === '1'; } catch (e) { return false; } }
+        root.classList.toggle('vs-on', lire());
+        document.addEventListener('DOMContentLoaded', function () {
+            var box = document.getElementById('vsToggleInput'), lab = document.getElementById('vsToggle');
+            if (!box || !document.querySelector('.vs')) return;
+            lab.hidden = false;
+            box.checked = lire();
+            box.addEventListener('change', function () {
+                root.classList.toggle('vs-on', box.checked);
+                try { localStorage.setItem(key, box.checked ? '1' : '0'); } catch (e) {}
+            });
+        });
+    })();
+    </script>
+    {% endif %}
 </nav>
 {% endif %}
 

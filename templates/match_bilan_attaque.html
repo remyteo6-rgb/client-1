@@ -60,10 +60,10 @@
             <div class="bil-panel">
                 <div class="bil-panel-head">Zone Gold : cible {{ data.cibles.zone_gold }}</div>
                 <table class="bil-table">
-                    <tr><th>Total</th><td>{{ zone_gold.total if zone_gold else '—' }}</td></tr>
-                    <tr class="bil-row-neg"><th>Ballons perdus</th><td>{{ zone_gold.ballons_perdus if zone_gold else '—' }}</td></tr>
-                    <tr class="bil-row-warn"><th>Efficacité</th><td>{{ zone_gold.efficacite if zone_gold else '—' }}</td></tr>
-                    <tr><th>Points / entrée</th><td>{{ zone_gold.points_par_entree if zone_gold else '—' }}</td></tr>
+                    <tr><th>Total</th><td>{{ zone_gold.total if zone_gold else '—' }}{{ vs('zg_total') }}</td></tr>
+                    <tr class="bil-row-neg"><th>Ballons perdus</th><td>{{ zone_gold.ballons_perdus if zone_gold else '—' }}{{ vs('zg_perdus') }}</td></tr>
+                    <tr class="bil-row-warn"><th>Efficacité</th><td>{{ zone_gold.efficacite if zone_gold else '—' }}{{ vs('zg_eff') }}</td></tr>
+                    <tr><th>Points / entrée</th><td>{{ zone_gold.points_par_entree if zone_gold else '—' }}{{ vs('zg_ppe') }}</td></tr>
                 </table>
             </div>
 
@@ -114,16 +114,16 @@
 
         <div class="bil-col">
             <div class="bil-panel bil-panel-light bil-list">
-                <div class="bil-line"><span>Essais</span><strong>{{ data.essais }}</strong></div>
-                <div class="bil-line"><span>Franchissements</span><strong>{{ data.franchissements }}</strong></div>
-                <div class="bil-line"><span>Contacts</span><strong>{{ data.contacts }}</strong></div>
-                <div class="bil-line bil-line-sub" title="{{ data.dominants }} contacts + sur {{ data.contacts }} contacts"><span>Dominants</span><strong>{{ ((data.dominants_pct | round | int) ~ ' %') if data.dominants_pct is not none else '—' }}</strong></div>
+                <div class="bil-line"><span>Essais</span><strong>{{ data.essais }}{{ vs('att_essais') }}</strong></div>
+                <div class="bil-line"><span>Franchissements</span><strong>{{ data.franchissements }}{{ vs('att_franchissements') }}</strong></div>
+                <div class="bil-line"><span>Contacts</span><strong>{{ data.contacts }}{{ vs('att_contacts') }}</strong></div>
+                <div class="bil-line bil-line-sub" title="{{ data.dominants }} contacts + sur {{ data.contacts }} contacts"><span>Dominants</span><strong>{{ ((data.dominants_pct | round | int) ~ ' %') if data.dominants_pct is not none else '—' }}{{ vs('att_dominants') }}</strong></div>
                 <div class="bil-line bil-line-muted"><span>Libération « i »</span><strong>{{ data.liberation_i_pct ~ ' %' if data.liberation_i_pct is not none else '—' }}</strong></div>
-                <div class="bil-line"><span>Plaquages cassés</span><strong>{{ data.plaquages_casses }}</strong></div>
-                <div class="bil-line bil-line-sub"><span>Offloads</span><strong>{{ data.offloads }}</strong></div>
+                <div class="bil-line"><span>Plaquages cassés</span><strong>{{ data.plaquages_casses }}{{ vs('att_casses') }}</strong></div>
+                <div class="bil-line bil-line-sub"><span>Offloads</span><strong>{{ data.offloads }}{{ vs('att_offloads') }}</strong></div>
                 <div class="bil-line bil-line-sub" title="{{ data.offloads }} offloads pour {{ data.contacts_joueurs }} contacts"><span>Offloads / Contacts</span><strong>{{ ("%.2f"|format(((data.offloads_contacts_ratio * 100)|int) / 100))|replace('.', ',') if data.offloads_contacts_ratio is not none else '—' }}</strong></div>
-                <div class="bil-line bil-line-sub"><span>Passes</span><strong>{{ data.passes }}</strong></div>
-                <div class="bil-line"><span>Clics</span><strong>{{ data.clics }}</strong></div>
+                <div class="bil-line bil-line-sub"><span>Passes</span><strong>{{ data.passes }}{{ vs('att_passes') }}</strong></div>
+                <div class="bil-line"><span>Clics</span><strong>{{ data.clics }}{{ vs('att_clics') }}</strong></div>
             </div>
         </div>
 

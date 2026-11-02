@@ -62,11 +62,11 @@
 
         <div class="def-topbar">
             <div class="def-kpi">
-                <strong>{{ data.essais }}</strong>
+                <strong>{{ data.essais }}{{ vs('def_essais') }}</strong>
                 <span>Essais</span>
             </div>
             <div class="def-kpi">
-                <strong>{{ data.franchissements }}</strong>
+                <strong>{{ data.franchissements }}{{ vs('def_franchi') }}</strong>
                 <span>Franchissements</span>
             </div>
             <div class="def-kpi">
@@ -80,19 +80,19 @@
                 <div class="def-danger-title">Zone danger</div>
                 <div class="def-danger-row">
                     <div class="def-kpi def-kpi-sm def-kpi-red">
-                        <strong>{{ data.zone_danger.entrees if data.zone_danger.entrees is not none else '—' }}</strong>
+                        <strong>{{ data.zone_danger.entrees if data.zone_danger.entrees is not none else '—' }}{{ vs('dz_entrees') }}</strong>
                         <span>Entrées</span>
                     </div>
                     <div class="def-kpi def-kpi-sm def-kpi-green">
-                        <strong>{{ data.zone_danger.ballons_recup if data.zone_danger.ballons_recup is not none else '—' }}</strong>
+                        <strong>{{ data.zone_danger.ballons_recup if data.zone_danger.ballons_recup is not none else '—' }}{{ vs('dz_recup') }}</strong>
                         <span>Ballons recup</span>
                     </div>
                     <div class="def-kpi def-kpi-sm def-kpi-red">
-                        <strong>{% if data.zone_danger.efficacite is not none %}{{ data.zone_danger.efficacite | round | int }}%{% else %}—{% endif %}</strong>
+                        <strong>{% if data.zone_danger.efficacite is not none %}{{ data.zone_danger.efficacite | round | int }}%{% else %}—{% endif %}{{ vs('dz_eff') }}</strong>
                         <span>Efficacité</span>
                     </div>
                     <div class="def-kpi def-kpi-sm def-kpi-framed">
-                        <strong>{{ data.zone_danger.points_par_entree | fr2 }}</strong>
+                        <strong>{{ data.zone_danger.points_par_entree | fr2 }}{{ vs('dz_ppe') }}</strong>
                         <span>Points / entrée</span>
                     </div>
                 </div>

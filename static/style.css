@@ -3754,3 +3754,13 @@ table td > .player-cell, table td .mel-match { text-align: center; }
 .jap-total > div { flex:1; background:#f6eef1; border-radius:8px; padding:6px 8px; text-align:center; }
 .jap-total strong { display:block; font-size:1.15rem; color:#530d34; }
 .jap-total span { font-size:.72rem; text-transform:uppercase; letter-spacing:.5px; color:#7d3653; font-weight:700; }
+
+/* Repère « vs saison » : invisible tant que le bouton « Comparer à la saison » (fil d'Ariane) n'est pas activé. */
+.vs { display: none; font-size: .62em; font-weight: 800; margin-left: .3em; vertical-align: .15em; cursor: help; line-height: 1; letter-spacing: 0; }
+html.vs-on .vs { display: inline-block; }
+.vs-up { color: var(--positive, #2f7d3a); }
+.vs-down { color: var(--negative, #c0392b); }
+.vs-flat { color: #9a9a9a; }
+.vs-toggle { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--text-secondary, #666); cursor: pointer; user-select: none; }
+.vs-toggle input { accent-color: #530d34; cursor: pointer; }
+.vs-toggle[hidden] { display: none; }

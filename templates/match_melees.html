@@ -27,7 +27,7 @@
         <tbody>
             <tr><td>Mêlées jouées</td><td><strong>{{ st.jouees }}</strong></td></tr>
             <tr><td>Gagnées / perdues</td><td><span class="stat-pos">{{ st.gagnees }}</span> / <span class="stat-neg">{{ st.perdues }}</span></td></tr>
-            <tr><td>Conquête</td><td><strong>{{ (st.pct ~ ' %') if st.pct is not none else '—' }}</strong></td></tr>
+            <tr><td>Conquête</td><td><strong>{{ (st.pct ~ ' %') if st.pct is not none else '—' }}</strong>{{ vs('mel_off_pct' if cls == 'sty-ban-n' else 'mel_def_pct', st.pct) }}</td></tr>
             <tr><td>Mêlées rejouées</td><td>{{ st.rejouees }}</td></tr>
             <tr><td>{{ 'Ballon propre (TQB +)' if cls == 'sty-ban-n' else 'Ballon propre concédé (TQB +)' }}</td>
                 <td>{{ st.tqb_plus }}{% if st.tqb_total %} / {{ st.tqb_total }} · <strong>{{ st.tqb_pct }} %</strong>{% endif %}</td></tr>

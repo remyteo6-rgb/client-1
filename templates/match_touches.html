@@ -52,7 +52,7 @@ document.getElementById('tch-import-go').addEventListener('click', function () {
         <div class="tch-chart-card">
             {% if assets.adverse_crest %}<img class="tch-crest" src="{{ assets.adverse_crest }}" alt="{{ match['opponent'] }}">
             {% else %}<span class="tch-crest tch-crest-txt">{{ (match['opponent'] or '?')[0]|upper }}</span>{% endif %}
-            <div class="tch-chart-title">Touches offensives</div>
+            <div class="tch-chart-title">Touches offensives{% if data.pct is not none %} · {{ data.pct }} %{{ vs('touches_pct') }}{% endif %}</div>
             {% set n = data.rows|length %}
             {% set cums = data.rows|map(attribute='cumul')|list %}
             {% set lo = [cums|min, 0]|min %}{% set hi = [cums|max, 1]|max %}
