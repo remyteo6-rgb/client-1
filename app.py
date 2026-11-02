@@ -3373,8 +3373,8 @@ def season_jap():
         return {"total": n,
                 "types": {c: sum(1 for t in lst if t["type"] == c) for c, _l, _k in JAP_TYPES},
                 "longueur": round(sum(_long(t) ** 0.5 for t in lst) / n) if n else None,
-                "gain": round(sum((t["y1"] - t["y2"]) * 110 for t in lst) / n) if n else None,
-                "gain_tot": round(sum((t["y1"] - t["y2"]) * 110 for t in lst)),
+                "gain": round(sum(0 if t["type"] == "DIR" else (t["y1"] - t["y2"]) * 110 for t in lst) / n) if n else None,
+                "gain_tot": round(sum(0 if t["type"] == "DIR" else (t["y1"] - t["y2"]) * 110 for t in lst)),
                 "rec": sum(1 for t in lst if t.get("res") == "REC"), "res_n": sum(1 for t in lst if t.get("res")),
                 "susp": (round(sum(t["sec"] for t in lst if t.get("sec") is not None) / len([t for t in lst if t.get("sec") is not None]), 1)
                          if any(t.get("sec") is not None for t in lst) else None)}
