@@ -97,6 +97,7 @@
         [100, 200, 300, 400].forEach(function (y) { sv('line', {x1: 0, y1: OY + y, x2: PW, y2: OY + y, 'stroke-width': 1, 'stroke-opacity': .45, 'stroke-dasharray': '3 6'}, g); });
         [140, 280, 420, 560].forEach(function (x) { sv('line', {x1: x, y1: OY, x2: x, y2: OY + PH, 'stroke-width': 1, 'stroke-opacity': .45, 'stroke-dasharray': '3 6'}, g); });
         sv('line', {x1: 1.5, y1: 0, x2: 1.5, y2: OY + PH}, g); sv('line', {x1: PW - 1.5, y1: 0, x2: PW - 1.5, y2: OY + PH}, g);
+        [50, PW - 50].forEach(function (x) { sv('line', {x1: x, y1: OY, x2: x, y2: OY + PH, 'stroke-dasharray': '10 8', 'stroke-width': 2, 'stroke-opacity': .8}, g); });   // ligne des 5 m
         var po = sv('g', {stroke: '#fff', 'stroke-width': 5, 'stroke-linecap': 'round'}, svg);
         sv('line', {x1: 318, y1: OY, x2: 318, y2: 6}, po); sv('line', {x1: 382, y1: OY, x2: 382, y2: 6}, po); sv('line', {x1: 318, y1: OY - 22, x2: 382, y2: OY - 22}, po);
         [[100, '10 m'], [200, '20 m'], [300, '30 m'], [400, '40 m'], [500, '50 m']].forEach(function (d) {

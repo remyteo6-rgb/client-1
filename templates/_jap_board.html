@@ -101,6 +101,7 @@
         [50, 1050, 270, 830, 550].forEach(function (y) { sv('line', {x1: 0, y1: y, x2: W, y2: y}, g); });
         [100, 1000, 150, 950].forEach(function (y) { sv('line', {x1: 0, y1: y, x2: W, y2: y, 'stroke-dasharray': '10 8', 'stroke-width': 2, 'stroke-opacity': .8}, g); });
         sv('line', {x1: 1.5, y1: 0, x2: 1.5, y2: H}, g); sv('line', {x1: W - 1.5, y1: 0, x2: W - 1.5, y2: H}, g);
+        [50, W - 50].forEach(function (x) { sv('line', {x1: x, y1: 50, x2: x, y2: 1050, 'stroke-dasharray': '10 8', 'stroke-width': 2, 'stroke-opacity': .8}, g); });   // ligne des 5 m
         [[293, 50], [1050, 1050]].forEach(function () {});
         var po = sv('g', {stroke: '#fff', 'stroke-width': 5, 'stroke-linecap': 'round'}, svg);
         sv('line', {x1: 293, y1: 50, x2: 293, y2: 8}, po); sv('line', {x1: 357, y1: 50, x2: 357, y2: 8}, po); sv('line', {x1: 293, y1: 28, x2: 357, y2: 28}, po);
