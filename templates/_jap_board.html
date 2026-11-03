@@ -157,7 +157,7 @@ window.VS = {{ vs_json("jap_total", "jap_gain", "jap_gain_moy") }};
         var hd = document.getElementById('jap-byplayer-head'); hd.innerHTML = '';
         ['Joueur', 'Total'].forEach(function (h) { hd.appendChild(el('th', null, h)); });
         TYPES.forEach(function (ty) { var th = el('th'); var d = el('i', 'jap-dot'); d.style.background = ty[2]; th.appendChild(d); th.appendChild(document.createTextNode(ty[1])); hd.appendChild(th); });
-        hd.appendChild(el('th', null, 'Gain total')); hd.appendChild(el('th', null, 'Gain moy.'));
+        hd.appendChild(el('th', null, 'Gain total')); hd.appendChild(el('th', null, 'Gain moy.')); hd.appendChild(el('th', null, 'Susp. moy.'));
         bp.innerHTML = '';
         names.forEach(function (n) {
             var l = by[n], tr = el('tr');
@@ -173,6 +173,7 @@ window.VS = {{ vs_json("jap_total", "jap_gain", "jap_gain_moy") }};
             });
             tr.appendChild(el('td', null, (function (v) { return (v > 0 ? '+' : '') + f1(v) + ' m'; })(l.reduce(function (s, x) { return s + gain(x); }, 0))));
             tr.appendChild(el('td', null, fmt(moy(l, gain))));
+            tr.appendChild(el('td', null, susp(l.filter(function (x) { return x.type === 'PRE'; }))));   // temps de suspension moyen de ses jeux au pied de pression
             bp.appendChild(tr);
         });
         var em = document.getElementById('jap-empty'); if (em) em.hidden = jap.length > 0;
