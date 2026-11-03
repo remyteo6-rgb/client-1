@@ -3345,9 +3345,9 @@ def _jap_xml_total(instances):
 @app.route("/match/<int:match_id>/jeu-au-pied")
 def match_jap(match_id):
     match = _get_match_or_404(match_id)
-    # Propositions : seulement les arrières (9 à 15, remplaçants 21 à 23) + « Autres » ; la saisie libre reste possible.
+    # Propositions : les 3/4 (9 à 15) et les remplaçants 20, 21 et 22 (pas le 23) + « Autres » ; la saisie libre reste possible.
     comp = (match.get("composition") or [])[:23]
-    joueurs = [{"nom": n, "numero": i + 1} for i, n in enumerate(comp) if n and (8 <= i <= 14 or i >= 20)]
+    joueurs = [{"nom": n, "numero": i + 1} for i, n in enumerate(comp) if n and (8 <= i <= 14 or 19 <= i <= 21)]
     deja = {j["nom"] for j in joueurs}
     jap = _jap_saisis(match.get("manual_stats"))
     for n in [t["player"] for t in jap if t["player"]] + ["Autres"]:
