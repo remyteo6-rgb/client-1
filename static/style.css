@@ -837,7 +837,13 @@ form.upload-form { display: flex; flex-direction: column; gap: 16px; max-width: 
     background: var(--bg-card);
     border: 1px solid var(--bg-card-border);
     border-radius: 8px;
-    overflow: hidden;
+    overflow-x: hidden;
+    /* Plus haut que l'écran (menu Administration déplié, petit écran) : le panneau défile au lieu d'être coupé. */
+    max-height: calc(100vh - 70px);
+    max-height: calc(100dvh - 70px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
     min-width: 190px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.25);
 }
@@ -1637,7 +1643,7 @@ body.demo-mode .demo-blur {
     display: block; overflow: hidden; max-height: 0; background: rgba(42,23,18,0.035);
     transition: max-height 0.25s ease;
 }
-.landing-dropdown-sub[open] .landing-dropdown-sub-content { max-height: 600px; }
+.landing-dropdown-sub[open] .landing-dropdown-sub-content { max-height: 1000px; }
 .landing-dropdown-sub-content a { display: block; padding-left: 30px; font-size: 12.5px; }
 
 /* ===========================================================================
