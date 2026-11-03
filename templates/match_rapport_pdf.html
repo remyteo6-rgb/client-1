@@ -13,13 +13,14 @@
     </div>
 </div>
 <p class="rp-help no-print"><strong>Télécharger le PDF</strong> crée directement un fichier (une page 16/9 par diapo, dans l'ordre du rapport) : fonctionne sur Safari comme sur Chrome. « Imprimer… » reste disponible (Chrome : destination « Enregistrer au format PDF », marges « Aucune », « Graphiques d'arrière-plan » coché).</p>
+<p id="rp-recap" class="rp-recap no-print"></p>
 <div id="rp-slides" class="rp-slides"></div>
 
 <script>
 (function () {
     var PAGES = {{ pages|tojson }};
     var box = document.getElementById('rp-slides'), status = document.getElementById('rp-status'), btn = document.getElementById('rp-print');
-    var resultats = new Array(PAGES.length), faits = 0, suivant = 0, COUPLES = 3;
+    var resultats = new Array(PAGES.length), faits = 0, suivant = 0, COUPLES = 1;   /* une page à la fois : le serveur n'a que 4 fils, des chargements en parallèle font expirer les pages lourdes */
 
     function attendre(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
     function charger(url) {
@@ -51,7 +52,7 @@
                 });
             };
             f.onerror = function () { fin([]); };
-            setTimeout(function () { fin([]); }, 30000);
+            setTimeout(function () { fin(null); }, 90000);   /* null = pas chargée (pas la même chose qu'une page sans diapo) */
             f.src = url;
             document.body.appendChild(f);
         });
@@ -59,21 +60,32 @@
     function suite() {
         if (suivant >= PAGES.length) return Promise.resolve();
         var i = suivant++;
-        return charger(PAGES[i]).then(function (s) {
+        function essai(n) {
+            return charger(PAGES[i].url).then(function (s) {
+                return ((s === null || (s && !s.length && n === 0 && PAGES[i].sansDiapo !== true)) && n < 2) ? essai(n + 1) : s;
+            });
+        }
+        return essai(0).then(function (s) {
             resultats[i] = s; faits++;
-            status.textContent = 'Préparation des pages… ' + faits + ' / ' + PAGES.length;
+            status.textContent = 'Préparation des pages… ' + faits + ' / ' + PAGES.length + ' (' + PAGES[i].label + ')';
         }).then(suite);
     }
     var travailleurs = [];
     for (var k = 0; k < COUPLES; k++) travailleurs.push(suite());
     Promise.all(travailleurs).then(function () {
         var n = 0;
-        resultats.forEach(function (lst) {
+        var recap = [], manque = [];
+        resultats.forEach(function (lst, idx) {
+            var nb = (lst || []).length;
             (lst || []).forEach(function (s) {
                 var p = document.createElement('section'); p.className = 'rp-page'; p.appendChild(s); box.appendChild(p); n++;
             });
+            recap.push(PAGES[idx].label + ' : ' + nb);
+            if (!nb) manque.push(PAGES[idx].label);
         });
         status.textContent = n ? n + ' diapos prêtes.' : 'Aucune diapo trouvée pour ce match.';
+        var r = document.getElementById('rp-recap');
+        if (r) { r.textContent = 'Contenu : ' + recap.join(' · ') + (manque.length ? '  —  SANS DIAPO : ' + manque.join(', ') + ' (page sans données ou non chargée : recharge cette page pour réessayer)' : ''); r.classList.toggle('rp-recap-warn', manque.length > 0); }
         btn.disabled = !n;
         dl.disabled = !n;
     });

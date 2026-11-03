@@ -1884,16 +1884,19 @@ def _joueurs_detail_slides(bilan_slide, player_cards, tables, avg=False):
 
 
 # Ordre des diapos du PDF « rapport complet » : l'ordre des onglets du rapport (nom de la route de chaque page).
-RAPPORT_PDF_PAGES = ["match_detail", "match_bilan_attaque", "match_zone_gold", "match_surfeurs", "match_possessions",
-                     "match_bilan_defense", "match_csc", "match_discipline", "match_touches", "match_melees",
-                     "match_tirs", "match_jap", "match_joueurs"]
+RAPPORT_PDF_PAGES = [("match_detail", "Vue d'ensemble"), ("match_bilan_attaque", "Bilan attaque"),
+                     ("match_zone_gold", "Zone Gold"), ("match_surfeurs", "Surfeurs"),
+                     ("match_possessions", "Nos possessions"), ("match_bilan_defense", "Bilan défense"),
+                     ("match_csc", "CSC"), ("match_discipline", "Discipline"), ("match_touches", "Touches"),
+                     ("match_melees", "Mêlées"), ("match_tirs", "Tirs au but"), ("match_jap", "Jeu au pied"),
+                     ("match_joueurs", "Joueurs")]
 
 
 @app.route("/match/<int:match_id>/rapport-pdf")
 def match_rapport_pdf(match_id):
     """Rapport complet d'un match en une seule suite de diapos 16/9 (ouvre la fenêtre d'enregistrement en PDF)."""
     match = _get_match_or_404(match_id)
-    pages = [url_for(ep, match_id=match_id) for ep in RAPPORT_PDF_PAGES]
+    pages = [{"url": url_for(ep, match_id=match_id), "label": lab} for ep, lab in RAPPORT_PDF_PAGES]
     return render_template("match_rapport_pdf.html", match=match, pages=pages)
 
 
