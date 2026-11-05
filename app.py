@@ -8,6 +8,8 @@ import unicodedata
 import copy
 import threading
 import hmac
+import hashlib
+import queue
 import secrets
 import psycopg2
 import psycopg2.extras
@@ -20,6 +22,7 @@ from werkzeug.utils import secure_filename
 from flask import Flask, render_template, request, redirect, url_for, flash, g, abort, session, Response, jsonify
 import bareme
 import compte_rendu
+import parser as _parser
 from parser import (
     _normalize_tag, _detect_adverse_token, _scoring_events,
     ZONE_GOLD_CHOICES,
@@ -1444,8 +1447,21 @@ def _cle_disc_ind(row):
     return (row.get("id"), h.hexdigest())
 
 
+def _empreinte_ligne(row):
+    """Empreinte de TOUTES les colonnes d'un match : change dès que quoi que ce soit change (données
+    XML, saisies manuelles, date, adversaire...). Sert de clé aux résultats gardés en mémoire/en base."""
+    h = hashlib.md5()
+    for col in sorted(row.keys()):
+        h.update(col.encode("utf-8"))
+        h.update(b"=")
+        h.update(str(row[col] if row[col] is not None else "").encode("utf-8", "replace"))
+        h.update(b"\x00")
+    return h.hexdigest()
+
+
 def _row_to_match(row):
     cle_disc = _cle_disc_ind(row)
+    emp = _empreinte_ligne(row)
     m = dict(row)
     m["stats"] = json.loads(m.pop("stats_json") or "{}")
     m["players"] = json.loads(m.pop("players_json") or "{}")
@@ -1456,6 +1472,8 @@ def _row_to_match(row):
     m["row_order"] = json.loads(m.pop("row_order_json", None) or "[]")
     m["player_match_stats"] = json.loads(m.pop("player_match_stats_json", None) or "{}")
     m["ubb_overview"] = json.loads(m.pop("ubb_overview_json", None) or "{}")
+    m["_cle_row"] = emp
+    m["instances"] = _parser.marquer_contenu(m["instances"], emp)
     _poser_discipline_indiv(m, cle_disc)
     return m
 
@@ -1663,7 +1681,7 @@ def match_detail(match_id):
         if review:
             review["assets"] = _review_assets(match)
         matches_with_instances, _, _, _ = _season_context()
-        baseline = compute_match_baseline(matches_with_instances, exclude_id=match_id)
+        baseline = _calcul_autres_matchs("baseline", compute_match_baseline, matches_with_instances, match_id)
         # Courbe momentum : demande un modèle de tagging spécifique (voir parser.py,
         # section MOMENTUM) — un match codé avec un autre gabarit renvoie quand même un
         # résultat, mais avec des indicateurs à 0 et une alerte de conformité dans
@@ -2043,7 +2061,7 @@ def match_joueurs(match_id):
     bilan_table = compute_player_bilan_table(match["instances"], attack_table=attack_table,
                                               defense_table=defense_table, ruck_table=ruck_table)
     matches_with_instances, _, _, _ = _season_context()
-    player_baselines = compute_player_season_baselines(matches_with_instances, exclude_id=match_id)
+    player_baselines = _calcul_autres_matchs("baselines-joueurs", compute_player_season_baselines, matches_with_instances, match_id)
     # Ordre d'affichage et numéros : ceux de la composition saisie sur le site (n°1 à n°23,
     # demande de Téo — même logique que la page Discipline), noms rapprochés des codes du
     # XML (« Tambo-Fantcho » = « FANTCHO TAMBO »). Sans composition : ordre des boutons
@@ -4194,18 +4212,222 @@ def _deps_signature():
 
 
 def _cached_result(name, selected, compute, extra="", copy_result=True):
-    """Résultat gardé en mémoire tant que les matchs sélectionnés et les réglages sont inchangés."""
-    key = (name, tuple((m["id"], m.get("_sig")) for m in selected), _deps_signature(), extra)
+    """Résultat gardé en mémoire (et en base, voir « Cache persistant ») tant que les matchs
+    sélectionnés et les réglages sont inchangés."""
+    key = (name, tuple((m["id"], m.get("_cle_row") or m.get("_sig")) for m in selected), _deps_signature(), extra)
     with _CACHE_LOCK:
         hit = _RESULT_CACHE.get(key)
     if hit is not None:
         return copy.deepcopy(hit) if copy_result else hit
+    persistable = bool(selected) and all(m.get("_cle_row") for m in selected)
+    cle_base = "page|" + hashlib.md5(repr(key).encode("utf-8", "replace")).hexdigest()
+    if persistable:
+        trouve = _parser.store_get(cle_base)
+        if trouve is not None:
+            value = trouve[0]
+            with _CACHE_LOCK:
+                _RESULT_CACHE[key] = copy.deepcopy(value) if copy_result else value
+                while len(_RESULT_CACHE) > _RESULT_CACHE_MAX:
+                    _RESULT_CACHE.pop(next(iter(_RESULT_CACHE)))
+            return value
     value = compute()
     with _CACHE_LOCK:
         _RESULT_CACHE[key] = copy.deepcopy(value) if copy_result else value
         while len(_RESULT_CACHE) > _RESULT_CACHE_MAX:
             _RESULT_CACHE.pop(next(iter(_RESULT_CACHE)))
+    if persistable:
+        _parser.store_set(cle_base, value)
     return value
+
+
+# ---- Cache persistant ------------------------------------------------------------------------
+# Les gros calculs (par match, et les pages de saison) sont gardés en base : après une mise en
+# veille de Render ou un redémarrage, ils sont relus au lieu d'être recalculés (3 s à 13 s selon la
+# page avec 20 matchs). Sûretés :
+#  - la clé contient l'empreinte COMPLÈTE du contenu des matchs concernés : une modification change
+#    la clé, rien de périmé n'est servi ;
+#  - elle contient aussi la version du code (empreinte des fichiers .py) : chaque déploiement repart
+#    d'un cache vide, aucune ancienne formule ne survit ;
+#  - chaque entrée est signée (HMAC avec la clé secrète) et n'est relue qu'après vérification.
+_PERSIST_FICHIERS = ("app.py", "parser.py", "parser_ubb.py", "bareme.py", "compte_rendu.py")
+_PERSIST_ACTIF = os.environ.get("CALC_CACHE", "1") != "0"
+
+
+def _version_code():
+    h = hashlib.md5()
+    base = os.path.dirname(os.path.abspath(__file__))
+    for f in _PERSIST_FICHIERS:
+        try:
+            with open(os.path.join(base, f), "rb") as fh:
+                h.update(fh.read())
+        except OSError:
+            pass
+    return h.hexdigest()[:16]
+
+
+_PERSIST_VER = _version_code()
+_PERSIST_MEM = {}
+_PERSIST_OCTETS = 0
+_PERSIST_MAX_OCTETS = 80 * 1024 * 1024   # plafond de mémoire : au-delà, on ne garde plus de nouveaux résultats
+_PERSIST_LOCK = threading.Lock()
+_PERSIST_PRET = False
+_PERSIST_Q = queue.Queue(maxsize=3000)
+_PERSIST_ECRIVAIN = None
+
+
+def _persist_sha(k):
+    return hashlib.sha256((_PERSIST_VER + "|" + k).encode("utf-8", "replace")).hexdigest()
+
+
+# Clé de signature : SECRET_KEY si elle est définie (cas normal), sinon l'adresse de la base (secrète
+# et stable d'un redémarrage à l'autre, contrairement à la clé aléatoire de secours de la session).
+_PERSIST_CLE = (os.environ.get("SECRET_KEY") or DATABASE_URL or "").encode("utf-8")
+
+
+def _persist_hmac(sha, b):
+    return hmac.new(_PERSIST_CLE, sha.encode("ascii") + b, "sha256").hexdigest()
+
+
+def _persist_charger():
+    """Charge une fois (au démarrage ou à la première demande) les entrées de la version courante."""
+    global _PERSIST_PRET
+    with _PERSIST_LOCK:
+        if _PERSIST_PRET:
+            return
+        _PERSIST_PRET = True
+        try:
+            conn = _connect()
+            conn.autocommit = True
+            cur = conn.cursor()
+            cur.execute("""CREATE TABLE IF NOT EXISTS calc_cache (
+                k TEXT PRIMARY KEY, ver TEXT NOT NULL, h TEXT NOT NULL, v BYTEA NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now())""")
+            cur.execute("DELETE FROM calc_cache WHERE ver <> %s", (_PERSIST_VER,))
+            cur.execute("SELECT count(*) FROM calc_cache")
+            if cur.fetchone()[0] > 4000:     # la table ne doit pas grossir sans limite
+                cur.execute("DELETE FROM calc_cache WHERE k IN (SELECT k FROM calc_cache ORDER BY created_at LIMIT 2000)")
+            cur.execute("SELECT k, h, v FROM calc_cache ORDER BY created_at DESC")
+            global _PERSIST_OCTETS
+            for k, h, v in cur.fetchall():
+                b = bytes(v)
+                if _PERSIST_OCTETS + len(b) > _PERSIST_MAX_OCTETS:
+                    continue
+                if hmac.compare_digest(h, _persist_hmac(k, b)):
+                    _PERSIST_MEM[k] = b
+                    _PERSIST_OCTETS += len(b)
+            conn.close()
+        except Exception as e:
+            print("Cache persistant indisponible :", e, flush=True)
+
+
+def _persist_get(k):
+    _persist_charger()
+    return _PERSIST_MEM.get(_persist_sha(k))
+
+
+def _persist_ecrire_boucle():
+    conn = None
+    while True:
+        sha, b = _PERSIST_Q.get()
+        try:
+            if conn is None or conn.closed:
+                conn = _connect()
+                conn.autocommit = True
+            cur = conn.cursor()
+            cur.execute("INSERT INTO calc_cache (k, ver, h, v) VALUES (%s, %s, %s, %s) ON CONFLICT (k) DO NOTHING",
+                        (sha, _PERSIST_VER, _persist_hmac(sha, b), psycopg2.Binary(b)))
+        except Exception:
+            try:
+                conn.close()
+            except Exception:
+                pass
+            conn = None
+
+
+def _persist_set(k, b):
+    global _PERSIST_ECRIVAIN, _PERSIST_OCTETS
+    sha = _persist_sha(k)
+    if sha not in _PERSIST_MEM:
+        if _PERSIST_OCTETS + len(b) > _PERSIST_MAX_OCTETS:
+            return
+        _PERSIST_OCTETS += len(b)
+    _PERSIST_MEM[sha] = b
+    if _PERSIST_ECRIVAIN is None:
+        with _PERSIST_LOCK:
+            if _PERSIST_ECRIVAIN is None:
+                _PERSIST_ECRIVAIN = threading.Thread(target=_persist_ecrire_boucle, daemon=True, name="calc-cache-ecrivain")
+                _PERSIST_ECRIVAIN.start()
+    try:
+        _PERSIST_Q.put_nowait((sha, b))
+    except queue.Full:
+        pass
+
+
+if _PERSIST_ACTIF:
+    _parser.STORE_BRANCHEMENT["get"] = _persist_get
+    _parser.STORE_BRANCHEMENT["set"] = _persist_set
+
+
+# ---- Préchauffage ----------------------------------------------------------------------------
+PRECHAUFFAGE_PAGES = [
+    "/season/bilan", "/season/bilan-attaque", "/season/bilan-defense", "/season/csc", "/season/discipline",
+    "/season/jeu-au-pied", "/season/joueurs", "/season/melees", "/season/possessions", "/season/review",
+    "/season/surfeurs", "/season/tirs", "/season/touches", "/season/zone-gold", "/season/gagner-perdre",
+    "/season/comparer", "/season/fiche", "/season/notes", "/season/style-de-jeu",
+]
+_prechauffage_lock = threading.Lock()
+_prechauffage_timer = None
+
+
+def _prechauffer():
+    """Visite en arrière-plan les pages de saison avec un compte admin interne : leurs calculs
+    sont alors prêts (en mémoire et en base) avant que quelqu'un les ouvre."""
+    t0 = time.time()
+    try:
+        _persist_charger()
+        client = app.test_client()
+        with client.session_transaction() as sess:
+            sess["logged_in"] = True
+            sess["is_admin"] = True
+        for url in PRECHAUFFAGE_PAGES:
+            try:
+                client.get(url)
+            except Exception:
+                pass
+            time.sleep(0.05)
+        print("Préchauffage terminé en %.1f s" % (time.time() - t0), flush=True)
+    except Exception as e:
+        print("Préchauffage interrompu :", e, flush=True)
+
+
+def demarrer_prechauffage(delai=1.0):
+    """Lance le préchauffage en arrière-plan (appelé au démarrage du serveur, voir gunicorn.conf.py,
+    et après chaque modification de données)."""
+    global _prechauffage_timer
+    with _prechauffage_lock:
+        if _prechauffage_timer is not None:
+            _prechauffage_timer.cancel()
+        _prechauffage_timer = threading.Timer(delai, _prechauffer)
+        _prechauffage_timer.daemon = True
+        _prechauffage_timer.start()
+
+
+@app.after_request
+def _prechauffer_apres_modification(response):
+    """Après un envoi de données réussi (import, remplacement de XML, saisie), on réchauffe les
+    pages une fois les choses calmes (5 s), au lieu de laisser le prochain visiteur payer le calcul."""
+    if request.method == "POST" and response.status_code < 400 and not app.testing and not LOCAL_DEV:
+        demarrer_prechauffage(delai=5.0)
+    return response
+
+
+def _calcul_autres_matchs(nom, fonction, matches_with_instances, match_id):
+    """Moyennes « du reste de la saison » d'un match (tous les autres matchs) : gardées tant qu'aucun
+    de ces autres matchs ne change, au lieu d'être recalculées à chaque ouverture d'une page de match."""
+    autres = [m for m in matches_with_instances if m["id"] != match_id and m["instances"]]
+    if not autres:
+        return fonction(matches_with_instances, exclude_id=match_id)
+    return _cached_result(nom, autres, lambda: fonction(matches_with_instances, exclude_id=match_id))
 
 
 def _season_context():
@@ -4217,7 +4439,7 @@ def _season_context():
         # Signature = numéro de la dernière transaction qui a modifié la ligne (xmin) : change à
         # chaque modification du match, sans relire ni décompresser les centaines de Ko de JSON de
         # chaque match (l'ancienne empreinte md5 de toute la ligne les relisait à CHAQUE page).
-        "SELECT id, m.xmin::text AS sig FROM matches m ORDER BY COALESCE(m.match_date, m.created_at)"
+        "SELECT id, m.xmin::text AS sig FROM matches m ORDER BY COALESCE(m.match_date, m.created_at), m.id"
     ).fetchall()
     ids = [r["id"] for r in sigs]
     sigmap = {r["id"]: r["sig"] for r in sigs}
@@ -4250,10 +4472,9 @@ def _season_context():
 
 
 def _season_instances(selected):
-    combined = []
-    for m in selected:
-        combined.extend(m["instances"])
-    return combined
+    return _parser.combiner_instances(selected)
+
+
 
 
 

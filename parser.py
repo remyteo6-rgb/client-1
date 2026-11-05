@@ -7,6 +7,7 @@ il détecte automatiquement les codes numérotés du type "<n> - <Catégorie> <C
 tout le reste (surnoms de joueurs, marqueurs type STOP) comme des "tags" séparés.
 """
 import math
+import pickle
 import re
 import copy
 import functools
@@ -17,6 +18,159 @@ import unicodedata
 import xml.etree.ElementTree as ET
 from collections import defaultdict, Counter
 from datetime import datetime, timedelta
+
+
+# Mémo par requête : certains résultats ne dépendent que de la liste d'instances et sont redemandés
+# des centaines de fois pendant un même affichage (adversaire détecté, liste des joueurs).
+# Un mémo par fil d'exécution, vidé à la fin de chaque requête (voir app.py), qui garde une
+# référence à la liste pour qu'aucune adresse mémoire ne puisse être réutilisée par une autre.
+_memo_local = threading.local()
+
+
+def _memo_instances(nom, instances, calcul):
+    if not isinstance(instances, list):
+        return calcul()
+    memo = getattr(_memo_local, "d", None)
+    if memo is None:
+        memo = _memo_local.d = {}
+    cle = (nom, id(instances), len(instances))
+    hit = memo.get(cle)
+    if hit is not None and hit[0] is instances:
+        return hit[1]
+    val = calcul()
+    if len(memo) >= 64:
+        memo.clear()
+    memo[cle] = (instances, val)
+    return val
+
+
+def vider_memos():
+    _memo_local.d = {}
+
+
+# ---------------------------------------------------------------------------------------------
+# Mémo PAR CONTENU, entre requêtes (et, si app.py le branche, entre redémarrages).
+#
+# Les gros calculs d'un match (tableaux joueurs, bilans, zone gold, touches, discipline...) ne
+# dépendent que du contenu du match et de leurs arguments. app.py marque la liste d'instances d'un
+# match chargé depuis la base avec l'empreinte de son contenu (marquer_contenu) ; tant que cette
+# empreinte est la même, le résultat est relu au lieu d'être recalculé. Toute modification du match
+# change l'empreinte, donc rien de périmé ne peut être servi. Une liste filtrée, copiée ou modifiée
+# n'a pas les marqueurs (premier/dernier élément + longueur) : elle est calculée normalement.
+_STORE = {}                        # clé -> octets (pickle de (valeur,))
+_STORE_LOCK = threading.Lock()
+_STORE_MAX = 4000
+STORE_BRANCHEMENT = {"get": None, "set": None}   # branchés par app.py (persistance en base)
+
+
+class ListeMarquee(list):
+    """Liste d'instances portant l'empreinte de son contenu. L'empreinte est portée par la liste
+    elle-même (jamais par les instances, partagées entre listes) et ne survit à aucune copie,
+    tranche, filtre ou modification : une liste dérivée est donc toujours calculée normalement."""
+    __slots__ = ("cle", "n")
+
+    def __copy__(self):
+        return list(self)
+
+    def __deepcopy__(self, memo):
+        return copy.deepcopy(list(self), memo)
+
+    def __reduce_ex__(self, protocol):
+        return (list, (list(self),))
+
+
+def marquer_contenu(instances, cle):
+    """Renvoie la liste marquée avec l'empreinte du contenu (ou la liste telle quelle sans empreinte)."""
+    if isinstance(instances, list) and instances and cle:
+        marquee = ListeMarquee(instances)
+        marquee.cle = cle
+        marquee.n = len(marquee)
+        return marquee
+    return instances
+
+
+def _cle_contenu(instances):
+    if type(instances) is ListeMarquee and len(instances) == instances.n:
+        return instances.cle
+    return None
+
+
+def combiner_instances(matchs):
+    """Instances de plusieurs matchs mises bout à bout. Si chaque match porte l'empreinte de son contenu
+    (clé « _cle_row » posée par app.py), la liste obtenue porte celle de l'ensemble (ordre compris) :
+    ses gros calculs sont gardés et changent dès qu'un seul des matchs change."""
+    combinees = [i for m in matchs for i in m["instances"]]
+    cles = [m.get("_cle_row") for m in matchs]
+    if matchs and all(cles):
+        emp = hashlib.md5("|".join("%s:%s" % (m.get("id"), c) for m, c in zip(matchs, cles)).encode("utf-8")).hexdigest()
+        return marquer_contenu(combinees, "saison-" + emp)
+    return combinees
+
+
+def store_get(k):
+    """Renvoie (valeur,) ou None si absent. Chaque appel redonne un objet neuf (aucun partage)."""
+    with _STORE_LOCK:
+        b = _STORE.get(k)
+    if b is None and STORE_BRANCHEMENT["get"]:
+        try:
+            b = STORE_BRANCHEMENT["get"](k)
+        except Exception:
+            b = None
+        if b is not None:
+            with _STORE_LOCK:
+                _STORE[k] = b
+    if b is None:
+        return None
+    try:
+        return pickle.loads(b)
+    except Exception:
+        return None
+
+
+def store_set(k, valeur):
+    try:
+        b = pickle.dumps((valeur,), protocol=4)
+    except Exception:
+        return
+    with _STORE_LOCK:
+        _STORE[k] = b
+        if len(_STORE) > _STORE_MAX:
+            for kk in list(_STORE)[: _STORE_MAX // 10]:
+                _STORE.pop(kk, None)
+    if STORE_BRANCHEMENT["set"]:
+        try:
+            STORE_BRANCHEMENT["set"](k, b)
+        except Exception:
+            pass
+
+
+def memo_contenu(fonction=None, *, ignore_disc_ind=False):
+    """Décorateur : fonction(instances, *args) mémorisée par contenu du match + arguments.
+    ignore_disc_ind=True pour une fonction qui ne lit pas la discipline individuelle posée par app.py
+    sur la 1re instance (les autres la lisent : sa présence fait partie de la clé)."""
+    def deco(f):
+        nom = f.__qualname__
+
+        @functools.wraps(f)
+        def enveloppe(instances, *args, **kwargs):
+            cle = _cle_contenu(instances)
+            if not cle:
+                return f(instances, *args, **kwargs)
+            rep = repr((args, sorted(kwargs.items())))
+            if " at 0x" in rep:
+                return f(instances, *args, **kwargs)
+            drapeau = 0 if ignore_disc_ind else int("_disc_ind" in instances[0])
+            k = "%s|%s|%d|%s" % (nom, cle, drapeau, hashlib.md5(rep.encode("utf-8", "replace")).hexdigest())
+            hit = store_get(k)
+            if hit is not None:
+                return hit[0]
+            val = f(instances, *args, **kwargs)
+            store_set(k, val)
+            return val
+        return enveloppe
+    return deco(fonction) if fonction is not None else deco
+
+
 
 ZONE_RE = re.compile(r"^\d+-\d+$")
 NUMBERED_RE = re.compile(r"^\d+\s*-\s*(.+)$")
@@ -240,6 +394,7 @@ def _last_own_token(rest):
 GENERIC_BINARY_TEXTS = {"+", "-", "REUSSI", "reussi", "RATE", "raté", "GAGNE", "PERDU"}
 
 
+@memo_contenu
 def aggregate_match_stats(instances):
     """Build per-category, per-side aggregates for dashboard rendering."""
     cats = defaultdict(lambda: {"own": {"count": 0, "success": 0, "fail": 0, "duration": 0.0},
@@ -485,6 +640,7 @@ def _label_texts(inst, group="ANY"):
     return [l["text"] for l in inst["labels"] if group == "ANY" or l["group"] == group]
 
 
+@memo_contenu
 def compute_score(instances):
     """Score réel du match, calculé à partir des codes Essai / Transformation / Penalité."""
     own = adv = own_tries = adv_tries = 0
@@ -1056,6 +1212,7 @@ def _csc_share(parts):
             for label, count, tone in parts]
 
 
+@memo_contenu
 def compute_csc(instances):
     """Page "CSC" du rapport vidéo : Chasseur, Sniper et Combattant. Renvoie None si
     ce match n'a aucun de ces trois groupes de labels.
@@ -1242,6 +1399,7 @@ def _fautes_premiere_mi_temps(instances, par_periode, team):
                if _normalize_tag(i.get("code_raw")) == "UBB DISCIPLINES" and (i.get("start") or 0) < half_time)
 
 
+@memo_contenu(ignore_disc_ind=True)
 def compute_discipline(instances, row_order=None, cards=None, composition=None, manual=None):
     """Voir _compute_discipline_calcul. Un même affichage la demande 2 à 3 fois pour chaque match
     (fiche individuelle, radar, tableau) avec les mêmes données : calculée une seule fois par requête."""
@@ -1508,6 +1666,7 @@ def _match_card(name, cards):
 TOUCHES_ZONES = ("ROUGE", "COP", "RUMBLE", "GOLD")
 
 
+@memo_contenu
 def compute_touches_page(instances, manual=None):
     """Nos touches dans l'ordre du match, pour la page TOUCHES du rapport.
 
@@ -1740,6 +1899,7 @@ def _offloads_detail(qualif):
             {"label": "Négatifs", "tone": "bil-tile-red", "count": qualif.get("-", 0)}]
 
 
+@memo_contenu
 def compute_bilan_attaque(instances, own_points=None):
     """Page "Bilan attaque" du rapport. Renvoie None si le match n'est pas tagué avec
     cette convention. Les cases du rapport qu'on ne sait pas déduire du XML valent
@@ -1992,6 +2152,7 @@ def _defense_ligne(libelles, compte):
     return lignes
 
 
+@memo_contenu
 def compute_bilan_defense(instances, adverse_points=None, zone_gold=None):
     """Page "DEFENSE" du rapport vidéo : ce que l'adversaire a produit contre nous.
 
@@ -2338,6 +2499,7 @@ def player_row_order(instances, row_order):
     return [c for c in (row_order or []) if c in player_names]
 
 
+@memo_contenu
 def compute_player_activity(instances):
     """Nombre d'actions codées par joueur et par tranche de 20 minutes (0-20, 20-40, 40-60,
     60-80) : une action = une instance posée sur le code du joueur, rangée dans le quart-temps
@@ -2357,6 +2519,7 @@ def compute_player_activity(instances):
     return out
 
 
+@memo_contenu
 def compute_player_attack_table(instances):
     """Contact, passes, offloads, soutien au ruck, déchet/discipline offensive par joueur
     (convention 2026 : groupes 'Contacts'/'Passes'/'Offload'/'Disciplines').
@@ -2472,6 +2635,7 @@ def compute_player_attack_table(instances):
     return {"rows": result, "totals": dict(totals)}
 
 
+@memo_contenu
 def compute_player_defense_table(instances):
     """Plaquages (Snipers : réussis/manqués/tentés, hauteur, qualité +/=/-), Combattant,
     Chasseur (montées sur jeu au pied, +/-) et ballons récupérés dans le jeu (contre-rucks
@@ -2637,6 +2801,7 @@ def compute_occupation(instances):
     }
 
 
+@memo_contenu
 def compute_overview_dashboard(instances, score):
     """Regroupe les métriques du nouveau tableau de bord de la page principale :
     temps de jeu effectif, % gain ligne d'avantage, points par entrée, occupation.
@@ -3337,7 +3502,7 @@ def compute_match_baseline(matches_with_instances, exclude_id=None):
     if not others:
         return None
     nb = len(others)
-    instances = [i for m in others for i in m["instances"]]
+    instances = combiner_instances(others)
 
     score = compute_score(instances)
     dash = compute_overview_dashboard(instances, score)
@@ -3393,6 +3558,7 @@ def _match_own_kick_event(inst, kind, events, used):
     return events[best]
 
 
+@memo_contenu
 def _conquete_auto(instances):
     """Réussite des touches et des mêlées UBB rattachée aux joueurs qui y participent, par
     simple chronologie : la ligne d'équipe « UBB Touches » / « UBB Mêlées » porte le résultat
@@ -3435,6 +3601,7 @@ def _conquete_auto(instances):
     return out
 
 
+@memo_contenu
 def compute_player_ruck_table(instances):
     """Conquête, jeu au pied et marque par joueur (convention 2026) : mêlées/touche
     (LIFTEUR/SAUTEUR/LANCE), jeu au pied (JAP/COUP D'ENVOI/RECEPTION CE, qualifiés +/=/-
@@ -3769,7 +3936,7 @@ def compute_player_season_baselines(matches_with_instances, exclude_id=None):
     others = [m for m in matches_with_instances if m["id"] != exclude_id and m["instances"]]
     if not others:
         return None
-    combined = [i for m in others for i in m["instances"]]
+    combined = combiner_instances(others)
     appearances = defaultdict(int)
     for m in others:
         for name in _new_convention_player_names(m["instances"]):
@@ -4434,34 +4601,6 @@ def _normalize_tag(text):
     return " ".join(ascii_text.upper().split())
 
 
-# Mémo par requête : certains résultats ne dépendent que de la liste d'instances et sont redemandés
-# des centaines de fois pendant un même affichage (adversaire détecté, liste des joueurs).
-# Un mémo par fil d'exécution, vidé à la fin de chaque requête (voir app.py), qui garde une
-# référence à la liste pour qu'aucune adresse mémoire ne puisse être réutilisée par une autre.
-_memo_local = threading.local()
-
-
-def _memo_instances(nom, instances, calcul):
-    if not isinstance(instances, list):
-        return calcul()
-    memo = getattr(_memo_local, "d", None)
-    if memo is None:
-        memo = _memo_local.d = {}
-    cle = (nom, id(instances), len(instances))
-    hit = memo.get(cle)
-    if hit is not None and hit[0] is instances:
-        return hit[1]
-    val = calcul()
-    if len(memo) >= 64:
-        memo.clear()
-    memo[cle] = (instances, val)
-    return val
-
-
-def vider_memos():
-    _memo_local.d = {}
-
-
 # Temps de jeu effectif : le code s'écrit différemment d'un fichier à l'autre (« BIP », « Ball in play »,
 # « Ball-in-play », « B.I.P », « Ballon en jeu », « Temps de jeu effectif »…). On compare sans
 # ponctuation ni espaces.
@@ -4644,6 +4783,7 @@ def _attach_entry_points(rows, events, side):
             r["points_auto"] = False
 
 
+@memo_contenu
 def compute_zone_gold_log(instances, own_points=None, adverse_points=None, overrides=None):
     """Journal des entrées en zone Gold (22m adverse pour nous / notre 22m pour
     l'adversaire), façon page 'Zone Gold' du rapport vidéo : liste des entrées
