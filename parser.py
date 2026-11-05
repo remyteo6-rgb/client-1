@@ -112,6 +112,14 @@ def parse_sportscode_xml(path, own_team_label=None):
         'row_order': [code_raw, ...],  # ordre des boutons dans Sportscode (balise ROWS)
       }
     """
+    # Un export Sportscode ne déclare jamais d'entités XML. Un fichier qui en contient (attaque
+    # « billion laughs » : quelques lignes qui se développent en gigaoctets) est refusé avant lecture.
+    with open(path, "rb") as _f:
+        _brut = _f.read()
+    for _enc in ("utf-8", "utf-16-le", "utf-16-be"):
+        if "<!ENTITY".encode(_enc) in _brut:
+            raise ValueError("Fichier XML refusé : il contient des déclarations d'entités, absentes d'un export Sportscode.")
+    del _brut
     tree = ET.parse(path)
     root = tree.getroot()
     all_instances = root.find("ALL_INSTANCES")

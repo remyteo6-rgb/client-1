@@ -7,12 +7,16 @@ import json
 import unicodedata
 import copy
 import threading
+import hmac
+import secrets
 import psycopg2
 import psycopg2.extras
 import openpyxl
 from datetime import datetime, timedelta
 from functools import wraps
+from urllib.parse import urlparse
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from flask import Flask, render_template, request, redirect, url_for, flash, g, abort, session, Response, jsonify
 import bareme
 import compte_rendu
@@ -59,6 +63,12 @@ app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=365)  # reste connect�
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 LOCAL_DEV = os.environ.get("FLASK_SECRET_KEY") == "devsecret" or os.environ.get("LOCAL_DEV") == "1"
+if app.secret_key == "dev-secret-change-me" and not LOCAL_DEV:
+    # SECRET_KEY absente en ligne : la valeur par défaut est publique (dans le code), n'importe qui
+    # pourrait fabriquer un cookie de session valide. On en tire une au hasard (les sessions sautent
+    # à chaque redémarrage, ce qui est gênant mais sans danger) et on le dit dans les journaux.
+    app.secret_key = secrets.token_hex(32)
+    print("ATTENTION : SECRET_KEY non définie, clé aléatoire utilisée (définis-la dans les variables Render).", flush=True)
 app.config["SESSION_COOKIE_SECURE"] = not LOCAL_DEV
 # Les fichiers statiques portent déjà un ?v=... qui change à chaque mise en ligne : le
 # navigateur peut donc les garder longtemps en cache sans risque d'afficher une vieille version.
@@ -78,6 +88,33 @@ CLUB_FULL_NAME = os.environ.get("CLUB_FULL_NAME", "Nissa Rugby")
 # variables d'environnement Render — sinon ces valeurs par défaut (à changer !) sont utilisées.
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@nissarugby.fr")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "changeme")
+ADMIN_PASSWORD_PAR_DEFAUT = ADMIN_PASSWORD == "changeme"
+
+
+def _egal(a, b):
+    """Comparaison de deux textes en temps constant (ne révèle pas à quelle lettre ça diffère)."""
+    return hmac.compare_digest((a or "").encode("utf-8"), (b or "").encode("utf-8"))
+
+
+def _admin_ok(email, password):
+    """Identifiants admin valides. Le mot de passe par défaut « changeme » est refusé en ligne
+    (il est public, dans le code) : il ne sert qu'en développement local."""
+    if ADMIN_PASSWORD_PAR_DEFAUT and not LOCAL_DEV:
+        return False
+    return _egal(email, ADMIN_EMAIL.lower()) and _egal(password, ADMIN_PASSWORD)
+
+
+def _destination_sure(url, defaut):
+    """Adresse de retour acceptable après connexion/action : uniquement un chemin du site lui-même.
+    Refuse « https://autre-site », « //autre-site », « \\autre-site » (redirection ouverte, utilisée
+    pour hameçonner juste après la connexion)."""
+    url = (url or "").strip()
+    if not url or not url.startswith("/") or url.startswith("//") or "\\" in url:
+        return defaut
+    p = urlparse(url)
+    if p.scheme or p.netloc:
+        return defaut
+    return url
 # Mot de passe donné à un nouvel accès staff « cahier d'entraînement » (ou après une
 # réinitialisation) : le compte est obligé d'en choisir un personnel à sa toute première
 # connexion suivante, il ne peut rien faire d'autre tant que ce n'est pas fait. Change cette
@@ -160,6 +197,29 @@ def require_login_everywhere():
         return
     if not session.get("logged_in"):
         return redirect(url_for("login", next=request.full_path))
+
+
+@app.before_request
+def verifier_origine():
+    """Refuse un envoi de formulaire (POST...) venu d'un AUTRE site : sans ça, une page piégée
+    pourrait faire exécuter une action (suppression d'un match...) à un administrateur connecté.
+    On se fie d'abord à l'en-tête Sec-Fetch-Site (posé par le navigateur, non modifiable par une page),
+    sinon à Origin comparé à l'adresse du site. Sans aucun de ces en-têtes, on laisse passer."""
+    if request.method in ("GET", "HEAD", "OPTIONS"):
+        return
+    site = (request.headers.get("Sec-Fetch-Site") or "").lower()
+    if site:
+        if site == "cross-site":
+            abort(403)
+        return
+    origine = request.headers.get("Origin") or request.headers.get("Referer") or ""
+    hote = urlparse(origine).netloc.lower() if origine else ""
+    if not hote:
+        return
+    acceptes = {request.host.lower(),
+                (request.headers.get("X-Forwarded-Host") or "").split(",")[0].strip().lower()}
+    if hote not in acceptes:
+        abort(403)
 
 
 @app.before_request
@@ -705,50 +765,76 @@ LOGIN_FENETRE = timedelta(minutes=10)
 _essais_connexion = {}
 
 
-def _connexion_bloquee(ip):
-    essais = [t for t in _essais_connexion.get(ip, []) if datetime.utcnow() - t < LOGIN_FENETRE]
-    _essais_connexion[ip] = essais
-    return len(essais) >= LOGIN_MAX_ESSAIS
+def _ip_client():
+    """Adresse du visiteur. On prend la DERNIÈRE entrée de X-Forwarded-For (celle qu'ajoute le
+    serveur de Render) : la première est écrite par le visiteur lui-même, il pouvait donc la
+    changer à chaque essai pour contourner la limite de tentatives."""
+    xff = request.headers.get("X-Forwarded-For", "")
+    derniere = xff.split(",")[-1].strip() if xff else ""
+    return derniere or request.remote_addr or "?"
 
 
-def _connexion_ratee(ip):
-    _essais_connexion.setdefault(ip, []).append(datetime.utcnow())
+def _cles_connexion(ip, email=""):
+    """Un essai compte contre l'adresse ET contre l'email visé : changer d'adresse ne suffit plus
+    à enchaîner les mots de passe sur un même compte."""
+    cles = [ip]
+    if email:
+        cles.append("mail:" + email[:200])
+    return cles
 
 
-def _connexion_reussie(ip):
-    _essais_connexion.pop(ip, None)
+def _connexion_bloquee(ip, email=""):
+    bloque = False
+    for cle in _cles_connexion(ip, email):
+        essais = [t for t in _essais_connexion.get(cle, []) if datetime.utcnow() - t < LOGIN_FENETRE]
+        _essais_connexion[cle] = essais
+        bloque = bloque or len(essais) >= LOGIN_MAX_ESSAIS
+    if len(_essais_connexion) > 5000:   # le dictionnaire ne doit pas grossir sans limite
+        for cle in [c for c, v in _essais_connexion.items() if not v][:2500]:
+            _essais_connexion.pop(cle, None)
+    return bloque
+
+
+def _connexion_ratee(ip, email=""):
+    for cle in _cles_connexion(ip, email):
+        _essais_connexion.setdefault(cle, []).append(datetime.utcnow())
+
+
+def _connexion_reussie(ip, email=""):
+    for cle in _cles_connexion(ip, email):
+        _essais_connexion.pop(cle, None)
 
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    next_url = request.values.get("next") or url_for("landing")
-    ip = request.headers.get("X-Forwarded-For", request.remote_addr or "?").split(",")[0].strip()
+    next_url = _destination_sure(request.values.get("next"), url_for("landing"))
+    ip = _ip_client()
     if request.method == "POST":
-        if _connexion_bloquee(ip):
+        email = request.form.get("email", "").strip().lower()
+        if _connexion_bloquee(ip, email):
             flash("Trop de tentatives de connexion. Réessaie dans quelques minutes.", "error")
             return render_template("login.html", next_url=next_url)
-        email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
-        next_target = request.form.get("next") or url_for("landing")
-        if email == ADMIN_EMAIL.lower() and password == ADMIN_PASSWORD:
+        next_target = _destination_sure(request.form.get("next"), url_for("landing"))
+        if _admin_ok(email, password):
             session.permanent = True
             session["logged_in"] = True
             session["is_admin"] = True
             session["is_player"] = False
             session["demo_forced"] = False
             session["user_email"] = email
-            _connexion_reussie(ip)
+            _connexion_reussie(ip, email)
             flash("Connecté.", "success")
             return redirect(next_target)
         for staff_email, staff_password in STAFF_ACCOUNTS:
-            if email == staff_email and password == staff_password:
+            if _egal(email, staff_email) and _egal(password, staff_password):
                 session.permanent = True
                 session["logged_in"] = True
                 session["is_admin"] = False
                 session["is_player"] = False
                 session["demo_forced"] = False
                 session["user_email"] = email
-                _connexion_reussie(ip)
+                _connexion_reussie(ip, email)
                 flash("Connecté.", "success")
                 return redirect(next_target)
         db = get_db()
@@ -765,7 +851,7 @@ def login():
                 session["staff_scope"] = staff["scope"]
                 session["staff_must_change_password"] = bool(staff["must_change_password"])
                 session["user_email"] = email
-                _connexion_reussie(ip)
+                _connexion_reussie(ip, email)
                 if staff["must_change_password"]:
                     flash(f"Bienvenue {staff['first_name']} ! Choisis ton propre mot de passe avant de continuer.", "success")
                     return redirect(url_for("staff_changer_mdp"))
@@ -773,7 +859,7 @@ def login():
                 if staff["scope"] == "cahier":
                     return redirect(url_for("cahier_charges"))
                 return redirect(next_target)
-            _connexion_ratee(ip)
+            _connexion_ratee(ip, email)
             flash("Email ou mot de passe incorrect.", "error")
             return render_template("login.html", next_url=next_url)
 
@@ -800,7 +886,7 @@ def login():
                 session["player_id"] = player["id"]
                 session["demo_forced"] = False
                 session["user_email"] = email
-                _connexion_reussie(ip)
+                _connexion_reussie(ip, email)
                 flash(f"Bienvenue {player['first_name']} ! Ton mot de passe vient d'être défini — ressers-t'en pour te reconnecter la prochaine fois.", "success")
                 return redirect(url_for("player_home"))
             if check_password_hash(player["password_hash"], password):
@@ -811,13 +897,13 @@ def login():
                 session["player_id"] = player["id"]
                 session["demo_forced"] = False
                 session["user_email"] = email
-                _connexion_reussie(ip)
+                _connexion_reussie(ip, email)
                 flash("Connecté.", "success")
                 return redirect(url_for("player_home") if next_target == url_for("landing") else next_target)
-            _connexion_ratee(ip)
+            _connexion_ratee(ip, email)
             flash("Email ou mot de passe incorrect.", "error")
             return render_template("login.html", next_url=next_url)
-        _connexion_ratee(ip)
+        _connexion_ratee(ip, email)
         flash("Email ou mot de passe incorrect.", "error")
     return render_template("login.html", next_url=next_url)
 
@@ -1219,7 +1305,7 @@ def upload():
         return redirect(url_for("upload"))
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     ts = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-    safe_name = f"{ts}_{file.filename}"
+    safe_name = f"{ts}_{secure_filename(file.filename) or 'match.xml'}"
     save_path = os.path.join(UPLOAD_DIR, safe_name)
     file.save(save_path)
     try:
@@ -1281,7 +1367,7 @@ def upload_ubb():
         return redirect(url_for("upload_ubb"))
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     ts = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-    safe_name = f"{ts}_{file.filename}"
+    safe_name = f"{ts}_{secure_filename(file.filename) or 'match.xml'}"
     save_path = os.path.join(UPLOAD_DIR, safe_name)
     file.save(save_path)
     try:
@@ -2352,7 +2438,7 @@ def site_image(image_key):
 def site_image_upload(image_key):
     """Dépôt d'une image depuis le site : blason d'un club (clic sur le logo de la page
     Review) ou fond de cette page. Remplace l'image existante le cas échéant."""
-    next_url = request.form.get("next") or url_for("index")
+    next_url = _destination_sure(request.form.get("next"), url_for("index"))
     label = (request.form.get("label") or image_key).strip()
     kind = "background" if image_key == "review-bg" else "crest"
     file = request.files.get("image")
@@ -3496,7 +3582,7 @@ def match_score_manual(match_id):
     db.execute("UPDATE matches SET manual_stats_json = %s WHERE id = %s", (json.dumps(manual), match_id))
     db.commit()
     flash("Score du match enregistré.", "success")
-    next_url = request.form.get("next") or url_for("match_detail", match_id=match_id)
+    next_url = _destination_sure(request.form.get("next"), url_for("match_detail", match_id=match_id))
     return redirect(next_url)
 
 
@@ -3964,7 +4050,7 @@ def match_replace_xml(match_id):
     avant = match.get("total_instances") or 0
     _apply_replace_xml(match_id, match, parsed, filename)
     try:
-        os.replace(save_path, os.path.join(UPLOAD_DIR, f"{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{filename}"))
+        os.replace(save_path, os.path.join(UPLOAD_DIR, f"{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{secure_filename(filename) or 'match.xml'}"))
     except OSError:
         pass
     flash(f"XML remplacé : {len(parsed['instances'])} actions codées (avant : {avant}). "
