@@ -89,6 +89,10 @@ CLUB_FULL_NAME = os.environ.get("CLUB_FULL_NAME", "Nissa Rugby")
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@nissarugby.fr")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "changeme")
 ADMIN_PASSWORD_PAR_DEFAUT = ADMIN_PASSWORD == "changeme"
+# Connexion des joueurs : DÉSACTIVÉE (le club n'en a pas l'usage). À la première connexion, le mot de
+# passe tapé devenait celui du joueur : quiconque connaissait son email pouvait prendre son compte.
+# Pour la réactiver un jour : variable d'environnement PLAYER_LOGIN=1.
+PLAYER_LOGIN = os.environ.get("PLAYER_LOGIN") == "1"
 
 
 def _egal(a, b):
@@ -295,6 +299,14 @@ def gate_staff_cahier():
     if session.get("staff_scope") != "cahier" or request.endpoint in STAFF_CAHIER_ALLOWED_ENDPOINTS:
         return
     return redirect(url_for("cahier_charges"))
+
+
+@app.before_request
+def fermer_sessions_joueur():
+    """Connexion joueur désactivée : une session joueur encore ouverte (cookie d'un an) est fermée."""
+    if session.get("is_player") and not PLAYER_LOGIN and request.endpoint not in ("login", "logout", "static"):
+        session.clear()
+        return redirect(url_for("login"))
 
 
 @app.before_request
@@ -868,7 +880,7 @@ def login():
         # passe (pas d'email de confirmation possible sans serveur mail configuré) — voir
         # le message d'aide sur la page de connexion.
         db = get_db()
-        player = db.execute("SELECT * FROM players WHERE email = %s", (email,)).fetchone()
+        player = db.execute("SELECT * FROM players WHERE email = %s", (email,)).fetchone() if PLAYER_LOGIN else None
         if player:
             if not password:
                 flash("Merci d'indiquer un mot de passe.", "error")
