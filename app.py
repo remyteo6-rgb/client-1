@@ -1429,7 +1429,23 @@ def upload_ubb():
     return redirect(url_for("match_detail", match_id=match_id))
 
 
+_DISC_IND_CACHE = {}
+_DISC_IND_LOCK = threading.Lock()
+
+
+def _cle_disc_ind(row):
+    """Empreinte des seules données dont dépend la discipline individuelle d'un match : tant que
+    rien n'a changé, on ne la recalcule pas (c'était fait à CHAQUE chargement de CHAQUE match)."""
+    import hashlib
+    h = hashlib.md5()
+    for col in ("instances_json", "manual_stats_json", "composition_json", "row_order_json", "player_match_stats_json"):
+        h.update((str(row.get(col) or "")).encode("utf-8", "replace"))
+        h.update(b"\x00")
+    return (row.get("id"), h.hexdigest())
+
+
 def _row_to_match(row):
+    cle_disc = _cle_disc_ind(row)
     m = dict(row)
     m["stats"] = json.loads(m.pop("stats_json") or "{}")
     m["players"] = json.loads(m.pop("players_json") or "{}")
@@ -1440,17 +1456,22 @@ def _row_to_match(row):
     m["row_order"] = json.loads(m.pop("row_order_json", None) or "[]")
     m["player_match_stats"] = json.loads(m.pop("player_match_stats_json", None) or "{}")
     m["ubb_overview"] = json.loads(m.pop("ubb_overview_json", None) or "{}")
-    _poser_discipline_indiv(m)
+    _poser_discipline_indiv(m, cle_disc)
     return m
 
 
-def _poser_discipline_indiv(m):
+def _poser_discipline_indiv(m, cle=None):
     """La Discipline collective du match fait foi pour les pénalités des fiches individuelles : on
     pose le détail {joueur: {off, def, autre}} sur la 1re instance (lu par
     parser.compute_player_attack_table). Sans discipline collective : None (labels des joueurs)."""
     ins = m.get("instances") or []
     if not ins:
         return
+    if cle is not None:
+        with _DISC_IND_LOCK:
+            if cle in _DISC_IND_CACHE:
+                ins[0]["_disc_ind"] = copy.deepcopy(_DISC_IND_CACHE[cle])
+                return
     detail = None
     try:
         d = compute_discipline(ins, m.get("row_order"), m.get("player_match_stats"), m.get("composition"),
@@ -1460,6 +1481,18 @@ def _poser_discipline_indiv(m):
     except Exception:
         detail = None
     ins[0]["_disc_ind"] = detail
+    if cle is not None:
+        with _DISC_IND_LOCK:
+            if len(_DISC_IND_CACHE) >= 200:
+                _DISC_IND_CACHE.clear()
+            _DISC_IND_CACHE[cle] = copy.deepcopy(detail)
+
+
+@app.teardown_request
+def _vider_memos_parser(exc=None):
+    """Fin de requête : on libère les résultats mémorisés par le parseur (références aux instances)."""
+    import parser as _parser_mod
+    _parser_mod.vider_memos()
 
 
 def _get_match_or_404(match_id):
@@ -4181,7 +4214,10 @@ def _season_context():
     les liens du sous-menu pour ne pas perdre la sélection en changeant d'onglet."""
     db = get_db()
     sigs = db.execute(
-        "SELECT id, md5(m::text) AS sig FROM matches m ORDER BY COALESCE(m.match_date, m.created_at)"
+        # Signature = numéro de la dernière transaction qui a modifié la ligne (xmin) : change à
+        # chaque modification du match, sans relire ni décompresser les centaines de Ko de JSON de
+        # chaque match (l'ancienne empreinte md5 de toute la ligne les relisait à CHAQUE page).
+        "SELECT id, m.xmin::text AS sig FROM matches m ORDER BY COALESCE(m.match_date, m.created_at)"
     ).fetchall()
     ids = [r["id"] for r in sigs]
     sigmap = {r["id"]: r["sig"] for r in sigs}

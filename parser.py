@@ -8,7 +8,11 @@ tout le reste (surnoms de joueurs, marqueurs type STOP) comme des "tags" sépar�
 """
 import math
 import re
+import copy
+import functools
+import hashlib
 import statistics
+import threading
 import unicodedata
 import xml.etree.ElementTree as ET
 from collections import defaultdict, Counter
@@ -39,6 +43,11 @@ NON_TEAM_PREFIXES = {"JAB", "PUNCH", "TIME", "BALL", "KICK", "RESTART", "GOLD", 
 
 
 def _detect_adverse_token(instances):
+    """Voir _detect_adverse_token_calcul (résultat mémorisé pendant la requête)."""
+    return _memo_instances("adv", instances, lambda: _detect_adverse_token_calcul(instances))
+
+
+def _detect_adverse_token_calcul(instances):
     """Auto-détecte le préfixe d'équipe adverse pour la convention 2026 ('<EQUIPE>
     <Categorie>', ex: 'UBB POSSESSION' / 'USC POSSESSION') : chaque adversaire est tagué
     avec son propre nom plutôt qu'un mot générique fixe ('ADV'/'ADVERSE'), donc il change
@@ -1234,6 +1243,15 @@ def _fautes_premiere_mi_temps(instances, par_periode, team):
 
 
 def compute_discipline(instances, row_order=None, cards=None, composition=None, manual=None):
+    """Voir _compute_discipline_calcul. Un même affichage la demande 2 à 3 fois pour chaque match
+    (fiche individuelle, radar, tableau) avec les mêmes données : calculée une seule fois par requête."""
+    empreinte = hashlib.md5(repr((row_order, cards, composition, manual)).encode("utf-8", "replace")).hexdigest()
+    res = _memo_instances("disc|" + empreinte, instances,
+                          lambda: _compute_discipline_calcul(instances, row_order, cards, composition, manual))
+    return copy.deepcopy(res)
+
+
+def _compute_discipline_calcul(instances, row_order=None, cards=None, composition=None, manual=None):
     """Page "DISCIPLINE" du rapport : fautes par joueur (raison, carton), par période
     (nous / eux), par catégorie (Attack / Defence / Set Piece / Other), avec les
     compléments saisis à la main sur la page (`manual`, voir app.match_discipline_save).
@@ -2279,6 +2297,11 @@ CHASSEUR_RECUP_TEXTS = {"CONTRE RUCK", "BALLONS GAGNES"}
 
 
 def _new_convention_player_names(instances):
+    """Voir _new_convention_player_names_calcul (résultat mémorisé pendant la requête ; copie rendue)."""
+    return set(_memo_instances("joueurs", instances, lambda: _new_convention_player_names_calcul(instances)))
+
+
+def _new_convention_player_names_calcul(instances):
     """Noms de joueurs réels : tout code qui porte au moins un label des groupes propres
     aux actions individuelles (JOUEURS OFF/SNIPERS/CHASSEUR/COMBATTANT/DISCIPLINES).
 
@@ -3797,6 +3820,7 @@ def _name_order_index(ordered_names):
     return numbers
 
 
+@functools.lru_cache(maxsize=200000)
 def _composition_name_score(comp_name, xml_name):
     """Ressemblance entre un nom de la page Composition (« Tambo-Fantcho », « Combrinck »)
     et un code joueur du XML (« FANTCHO TAMBO », « COMBRICK », « L.FUKWAMOKO ») : on ignore
@@ -4396,15 +4420,46 @@ def compute_possession_board(instances, overrides=None):
 # façon tolérante (casse/accents ignorés) plutôt que par correspondance exacte,
 # pour limiter la casse si l'analyste renomme légèrement ses codes.
 
+@functools.lru_cache(maxsize=65536)
 def _normalize_tag(text):
     """Casse et accents neutralisés, espaces normalisés — pour comparer les noms
     de codes/groupes de labels sans être sensible aux petites variations de
-    frappe (ex: 'Gold' / 'GOLD' / ' Gold ')."""
+    frappe (ex: 'Gold' / 'GOLD' / ' Gold ').
+    Mis en cache : un match compte quelques centaines de noms différents mais ils sont normalisés
+    des millions de fois (chaque calcul relit tous les labels)."""
     if not text:
         return ""
     nfkd = unicodedata.normalize("NFKD", text)
     ascii_text = "".join(c for c in nfkd if not unicodedata.combining(c))
     return " ".join(ascii_text.upper().split())
+
+
+# Mémo par requête : certains résultats ne dépendent que de la liste d'instances et sont redemandés
+# des centaines de fois pendant un même affichage (adversaire détecté, liste des joueurs).
+# Un mémo par fil d'exécution, vidé à la fin de chaque requête (voir app.py), qui garde une
+# référence à la liste pour qu'aucune adresse mémoire ne puisse être réutilisée par une autre.
+_memo_local = threading.local()
+
+
+def _memo_instances(nom, instances, calcul):
+    if not isinstance(instances, list):
+        return calcul()
+    memo = getattr(_memo_local, "d", None)
+    if memo is None:
+        memo = _memo_local.d = {}
+    cle = (nom, id(instances), len(instances))
+    hit = memo.get(cle)
+    if hit is not None and hit[0] is instances:
+        return hit[1]
+    val = calcul()
+    if len(memo) >= 64:
+        memo.clear()
+    memo[cle] = (instances, val)
+    return val
+
+
+def vider_memos():
+    _memo_local.d = {}
 
 
 # Temps de jeu effectif : le code s'écrit différemment d'un fichier à l'autre (« BIP », « Ball in play »,
