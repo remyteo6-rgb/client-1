@@ -307,6 +307,17 @@ def cahier_ferme():
         return render_template("cahier_ferme.html"), 200
 
 
+# Documents et Calendrier retirés du site : plus aucun accès (404), données laissées en base.
+SECTIONS_RETIREES = True
+
+
+@app.before_request
+def sections_retirees():
+    ep = request.endpoint or ""
+    if SECTIONS_RETIREES and (ep.startswith(("documents", "calendrier")) or ep == "calendrier"):
+        abort(404)
+
+
 @app.before_request
 def gate_staff_cahier():
     if session.get("staff_scope") not in STAFF_SCOPES or not request.endpoint:

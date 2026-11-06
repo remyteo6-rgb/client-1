@@ -31,10 +31,6 @@
     {% endif %}
     <div class="landing-choice-row">
         <a class="landing-choice-btn" href="{{ url_for('analyse_video') }}">{{ icons.video() }} Analyse vidéo</a>
-        {% if not demo_forced %}
-        <a class="landing-choice-btn" href="{{ url_for('documents') }}">{{ icons.folder() }} Documents</a>
-        <a class="landing-choice-btn" href="{{ url_for('calendrier') }}">{{ icons.calendar() }} Calendrier</a>
-        {% endif %}
     </div>
 </div>
 </body>

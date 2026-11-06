@@ -24,10 +24,6 @@
                 <a href="{{ url_for('season_review') }}">{{ icons.chart() }} Stats saison</a>
                 <a href="{{ url_for('season_joueurs') }}">{{ icons.users() }} Effectif</a>
                 <a href="{{ url_for('season_entrainement') }}">{{ icons.physical() }} Entraînement</a>
-                {% if not demo_forced %}
-                <a href="{{ url_for('documents') }}">{{ icons.folder() }} Documents</a>
-                <a href="{{ url_for('calendrier') }}">{{ icons.calendar() }} Calendrier</a>
-                {% endif %}
 
                 {% if is_admin %}
                 <div class="landing-dropdown-sep" role="separator"></div>
