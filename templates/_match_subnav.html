@@ -6,7 +6,6 @@
             <div class="landing-dropdown-content">
                 {% if is_staff_cahier %}
                 {# Accès limité : une seule page accessible, inutile d'afficher le reste. #}
-                <a href="{{ url_for('cahier_charges') }}">{{ icons.clipboard() }} Cahier d'entraînement</a>
                 <a href="{{ url_for('logout') }}">{{ icons.lock() }} Se déconnecter</a>
                 {% else %}
                 <span class="landing-dropdown-heading">Navigation</span>
@@ -29,7 +28,6 @@
                 <a href="{{ url_for('documents') }}">{{ icons.folder() }} Documents</a>
                 <a href="{{ url_for('calendrier') }}">{{ icons.calendar() }} Calendrier</a>
                 {% endif %}
-                <a href="{{ url_for('cahier_charges') }}">{{ icons.clipboard() }} Cahier d'entraînement</a>
 
                 {% if is_admin %}
                 <div class="landing-dropdown-sep" role="separator"></div>
@@ -44,8 +42,6 @@
                         <a href="{{ url_for('admin_joueurs', importer=1) }}#import-excel">+ Importer l'effectif (Excel)</a>
                         <a href="{{ url_for('export_data') }}">{{ icons.save() }} Sauvegarder les données</a>
                         <a href="{{ url_for('admin_backups') }}">{{ icons.save() }} Instantanés automatiques</a>
-                        <a href="{{ url_for('export_ppid') }}">{{ icons.save() }} Exporter le cahier d'entraînement</a>
-                        <a href="{{ url_for('import_ppid') }}">{{ icons.import_data() }} Importer le cahier d'entraînement</a>
                         <a href="{{ url_for('export_stats_joueurs') }}">{{ icons.save() }} Exporter les stats des joueurs (appli Claude)</a>
                         <a href="{{ url_for('import_data') }}">{{ icons.import_data() }} Restaurer une sauvegarde</a>
                     </div>
@@ -70,24 +66,6 @@
         {% if season_mode %}<span class="subnav-context">{{ icons.rugby() }} Saison · moyenne sur {{ season_selected_count }} match{{ 's' if season_selected_count != 1 else '' }}</span>{% else %}{% set _opts = match_nav_options() %}<select class="subnav-context subnav-match-select" aria-label="Changer de match" title="Changer de match" onchange="if (this.value) location.href = this.value;">{% for o in _opts %}<option value="{{ o.url }}"{% if o.id == match['id'] %} selected{% endif %}>{{ o.label }}</option>{% endfor %}{% if not _opts %}<option>{{ match_title(match) }}</option>{% endif %}</select>{% endif %}
         {% endif %}
 
-        {% if nav_players %}
-        {# Recherche joueur accessible depuis n'importe quelle page (zone fixe, ne défile
-           jamais, contrairement à la rangée d'onglets juste à côté) : évite de devoir
-           repasser par ☰ → Cahier d'entraînement rien que pour retrouver un joueur. #}
-        <div class="subnav-search" id="subnavSearch">
-            <span class="subnav-search-icon">{{ icons.search(13) }}</span>
-            <input type="text" id="subnavSearchInput" class="subnav-search-input" autocomplete="off" placeholder="Rechercher un joueur…">
-            <div class="subnav-search-suggestions" id="subnavSearchSuggestions">
-                {% for p in nav_players %}
-                <a href="{{ url_for('cahier_charges', joueur=p['id']) }}" class="cc-suggestion-item" data-name="{{ (p['first_name'] ~ ' ' ~ p['last_name'])|lower }}">
-                    <span class="cc-suggestion-avatar">{{ (p['first_name'][:1] ~ p['last_name'][:1])|upper }}</span>
-                    <span class="cc-suggestion-name">{{ p['first_name'] }} {{ p['last_name'] }}</span>
-                </a>
-                {% endfor %}
-                <p class="cc-suggestion-empty" style="display:none;">Aucun joueur trouvé.</p>
-            </div>
-        </div>
-        {% endif %}
 
         {% if match is defined %}
         {% set page_labels = {'overview': "Vue d'ensemble", 'bilan_attaque': 'Bilan attaque', 'surfeurs': 'Surfeurs', 'bilan_defense': 'Bilan défense', 'csc': 'CSC', 'discipline': 'Discipline', 'touches': 'Touches', 'melees': 'Mêlées', 'tirs': 'Tirs au but', 'jap': 'Jeu au pied', 'possessions': 'Nos possessions', 'zone_gold': 'Zone Gold', 'joueurs': 'Joueurs', 'notes': 'Notes', 'composition': 'Composition', 'tableaux': 'Tableaux', 'comparer': 'Comparer', 'bareme': 'Barème', 'donnees': 'Qualité des données', 'fiche': 'Fiche indiv', 'gagner_perdre': 'Gagner / Perdre', 'style': 'Style de jeu', 'compte_rendu': 'Compte rendu', 'bilan': 'Bilan saison'} %}

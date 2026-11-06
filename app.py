@@ -293,6 +293,20 @@ STAFF_CHANGER_MDP_ENDPOINTS = {
 STAFF_SCOPES = {"complet": "Tout le site", "cahier": "Cahier d'entraînement seul"}
 
 
+# Le cahier d'entraînement n'est plus utilisé sur ce site (il vit désormais sur UBB Prism) : toutes ses pages,
+# actions, exports et imports répondent par un simple message, pour tout le monde (admin compris).
+# Les données restent intactes en base ; pour le rouvrir un jour, mettre CAHIER_FERME = False.
+CAHIER_FERME = True
+CAHIER_ENDPOINTS_FERMES = {"export_ppid", "import_ppid"}
+
+
+@app.before_request
+def cahier_ferme():
+    ep = request.endpoint or ""
+    if CAHIER_FERME and (ep.startswith("cahier_") or ep in CAHIER_ENDPOINTS_FERMES):
+        return render_template("cahier_ferme.html"), 200
+
+
 @app.before_request
 def gate_staff_cahier():
     if session.get("staff_scope") not in STAFF_SCOPES or not request.endpoint:

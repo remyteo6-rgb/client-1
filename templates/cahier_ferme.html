@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Cahier d'entraînement{% endblock %}
+{% block content %}
+<div class="card erreur-page">
+    <h1>Cahier d'entraînement</h1>
+    <p style="font-size:1.15rem;">Cahier d'entraînement disponible sur <strong>UBB Prism</strong>.</p>
+    <div class="erreur-actions">
+        <a class="btn" href="{{ url_for('landing') }}">Retour à l'accueil</a>
+    </div>
+</div>
+{% endblock %}
