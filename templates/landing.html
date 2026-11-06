@@ -17,21 +17,24 @@
     <img src="{{ url_for('static', filename='logo.png') }}" class="landing-logo" alt="{{ club_full_name }}">
 
     {% include "_backup_banner.html" %}
-    {% if last_match %}
     <div class="landing-quick">
+        {% if last_match %}
         <a href="{{ url_for('match_detail', match_id=last_match['id']) }}" class="lq-wide">
             <small>Dernier match</small><strong>{{ match_title(last_match) }}</strong>
             {% if last_todo %}<em class="lq-todo">⚠ {{ last_todo|length }} à compléter : {{ last_todo|join(', ') }}</em>{% endif %}
         </a>
+        {% endif %}
+        <a href="{{ url_for('index') }}"><small>Historique</small><strong>Matchs</strong></a>
         <a href="{{ url_for('season_review') }}"><small>Saison</small><strong>Stats saison</strong></a>
+        <a href="{{ url_for('season_joueurs') }}"><small>Joueurs</small><strong>Effectif</strong></a>
         <a href="{{ url_for('season_notes') }}"><small>Joueurs</small><strong>Notes</strong></a>
-        <a href="{{ url_for('index') }}"><small>Historique</small><strong>Tous les matchs</strong></a>
-        <a href="{{ url_for('season_joueurs') }}"><small>Effectif</small><strong>Stats joueurs</strong></a>
+    </div>
+    {% if is_admin %}
+    <div class="landing-choice-row" style="grid-template-columns:1fr;margin-top:10px;">
+        <a class="landing-choice-btn" style="padding:10px 8px;font-size:13px;" href="{{ url_for('upload') }}">+ Importer un match (XML)</a>
     </div>
     {% endif %}
-    <div class="landing-choice-row">
-        <a class="landing-choice-btn" href="{{ url_for('analyse_video') }}">{{ icons.video() }} Analyse vidéo</a>
-    </div>
+    <p class="landing-note">Cahier d'entraînement : disponible sur UBB Prism</p>
 </div>
 </body>
 </html>
