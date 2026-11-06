@@ -307,14 +307,14 @@ def cahier_ferme():
         return render_template("cahier_ferme.html"), 200
 
 
-# Documents et Calendrier retirés du site : plus aucun accès (404), données laissées en base.
+# Documents, Calendrier et Entraînement retirés du site : plus aucun accès (404), données laissées en base.
 SECTIONS_RETIREES = True
 
 
 @app.before_request
 def sections_retirees():
     ep = request.endpoint or ""
-    if SECTIONS_RETIREES and (ep.startswith(("documents", "calendrier")) or ep == "calendrier"):
+    if SECTIONS_RETIREES and (ep.startswith(("documents", "calendrier")) or ep in ("season_entrainement", "delete_training_session")):
         abort(404)
 
 
