@@ -2004,10 +2004,14 @@ JOUEURS_SLIDES = [
             {"key": "rce_plus", "label": "+", "kind": "pos"},
             {"key": "rce_neutre", "label": "=", "kind": "num"},
             {"key": "rce_minus", "label": "−", "kind": "neg"}]},
-        {"label": "Aérien", "cols": [
-            {"key": "duels_aer_plus", "label": "+", "kind": "pos"},
-            {"key": "duels_aer_neutre", "label": "=", "kind": "num"},
-            {"key": "duels_aer_moins", "label": "−", "kind": "neg"}]},
+        {"label": "Aérien off.", "cols": [
+            {"key": "duels_aer_off_plus", "label": "+", "kind": "pos"},
+            {"key": "duels_aer_off_neutre", "label": "=", "kind": "num"},
+            {"key": "duels_aer_off_moins", "label": "−", "kind": "neg"}]},
+        {"label": "Aérien déf.", "cols": [
+            {"key": "duels_aer_def_plus", "label": "+", "kind": "pos"},
+            {"key": "duels_aer_def_neutre", "label": "=", "kind": "num"},
+            {"key": "duels_aer_def_moins", "label": "−", "kind": "neg"}]},
         {"label": "Marque", "cols": [
             {"key": "essai", "label": "Essais", "kind": "pos"},
             {"key": "transfo_txt", "label": "Transfo.", "kind": "num"},
