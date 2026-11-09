@@ -1048,6 +1048,8 @@ def init_db():
         db.execute("ALTER TABLE matches ADD COLUMN score_opp INTEGER")
     if "score_ht" not in cols:
         db.execute("ALTER TABLE matches ADD COLUMN score_ht TEXT")
+    if "match_type" not in cols:
+        db.execute("ALTER TABLE matches ADD COLUMN match_type TEXT DEFAULT 'championnat'")
     db.execute("""
         CREATE TABLE IF NOT EXISTS training_sessions (
             id SERIAL PRIMARY KEY,
@@ -1382,6 +1384,7 @@ def upload():
         ),
     )
     match_id = cur.fetchone()["id"]
+    db.execute("UPDATE matches SET match_type = %s WHERE id = %s", (_type_match(request.form.get("match_type")), match_id))
     db.commit()
     flash("Match importé avec succès.", "success")
     if _apply_compo_prevue(db, match_id):
@@ -1450,6 +1453,7 @@ def upload_ubb():
         ),
     )
     match_id = cur.fetchone()["id"]
+    db.execute("UPDATE matches SET match_type = %s WHERE id = %s", (_type_match(request.form.get("match_type")), match_id))
     db.commit()
     flash("Match UBB importé avec succès.", "success")
     if _apply_compo_prevue(db, match_id):
@@ -1482,6 +1486,23 @@ def _empreinte_ligne(row):
         h.update(str(row[col] if row[col] is not None else "").encode("utf-8", "replace"))
         h.update(b"\x00")
     return h.hexdigest()
+
+
+MATCH_TYPES = {"championnat": "Championnat", "amical": "Amical", "autre": "Autre"}
+
+
+def _type_match(valeur):
+    v = (valeur or "").strip().lower()
+    return v if v in MATCH_TYPES else "championnat"
+
+
+def _est_amical(m):
+    return (m.get("match_type") or "championnat") == "amical"
+
+
+def _hors_amicaux(matchs):
+    """Matchs servant de référence (moyennes, « vs saison », notes) : les amicaux n'y entrent pas."""
+    return [m for m in matchs if not _est_amical(m)]
 
 
 def _row_to_match(row):
@@ -1706,7 +1727,7 @@ def match_detail(match_id):
         if review:
             review["assets"] = _review_assets(match)
         matches_with_instances, _, _, _ = _season_context()
-        baseline = _calcul_autres_matchs("baseline", compute_match_baseline, matches_with_instances, match_id)
+        baseline = _calcul_autres_matchs("baseline", compute_match_baseline, _hors_amicaux(matches_with_instances), match_id)
         # Courbe momentum : demande un modèle de tagging spécifique (voir parser.py,
         # section MOMENTUM) — un match codé avec un autre gabarit renvoie quand même un
         # résultat, mais avec des indicateurs à 0 et une alerte de conformité dans
@@ -2086,7 +2107,7 @@ def match_joueurs(match_id):
     bilan_table = compute_player_bilan_table(match["instances"], attack_table=attack_table,
                                               defense_table=defense_table, ruck_table=ruck_table)
     matches_with_instances, _, _, _ = _season_context()
-    player_baselines = _calcul_autres_matchs("baselines-joueurs", compute_player_season_baselines, matches_with_instances, match_id)
+    player_baselines = _calcul_autres_matchs("baselines-joueurs", compute_player_season_baselines, _hors_amicaux(matches_with_instances), match_id)
     # Ordre d'affichage et numéros : ceux de la composition saisie sur le site (n°1 à n°23,
     # demande de Téo — même logique que la page Discipline), noms rapprochés des codes du
     # XML (« Tambo-Fantcho » = « FANTCHO TAMBO »). Sans composition : ordre des boutons
@@ -2787,7 +2808,8 @@ def match_surfeurs(match_id):
     # Suivi de saison : nombre de touches saisies sur chaque match, dans l'ordre des matchs.
     suivi = []
     for r in get_db().execute("SELECT id, opponent, match_date, manual_stats_json FROM matches "
-                              "ORDER BY COALESCE(match_date, created_at), id").fetchall():
+                              "WHERE COALESCE(match_type, 'championnat') <> 'amical' OR id = %s "
+                              "ORDER BY COALESCE(match_date, created_at), id", (match_id,)).fetchall():
         try:
             n = len(_surfeurs_touches(json.loads(r["manual_stats_json"] or "{}")))
         except ValueError:
@@ -3219,7 +3241,8 @@ def match_discipline(match_id):
     db = get_db()
     suivi = []
     for row in db.execute("SELECT id, opponent, match_date, created_at, instances_json FROM matches "
-                          "ORDER BY COALESCE(match_date, created_at), id").fetchall():
+                          "WHERE COALESCE(match_type, 'championnat') <> 'amical' OR id = %s "
+                          "ORDER BY COALESCE(match_date, created_at), id", (match_id,)).fetchall():
         counts = compute_team_discipline_counts(json.loads(row["instances_json"] or "[]"))
         if counts:
             opp = row["opponent"] or "?"
@@ -4156,11 +4179,12 @@ def match_edit_info(match_id):
         flash("Les deux équipes sont obligatoires.", "error")
         return redirect(request.referrer or url_for("index"))
     db.execute(
-        "UPDATE matches SET own_team = %s, opponent = %s, match_date = %s, competition = %s, venue = %s, journee = %s WHERE id = %s",
+        "UPDATE matches SET own_team = %s, opponent = %s, match_date = %s, competition = %s, venue = %s, journee = %s, match_type = %s WHERE id = %s",
         (own, opp, (request.form.get("match_date") or "").strip() or None,
          (request.form.get("competition") or "").strip() or None,
          (request.form.get("venue") or "").strip() or None,
-         (request.form.get("journee") or "").strip() or None, match_id),
+         (request.form.get("journee") or "").strip() or None,
+         _type_match(request.form.get("match_type")), match_id),
     )
     db.commit()
     flash("Match modifié.", "success")
@@ -4490,8 +4514,9 @@ def _season_context():
         selected_ids = {int(x) for x in selected_ids_param if x.isdigit()}
         selected = [m for m in matches_with_instances if m["id"] in selected_ids]
     else:
-        selected_ids = {m["id"] for m in matches_with_instances}
-        selected = matches_with_instances
+        # Par défaut : championnat uniquement. Un amical s'ajoute en le cochant (?m=id).
+        selected = _hors_amicaux(matches_with_instances)
+        selected_ids = {m["id"] for m in selected}
     qs = "&".join(f"m={i}" for i in sorted(selected_ids))
     return matches_with_instances, selected, selected_ids, qs
 
@@ -4977,7 +5002,7 @@ def _vs_contexte():
     mid = (request.view_args or {}).get("match_id")
     try:
         if mid:
-            for m in _season_context()[0]:
+            for m in _hors_amicaux(_season_context()[0]):
                 if not m.get("instances"):
                     continue
                 try:
@@ -5657,7 +5682,7 @@ def _assurer_references(bar):
     REF_MIN_ECHANTILLON notes : valeur de départ (X) ou pas de recentrage (note)."""
     if _REFS_STATE["en_cours"]:
         return
-    tous = _season_context()[0]
+    tous = _hors_amicaux(_season_context()[0])
     key = (tuple((m["id"], m.get("_sig")) for m in tous), _deps_signature(), repr(sorted((bar or {}).items())) if bar else "")
     if _REFS_STATE["key"] == key:
         return

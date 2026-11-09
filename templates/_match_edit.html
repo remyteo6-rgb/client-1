@@ -12,6 +12,7 @@
         <div class="form-group"><label>Date</label><input type="text" name="match_date" placeholder="2026-09-26"></div>
         <div class="form-group"><label>Compétition</label><input type="text" name="competition"></div>
         <div class="form-group"><label>Lieu (Domicile / Extérieur)</label><input type="text" name="venue"></div>
+        <div class="form-group"><label>Type de match</label><select name="match_type"><option value="championnat">Championnat</option><option value="amical">Amical (hors stats saison)</option><option value="autre">Autre</option></select></div>
         <button class="btn" type="submit">Enregistrer</button>
     </form>
 </dialog>
@@ -22,7 +23,7 @@ function openMatchEdit(btn, ev) {
     f.action = d.action;
     f.journee.value = d.journee || '';
     f.own_team.value = d.own || ''; f.opponent.value = d.opp || '';
-    f.match_date.value = d.date || ''; f.competition.value = d.comp || ''; f.venue.value = d.venue || '';
+    f.match_date.value = d.date || ''; f.competition.value = d.comp || ''; f.venue.value = d.venue || ''; f.match_type.value = d.type || 'championnat';
     document.getElementById('match-edit-dialog').showModal();
 }
 </script>

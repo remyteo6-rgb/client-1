@@ -8,13 +8,13 @@
 {% if season_all_matches %}
 <details class="card no-print" style="margin-bottom:14px;">
     <summary><h2 style="display:inline;">Matchs inclus dans les moyennes — {{ season_selected_count }} sur {{ season_all_matches|length }}</h2></summary>
-    <p class="subtitle">Tous cochés par défaut = saison complète. Coche les matchs à garder, puis « Mettre à jour » : les moyennes se recalculent sur ce nombre de matchs.</p>
+    <p class="subtitle">Tous les matchs de championnat sont cochés par défaut ; les matchs amicaux sont exclus : coche-les pour les inclure. Coche les matchs à garder, puis « Mettre à jour » : les moyennes se recalculent sur ce nombre de matchs.</p>
     <form method="get" action="{{ request.path }}">
         <div class="two-col">
             {% for m in season_all_matches %}
             <label style="display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:6px;">
                 <input type="checkbox" name="m" value="{{ m['id'] }}" {% if m['id'] in season_selected_ids %}checked{% endif %}>
-                {{ m['match_date'] or '—' }} — {{ match_title(m) }}{% if m['competition'] %} ({{ m['competition'] }}){% endif %}
+                {{ m['match_date'] or '—' }} — {{ match_title(m) }}{% if m['match_type'] == 'amical' %} — Amical{% elif m['competition'] %} ({{ m['competition'] }}){% endif %}
             </label>
             {% endfor %}
         </div>
