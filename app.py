@@ -1851,6 +1851,18 @@ def _nbs(x):
 app.jinja_env.filters["nb"] = lambda v: _nbs(v) if isinstance(v, float) else v
 
 
+def _bilan_familles(att, deff):
+    """Réussite par famille d'actions (on n'additionne plus passes, contacts et plaquages dans un
+    seul « bilan net ») : contacts + / total ; passes + et = / total ; plaquages réussis / tentés."""
+    att, deff = att or {}, deff or {}
+    ct = (att.get("contact_plus") or 0) + (att.get("contact_neutre") or 0) + (att.get("contact_minus") or 0)
+    ps = (att.get("passe_plus") or 0) + (att.get("passe_neutre") or 0) + (att.get("passe_minus") or 0)
+    tent = deff.get("plaquage_tentes") or 0
+    return {"contact": (att.get("contact_plus") or 0, ct),
+            "passes": ((att.get("passe_plus") or 0) + (att.get("passe_neutre") or 0), ps),
+            "plaquages": (max(tent - (deff.get("plaquage_rate") or 0), 0), tent)}
+
+
 def _bilan_slide(player_cards, composition, player_stats, avg=False, minutes_by_name=None):
     """Lignes de la diapo BILAN (page Joueurs) : n°, poste, nom, minutes, volume et bilan
     +/=/- de chaque joueur dans l'ordre de la compo, plus la ligne « Total équipe »."""
@@ -1858,6 +1870,7 @@ def _bilan_slide(player_cards, composition, player_stats, avg=False, minutes_by_
     avec_compo = any(composition)
     rows = []
     total = {"actions_codees": 0, "positives": 0, "neutres": 0, "negatives": 0, "total_signees": 0, "bilan_net": 0}
+    fam_total = {"contact": [0, 0], "passes": [0, 0], "plaquages": [0, 0]}
     for c in player_cards:
         b = c.get("bilan") or {}
         num = c.get("number")
@@ -1876,7 +1889,14 @@ def _bilan_slide(player_cards, composition, player_stats, avg=False, minutes_by_
         for k in total:
             row[k] = _clean_num(b.get(k)) if avg else int(b.get(k) or 0)
             total[k] += row[k]
+        if not avg:
+            row["fam"] = _bilan_familles(c.get("attack"), c.get("defense"))
+            for k, (a_, t_) in row["fam"].items():
+                fam_total[k][0] += a_
+                fam_total[k][1] += t_
         rows.append(row)
+    if not avg:
+        total["fam"] = {k: tuple(v) for k, v in fam_total.items()}
     if avg:
         total = {k: _clean_num(v) for k, v in total.items()}
     for r in rows + [total]:

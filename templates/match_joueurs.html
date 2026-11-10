@@ -14,6 +14,7 @@
 </div>
 
 {% macro bjr_val(v, cls='') %}{% if v %}<td class="{{ cls }}">{{ v }}</td>{% else %}<td class="bjr-zero">·</td>{% endif %}{% endmacro %}
+{% macro bjr_fam(f, total=false) %}{% if f[1] %}{% set p = (f[0] / f[1] * 100)|round|int %}<td class="{{ '' if total else ('bjr-fam-bon' if p >= 80 else ('bjr-fam-bas' if p < 50 else '')) }}"><b>{{ p }}%</b> <small class="bjr-fam-det">{{ f[0] }}/{{ f[1] }}</small></td>{% else %}<td class="bjr-zero">·</td>{% endif %}{% endmacro %}
 {% macro bjr_bar(r) %}
 <div class="bjr-bar">
     {% for k, c in (('positives', 'pos'), ('neutres', 'neu'), ('negatives', 'neg')) %}
@@ -33,21 +34,22 @@
         <table class="bjr-table">
             <colgroup>
                 <col class="bjr-c-num"><col class="bjr-c-poste"><col class="bjr-c-nom"><col class="bjr-c-min">
-                <col class="bjr-c-val"><col class="bjr-c-val"><col class="bjr-c-val"><col class="bjr-c-val"><col class="bjr-c-val"><col class="bjr-c-val">
+                <col class="bjr-c-val"><col class="bjr-c-val"><col class="bjr-c-val"><col class="bjr-c-val"><col class="bjr-c-val"><col class="bjr-c-val"><col class="bjr-c-val">
                 <col class="bjr-c-bar">
             </colgroup>
             <thead>
                 <tr class="bjr-groups">
                     <th colspan="4" class="bjr-g-joueur">Joueur</th>
                     <th class="bjr-g-volume">Volume</th>
-                    <th colspan="4" class="bjr-g-bilan">Bilan global des actions</th>
-                    <th colspan="2" class="bjr-g-lecture">Lecture</th>
+                    <th colspan="3" class="bjr-g-bilan">Bilan global des actions</th>
+                    <th colspan="3" class="bjr-g-bilan">Réussite par famille</th>
+                    <th class="bjr-g-lecture">Lecture</th>
                 </tr>
                 <tr class="bjr-cols">
                     <th colspan="2" class="bjr-left">Poste</th><th class="bjr-left">Nom</th><th>Min.</th>
                     <th>Actions codées</th>
-                    <th>Positives</th><th>Neutres</th><th>Négatives</th><th>Total signées</th>
-                    <th>Bilan net</th><th>Répartition positives / neutres / négatives</th>
+                    <th>Positives</th><th>Neutres</th><th>Négatives</th>
+                    <th>Contacts +</th><th>Passes propres</th><th>Plaquages réussis</th><th>Répartition positives / neutres / négatives</th>
                 </tr>
             </thead>
             <tbody>
@@ -61,8 +63,7 @@
                     {{ bjr_val(r.positives, 'bjr-pos') }}
                     {{ bjr_val(r.neutres) }}
                     {{ bjr_val(r.negatives, 'bjr-neg') }}
-                    <td>{{ r.total_signees }}</td>
-                    <td class="bjr-net {{ 'bjr-net-pos' if r.bilan_net > 0 else ('bjr-net-neg' if r.bilan_net < 0 else '') }}">{{ '+' if r.bilan_net > 0 }}{{ r.bilan_net }}</td>
+                    {% for k in ('contact', 'passes', 'plaquages') %}{{ bjr_fam(r.fam[k]) }}{% endfor %}
                     <td class="bjr-barcell">{{ bjr_bar(r) }}</td>
                 </tr>
             {% endfor %}
@@ -75,8 +76,7 @@
                     <td class="bjr-zero">·</td>
                     <td>{{ t.actions_codees }}</td>
                     <td>{{ t.positives }}</td><td>{{ t.neutres }}</td><td>{{ t.negatives }}</td>
-                    <td>{{ t.total_signees }}</td>
-                    <td>{{ '+' if t.bilan_net > 0 }}{{ t.bilan_net }}</td>
+                    {% for k in ('contact', 'passes', 'plaquages') %}{{ bjr_fam(t.fam[k], true) }}{% endfor %}
                     <td class="bjr-barcell">{{ bjr_bar(t) }}</td>
                 </tr>
             </tfoot>
