@@ -3803,3 +3803,33 @@ html.vs-on .vs.vs { display: inline-block; }
 .bjr-table td.bjr-fam-bas b { color: var(--negative); }
 .bjr-fam-det { display: block; font-size: 10.5px; font-weight: 400; opacity: .6; }
 .bjr-table tfoot .bjr-fam-det { opacity: .75; }
+
+/* Page Jeu au pied saison */
+.sjp-filters { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 14px 16px 0; }
+.sjp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.sjp-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--bg-card); border: 1px solid var(--bg-card-border); padding: 5px 11px; font: 600 12.5px var(--font-body); color: var(--text-primary); cursor: pointer; opacity: .45; }
+.sjp-chip.on { opacity: 1; border-color: var(--accent-dark); }
+.sjp-chip i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.sjp-filters label { font-size: 12.5px; color: var(--text-secondary); }
+.sjp-filters select { margin-left: 6px; padding: 4px 8px; border: 1px solid var(--bg-card-border); background: var(--bg-card); font: inherit; }
+.sjp-grid { display: grid; grid-template-columns: minmax(300px, 430px) 1fr; gap: 14px; margin: 14px 16px 0; align-items: start; }
+.sjp-grid .sf-panel { margin: 0; }
+.sjp-right { display: flex; flex-direction: column; gap: 14px; }
+.sjp-pitch svg { width: 100%; display: block; }
+.sjp-hint { margin: 6px 12px; font-size: 12px; color: var(--text-secondary); }
+.sjp-mode { float: right; }
+.sjp-mode button { border: 1px solid rgba(255,255,255,.5); background: transparent; color: #fff; padding: 2px 9px; font: 600 11px var(--font-body); cursor: pointer; }
+.sjp-mode button.on { background: #fff; color: var(--accent-dark); }
+.sjp-table th, .sjp-table td { text-align: center; }
+.sjp-table .sjp-l { text-align: left; font-weight: 600; }
+.sjp-table tfoot td { background: var(--wine-deep); color: #fff; font-weight: 700; }
+.sjp-pos { color: var(--positive); font-weight: 700; }
+.sjp-neg { color: var(--negative); font-weight: 700; }
+.sjp-bar { display: flex; height: 34px; margin: 10px 12px 6px; color: #fff; font-weight: 700; font-size: 13px; }
+.sjp-bar div { display: flex; align-items: center; justify-content: center; }
+.sjp-rec { background: #2f7d46; } .sjp-con { background: #c9ccd3; color: var(--text-primary) !important; } .sjp-per { background: #c4453a; }
+.sjp-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 12px 12px; }
+.sjp-kpis div { background: #faf3ee; padding: 8px 10px; }
+.sjp-kpis small { display: block; font-size: 11px; text-transform: uppercase; color: var(--text-secondary); }
+.sjp-kpis b { font: 700 24px var(--font-display); color: var(--accent-dark); }
+@media (max-width: 900px) { .sjp-grid { grid-template-columns: 1fr; } }

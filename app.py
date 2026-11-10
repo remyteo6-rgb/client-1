@@ -3597,8 +3597,12 @@ def season_jap():
     tous, par_match = [], []
     for m in selected:
         jap = _jap_saisis(m.get("manual_stats"))
+        for t in jap:
+            t["match"] = m.get("opponent") or "?"
         tous += jap
         par_match.append({"id": m["id"], "date": m.get("match_date"), "opponent": m.get("opponent") or "?",
+                          "pre_rec": sum(1 for t in jap if t["type"] == "PRE" and t.get("res") == "REC"),
+                          "pre_res": sum(1 for t in jap if t["type"] == "PRE" and t.get("res")),
                           "saisis": len(jap), "xml": _jap_xml_total(m.get("instances")),
                           "types": {c: sum(1 for t in jap if t["type"] == c) for c, _l, _k in JAP_TYPES}})
     def _long(t):
@@ -3627,8 +3631,28 @@ def season_jap():
         return out
     joueurs = sorted(({"nom": k, "lignes": _lignes(v), **_bilan(v)} for k, v in groupes.items()), key=lambda r: (-r["total"], r["nom"]))
     equipe = _lignes(tous)
+    # Lecture « décision » : par type, pression (récupéré / contesté / perdu), matrice joueurs x types, évolution
+    par_type = []
+    for c, lab, col in JAP_TYPES:
+        li = [t for t in tous if t["type"] == c]
+        b = _bilan(li)
+        par_type.append({"code": c, "label": lab, "couleur": col, "nb": b["total"], "longueur": b["longueur"], "gain": b["gain"]})
+    pression = [t for t in tous if t["type"] == "PRE"]
+    pres = {"nb": len(pression), "rec": sum(1 for t in pression if t.get("res") == "REC"),
+            "con": sum(1 for t in pression if t.get("res") == "CON"), "per": sum(1 for t in pression if t.get("res") == "PER")}
+    pres["n"] = pres["rec"] + pres["con"] + pres["per"]
+    pres["pct"] = round(pres["rec"] / pres["n"] * 100) if pres["n"] else None
+    pres["susp"] = _bilan(pression)["susp"] if pression else None
+    for j in joueurs:
+        pj = [t for t in groupes.get(j["nom"], []) if t["type"] == "PRE" and t.get("res")]
+        j["par_type"] = {c: sum(1 for t in groupes.get(j["nom"], []) if t["type"] == c) for c, _l, _k in JAP_TYPES}
+        j["pre_pct"] = round(sum(1 for t in pj if t["res"] == "REC") / len(pj) * 100) if pj else None
+    totaux_type = {c: sum(1 for t in tous if t["type"] == c) for c, _l, _k in JAP_TYPES}
+    for r in par_match:
+        r["pre_pct"] = round(r["pre_rec"] / r["pre_res"] * 100) if r["pre_res"] else None
     return render_template("season_jap.html", jap=tous, par_match=par_match, types=JAP_TYPES,
-                           joueurs=joueurs, bilan=_bilan(tous), equipe=equipe, **ctx)
+                           joueurs=joueurs, bilan=_bilan(tous), equipe=equipe, par_type=par_type, pres=pres,
+                           totaux_type=totaux_type, **ctx)
 
 
 @app.route("/match/<int:match_id>/melees")

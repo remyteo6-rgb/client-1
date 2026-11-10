@@ -12,40 +12,87 @@
 </div>
 {% include "_season_select.html" %}
 
-<div class="report-board board-free">
+<div class="report-board board-free sjp">
     <div class="report-head">
         <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
         <span class="report-title">JEU AU PIED</span>
         <span class="report-subtitle">SAISON</span>
     </div>
+    {% if jap %}
+    <div class="sjp-filters">
+        <div class="sjp-chips" id="sjp-chips">
+            {% for code, lab, col in types %}<button type="button" class="sjp-chip on" data-type="{{ code }}"><i style="background:{{ col }}"></i>{{ lab }}</button>{% endfor %}
+        </div>
+        <label>Joueur <select id="sjp-player"><option value="">Tous</option>{% for j in joueurs %}<option>{{ j.nom }}</option>{% endfor %}</select></label>
+        <label>Mi-temps <select id="sjp-mt"><option value="">Toutes</option><option value="1">1re</option><option value="2">2e</option></select></label>
+    </div>
+    <div class="sjp-grid">
+        <div class="sf-panel sjp-map">
+            <div class="sf-panel-head">CARTE DE LA SAISON <span class="sjp-mode"><button type="button" class="on" data-mode="zones">Zones de chute</button><button type="button" data-mode="fleches">Flèches</button></span></div>
+            <div class="sjp-pitch"><svg id="sjp-svg" viewBox="0 0 650 1100" role="img" aria-label="Carte du jeu au pied de la saison"></svg></div>
+            <p class="sjp-hint" id="sjp-count"></p>
+            <p class="sjp-hint">Nous attaquons vers le haut. « Zones de chute » : un point par coup de pied à son point d'arrivée.</p>
+        </div>
+        <div class="sjp-right">
+            <div class="sf-panel">
+                <div class="sf-panel-head">PAR TYPE DE COUP DE PIED</div>
+                <table class="stat-table sjp-table">
+                    <thead><tr><th class="sjp-l">Type</th><th>Nb</th><th>Long. moy.</th><th>Gain moy.</th></tr></thead>
+                    <tbody>{% for r in par_type if r.nb %}
+                        <tr><td class="sjp-l"><i class="jap-dot" style="background:{{ r.couleur }}"></i>{{ r.label }}</td><td>{{ r.nb }}</td><td>{{ r.longueur }} m</td><td class="{{ 'sjp-pos' if r.gain > 0 }}">{{ '%+d'|format(r.gain) }} m</td></tr>
+                    {% endfor %}</tbody>
+                </table>
+            </div>
+            {% if pres.nb %}
+            <div class="sf-panel">
+                <div class="sf-panel-head">JEU AU PIED DE PRESSION</div>
+                {% if pres.n %}
+                <div class="sjp-bar">
+                    {% if pres.rec %}<div class="sjp-rec" style="flex:{{ pres.rec }}">Récupérés {{ pres.rec }}</div>{% endif %}
+                    {% if pres.con %}<div class="sjp-con" style="flex:{{ pres.con }}">Contestés {{ pres.con }}</div>{% endif %}
+                    {% if pres.per %}<div class="sjp-per" style="flex:{{ pres.per }}">Perdus {{ pres.per }}</div>{% endif %}
+                </div>
+                {% endif %}
+                <div class="sjp-kpis">
+                    <div><small>Pressions</small><b>{{ pres.nb }}</b></div>
+                    <div><small>% récupérées</small><b>{{ (pres.pct ~ '%') if pres.pct is not none else '·' }}</b></div>
+                    <div><small>Suspension moy.</small><b>{{ (pres.susp ~ ' s') if pres.susp is not none else '·' }}</b></div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
     <div class="sf-panel" style="margin:14px 16px 0;">
-        <div class="sf-panel-head">BILAN PAR JOUEUR</div>
+        <div class="sf-panel-head">PAR JOUEUR</div>
         <div class="m-scroll">
-        <table class="stat-table tch-perf tch-zone jap-pj">
-            <thead><tr><th>Joueur</th><th>Type</th><th>Nb</th><th>Long.</th><th>Gain tot.</th><th>Gain moy.</th><th>Susp.</th><th>Récup.</th></tr></thead>
+        <table class="stat-table sjp-table">
+            <thead><tr><th class="sjp-l">Joueur</th>{% for code, lab, col in types if totaux_type[code] %}<th>{{ lab }}</th>{% endfor %}<th>Total</th><th>Long. moy.</th><th>Gain moy.</th><th>% pression récup.</th></tr></thead>
             <tbody>
-            {% for j in joueurs %}{% for l in j.lignes %}
-            <tr>{% if loop.first %}<td class="jap-pj-name" rowspan="{{ j.lignes|length }}">{{ j.nom }} · {{ j.total }}</td>{% endif %}
-                <td><i class="jap-dot" style="background:{{ l.couleur }}"></i>{{ l.label }}</td><td>{{ l.nb }}</td><td>{{ l.longueur }} m</td><td>{{ '%+d'|format(l.gain_tot) }} m</td><td>{{ '%+d'|format(l.gain) }} m</td><td>{{ (l.susp ~ ' s') if l.susp is not none else '·' }}</td><td>{% if l.res_n %}{{ l.rec }}/{{ l.res_n }} · {{ (100 * l.rec / l.res_n)|round|int }} %{% else %}·{% endif %}</td></tr>
-            {% endfor %}{% else %}
-            <tr><td colspan="8">Aucun jeu au pied saisi sur les matchs sélectionnés.</td></tr>
-            {% endfor %}
-            {% for l in equipe %}
-            <tr class="mel-total">{% if loop.first %}<td class="jap-pj-name" rowspan="{{ equipe|length }}">Équipe · {{ bilan.total }}</td>{% endif %}
-                <td><i class="jap-dot" style="background:{{ l.couleur }}"></i>{{ l.label }}</td><td>{{ l.nb }}</td><td>{{ l.longueur }} m</td><td>{{ '%+d'|format(l.gain_tot) }} m</td><td>{{ '%+d'|format(l.gain) }} m</td><td>{{ (l.susp ~ ' s') if l.susp is not none else '·' }}</td><td>{% if l.res_n %}{{ l.rec }}/{{ l.res_n }} · {{ (100 * l.rec / l.res_n)|round|int }} %{% else %}·{% endif %}</td></tr>
+            {% for j in joueurs %}
+                <tr><td class="sjp-l">{{ j.nom }}</td>
+                    {% for code, lab, col in types if totaux_type[code] %}<td>{{ j.par_type[code] or '·' }}</td>{% endfor %}
+                    <td><strong>{{ j.total }}</strong></td><td>{{ j.longueur }} m</td><td class="{{ 'sjp-pos' if j.gain > 0 }}">{{ '%+d'|format(j.gain) }} m</td>
+                    <td class="{{ 'sjp-pos' if j.pre_pct is not none and j.pre_pct >= 50 else ('sjp-neg' if j.pre_pct is not none else '') }}">{{ (j.pre_pct ~ '%') if j.pre_pct is not none else '·' }}</td></tr>
             {% endfor %}
             </tbody>
+            <tfoot><tr><td class="sjp-l">Total équipe</td>
+                {% for code, lab, col in types if totaux_type[code] %}<td>{{ totaux_type[code] }}</td>{% endfor %}
+                <td>{{ bilan.total }}</td><td>{{ bilan.longueur }} m</td><td>{{ '%+d'|format(bilan.gain) }} m</td><td>{{ (pres.pct ~ '%') if pres.pct is not none else '·' }}</td></tr></tfoot>
         </table>
         </div>
     </div>
+    {% else %}
+    <div class="sf-panel" style="margin:14px 16px 0;"><p style="padding:14px;">Aucun jeu au pied saisi sur les matchs sélectionnés.</p></div>
+    {% endif %}
     <div class="sf-panel" style="margin:14px 16px 16px;">
         <div class="sf-panel-head">MATCH PAR MATCH</div>
         <div class="m-scroll">
-        <table class="stat-table zebra-table tch-perf tch-zone">
-            <thead><tr><th>Match</th><th>Saisis</th><th>XML</th>{% for code, lab, col in types %}<th>{{ lab }}</th>{% endfor %}</tr></thead>
+        <table class="stat-table zebra-table sjp-table">
+            <thead><tr><th class="sjp-l">Match</th><th>Saisis</th><th>XML</th><th>% pression récup.</th>{% for code, lab, col in types %}<th>{{ lab }}</th>{% endfor %}</tr></thead>
             <tbody>
             {% for r in par_match %}
-            <tr><td>{{ r.date or '—' }} — {{ r.opponent }}</td><td><strong>{{ r.saisis or '·' }}</strong></td><td>{{ r.xml or '·' }}</td>
+            <tr><td class="sjp-l">{{ r.date or '—' }} — {{ r.opponent }}</td><td><strong>{{ r.saisis or '·' }}</strong></td><td>{{ r.xml or '·' }}</td>
+                <td>{{ (r.pre_pct ~ '%') if r.pre_pct is not none else '·' }}</td>
                 {% for code, lab, col in types %}<td>{{ r.types[code] or '·' }}</td>{% endfor %}</tr>
             {% endfor %}
             </tbody>
@@ -56,5 +103,42 @@
 <div class="card no-print tir-notes">
     <p class="subtitle">Les jeux au pied se saisissent sur la page Jeu au pied de chaque match. « XML » = nombre de codes « UBB Jeu au pied » du match, pour repérer ce qui reste à saisir.</p>
 </div>
+<script>
+(function () {
+    var jap = {{ jap|tojson }};
+    var COL = {}; {% for code, lab, col in types %}COL[{{ code|tojson }}] = {{ col|tojson }}; {% endfor %}
+    var svg = document.getElementById('sjp-svg'); if (!svg) return;
+    var NS = 'http://www.w3.org/2000/svg', W = 650, H = 1100, mode = 'zones', actifs = {}, joueur = '', mt = '';
+    Object.keys(COL).forEach(function (c) { actifs[c] = true; });
+    function sv(tag, a, p, txt) { var e = document.createElementNS(NS, tag); Object.keys(a || {}).forEach(function (k) { e.setAttribute(k, a[k]); }); if (txt != null) e.textContent = txt; if (p) p.appendChild(e); return e; }
+    function terrain() {
+        svg.innerHTML = '';
+        for (var r = 0; r < 10; r++) sv('rect', {x: 0, y: 50 + r * 100, width: W, height: 100, fill: r % 2 ? '#559f5b' : '#4f9a55'}, svg);
+        sv('rect', {x: 0, y: 0, width: W, height: 50, fill: '#3d7f43'}, svg); sv('rect', {x: 0, y: 1050, width: W, height: 50, fill: '#3d7f43'}, svg);
+        var g = sv('g', {stroke: '#fff', fill: 'none', 'stroke-width': 3}, svg);
+        [50, 1050, 270, 830, 550].forEach(function (y) { sv('line', {x1: 0, y1: y, x2: W, y2: y}, g); });
+        [100, 1000, 450, 650].forEach(function (y) { sv('line', {x1: 0, y1: y, x2: W, y2: y, 'stroke-dasharray': '10 8', 'stroke-width': 2, 'stroke-opacity': .8}, g); });
+        [50, W - 50, 15 / 70 * W, W - 15 / 70 * W].forEach(function (x) { sv('line', {x1: x, y1: 50, x2: x, y2: 1050, 'stroke-dasharray': '10 8', 'stroke-width': 2, 'stroke-opacity': .8}, g); });
+        [[270, '22'], [450, '40'], [550, '50'], [650, '40'], [830, '22']].forEach(function (d) { sv('text', {x: 8, y: d[0] - 6, 'font-size': 16, 'font-weight': 800, fill: '#fff', 'fill-opacity': .85}, svg, d[1]); });
+    }
+    function dessiner() {
+        terrain();
+        var l = jap.filter(function (t) { return actifs[t.type] && (!joueur || t.player === joueur) && (!mt || String(t.mt || 1) === mt); });
+        document.getElementById('sjp-count').textContent = l.length + ' coup' + (l.length > 1 ? 's' : '') + ' de pied affiché' + (l.length > 1 ? 's' : '');
+        if (mode === 'fleches') {
+            var defs = sv('defs', {}, svg);
+            Object.keys(COL).forEach(function (c) { var m = sv('marker', {id: 'sjpa' + c, viewBox: '0 0 10 10', refX: 8, refY: 5, markerWidth: 5, markerHeight: 5, orient: 'auto'}, defs); sv('path', {d: 'M0 0L10 5L0 10z', fill: COL[c]}, m); });
+            l.forEach(function (t) { sv('line', {x1: t.x1 * W, y1: t.y1 * H, x2: t.x2 * W, y2: t.y2 * H, stroke: COL[t.type], 'stroke-width': 3.5, 'stroke-opacity': l.length > 25 ? .45 : .8, 'marker-end': 'url(#sjpa' + t.type + ')'}, svg); });
+        } else {
+            l.forEach(function (t) { var c = sv('circle', {cx: t.x2 * W, cy: t.y2 * H, r: 11, fill: COL[t.type], 'fill-opacity': .72, stroke: '#fff', 'stroke-width': 2}, svg); sv('title', {}, c, (t.player || '?') + ' · ' + (t.match || '')); });
+        }
+    }
+    document.querySelectorAll('#sjp-chips .sjp-chip').forEach(function (b) { b.onclick = function () { b.classList.toggle('on'); actifs[b.dataset.type] = b.classList.contains('on'); dessiner(); }; });
+    document.getElementById('sjp-player').onchange = function () { joueur = this.value; dessiner(); };
+    document.getElementById('sjp-mt').onchange = function () { mt = this.value; dessiner(); };
+    document.querySelectorAll('.sjp-mode button').forEach(function (b) { b.onclick = function () { mode = b.dataset.mode; document.querySelectorAll('.sjp-mode button').forEach(function (x) { x.classList.toggle('on', x === b); }); dessiner(); }; });
+    dessiner();
+})();
+</script>
 <script>function preparePrint() { setTimeout(function () { window.print(); }, 100); }</script>
 {% endblock %}
