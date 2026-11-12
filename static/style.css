@@ -3863,3 +3863,14 @@ html.vs-on .vs.vs { display: inline-block; }
 .bjr-table a.bjr-fiche { color: inherit; text-decoration: none; border-bottom: 1px dotted #9a9eaa; }
 .bjr-table a.bjr-fiche:hover { color: var(--accent-dark); border-bottom-color: var(--accent-dark); }
 @media print { .bjr-table a.bjr-fiche { border-bottom: 0; } }
+
+/* Jeu au pied saison : bilans du joueur choisi */
+.sjp-qui { font-weight: 600; opacity: .85; margin-left: 4px; }
+.sjp-vide { padding: 14px 12px; margin: 0; color: var(--text-secondary); font-size: 13px; }
+.sjp-aide { margin: 6px 16px 0; }
+.sjp-reset { border: 1px solid var(--accent-dark); background: var(--accent-dark); color: #fff; padding: 5px 12px; font: 700 12px var(--font-body); cursor: pointer; }
+.sjp-pick { border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; border-bottom: 1px dotted #9a9eaa; }
+.sjp-pick:hover { color: var(--accent-dark); border-bottom-color: var(--accent-dark); }
+.sjp-table tr.sjp-sel td { background: #f6e9ee; }
+.sjp-table tr.sjp-sel td.sjp-l { box-shadow: inset 3px 0 0 var(--accent-dark); }
+@media print { .sjp-aide, .sjp-reset { display: none; } .sjp-pick { border-bottom: 0; } }

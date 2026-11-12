@@ -25,7 +25,9 @@
         </div>
         <label>Joueur <select id="sjp-player"><option value="">Tous</option>{% for j in joueurs %}<option>{{ j.nom }}</option>{% endfor %}</select></label>
         <label>Mi-temps <select id="sjp-mt"><option value="">Toutes</option><option value="1">1re</option><option value="2">2e</option></select></label>
+        <button type="button" class="sjp-reset" id="sjp-reset" hidden>Revenir à l'équipe</button>
     </div>
+    <p class="sjp-hint sjp-aide">Choisis un joueur (ou clique son nom dans « Par joueur ») : la carte et les deux bilans passent sur ce joueur. Les types ne filtrent que la carte.</p>
     <div class="sjp-grid">
         <div class="sf-panel sjp-map">
             <div class="sf-panel-head">CARTE DE LA SAISON <span class="sjp-mode"><button type="button" class="on" data-mode="zones">Zones de chute</button><button type="button" data-mode="fleches">Flèches</button></span></div>
@@ -35,31 +37,24 @@
         </div>
         <div class="sjp-right">
             <div class="sf-panel">
-                <div class="sf-panel-head">PAR TYPE DE COUP DE PIED</div>
+                <div class="sf-panel-head">PAR TYPE DE COUP DE PIED <span class="sjp-qui" data-sjp-qui>· Équipe</span></div>
+                <div id="sjp-types">
                 <table class="stat-table sjp-table">
                     <thead><tr><th class="sjp-l">Type</th><th>Nb</th><th>Long. moy.</th><th>Gain moy.</th></tr></thead>
-                    <tbody>{% for r in par_type if r.nb %}
-                        <tr><td class="sjp-l"><i class="jap-dot" style="background:{{ r.couleur }}"></i>{{ r.label }}</td><td>{{ r.nb }}</td><td>{{ r.longueur }} m</td><td class="{{ 'sjp-pos' if r.gain > 0 }}">{{ '%+d'|format(r.gain) }} m</td></tr>
-                    {% endfor %}</tbody>
+                    <tbody>{% for r in vue.types %}<tr><td class="sjp-l"><i class="jap-dot" style="background:{{ r.couleur }}"></i>{{ r.label }}</td><td>{{ r.nb }}</td><td>{{ r.longueur }} m</td><td class="{{ 'sjp-pos' if r.gain > 0 }}">{{ '%+d'|format(r.gain) }} m</td></tr>{% endfor %}</tbody>
+                    <tfoot><tr><td class="sjp-l">Total</td><td>{{ vue.total }}</td><td>{{ vue.longueur }} m</td><td>{{ '%+d'|format(vue.gain) }} m</td></tr></tfoot>
                 </table>
+                </div>
             </div>
-            {% if pres.nb %}
             <div class="sf-panel">
-                <div class="sf-panel-head">JEU AU PIED DE PRESSION</div>
-                {% if pres.n %}
-                <div class="sjp-bar">
-                    {% if pres.rec %}<div class="sjp-rec" style="flex:{{ pres.rec }}">Récupérés {{ pres.rec }}</div>{% endif %}
-                    {% if pres.con %}<div class="sjp-con" style="flex:{{ pres.con }}">Contestés {{ pres.con }}</div>{% endif %}
-                    {% if pres.per %}<div class="sjp-per" style="flex:{{ pres.per }}">Perdus {{ pres.per }}</div>{% endif %}
-                </div>
-                {% endif %}
-                <div class="sjp-kpis">
-                    <div><small>Pressions</small><b>{{ pres.nb }}</b></div>
-                    <div><small>% récupérées</small><b>{{ (pres.pct ~ '%') if pres.pct is not none else '·' }}</b></div>
-                    <div><small>Suspension moy.</small><b>{{ (pres.susp ~ ' s') if pres.susp is not none else '·' }}</b></div>
+                <div class="sf-panel-head">JEU AU PIED DE PRESSION <span class="sjp-qui" data-sjp-qui>· Équipe</span></div>
+                <div id="sjp-pres">
+                {% if pres.nb %}
+                {% if pres.n %}<div class="sjp-bar">{% if pres.rec %}<div class="sjp-rec" style="flex:{{ pres.rec }}">Récupérés {{ pres.rec }}</div>{% endif %}{% if pres.con %}<div class="sjp-con" style="flex:{{ pres.con }}">Contestés {{ pres.con }}</div>{% endif %}{% if pres.per %}<div class="sjp-per" style="flex:{{ pres.per }}">Perdus {{ pres.per }}</div>{% endif %}</div>{% endif %}
+                <div class="sjp-kpis"><div><small>Pressions</small><b>{{ pres.nb }}</b></div><div><small>% récupérées</small><b>{{ (pres.pct ~ '%') if pres.pct is not none else '·' }}</b></div><div><small>Suspension moy.</small><b>{{ (pres.susp ~ ' s') if pres.susp is not none else '·' }}</b></div></div>
+                {% else %}<p class="sjp-vide">Aucun jeu au pied de pression.</p>{% endif %}
                 </div>
             </div>
-            {% endif %}
         </div>
     </div>
     <div class="sf-panel" style="margin:14px 16px 0;">
@@ -69,7 +64,7 @@
             <thead><tr><th class="sjp-l">Joueur</th>{% for code, lab, col in types if totaux_type[code] %}<th>{{ lab }}</th>{% endfor %}<th>Total</th><th>Long. moy.</th><th>Gain moy.</th><th>% pression récup.</th></tr></thead>
             <tbody>
             {% for j in joueurs %}
-                <tr><td class="sjp-l">{{ j.nom }}</td>
+                <tr data-sjp-row="{{ j.nom }}"><td class="sjp-l"><button type="button" class="sjp-pick" data-sjp-pick="{{ j.nom }}" title="Voir le bilan de ce joueur">{{ j.nom }}</button></td>
                     {% for code, lab, col in types if totaux_type[code] %}<td>{{ j.par_type[code] or '·' }}</td>{% endfor %}
                     <td><strong>{{ j.total }}</strong></td><td>{{ j.longueur }} m</td><td class="{{ 'sjp-pos' if j.gain > 0 }}">{{ '%+d'|format(j.gain) }} m</td>
                     <td class="{{ 'sjp-pos' if j.pre_pct is not none and j.pre_pct >= 50 else ('sjp-neg' if j.pre_pct is not none else '') }}">{{ (j.pre_pct ~ '%') if j.pre_pct is not none else '·' }}</td></tr>
@@ -106,6 +101,7 @@
 <script>
 (function () {
     var jap = {{ jap|tojson }};
+    var VUES = {{ vues|tojson }};   // bilans calculés par le serveur : clé « joueur|mi-temps » (vide = tous)
     var COL = {}; {% for code, lab, col in types %}COL[{{ code|tojson }}] = {{ col|tojson }}; {% endfor %}
     var svg = document.getElementById('sjp-svg'); if (!svg) return;
     var NS = 'http://www.w3.org/2000/svg', W = 650, H = 1100, mode = 'zones', actifs = {}, joueur = '', mt = '';
@@ -123,7 +119,7 @@
     }
     function dessiner() {
         terrain();
-        var l = jap.filter(function (t) { return actifs[t.type] && (!joueur || t.player === joueur) && (!mt || String(t.mt || 1) === mt); });
+        var l = jap.filter(function (t) { return actifs[t.type] && (!joueur || (t.player || 'Non précisé') === joueur) && (!mt || String(t.mt || 1) === mt); });
         document.getElementById('sjp-count').textContent = l.length + ' coup' + (l.length > 1 ? 's' : '') + ' de pied affiché' + (l.length > 1 ? 's' : '');
         if (mode === 'fleches') {
             var defs = sv('defs', {}, svg);
@@ -133,9 +129,34 @@
             l.forEach(function (t) { var c = sv('circle', {cx: t.x2 * W, cy: t.y2 * H, r: 11, fill: COL[t.type], 'fill-opacity': .72, stroke: '#fff', 'stroke-width': 2}, svg); sv('title', {}, c, (t.player || '?') + ' · ' + (t.match || '')); });
         }
     }
+    function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]; }); }
+    function signe(v) { return (v >= 0 ? '+' : '') + v; }
+    function bilans() {
+        var v = VUES[joueur + '|' + mt] || {total: 0, types: [], pres: {nb: 0}};
+        var qui = '· ' + (joueur || 'Équipe') + (mt ? (mt === '1' ? ' · 1re mi-temps' : ' · 2e mi-temps') : '');
+        document.querySelectorAll('[data-sjp-qui]').forEach(function (e) { e.textContent = qui; });
+        var h = '';
+        if (v.total) {
+            h = '<table class="stat-table sjp-table"><thead><tr><th class="sjp-l">Type</th><th>Nb</th><th>Long. moy.</th><th>Gain moy.</th></tr></thead><tbody>';
+            v.types.forEach(function (r) { h += '<tr><td class="sjp-l"><i class="jap-dot" style="background:' + r.couleur + '"></i>' + esc(r.label) + '</td><td>' + r.nb + '</td><td>' + r.longueur + ' m</td><td class="' + (r.gain > 0 ? 'sjp-pos' : '') + '">' + signe(r.gain) + ' m</td></tr>'; });
+            h += '</tbody><tfoot><tr><td class="sjp-l">Total</td><td>' + v.total + '</td><td>' + v.longueur + ' m</td><td>' + signe(v.gain) + ' m</td></tr></tfoot></table>';
+        } else h = '<p class="sjp-vide">Aucun jeu au pied' + (joueur ? ' pour ce joueur' : '') + (mt ? ' sur cette mi-temps' : '') + '.</p>';
+        document.getElementById('sjp-types').innerHTML = h;
+        var p = v.pres, g = '';
+        if (p.nb) {
+            if (p.n) { g = '<div class="sjp-bar">' + (p.rec ? '<div class="sjp-rec" style="flex:' + p.rec + '">Récupérés ' + p.rec + '</div>' : '') + (p.con ? '<div class="sjp-con" style="flex:' + p.con + '">Contestés ' + p.con + '</div>' : '') + (p.per ? '<div class="sjp-per" style="flex:' + p.per + '">Perdus ' + p.per + '</div>' : '') + '</div>'; }
+            g += '<div class="sjp-kpis"><div><small>Pressions</small><b>' + p.nb + '</b></div><div><small>% récupérées</small><b>' + (p.pct != null ? p.pct + '%' : '·') + '</b></div><div><small>Suspension moy.</small><b>' + (p.susp != null ? p.susp + ' s' : '·') + '</b></div></div>';
+        } else g = '<p class="sjp-vide">Aucun jeu au pied de pression' + (joueur ? ' pour ce joueur' : '') + (mt ? ' sur cette mi-temps' : '') + '.</p>';
+        document.getElementById('sjp-pres').innerHTML = g;
+        document.querySelectorAll('[data-sjp-row]').forEach(function (tr) { tr.classList.toggle('sjp-sel', !!joueur && tr.dataset.sjpRow === joueur); });
+        document.getElementById('sjp-reset').hidden = !joueur && !mt;
+    }
+    function choisir(nom) { joueur = nom; document.getElementById('sjp-player').value = nom; dessiner(); bilans(); }
+    document.querySelectorAll('[data-sjp-pick]').forEach(function (b) { b.onclick = function () { choisir(joueur === b.dataset.sjpPick ? '' : b.dataset.sjpPick); document.querySelector('.sjp-filters').scrollIntoView({behavior: 'smooth', block: 'start'}); }; });
+    document.getElementById('sjp-reset').onclick = function () { mt = ''; document.getElementById('sjp-mt').value = ''; choisir(''); };
     document.querySelectorAll('#sjp-chips .sjp-chip').forEach(function (b) { b.onclick = function () { b.classList.toggle('on'); actifs[b.dataset.type] = b.classList.contains('on'); dessiner(); }; });
-    document.getElementById('sjp-player').onchange = function () { joueur = this.value; dessiner(); };
-    document.getElementById('sjp-mt').onchange = function () { mt = this.value; dessiner(); };
+    document.getElementById('sjp-player').onchange = function () { joueur = this.value; dessiner(); bilans(); };
+    document.getElementById('sjp-mt').onchange = function () { mt = this.value; dessiner(); bilans(); };
     document.querySelectorAll('.sjp-mode button').forEach(function (b) { b.onclick = function () { mode = b.dataset.mode; document.querySelectorAll('.sjp-mode button').forEach(function (x) { x.classList.toggle('on', x === b); }); dessiner(); }; });
     dessiner();
 })();

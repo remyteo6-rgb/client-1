@@ -3639,17 +3639,32 @@ def season_jap():
     joueurs = sorted(({"nom": k, "lignes": _lignes(v), **_bilan(v)} for k, v in groupes.items()), key=lambda r: (-r["total"], r["nom"]))
     equipe = _lignes(tous)
     # Lecture « décision » : par type, pression (récupéré / contesté / perdu), matrice joueurs x types, évolution
-    par_type = []
-    for c, lab, col in JAP_TYPES:
-        li = [t for t in tous if t["type"] == c]
-        b = _bilan(li)
-        par_type.append({"code": c, "label": lab, "couleur": col, "nb": b["total"], "longueur": b["longueur"], "gain": b["gain"]})
-    pression = [t for t in tous if t["type"] == "PRE"]
-    pres = {"nb": len(pression), "rec": sum(1 for t in pression if t.get("res") == "REC"),
-            "con": sum(1 for t in pression if t.get("res") == "CON"), "per": sum(1 for t in pression if t.get("res") == "PER")}
-    pres["n"] = pres["rec"] + pres["con"] + pres["per"]
-    pres["pct"] = round(pres["rec"] / pres["n"] * 100) if pres["n"] else None
-    pres["susp"] = _bilan(pression)["susp"] if pression else None
+    def _vue(lst):
+        """Bilan d'un ensemble de jeux au pied (l'équipe, ou un joueur, ou une mi-temps) : total, détail par
+        type et jeu au pied de pression. Sert à l'affichage par défaut et au filtre « Joueur » de la page."""
+        b = _bilan(lst)
+        types = []
+        for c, lab, col in JAP_TYPES:
+            li = [t for t in lst if t["type"] == c]
+            if li:
+                bt = _bilan(li)
+                types.append({"code": c, "label": lab, "couleur": col, "nb": bt["total"], "longueur": bt["longueur"], "gain": bt["gain"]})
+        pression = [t for t in lst if t["type"] == "PRE"]
+        pres = {"nb": len(pression), "rec": sum(1 for t in pression if t.get("res") == "REC"),
+                "con": sum(1 for t in pression if t.get("res") == "CON"), "per": sum(1 for t in pression if t.get("res") == "PER")}
+        pres["n"] = pres["rec"] + pres["con"] + pres["per"]
+        pres["pct"] = round(pres["rec"] / pres["n"] * 100) if pres["n"] else None
+        pres["susp"] = _bilan(pression)["susp"] if pression else None
+        return {"total": b["total"], "longueur": b["longueur"], "gain": b["gain"], "types": types, "pres": pres}
+
+    # Une vue par joueur et par mi-temps (clé « joueur|mi-temps », vide = tous) : choisir un joueur dans le filtre
+    # remplace le bilan de l'équipe par le sien, avec exactement les mêmes calculs.
+    vues = {}
+    for nom, lst in [("", tous)] + sorted(groupes.items()):
+        for mt in ("", "1", "2"):
+            vues[f"{nom}|{mt}"] = _vue([t for t in lst if not mt or str(t.get("mt") or 1) == mt])
+    vue = vues["|"]
+    par_type, pres = vue["types"], vue["pres"]
     for j in joueurs:
         pj = [t for t in groupes.get(j["nom"], []) if t["type"] == "PRE" and t.get("res")]
         j["par_type"] = {c: sum(1 for t in groupes.get(j["nom"], []) if t["type"] == c) for c, _l, _k in JAP_TYPES}
@@ -3659,7 +3674,7 @@ def season_jap():
         r["pre_pct"] = round(r["pre_rec"] / r["pre_res"] * 100) if r["pre_res"] else None
     return render_template("season_jap.html", jap=tous, par_match=par_match, types=JAP_TYPES,
                            joueurs=joueurs, bilan=_bilan(tous), equipe=equipe, par_type=par_type, pres=pres,
-                           totaux_type=totaux_type, **ctx)
+                           vue=vue, vues=vues, totaux_type=totaux_type, **ctx)
 
 
 @app.route("/match/<int:match_id>/melees")
