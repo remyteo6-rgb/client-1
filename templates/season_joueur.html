@@ -3,6 +3,18 @@
 {% set active = 'fiche' %}
 {% block title %}{{ display_name(j.name) }} — Saison{% endblock %}
 {% macro badge(n, big=false) %}{% if n is none %}<span class="nt-badge nt-na {{ 'pj-big' if big }}">—</span>{% else %}<span class="nt-badge {{ 'nt-top' if n >= 6.5 else ('nt-ok' if n >= 5 else ('nt-mid' if n >= 3.5 else 'nt-low')) }} {{ 'pj-big' if big }}">{{ n }}</span>{% endif %}{% endmacro %}
+{# Valeur d'une case des tableaux « Toutes ses stats » (mêmes règles que la page Joueurs). #}
+{% macro fj_cell(c, v, gs, low=false, total=false) %}
+{% if c.kind == 'fam' %}
+{% if v and v[1] %}{% set p = (v[0] / v[1] * 100)|round|int %}<td class="{{ gs }}{{ '' if total else (' bjr-fam-bon' if p >= 80 else (' bjr-fam-bas' if p < 50 else '')) }}"><b>{{ p }}%</b> <small class="bjr-fam-det">{{ v[0] }}/{{ v[1] }}</small></td>{% else %}<td class="bjr-zero{{ gs }}">·</td>{% endif %}
+{% elif c.kind == 'pct' %}
+<td class="bjr-pct{{ gs }}{{ ' bjr-low' if low and c.key == 'plaquage_pct' }}">{% if v is not none %}{{ v }}%{% else %}<span class="bjr-dot">·</span>{% endif %}</td>
+{% elif v %}
+<td class="{{ '' if total else ('bjr-pos' if c.kind == 'pos' else ('bjr-neg' if c.kind == 'neg' else '')) }}{{ gs }}">{{ v|nb }}</td>
+{% else %}
+<td class="bjr-zero{{ gs }}">·</td>
+{% endif %}
+{% endmacro %}
 {% block content %}
 <div class="page-header no-print">
     <div>
@@ -11,8 +23,16 @@
     </div>
 </div>
 {% include "_season_select.html" %}
+{% if stats %}
+<nav class="fj-nav no-print">
+    <a href="#fj-profil">Profil</a>
+    <a href="#fj-stats">Toutes ses stats</a>
+    {% for b in stats %}<a class="fj-nav-sub" href="#fj-{{ b.key }}">{{ b.title|capitalize }}</a>{% endfor %}
+    <a href="#fj-matchs">Match par match</a>
+</nav>
+{% endif %}
 
-<section class="pj-hero">
+<section class="pj-hero" id="fj-profil">
     <div class="pj-id">
         <span class="pj-poste">{{ libelles.get(j.poste, j.poste) if j.poste else 'Sans poste' }}</span>
         <h2 class="pj-name">{{ display_name(j.name) }}</h2>
@@ -92,6 +112,57 @@
 </div>
 {% endif %}
 
+{% if stats %}
+<section class="fj-stats" id="fj-stats">
+    <h2 class="fj-h2">Toutes ses stats <small>{{ display_name(j.name) }} · une ligne par match, total en bas</small></h2>
+    <p class="nt-sub fj-note">Mêmes chiffres que la page Joueurs, pour ce joueur seulement. Les blocs sans aucune action sur les matchs sélectionnés sont masqués.</p>
+    {% for b in stats %}
+    <div class="bil-panel fj-bloc" id="fj-{{ b.key }}">
+        <div class="bil-panel-head">{{ b.title|capitalize }}</div>
+        <div class="m-scroll bjr-detail fj-scroll">
+        <table class="bjr-table fj-table">
+            <colgroup>
+                <col class="fj-c-match"><col class="fj-c-min">
+                {% for c in b.cols %}<col class="{{ 'fj-c-fam' if c.kind == 'fam' else ('bjr-c-xw' if (c.label.split()|map('length')|max) > 8 else ('bjr-c-wide' if (c.label|length > 4 or c.kind == 'pct') else 'bjr-c-sm')) }}">{% endfor %}
+                <col>
+            </colgroup>
+            <thead>
+                <tr class="bjr-groups">
+                    <th colspan="2" class="bjr-g-joueur">Match</th>
+                    {% for g in b.groups %}<th colspan="{{ g.cols|length }}" class="bjr-g-{{ g.color }}">{{ g.label }}</th>{% endfor %}
+                    <th class="fj-fill"></th>
+                </tr>
+                <tr class="bjr-cols">
+                    <th class="bjr-left">Adversaire</th><th>Min.</th>
+                    {% for g in b.groups %}{% for c in g.cols %}<th class="{{ 'bjr-gstart' if loop.first }}{{ ' bjr-sign' if c.label in ['+', '=', '−'] }}">{{ c.label }}</th>{% endfor %}{% endfor %}
+                    <th class="fj-fill"></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in b.rows %}
+                <tr>
+                    <td class="bjr-nom fj-match"><a href="{{ url_for('match_joueurs', match_id=r.id) }}">{{ ('J' ~ r.journee ~ ' · ') if r.journee }}{{ r.opponent }}</a>{% if r.amical %} <span class="fj-tag">Amical</span>{% endif %}{% if r.date %}<small>{{ r.date }}</small>{% endif %}</td>
+                    <td class="bjr-min">{{ r.minutes if r.minutes else '·' }}</td>
+                    {% for g in b.groups %}{% for c in g.cols %}{{ fj_cell(c, r.v[c.key], ' bjr-gstart' if loop.first else '', r.low) }}{% endfor %}{% endfor %}
+                    <td class="fj-fill"></td>
+                </tr>
+            {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td class="bjr-nom">Total · {{ b.rows|length }} match{{ 's' if b.rows|length > 1 }}</td>
+                    <td>{{ b.rows|sum(attribute='minutes') if b.rows|selectattr('minutes')|list else '·' }}</td>
+                    {% for g in b.groups %}{% for c in g.cols %}{{ fj_cell(c, b.total[c.key], ' bjr-gstart' if loop.first else '', false, true) }}{% endfor %}{% endfor %}
+                    <td class="fj-fill"></td>
+                </tr>
+            </tfoot>
+        </table>
+        </div>
+    </div>
+    {% endfor %}
+</section>
+{% endif %}
+
 {% if radar and radar.criteres %}
 <div class="bil-panel" style="margin-top:18px;">
     <div class="bil-panel-head">Critères du poste</div>
@@ -113,7 +184,7 @@
 </div>
 {% endif %}
 
-<div class="bil-panel" style="margin-top:18px;">
+<div class="bil-panel" style="margin-top:18px;" id="fj-matchs">
     <div class="bil-panel-head">Match par match · temps forts</div>
     <div class="pj-matchs">
         {% for x in joues %}

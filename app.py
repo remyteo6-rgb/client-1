@@ -2049,6 +2049,23 @@ def _pct(num, den):
     return round(num / den * 100) if den else None
 
 
+def _detail_derives(table, ligne):
+    """Copie d'une ligne joueur complétée des champs calculés qu'affichent les colonnes de JOUEURS_SLIDES :
+    plaquages réussis (dominant + neutre + passif) et tirs au but en « réussis/tentés »."""
+    src = dict(ligne or {})
+    if table == "defense":
+        src["plaquage_reussis"] = (src.get("plaquage_dominant", 0) + src.get("plaquage_neutre", 0)
+                                   + src.get("plaquage_passif", 0))
+    if table == "ruck":
+        src["transfo_txt"] = (f"{_nbs(src.get('transfo_reussies', 0))}/{_nbs(src.get('transfo_tentees', 0))}"
+                              if src.get("transfo_tentees") else 0)
+        src["penalite_txt"] = (f"{_nbs(src.get('penalite_reussies', 0))}/{_nbs(src.get('penalite_tentees', 0))}"
+                               if src.get("penalite_tentees") else 0)
+        src["drop_txt"] = (f"{_nbs(src.get('drop_reussis', 0))}/{_nbs(src.get('drop_tentes', 0))}"
+                           if src.get("drop_tentes") else 0)
+    return src
+
+
 def _joueurs_detail_slides(bilan_slide, player_cards, tables, avg=False):
     """Une diapo par secteur (attaque / défense / conquête) avec les mêmes joueurs, dans
     le même ordre et avec les mêmes n° / poste / nom que la diapo BILAN. Un joueur sans
@@ -2059,17 +2076,7 @@ def _joueurs_detail_slides(bilan_slide, player_cards, tables, avg=False):
         cols = [c for g in spec["groups"] for c in g["cols"]]
         rows = []
         for meta, card in zip(bilan_slide["rows"], player_cards):
-            src = dict(by_name.get(card["name"]) or {})
-            if spec["table"] == "defense":
-                src["plaquage_reussis"] = (src.get("plaquage_dominant", 0) + src.get("plaquage_neutre", 0)
-                                           + src.get("plaquage_passif", 0))
-            if spec["table"] == "ruck":
-                src["transfo_txt"] = (f"{_nbs(src.get('transfo_reussies', 0))}/{_nbs(src.get('transfo_tentees', 0))}"
-                                      if src.get("transfo_tentees") else 0)
-                src["penalite_txt"] = (f"{_nbs(src.get('penalite_reussies', 0))}/{_nbs(src.get('penalite_tentees', 0))}"
-                                       if src.get("penalite_tentees") else 0)
-                src["drop_txt"] = (f"{_nbs(src.get('drop_reussis', 0))}/{_nbs(src.get('drop_tentes', 0))}"
-                                   if src.get("drop_tentes") else 0)
+            src = _detail_derives(spec["table"], by_name.get(card["name"]))
             rows.append({**meta, "name": card["name"], "v": {c["key"]: src.get(c["key"]) for c in cols},
                          "low": bool(src.get("plaquage_low_sample")) if src else False})
         tot = {}
@@ -4697,8 +4704,13 @@ def season_joueurs():
                                               "Charnière", "Centre", "Ailier/Arrière"))}
     player_cards.sort(key=lambda c: poste_rang.get(_poste_effectif(c["name"]), len(poste_rang)))
     bilan_slide = _bilan_slide(player_cards, None, None, minutes_by_name=_season_minutes(selected))
-    for r in bilan_slide["rows"]:
+    # Le nom mène à la fiche du joueur (toutes ses stats, sans les autres) quand elle existe : il lui faut des
+    # minutes saisies. Les diapos de détail et d'activité reprennent ces lignes, donc le lien aussi.
+    fiches = {j["name"].strip().casefold() for j in _notes_saison(selected)}
+    for r, c in zip(bilan_slide["rows"], player_cards):
         r["number"] = None
+        k = c["name"].strip().casefold()
+        r["fiche"] = k if k in fiches else None
     detail_slides = _joueurs_detail_slides(bilan_slide, player_cards,
                                            {"attack": attack_table, "defense": defense_table, "ruck": ruck_table})
     for sl in detail_slides:
@@ -6171,6 +6183,78 @@ def season_fiche():
     return render_template("season_fiche.html", groupes=groupes, libelles=PROFIL_LIBELLE, display_name=_joueur_nom_affiche, **ctx)
 
 
+# Bloc « Bilan » de la fiche d'un joueur (les autres blocs reprennent les colonnes de JOUEURS_SLIDES).
+FICHE_BILAN = {"key": "bilan", "title": "BILAN", "table": "bilan", "groups": [
+    {"label": "Volume", "cols": [{"key": "actions_codees", "label": "Actions codées", "kind": "num"}]},
+    {"label": "Bilan global des actions", "cols": [
+        {"key": "positives", "label": "Positives", "kind": "pos"},
+        {"key": "neutres", "label": "Neutres", "kind": "num"},
+        {"key": "negatives", "label": "Négatives", "kind": "neg"}]},
+    {"label": "Réussite par famille", "cols": [
+        {"key": "fam_contact", "label": "Contacts +", "kind": "fam"},
+        {"key": "fam_passes", "label": "Passes propres", "kind": "fam"},
+        {"key": "fam_plaquages", "label": "Plaquages réussis", "kind": "fam"}]},
+]}
+
+
+def _fiche_stats(j, selected):
+    """Toutes les stats d'UN joueur sur les matchs sélectionnés, pour sa fiche : un bloc par secteur
+    (bilan, attaque, défense, conquête, jeu au pied & marque, discipline), une ligne par match où il a
+    joué ou a des actions codées, puis le total. Ce sont les chiffres des pages Joueurs (match et saison),
+    sans les autres joueurs. Les groupes de colonnes sans aucune action sur la période sont masqués."""
+    cle = j["name"].strip().casefold()
+    infos = {x.get("id"): x for x in (j.get("matchs") or [])}
+    matchs = []          # [(méta du match, {"bilan" / "attack" / "defense" / "ruck": ligne ou None})]
+    for m in selected:
+        ins = m.get("instances")
+        if not ins:
+            continue
+        attack = compute_player_attack_table(ins)
+        defense = compute_player_defense_table(ins)
+        ruck = compute_player_ruck_table(ins)
+        bilan = compute_player_bilan_table(ins, attack_table=attack, defense_table=defense, ruck_table=ruck)
+        lignes = {k: next((r for r in t["rows"] if r["name"].strip().casefold() == cle), None)
+                  for k, t in (("bilan", bilan), ("attack", attack), ("defense", defense), ("ruck", ruck))}
+        x = infos.get(m["id"]) or {}
+        if not any(lignes.values()) and not x.get("minutes"):
+            continue
+        d = str(m.get("match_date") or "")
+        matchs.append(({"id": m["id"], "opponent": m.get("opponent") or "?", "journee": m.get("journee"),
+                        "date": f"{d[8:10]}/{d[5:7]}" if len(d) >= 10 else "",
+                        "minutes": x.get("minutes") or None, "poste": x.get("poste") or "",
+                        "amical": _est_amical(m)}, lignes))
+    if not matchs:
+        return []
+
+    def valeurs(spec, lignes):
+        src = _detail_derives(spec["table"], lignes.get(spec["table"]))
+        if spec["table"] == "bilan":
+            for k, v in _bilan_familles(lignes.get("attack"), lignes.get("defense")).items():
+                src["fam_" + k] = v
+        return {c["key"]: src.get(c["key"]) for g in spec["groups"] for c in g["cols"]}
+
+    def vide(c, v):
+        return not v or (c["kind"] == "fam" and not v[1])
+
+    total_lignes = {k: _fusion_lignes([l.get(k) for _m, l in matchs]) for k in ("bilan", "attack", "defense", "ruck")}
+    blocs = []
+    for spec in [FICHE_BILAN] + JOUEURS_SLIDES:
+        total = valeurs(spec, total_lignes)
+        groupes = [{**g, "color": _SLIDE_GROUP_COLORS[i % 3]} for i, g in enumerate(spec["groups"])
+                   if any(not vide(c, total.get(c["key"])) for c in g["cols"])]
+        if not groupes:
+            continue
+        cols = [c for g in groupes for c in g["cols"]]
+        rows = []
+        for meta, lignes in matchs:
+            v = valeurs(spec, lignes)
+            rows.append({**meta, "v": {c["key"]: v.get(c["key"]) for c in cols},
+                         "low": bool((lignes.get("defense") or {}).get("plaquage_low_sample"))})
+        blocs.append({"key": spec["key"], "title": spec["title"], "groups": groupes, "cols": cols, "rows": rows,
+                      "total": {c["key"]: total.get(c["key"]) for c in cols}})
+    return blocs
+
+
 @app.route("/season/joueur/<path:key>")
 def season_joueur(key):
     """Page complète d'un joueur : note, Facteur X, minutes, matchs, radar sur son poste, critères et suivi."""
@@ -6185,6 +6269,7 @@ def season_joueur(key):
     for x in joues:
         x["tf"] = _temps_forts(x)
     return render_template("season_joueur.html", j=j, radar=radar, joues=joues, nb_matchs=len(joues),
+                           stats=_fiche_stats(j, selected),
                            tendance=_tendance(j["evo"]), axes=_axes_travail(j, radar), fiab=_fiabilite(j, joues), conquete=_conquete_pied(joues), pc=_points_cartons(joues),
                            ret_forts=_retenu_radar(radar)[0], ret_faibles=_retenu_radar(radar)[1],
                            libelles=PROFIL_LIBELLE, display_name=_joueur_nom_affiche,

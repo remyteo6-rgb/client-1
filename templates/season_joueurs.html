@@ -55,7 +55,7 @@
                 <tr>
                     <td class="bjr-num">{% if r.number %}<span>{{ r.number }}</span>{% endif %}</td>
                     <td class="bjr-poste">{{ r.poste }}</td>
-                    <td class="bjr-nom">{{ r.nom }}</td>
+                    <td class="bjr-nom">{% if r.fiche %}<a class="bjr-fiche" href="{{ url_for('season_joueur', key=r.fiche, m=season_selected_ids) }}" title="Voir toutes ses stats">{{ r.nom }}</a>{% else %}{{ r.nom }}{% endif %}</td>
                     {% if r.minutes %}<td class="bjr-min">{{ r.minutes }}</td>{% else %}<td class="bjr-zero">·</td>{% endif %}
                     <td>{{ r.actions_codees|nb }}</td>
                     {{ bjr_val(r.positives, 'bjr-pos') }}
@@ -115,7 +115,7 @@
                                 <tr>
                     <td class="bjr-num">{% if r.number %}<span>{{ r.number }}</span>{% endif %}</td>
                     <td class="bjr-poste">{{ r.poste }}</td>
-                    <td class="bjr-nom">{{ r.nom }}</td>
+                    <td class="bjr-nom">{% if r.fiche %}<a class="bjr-fiche" href="{{ url_for('season_joueur', key=r.fiche, m=season_selected_ids) }}" title="Voir toutes ses stats">{{ r.nom }}</a>{% else %}{{ r.nom }}{% endif %}</td>
                     {% for g in sl.groups %}{% for c in g.cols %}
                     {% set v = r.v[c.key] %}
                     {% set gs = ' bjr-gstart' if loop.first else '' %}

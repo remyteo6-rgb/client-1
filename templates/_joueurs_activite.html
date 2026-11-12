@@ -30,7 +30,7 @@
                 <tr>
                     <td class="bjr-num">{% if r.number %}<span>{{ r.number }}</span>{% endif %}</td>
                     <td class="bjr-poste">{{ r.poste }}</td>
-                    <td class="bjr-nom">{{ r.nom }}</td>
+                    <td class="bjr-nom">{% if r.fiche %}<a class="bjr-fiche" href="{{ url_for('season_joueur', key=r.fiche, m=season_selected_ids) }}" title="Voir toutes ses stats">{{ r.nom }}</a>{% else %}{{ r.nom }}{% endif %}</td>
                     {% if r.minutes %}<td class="bjr-min">{{ r.minutes }}</td>{% else %}<td class="bjr-zero">·</td>{% endif %}
                     {% for q in act.quarts %}{% if r.q[q] %}<td>{{ r.q[q] }}</td>{% else %}<td class="bjr-zero">·</td>{% endif %}{% endfor %}
                     <td class="bjr-act-total">{{ r.total }}</td>
