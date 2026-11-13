@@ -367,7 +367,9 @@ def parse_sportscode_xml(path, own_team_label=None):
         tag_counts = defaultdict(int)
         for code in code_catalog:
             m = NUMBERED_RE.match(code)
-            if m:
+            # « 00 - BALL IN PLAY » est le temps de jeu effectif, pas un code « <n> - Catégorie Équipe » :
+            # sans ce garde-fou, l'équipe du match était nommée « PLAY ».
+            if m and not _is_bip_code(code):
                 tokens = m.group(1).strip().split()
                 if tokens and tokens[-1].isdigit():
                     tokens = tokens[:-1]
@@ -718,6 +720,12 @@ SCORE_KIND_TOKENS = {
     "drops": {"DROP", "DROPS"},
 }
 SCORE_TRY_POINTS = 5
+# Autres écritures de notre équipe en tête de code (fichiers codés en partie par un analyste extérieur).
+OWN_TEAM_ALIASES = {"UBB", "BORDEAUX", "BORDEAUX BEGLES", "UNION BORDEAUX BEGLES"}
+# Label « Points » écrit en toutes lettres (codage anglais) -> nature de la marque.
+POINTS_EN_LETTRES = {"TRY": "tries", "TRIES": "tries", "CONVERSION": "conversions", "CONVERSIONS": "conversions",
+                     "PENALTY": "penalties", "PENALTY GOAL": "penalties", "PENALTY KICK": "penalties",
+                     "DROP": "drops", "DROP GOAL": "drops"}
 # Délai max (s vidéo) entre un essai et son code Transfo pour les considérer liés.
 CONVERSION_WINDOW = 240
 SCORE_DEFAULT_POINTS = {"conversions": 2, "penalties": 3, "drops": 3}
@@ -764,6 +772,31 @@ def _scoring_events(instances, adv_token=None):
         events.append({"side": side, "kind": kind, "points": max(value, 0),
                        "start": inst.get("start") or 0, "end": inst.get("end") or inst.get("start") or 0,
                        "inst": inst})
+    # Codage « <équipe> Points » avec un label Points en toutes lettres (Try / Conversion / Penalty / Drop),
+    # celui de l'analyste écossais sur UBB-Écosse (novembre 2026) : seuls les points MARQUÉS y sont
+    # tagués. Les essais ne sont repris de là que si l'équipe n'a aucun code « Essai », pour ne pas
+    # les compter deux fois.
+    essais_codes = {e["side"] for e in events if e["kind"] == "tries"}
+    for inst in instances:
+        tokens = _normalize_tag(inst.get("code_raw")).split()
+        if len(tokens) < 2 or tokens[-1] != "POINTS":
+            continue
+        if " ".join(tokens[:-1]) in OWN_TEAM_ALIASES:
+            side = "own"
+        elif tokens[0] in ("ADV", "ADVERSE") or (adv_token and tokens[0] == adv_token):
+            side = "adverse"
+        else:
+            continue
+        for lab in inst.get("labels") or []:
+            if _normalize_tag(lab.get("group")) != "POINTS":
+                continue
+            kind = POINTS_EN_LETTRES.get(_normalize_tag(lab.get("text")))
+            if kind is None or (kind == "tries" and side in essais_codes):
+                continue
+            events.append({"side": side, "kind": kind,
+                           "points": SCORE_TRY_POINTS if kind == "tries" else SCORE_DEFAULT_POINTS[kind],
+                           "start": inst.get("start") or 0, "end": inst.get("end") or inst.get("start") or 0,
+                           "inst": inst})
     events.sort(key=lambda e: e["start"])
     # Essai transformé sans code Transfo : quand l'essai porte le label « Points » = 7
     # (5 + 2) et qu'aucun code Transfo de la même équipe ne le suit avant l'essai suivant,
@@ -2457,6 +2490,260 @@ _ATTACK_ACTION_KEYS = {
 CHASSEUR_RECUP_TEXTS = {"CONTRE RUCK", "BALLONS GAGNES"}
 
 
+# ---- Grille de codage individuelle 2026-27 (novembre 2026) --------------------
+# Dans la nouvelle grille de Téo, le nom de l'action n'est plus un label du groupe
+# « Joueurs Off » : chaque action a son propre groupe (« Contact » / « Contacts »,
+# « Passes », « Offload », « Soutiens », « Def battus », « Pertes de balles », « Score »,
+# « Coup d'envoi », « Reception CE », « JAP », « Jeu aériens », « Joueur Défense »,
+# « Contre Ruck »…). Plutôt que de réécrire chaque calcul, on TRADUIT ces labels dans
+# l'ancienne écriture au chargement du match (voir app._row_to_match) : toutes les pages
+# (joueurs, bilan attaque, CSC, notes, saison) lisent alors les deux grilles avec le même
+# code. Rien n'est modifié en base, et une instance déjà codée à l'ancienne n'est pas
+# touchée (un label n'est ajouté que s'il manque) : un fichier mi-ancien mi-nouveau ne
+# compte jamais une action deux fois.
+NG_GROUPE_ACTIONS = "Joueurs Off"
+NG_QUALITES = ("+", "=", "-")
+# Groupes de qualité du jeu au pied, un par type de coup de pied.
+NG_JAP_GROUPES = ("PENALTOUCHE", "JAP LONG", "JAP PRESSION", "AUTRE JAP", "50/22")
+# Résultats négatifs du jeu au pied : touche non trouvée, directe en touche, coup de pied contré.
+NG_JAP_NEGATIFS = {"RATE", "RATEE", "DIRECT", "CONTRE"}
+NG_AERIENS_OFF = {"DUELS AERIENS OFF", "REBONDS", "REBOND", "CORBEILLES", "CORBEILLE", "RECEPTION JAP SOL"}
+NG_AERIENS_DEF = {"DUELS AERIENS DEF"}
+NG_GROUPES_JOUEUR_DEF = ("JOUEUR DEFENSE", "JOUEURS DEFENSE", "JOUEUR DEF", "JOUEURS DEF")
+# Groupes qui n'existent que dans la nouvelle grille et n'ont pas d'équivalent « Joueurs Off » :
+# une instance qui n'a qu'eux reçoit un label neutre pour compter comme une action codée.
+NG_GROUPES_SEULS = {"TOUCHES", "TOUCHES OFF", "TOUCHES DEF", "TOUCHES OFF LANCE", "TOUCHES OFF SAUTEUR",
+                    "TOUCHES OFF TQB", "TOUCHES DEF SAUTEUR", "MELEE OFF", "MELEES OFF", "MELEE DEF",
+                    "MELEES DEF", "CONTRE RUCK"} | set(NG_GROUPES_JOUEUR_DEF)
+NG_ACTION_NEUTRE = "Action"
+GROUPES_ACTIONS_INDIV = ("JOUEURS OFF", "SNIPERS", "CHASSEUR", "COMBATTANT", "DISCIPLINES")
+
+
+def _ng_groupes(instance):
+    """{groupe normalisé: [textes normalisés, dans l'ordre, doublons gardés]} d'une instance."""
+    g = {}
+    for lab in instance.get("labels") or []:
+        g.setdefault(_normalize_tag(lab.get("group")), []).append(_normalize_tag(lab.get("text")))
+    return g
+
+
+def _ng_joueur_def(g):
+    """Textes du groupe « Joueur Défense » (Effort, Erreur def, Interception, Ballons gagnés, Ballon
+    contré), quelle que soit l'écriture du groupe ; « Effort » a aussi été codé sans groupe."""
+    vals = []
+    for nom in NG_GROUPES_JOUEUR_DEF:
+        vals += g.get(nom, [])
+    if "EFFORT" in g.get("", []):
+        vals.append("EFFORT")
+    return vals
+
+
+def _traduire_instance(inst):
+    """Labels à ajouter à une instance de joueur pour l'écrire aussi dans l'ancienne grille
+    (liste de {group, text}, vide si rien à traduire)."""
+    g = _ng_groupes(inst)
+    if not g:
+        return []
+    jo = set(g.get("JOUEURS OFF", ()))
+    ajouts = []
+
+    def action(texte, n=1):
+        if _normalize_tag(texte) not in jo:
+            ajouts.extend({"group": NG_GROUPE_ACTIONS, "text": texte} for _ in range(n))
+            jo.add(_normalize_tag(texte))
+
+    def qualite(cible, sources):
+        """Recopie les + / = / - des groupes 'sources' dans le groupe 'cible' s'il n'en a pas déjà."""
+        if any(q in g.get(_normalize_tag(cible), ()) for q in NG_QUALITES):
+            return
+        vus = []
+        for src in sources:
+            for t in g.get(src, ()):
+                if t in NG_QUALITES and t not in vus:
+                    vus.append(t)
+        ajouts.extend({"group": cible, "text": t} for t in vus)
+
+    if "CONTACTS" in g.get("CONTACT", ()):
+        action("Contacts")
+    if "PASSES" in g.get("PASSES", ()):
+        action("Passes")
+    if set(g.get("OFFLOAD", ())) & PLAYER_ACTION_OFFLOAD:
+        if not (jo & PLAYER_ACTION_OFFLOAD):
+            action("Offloads")
+    n = g.get("DEF BATTUS", []).count("DEF BATTUS")
+    if n:
+        action("Def battus", n)
+    soutiens = g.get("SOUTIENS", [])
+    if "SOUTIENS OFF" in soutiens:
+        action("Soutiens off")
+        for rang, texte in (("1ER", "1er"), ("2EME", "2eme"), ("3+", "3+")):
+            if rang in soutiens:
+                action(texte)
+    if "CARTOUCHES" in soutiens:
+        action("Cartouches", soutiens.count("CARTOUCHES"))
+    n = g.get("PERTES DE BALLES", []).count("PDB")
+    if n:
+        action("PDB", n)
+    n = g.get("BREAK", []).count("BREAK")
+    if n:
+        action("Break", n)
+    score = set(g.get("SCORE", ()))
+    if score:
+        if score & {"ESSAIS", "ESSAI"}:
+            action("Essais")
+        if score & {"TRANSFORMATIONS", "TRANSFORMATION"}:
+            action("Transformations")
+        if score & PLAYER_ACTION_PENALTY and not (jo & PLAYER_ACTION_PENALTY):
+            action("Pénalité")
+        if score & {"DROP", "DROPS"} and not (jo & {"DROP", "DROPS"}):
+            action("Drop")
+        if "SPECIFIQUES" not in g:
+            if score & {"REUSSI", "REUSSIE"}:
+                ajouts.append({"group": "Spécifiques", "text": "Réussi"})
+            elif score & {"RATE", "RATEE"}:
+                ajouts.append({"group": "Spécifiques", "text": "Raté"})
+    if "COUP D'ENVOI" in g.get("COUP D'ENVOI", ()):
+        action("Coup d'envoi")
+    if "RECEPTION CE" in g.get("RECEPTION CE", ()):
+        action("Reception CE")
+        qualite("RCE", ["RECEPTION CE"])
+    jap = g.get("JAP", [])
+    if jap or any(grp in g for grp in NG_JAP_GROUPES):
+        action("JAP")
+        if not any(q in jap for q in NG_QUALITES):
+            vus = []
+            for grp in NG_JAP_GROUPES:
+                for t in g.get(grp, ()):
+                    t = "-" if t in NG_JAP_NEGATIFS else t
+                    if t in NG_QUALITES and t not in vus:
+                        vus.append(t)
+            if not vus and set(jap) & NG_JAP_NEGATIFS:
+                vus.append("-")
+            if not vus and "50/22" in jap:
+                vus.append("+")
+            ajouts.extend({"group": "JAP", "text": t} for t in vus)
+    aer = g.get("JEU AERIENS", [])
+    if aer or "JEU AERIENS DEF" in g or "JEU AERIENS OFF" in g:
+        if set(aer) & {"REBONDS", "REBOND"}:
+            action("Rebonds")
+        else:
+            action("Duels aériens")
+        qualite("Aériens", ["JEU AERIENS", "JEU AERIENS OFF", "JEU AERIENS DEF"])
+    jd = _ng_joueur_def(g)
+    if "INTERCEPTION" in jd:
+        action("Interception")
+    if "BALLONS GAGNES" in jd and "BALLONS GAGNES" not in g.get("CHASSEUR", ()):
+        ajouts.append({"group": "Chasseur", "text": "Ballons gagnés"})
+    cr = g.get("CONTRE RUCK", [])
+    if "CONTRE RUCK" in cr and "GAGNE" in cr and "CONTRE RUCK" not in g.get("CHASSEUR", ()):
+        ajouts.append({"group": "Chasseur", "text": "Contre ruck"})
+    if "MELEES OFF" in g.get("MELEE OFF", ()) and not (jo & {"MELEES", "MELEES OFF"}):
+        action("Mêlées off")
+    # Action sans équivalent dans l'ancienne grille (rôle de touche, mêlée, effort…) : label neutre,
+    # pour que l'instance compte comme une action codée et que son code soit reconnu comme un joueur.
+    groupes_apres = set(g) | {_normalize_tag(a["group"]) for a in ajouts}
+    if (not (groupes_apres & set(GROUPES_ACTIONS_INDIV))
+            and (set(g) & NG_GROUPES_SEULS or "EFFORT" in jd)):
+        ajouts.append({"group": NG_GROUPE_ACTIONS, "text": NG_ACTION_NEUTRE})
+    return ajouts
+
+
+# Actions qui doivent porter une qualité dans la nouvelle grille : (libellé, groupe de l'action, texte de
+# l'action, groupes où chercher la qualité, qualités admises).
+NG_CONTROLE_QUALITE = [
+    ("Contact", "CONTACT", "CONTACTS", ("CONTACTS",), {"+", "=", "-"}),
+    ("Passe", "PASSES", "PASSES", ("PASSES",), {"+", "=", "-", "RATE", "RATEE"}),
+    ("Offload", "OFFLOAD", "OFFLOADS", ("OFFLOAD",), {"+", "=", "-", "SUPER", "+ GARDE", "- GARDE", "PERDU"}),
+    ("Soutien", "SOUTIENS", "SOUTIENS OFF", ("SOUTIENS",), {"+", "-"}),
+    ("Cartouche", "SOUTIENS", "CARTOUCHES", ("SOUTIENS",), {"+", "-"}),
+    ("Plaquage (sniper)", "SNIPERS", "SNIPER", ("SNIPERS",), {"+", "=", "-"}),
+    ("Combattant", "COMBATTANT", "COMBATTANT", ("COMBATTANT",), {"+", "=", "-"}),
+    ("Chasseur", "CHASSEUR", "CHASSEUR", ("CHASSEUR",), {"+", "=", "-"}),
+    ("Coup d'envoi", "COUP D'ENVOI", "COUP D'ENVOI", ("COUP D'ENVOI", "RCE"), {"+", "=", "-"}),
+    ("Réception CE", "RECEPTION CE", "RECEPTION CE", ("RECEPTION CE", "RCE"), {"+", "=", "-"}),
+    ("Lancer en touche", "TOUCHES OFF", "LANCE", ("TOUCHES OFF LANCE",), {"+", "-"}),
+    ("Prise en touche", "TOUCHES OFF", "PRISE EN TOUCHE", ("TOUCHES OFF SAUTEUR",), {"+", "-"}),
+    ("TQB", "TOUCHES OFF", "TQB", ("TOUCHES OFF TQB",), {"+", "-"}),
+    ("Sauteur déf.", "TOUCHES DEF", "SAUTEUR DEF", ("TOUCHES DEF SAUTEUR",), {"+", "-"}),
+    ("Mêlée off.", "MELEE OFF", "MELEES OFF", ("MELEE OFF", "MELEES OFF"), {"+", "-", "GAGNE", "PERDU", "PENALISES", "PENALISE"}),
+    ("Mêlée déf.", "MELEE DEF", "MELEES DEF", ("MELEE DEF", "MELEES DEF"), {"+", "-", "GAGNE", "PERDU", "PENALISES", "PENALISE"}),
+    ("Transformation", "SCORE", "TRANSFORMATIONS", ("SCORE", "SPECIFIQUES"), {"REUSSI", "REUSSIE", "RATE", "RATEE"}),
+    ("Duel aérien déf.", "JEU AERIENS", "DUELS AERIENS DEF", ("JEU AERIENS DEF", "JEU AERIENS"), {"+", "=", "-"}),
+    ("Duel aérien off.", "JEU AERIENS", "DUELS AERIENS OFF", ("JEU AERIENS OFF", "JEU AERIENS"), {"+", "=", "-"}),
+]
+# Groupes de labels connus sur un code de joueur (les autres sont signalés : rien n'est ignoré en silence).
+NG_GROUPES_CONNUS = ({"", "JOUEURS OFF", "SNIPERS", "CHASSEUR", "COMBATTANT", "DISCIPLINES", "CHRONO", "CONTACT",
+                      "CONTACTS", "PASSES", "OFFLOAD", "DEF BATTUS", "SOUTIENS", "PERTES DE BALLES", "BREAK", "SCORE",
+                      "SPECIFIQUES", "COUP D'ENVOI", "RECEPTION CE", "RCE", "JAP", "JEU AERIENS", "JEU AERIENS DEF",
+                      "JEU AERIENS OFF", "AERIENS", "POINTS", "CHASSE", "CHASSES", "LANCER", "LANCEUR", "LANCE"}
+                     | NG_GROUPES_SEULS | set(NG_JAP_GROUPES))
+
+
+def controle_codage(instances):
+    """Défauts de codage des actions individuelles, pour que Téo les corrige dans Sportscode plutôt que
+    de les voir comptés de travers : instance de joueur sans aucun label, action sans qualité (elle
+    n'est alors rangée ni en +, ni en =, ni en -), même action posée plusieurs fois sur une instance,
+    groupe de labels inconnu du site. Chaque ligne : {type, joueur, temps (mm:ss de la vidéo), detail}.
+    Se lit sur les instances du fichier, traduites ou non."""
+    if not instances:
+        return []
+    noms = _new_convention_player_names(traduire_grille(instances))
+    out = []
+
+    def ligne(type_, inst, detail):
+        t = int(inst.get("start") or 0)
+        out.append({"type": type_, "joueur": inst.get("code_raw"), "temps": f"{t // 60}:{t % 60:02d}",
+                    "start": inst.get("start") or 0, "detail": detail})
+
+    for inst in instances:
+        if inst.get("code_raw") not in noms:
+            continue
+        g = _ng_groupes(inst)
+        if not inst.get("labels"):
+            ligne("sans_label", inst, "Instance sans aucun label")
+            continue
+        for libelle, groupe, texte, groupes_q, admises in NG_CONTROLE_QUALITE:
+            n = g.get(groupe, []).count(texte)
+            if not n:
+                continue
+            if n > 1 and groupe not in ("SOUTIENS",):
+                ligne("doublon", inst, f"{libelle} posé {n} fois sur la même instance (compté une seule fois)")
+            if not any(q in admises for gq in groupes_q for q in g.get(gq, ())):
+                ligne("sans_qualite", inst, f"{libelle} sans qualité")
+        if "SOUTIENS OFF" in g.get("SOUTIENS", ()) and not (set(g["SOUTIENS"]) & {"1ER", "2EME", "3+"}):
+            ligne("sans_qualite", inst, "Soutien sans rang (1er / 2e / 3+)")
+        for type_jap in g.get("JAP", ()):
+            if type_jap in NG_JAP_GROUPES and not (set(g.get(type_jap, ())) & ({"+", "=", "-"} | NG_JAP_NEGATIFS)):
+                ligne("sans_qualite", inst, f"Jeu au pied « {type_jap.capitalize()} » sans qualité")
+        for groupe in g:
+            if groupe not in NG_GROUPES_CONNUS:
+                ligne("inconnu", inst, f"Groupe de labels non lu par le site : « {groupe} » ({', '.join(sorted(set(g[groupe])))})")
+    out.sort(key=lambda r: r["start"])
+    return out
+
+
+def traduire_grille(instances):
+    """Renvoie les instances avec, sur les codes de joueurs, les actions de la nouvelle grille
+    réécrites AUSSI dans l'ancienne (voir le commentaire ci-dessus). Les instances sans rien à
+    traduire sont rendues telles quelles ; les autres sont copiées (la liste d'origine n'est pas
+    modifiée). Les codes d'équipe (« UBB … », « <adversaire> … ») ne sont jamais traduits."""
+    if not instances:
+        return instances
+    adv_token = _detect_adverse_token(instances)
+    equipes = {"UBB", "ADV", "ADVERSE"} | ({adv_token} if adv_token else set())
+    out = []
+    for inst in instances:
+        if inst.get("labels"):
+            tokens = _normalize_tag(inst.get("code_raw")).split()
+            if tokens and tokens[0] not in equipes:
+                ajouts = _traduire_instance(inst)
+                if ajouts:
+                    inst = dict(inst)
+                    inst["labels"] = list(inst["labels"]) + ajouts
+        out.append(inst)
+    return out
+
+
 def _new_convention_player_names(instances):
     """Voir _new_convention_player_names_calcul (résultat mémorisé pendant la requête ; copie rendue)."""
     return set(_memo_instances("joueurs", instances, lambda: _new_convention_player_names_calcul(instances)))
@@ -2536,7 +2823,16 @@ def compute_player_attack_table(instances):
                       "offload_plus": 0, "offload_minus": 0, "offload_neutre": 0, "offloads": 0,
                       "def_battu": 0, "pdb": 0, "soutien_1er": 0, "soutien_2eme": 0, "soutien_3plus": 0,
                       "break": 0, "cartouche": 0, "melee_portee": 0, "penalite_off": 0, "penalite_def": 0,
-                      "penalite_autre": 0}
+                      "penalite_autre": 0,
+                      # Grille 2026-27 : passe ratée (n'arrive pas), passes break et décisives (comptées
+                      # à part, hors qualité), offloads « Super » / « Perdu », type du défenseur battu,
+                      # qualité + / - de chaque soutien (par rang) et des cartouches.
+                      "passe_ratee": 0, "passe_break": 0, "passe_decisive": 0,
+                      "offload_super": 0, "offload_perdu": 0,
+                      "def_battu_ring": 0, "def_battu_cordes": 0,
+                      "soutien_1er_plus": 0, "soutien_1er_moins": 0, "soutien_2eme_plus": 0,
+                      "soutien_2eme_moins": 0, "soutien_3plus_plus": 0, "soutien_3plus_moins": 0,
+                      "cartouche_plus": 0, "cartouche_moins": 0}
 
     # Pénalités : la Discipline collective de chaque match fait foi (voir app._row_to_match, qui
     # pose le détail {joueur: {off, def, autre}} sur la 1re instance du match). Les labels
@@ -2572,7 +2868,11 @@ def compute_player_attack_table(instances):
         p = groups.get("PASSES", set())
         if "PASSES" in off:
             row["passes"] += 1
-            if "+" in p:
+            if p & {"RATE", "RATEE"}:
+                # Passe ratée : elle n'arrive pas. Comptée dans le total (donc contre le « % propres »),
+                # à part du « - » qui est une passe de mauvaise qualité mais arrivée.
+                row["passe_ratee"] += 1
+            elif "+" in p:
                 row["passe_plus"] += 1
             elif "-" in p:
                 row["passe_minus"] += 1
@@ -2581,20 +2881,28 @@ def compute_player_attack_table(instances):
         o = groups.get("OFFLOAD", set())
         if off & PLAYER_ACTION_OFFLOAD:
             row["offloads"] += 1
-            if "+" in o:
+            # Grille 2026-27 : « Super » et « + Gardé » = offload réussi ; « - Gardé » (mauvais mais
+            # gardé) et « Perdu » = négatif. « Super » et « Perdu » ont en plus leur compteur.
+            if o & {"+", "SUPER", "+ GARDE"}:
                 row["offload_plus"] += 1
-            elif "-" in o:
+                if "SUPER" in o:
+                    row["offload_super"] += 1
+            elif o & {"-", "- GARDE", "PERDU"}:
                 row["offload_minus"] += 1
+                if "PERDU" in o:
+                    row["offload_perdu"] += 1
             else:
                 row["offload_neutre"] += 1
+        sq = groups.get("SOUTIENS", set())
         if "SOUTIENS OFF" in off:
             # Plusieurs rangs sur la même instance (« 2eme » et « 3+ ») = plusieurs soutiens.
-            if "1ER" in off:
-                row["soutien_1er"] += 1
-            if "2EME" in off:
-                row["soutien_2eme"] += 1
-            if "3+" in off:
-                row["soutien_3plus"] += 1
+            # Qualité du soutien (grille 2026-27) : + ou - posé dans le groupe « Soutiens ».
+            signe = "plus" if "+" in sq else ("moins" if "-" in sq else None)
+            for rang, cle in (("1ER", "soutien_1er"), ("2EME", "soutien_2eme"), ("3+", "soutien_3plus")):
+                if rang in off:
+                    row[cle] += 1
+                    if signe:
+                        row[f"{cle}_{signe}"] += 1
         disc = groups.get("DISCIPLINES", set())
         if not couvert:
             if "DISCIPLINES OFF" in disc:
@@ -2604,10 +2912,27 @@ def compute_player_attack_table(instances):
         # Un label répété sur la même instance (« Def battus » posé deux fois) = deux actions :
         # on compte chaque occurrence, pas seulement les labels distincts.
         for lab in i["labels"]:
-            if _normalize_tag(lab["group"]) == "JOUEURS OFF":
-                txt = _normalize_tag(lab["text"])
+            grp = _normalize_tag(lab["group"])
+            txt = _normalize_tag(lab["text"])
+            if grp == "JOUEURS OFF":
                 if txt in _ATTACK_ACTION_KEYS:
                     row[_ATTACK_ACTION_KEYS[txt]] += 1
+                    if txt == "CARTOUCHES" and "CARTOUCHES" in sq:
+                        # Qualité de la cartouche : + ou - du groupe « Soutiens » (grille 2026-27).
+                        if "+" in sq:
+                            row["cartouche_plus"] += 1
+                        elif "-" in sq:
+                            row["cartouche_moins"] += 1
+            elif grp == "PASSES":
+                if txt == "BREAK":
+                    row["passe_break"] += 1
+                elif txt in ("DECISIVE", "DECISIVES"):
+                    row["passe_decisive"] += 1
+            elif grp == "DEF BATTUS":
+                if txt in ("RING", "RINGS"):
+                    row["def_battu_ring"] += 1
+                elif txt in ("CORDE", "CORDES"):
+                    row["def_battu_cordes"] += 1
 
     result = []
     totals = defaultdict(int)
@@ -2617,7 +2942,7 @@ def compute_player_attack_table(instances):
         soutien_total = r["soutien_1er"] + r["soutien_2eme"] + r["soutien_3plus"]
         if (contact_tot + r["passes"] + offload_tot + soutien_total + r["def_battu"] + r["pdb"]
                 + r["break"] + r["cartouche"] + r["melee_portee"] + r["penalite_off"] + r["penalite_def"]
-                + r["penalite_autre"]) == 0:
+                + r["penalite_autre"] + r["passe_break"] + r["passe_decisive"]) == 0:
             continue
         passe_pct_num = r["passe_plus"] + r["passe_neutre"]
         offload_pct_num = r["offload_plus"] + r["offload_neutre"]
@@ -2647,13 +2972,34 @@ def compute_player_defense_table(instances):
                       "plaquage_bas": 0, "plaquage_haut": 0,
                       "combattant_plus": 0, "combattant_neutre": 0, "combattant_minus": 0, "combattant_balle": 0,
                       "chasseur_plus": 0, "chasseur_neutre": 0, "chasseur_minus": 0,
-                      "ballons_recuperes": 0, "interception": 0, "contre_ruck": 0}
+                      "ballons_recuperes": 0, "interception": 0, "contre_ruck": 0,
+                      # Grille 2026-27 : Effort (action sans ballon), Erreur def, Ballon contré, contre-ruck
+                      # de simple pression (sans ballon gagné), duels aériens défensifs + / = / -.
+                      "effort": 0, "erreur_def": 0, "ballon_contre": 0, "contre_ruck_pression": 0,
+                      "aer_def_plus": 0, "aer_def_neutre": 0, "aer_def_moins": 0}
 
     for i in instances:
         code = i["code_raw"]
         if code not in rows:
             continue
         row = rows[code]
+        ng = _ng_groupes(i)
+        jd = _ng_joueur_def(ng)
+        row["effort"] += jd.count("EFFORT")
+        row["erreur_def"] += jd.count("ERREUR DEF")
+        row["ballon_contre"] += jd.count("BALLON CONTRE") + jd.count("BALLONS CONTRES")
+        cr = ng.get("CONTRE RUCK", ())
+        if "CONTRE RUCK" in cr and "PRESSION" in cr and "GAGNE" not in cr:
+            row["contre_ruck_pression"] += 1
+        if set(ng.get("JEU AERIENS", ())) & NG_AERIENS_DEF:
+            qa = set(ng.get("JEU AERIENS DEF", ())) or (set() if set(ng.get("JEU AERIENS", ())) & NG_AERIENS_OFF
+                                                         else set(ng.get("JEU AERIENS", ())))
+            if "+" in qa:
+                row["aer_def_plus"] += 1
+            elif "-" in qa:
+                row["aer_def_moins"] += 1
+            elif "=" in qa:
+                row["aer_def_neutre"] += 1
         sniper_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "SNIPERS"}
         if sniper_vals:
             # « Sniper » et « Sniper raté » sur la même instance : un plaquage réussi ET un
@@ -2704,7 +3050,9 @@ def compute_player_defense_table(instances):
         tackle_total = r["plaquage_dominant"] + r["plaquage_neutre"] + r["plaquage_passif"] + r["plaquage_rate"]
         chasseur_total = r["chasseur_plus"] + r["chasseur_neutre"] + r["chasseur_minus"]
         combattant_total = r["combattant_plus"] + r["combattant_neutre"] + r["combattant_minus"]
-        if tackle_total + combattant_total + chasseur_total + r["ballons_recuperes"] == 0:
+        nouveau = (r["effort"] + r["erreur_def"] + r["ballon_contre"] + r["contre_ruck_pression"]
+                   + r["aer_def_plus"] + r["aer_def_neutre"] + r["aer_def_moins"])
+        if tackle_total + combattant_total + chasseur_total + r["ballons_recuperes"] + nouveau == 0:
             continue
         made = r["plaquage_dominant"] + r["plaquage_neutre"] + r["plaquage_passif"]
         row_out = {
@@ -3231,6 +3579,28 @@ def compute_momentum(instances, equipe=MOMENTUM_EQUIPE, libelle=""):
         tt = tj(x["s"])
         if not any(m["equipe"] == eq and tt - m["t"] < 60 for m in marques):
             marques.append({"t": tt, "equipe": eq, "type": t, "manque": pts == 0})
+    # Codage « <équipe> Points » avec le label Points en toutes lettres (voir _scoring_events) :
+    # transformations, pénalités et drops marqués. Les essais restent lus sur les codes « Essai ».
+    for x in inst:
+        n = x["n"]
+        if len(n) < 2 or n[-1] != "POINTS" or pause(x["s"]):
+            continue
+        cote = 1 if " ".join(n[:-1]) in OWN_TEAM_ALIASES else (-1 if n[0] in A else 0)
+        if not cote:
+            continue
+        eq = equipe if cote > 0 else "ADV"
+        for g, txt in x["L"]:
+            if _normalize_tag(g) != "POINTS":
+                continue
+            t = {"conversions": "Transformation", "penalties": "Pénalité",
+                 "drops": "Drop"}.get(POINTS_EN_LETTRES.get(_normalize_tag(txt)))
+            if not t:
+                continue
+            score[eq] += MOMENTUM_VALEUR_POINTS[t]
+            if t != "Transformation":
+                tt = tj(x["s"])
+                if not any(m["equipe"] == eq and tt - m["t"] < 60 for m in marques):
+                    marques.append({"t": tt, "equipe": eq, "type": t, "manque": False})
     bins_marque = {int(m["t"] / MOMENTUM_BIN) for m in marques if not m.get("manque")}
 
     # ---- 1. occupation : état territorial maintenu (zones Gold/Rumble/Cop/Rouge)
@@ -3632,7 +4002,11 @@ def compute_player_ruck_table(instances):
                       "jap_plus": 0, "jap_neutre": 0, "jap_moins": 0,
                       "essai": 0, "transfo_reussies": 0, "transfo_tentees": 0,
                       "penalite_reussies": 0, "penalite_tentees": 0,
-                      "drop_reussis": 0, "drop_tentes": 0, "chasses": 0}
+                      "drop_reussis": 0, "drop_tentes": 0, "chasses": 0,
+                      # Grille 2026-27 : qualité du coup d'envoi (à part de la réception) et duels aériens
+                      # offensifs + / = / - (duel, rebond, corbeille).
+                      "ce_plus": 0, "ce_neutre": 0, "ce_moins": 0,
+                      "aer_off_plus": 0, "aer_off_neutre": 0, "aer_off_moins": 0}
 
     # Chasses (kick chase, restart chase) : le nom du chasseur est un label du groupe « Chasse(s) » sur le
     # code d'équipe ; écritures rapprochées des codes joueurs (« HERRAUD » = « HERAUD », « FANTCHO TAMBO »…).
@@ -3803,6 +4177,26 @@ def compute_player_ruck_table(instances):
                 row["rce_minus"] += 1
             elif rce_vals:
                 row["rce_neutre"] += 1
+        ng = _ng_groupes(i)
+        if "COUP D'ENVOI" in ng.get("COUP D'ENVOI", ()) and not rce_vals:
+            # Qualité du coup d'envoi posée dans son propre groupe (les anciens fichiers la mettaient
+            # dans « RCE », déjà comptée ci-dessus).
+            qce = ng["COUP D'ENVOI"]
+            if "+" in qce:
+                row["ce_plus"] += 1
+            elif "-" in qce:
+                row["ce_moins"] += 1
+            elif "=" in qce:
+                row["ce_neutre"] += 1
+        types_aer = set(ng.get("JEU AERIENS", ()))
+        if types_aer & NG_AERIENS_OFF or "JEU AERIENS OFF" in ng:
+            qa = set(ng.get("JEU AERIENS OFF", ())) | types_aer
+            if "+" in qa:
+                row["aer_off_plus"] += 1
+            elif "-" in qa:
+                row["aer_off_moins"] += 1
+            elif "=" in qa:
+                row["aer_off_neutre"] += 1
         aeriens_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "AERIENS"}
         if aeriens_vals:
             if "+" in aeriens_vals:
@@ -3898,15 +4292,20 @@ def compute_player_bilan_table(instances, attack_table=None, defense_table=None,
                      + d["plaquage_dominant"] + d["combattant_plus"] + d["chasseur_plus"]
                      + d["ballons_recuperes"]
                      + u["rce_plus"] + u["duels_aer_plus"] + u.get("jap_plus", 0)
-                     + u["essai"] + u["transfo_reussies"])
+                     + u["essai"] + u["transfo_reussies"]
+                     # Grille 2026-27 : un Effort (action sans ballon) et un ballon contré comptent en
+                     # positif (règle de Téo pour l'Effort), comme un coup d'envoi +.
+                     + d.get("effort", 0) + d.get("ballon_contre", 0) + u.get("ce_plus", 0))
         neutres = (a["contact_neutre"] + a["passe_neutre"] + a["offload_neutre"]
                    + a["soutien_2eme"]
                    + d["plaquage_neutre"] + d["combattant_neutre"] + d["chasseur_neutre"]
-                   + u["rce_neutre"] + u["duels_aer_neutre"] + u.get("jap_neutre", 0))
+                   + u["rce_neutre"] + u["duels_aer_neutre"] + u.get("jap_neutre", 0) + u.get("ce_neutre", 0))
         negatives = (a["contact_minus"] + a["passe_minus"] + a["offload_minus"]
                      + a["pdb"] + a["penalite_off"] + a["penalite_def"] + a.get("penalite_autre", 0)
                      + d["plaquage_rate"] + d["combattant_minus"] + d["chasseur_minus"]
-                     + u["transfo_tentees"] - u["transfo_reussies"] + u.get("jap_moins", 0))
+                     + u["transfo_tentees"] - u["transfo_reussies"] + u.get("jap_moins", 0)
+                     # Grille 2026-27 : passe ratée, erreur défensive, coup d'envoi -.
+                     + a.get("passe_ratee", 0) + d.get("erreur_def", 0) + u.get("ce_moins", 0))
 
         actions_codees = raw_actions.get(name, 0)
         if actions_codees == 0:
@@ -4610,7 +5009,8 @@ _BIP_NOMS = {"BIP", "BALLINPLAY", "BALLSINPLAY", "BALLONENJEU", "BALLONSENJEU", 
 
 def _is_bip_code(code_raw):
     k = re.sub(r"[^A-Z0-9]", "", _normalize_tag(code_raw))
-    return k in _BIP_NOMS
+    # Un numéro d'ordre devant le nom (« 00 - BALL IN PLAY ») ne change pas le code.
+    return k in _BIP_NOMS or re.sub(r"^[0-9]+", "", k) in _BIP_NOMS
 
 
 ZONE_GOLD_RESULT_GROUPS = {"RESULTAT Z.MARQUE", "RESULTATS Z.MARQUE", "RESULTAT ZONE MARQUE", "RESULTAT Z MARQUE"}

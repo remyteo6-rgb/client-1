@@ -1,10 +1,19 @@
 {% extends "base.html" %}
 {% import "_ppid_icons.html" as icons %}
 {% block title %}Joueurs — {{ match_title(match) }}{% endblock %}
-{% set active = 'joueurs' %}
+{% set active = 'rucks' if seulement == 'rucks' else 'joueurs' %}
 {% block content %}
 {% from "_kpi_compare.html" import kpi_arrow %}
 
+{% if seulement == 'rucks' %}
+<div class="page-header no-print">
+    <div>
+        <h1>Rucks — {{ match['own_team'] }}</h1>
+        <p class="subtitle">Qualité du soutien selon le rang d'arrivée au ruck (1er, 2e, 3e et plus), puis des cartouches. « + » = soutien efficace, « − » = soutien raté. « % + » = part des « + » parmi les soutiens qualifiés.</p>
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
+</div>
+{% else %}
 <div class="page-header no-print">
     <div>
         <h1>{{ icons.users() }} Joueurs — {{ match['own_team'] }}</h1>
@@ -12,6 +21,7 @@
     </div>
     <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
+{% endif %}
 
 {% macro bjr_val(v, cls='') %}{% if v %}<td class="{{ cls }}">{{ v }}</td>{% else %}<td class="bjr-zero">·</td>{% endif %}{% endmacro %}
 {% macro bjr_fam(f, total=false) %}{% if f[1] %}{% set p = (f[0] / f[1] * 100)|round|int %}<td class="{{ '' if total else ('bjr-fam-bon' if p >= 80 else ('bjr-fam-bas' if p < 50 else '')) }}"><b>{{ p }}%</b> <small class="bjr-fam-det">{{ f[0] }}/{{ f[1] }}</small></td>{% else %}<td class="bjr-zero">·</td>{% endif %}{% endmacro %}
@@ -25,6 +35,7 @@
 
 {# Diapo « BILAN » : même mise en page que le rapport du staff — n° de la compo, poste,
    nom, minutes, volume, bilan +/=/- et barre de répartition. Calculs : _bilan_slide (app.py). #}
+{% if not seulement %}
 <div class="report-board bjr-report">
     <div class="report-head">
         <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
@@ -88,6 +99,10 @@
 
 {# Diapos de détail (attaque / défense / conquête) : même mise en page que la diapo BILAN,
    colonnes décrites dans JOUEURS_SLIDES (app.py), une colonne par chiffre (+ / = / −). #}
+{% endif %}
+{% if seulement == 'rucks' and not detail_slides %}
+<div class="card"><p>La qualité des soutiens et des cartouches n'est pas codée sur ce match : elle arrive avec la nouvelle grille de codage.</p></div>
+{% endif %}
 {% for sl in detail_slides %}
 <div class="report-board bjr-report bjr-detail">
     <div class="report-head">
@@ -146,7 +161,22 @@
 </div>
 {% endfor %}
 
-{% if is_admin %}
+{% if controle %}
+<details class="card no-print chg-saisie ctl-codage">
+    <summary>{{ icons.chart() }} Contrôle du codage — {{ controle|length }} point{{ 's' if controle|length > 1 }} à vérifier dans Sportscode</summary>
+    <p class="subtitle">Actions individuelles codées de façon incomplète sur ce match. Le temps est celui de la vidéo (minutes:secondes).
+        Une action sans qualité n'est comptée ni en +, ni en =, ni en −.</p>
+    <table class="stat-table zebra-table chg-table">
+        <thead><tr><th>Temps</th><th>Joueur</th><th>À vérifier</th></tr></thead>
+        <tbody>
+            {% for c in controle %}
+            <tr><td>{{ c.temps }}</td><td>{{ c.joueur|title }}</td><td style="text-align:left;">{{ c.detail }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</details>
+{% endif %}
+{% if is_admin and not seulement %}
 <details class="card no-print chg-saisie">
     <summary>{{ icons.chart() }} Chasses relevées au GPS — coller le tableau</summary>
     <p class="subtitle">Copie le tableau des chasses de ton outil GPS (une ligne par joueur) et colle-le ici.

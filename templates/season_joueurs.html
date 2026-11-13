@@ -1,9 +1,18 @@
 {% extends "base.html" %}
 {% import "_ppid_icons.html" as icons %}
 {% block title %}Joueurs — Saison{% endblock %}
-{% set active = 'joueurs' %}
+{% set active = 'rucks' if seulement == 'rucks' else 'joueurs' %}
 {% block content %}
 
+{% if seulement == 'rucks' %}
+<div class="page-header no-print">
+    <div>
+        <h1>Rucks — moyenne saison</h1>
+        <p class="subtitle">Qualité du soutien selon le rang d'arrivée au ruck (1er, 2e, 3e et plus), puis des cartouches. « + » = soutien efficace, « − » = soutien raté. « % + » = part des « + » parmi les soutiens qualifiés.</p>
+    </div>
+    <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
+</div>
+{% else %}
 <div class="page-header no-print">
     <div>
         <h1>{{ icons.users() }} Joueurs — Saison</h1>
@@ -11,6 +20,7 @@
     </div>
     <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
+{% endif %}
 {% include "_season_select.html" %}
 
 {% macro bjr_val(v, cls='') %}{% if v %}<td class="{{ cls }}">{{ v|nb }}</td>{% else %}<td class="bjr-zero">·</td>{% endif %}{% endmacro %}
@@ -24,6 +34,7 @@
 
 {# Diapo « BILAN » : même mise en page que le rapport du staff — n° de la compo, poste,
    nom, minutes, volume, bilan +/=/- et barre de répartition. Calculs : _bilan_slide (app.py). #}
+{% if not seulement %}
 <div class="report-board bjr-report bjr-season board-free">
     <div class="report-head">
         <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
@@ -88,6 +99,10 @@
 
 {# Diapos de détail (attaque / défense / conquête) : même mise en page que la diapo BILAN,
    colonnes décrites dans JOUEURS_SLIDES (app.py), une colonne par chiffre (+ / = / −). #}
+{% endif %}
+{% if seulement == 'rucks' and not detail_slides %}
+<div class="card"><p>La qualité des soutiens et des cartouches n'est pas codée sur les matchs sélectionnés : elle arrive avec la nouvelle grille de codage.</p></div>
+{% endif %}
 {% for sl in detail_slides %}
 <div class="report-board bjr-report bjr-detail bjr-season board-free">
     <div class="report-head">

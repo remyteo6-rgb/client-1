@@ -1519,6 +1519,9 @@ def _row_to_match(row):
     m["player_match_stats"] = json.loads(m.pop("player_match_stats_json", None) or "{}")
     m["ubb_overview"] = json.loads(m.pop("ubb_overview_json", None) or "{}")
     m["_cle_row"] = emp
+    # Nouvelle grille de codage individuelle : ses labels sont réécrits aussi dans l'ancienne écriture, pour
+    # que toutes les pages lisent les deux grilles (voir parser.traduire_grille). Rien n'est modifié en base.
+    m["instances"] = _parser.traduire_grille(m["instances"])
     m["instances"] = _parser.marquer_contenu(m["instances"], emp)
     _poser_discipline_indiv(m, cle_disc)
     return m
@@ -1856,7 +1859,8 @@ def _bilan_familles(att, deff):
     seul « bilan net ») : contacts + / total ; passes + et = / total ; plaquages réussis / tentés."""
     att, deff = att or {}, deff or {}
     ct = (att.get("contact_plus") or 0) + (att.get("contact_neutre") or 0) + (att.get("contact_minus") or 0)
-    ps = (att.get("passe_plus") or 0) + (att.get("passe_neutre") or 0) + (att.get("passe_minus") or 0)
+    ps = ((att.get("passe_plus") or 0) + (att.get("passe_neutre") or 0) + (att.get("passe_minus") or 0)
+          + (att.get("passe_ratee") or 0))
     tent = deff.get("plaquage_tentes") or 0
     return {"contact": (att.get("contact_plus") or 0, ct),
             "passes": ((att.get("passe_plus") or 0) + (att.get("passe_neutre") or 0), ps),
@@ -1951,12 +1955,17 @@ JOUEURS_SLIDES = [
             {"key": "passe_plus", "label": "+", "kind": "pos"},
             {"key": "passe_neutre", "label": "=", "kind": "num"},
             {"key": "passe_minus", "label": "−", "kind": "neg"},
+            {"key": "passe_ratee", "label": "Raté", "kind": "neg", "si": "nouvelle"},
             {"key": "passe_pct", "label": "% propres", "kind": "pct", "cmp": ("attack", "passe_pct")}]},
+        {"label": "Hors qualité", "si": "nouvelle", "cols": [
+            {"key": "passe_break", "label": "Passes break", "kind": "pos"},
+            {"key": "passe_decisive", "label": "Décisives", "kind": "pos"}]},
         {"label": "Offload", "cols": [
             {"key": "offload_plus", "label": "+", "kind": "pos"},
             {"key": "offload_neutre", "label": "=", "kind": "num"},
             {"key": "offload_minus", "label": "−", "kind": "neg"}]},
-        {"label": "Soutien", "cols": [
+        # Quand la qualité des soutiens est codée, soutiens et cartouches ont leur page (Rucks).
+        {"label": "Soutien", "si": "non:rucks", "cols": [
             {"key": "soutien_1er", "label": "1er", "kind": "pos"},
             {"key": "soutien_2eme", "label": "2e", "kind": "num"},
             {"key": "soutien_3plus", "label": "3e +", "kind": "num"},
@@ -1988,6 +1997,23 @@ JOUEURS_SLIDES = [
             {"key": "chasseur_minus", "label": "−", "kind": "neg"}]},
         {"label": "Récup.", "cols": [
             {"key": "ballons_recuperes", "label": "Ballons", "kind": "pos"}]},
+    ]},
+    # Nouvelle grille : la diapo Défense est déjà pleine (16/9), les nouveaux critères ont la leur.
+    {"key": "defense2", "title": "DÉFENSE · AÉRIEN & SANS BALLON", "table": "defense", "si": "nouvelle", "groups": [
+        {"label": "Aérien déf.", "cols": [
+            {"key": "aer_def_plus", "label": "+", "kind": "pos"},
+            {"key": "aer_def_neutre", "label": "=", "kind": "num"},
+            {"key": "aer_def_moins", "label": "−", "kind": "neg"}]},
+        {"label": "Contre-ruck", "cols": [
+            {"key": "contre_ruck", "label": "Gagnés", "kind": "pos"},
+            {"key": "contre_ruck_pression", "label": "Pression", "kind": "num"}]},
+        {"label": "Ballons", "cols": [
+            {"key": "interception", "label": "Interceptions", "kind": "pos"},
+            {"key": "ballon_contre", "label": "Contrés", "kind": "pos"}]},
+        {"label": "Déchet", "cols": [
+            {"key": "erreur_def", "label": "Erreurs déf.", "kind": "neg"}]},
+        {"label": "Sans ballon", "cols": [
+            {"key": "effort", "label": "Effort", "kind": "pos"}]},
     ]},
     {"key": "conquete", "title": "CONQUÊTE", "table": "ruck", "groups": [
         {"label": "Mêlée off.", "cols": [
@@ -2024,10 +2050,14 @@ JOUEURS_SLIDES = [
             {"key": "rce_plus", "label": "+", "kind": "pos"},
             {"key": "rce_neutre", "label": "=", "kind": "num"},
             {"key": "rce_minus", "label": "−", "kind": "neg"}]},
-        {"label": "Aérien", "cols": [
+        {"label": "Aérien", "si": "non:aerien", "cols": [
             {"key": "duels_aer_plus", "label": "+", "kind": "pos"},
             {"key": "duels_aer_neutre", "label": "=", "kind": "num"},
             {"key": "duels_aer_moins", "label": "−", "kind": "neg"}]},
+        {"label": "Aérien off.", "si": "aerien", "cols": [
+            {"key": "aer_off_plus", "label": "+", "kind": "pos"},
+            {"key": "aer_off_neutre", "label": "=", "kind": "num"},
+            {"key": "aer_off_moins", "label": "−", "kind": "neg"}]},
         {"label": "Marque", "cols": [
             {"key": "essai", "label": "Essais", "kind": "pos"},
             {"key": "transfo_txt", "label": "Transfo.", "kind": "num"},
@@ -2049,10 +2079,94 @@ def _pct(num, den):
     return round(num / den * 100) if den else None
 
 
+# Page « Rucks » (grille 2026-27) : qualité + / − de chaque soutien selon son rang d'arrivée, puis des
+# cartouches. Même tableau que les diapos de la page Joueurs, mais sur sa propre page ; elle figure
+# aussi dans la fiche d'un joueur.
+RUCKS_SLIDE = {"key": "rucks", "title": "RUCKS", "table": "attack", "si": "rucks", "groups": [
+    {"label": "1er soutien", "cols": [
+        {"key": "soutien_1er_plus", "label": "+", "kind": "pos"},
+        {"key": "soutien_1er_moins", "label": "−", "kind": "neg"}]},
+    {"label": "2e soutien", "cols": [
+        {"key": "soutien_2eme_plus", "label": "+", "kind": "pos"},
+        {"key": "soutien_2eme_moins", "label": "−", "kind": "neg"}]},
+    {"label": "3e soutien et +", "cols": [
+        {"key": "soutien_3plus_plus", "label": "+", "kind": "pos"},
+        {"key": "soutien_3plus_moins", "label": "−", "kind": "neg"}]},
+    {"label": "Total soutiens", "cols": [
+        {"key": "soutien_total", "label": "Soutiens", "kind": "num"},
+        {"key": "soutien_q_pct", "label": "% +", "kind": "pct"}]},
+    {"label": "Cartouches", "cols": [
+        {"key": "cartouche", "label": "Nb", "kind": "num"},
+        {"key": "cartouche_plus", "label": "+", "kind": "pos"},
+        {"key": "cartouche_moins", "label": "−", "kind": "neg"},
+        {"key": "cartouche_pct", "label": "% +", "kind": "pct"}]},
+]}
+# Compteurs qui n'existent que dans la nouvelle grille. Les colonnes qui en dépendent portent une
+# condition 'si' : « nouvelle » (au moins une action de la nouvelle grille), « rucks » (qualité des
+# soutiens ou des cartouches codée), « aerien » (duels aériens codés off / déf) ; « non:… » = l'inverse,
+# pour les colonnes de l'ancienne grille qu'elles remplacent. Un match codé à l'ancienne garde donc
+# exactement ses colonnes, et rien ne disparaît d'un match codé à moitié.
+GRILLE_NOUVELLE_CLES = {
+    "attack": ("passe_ratee", "passe_break", "passe_decisive", "soutien_1er_plus", "soutien_1er_moins",
+               "soutien_2eme_plus", "soutien_2eme_moins", "soutien_3plus_plus", "soutien_3plus_moins",
+               "cartouche_plus", "cartouche_moins"),
+    "defense": ("effort", "erreur_def", "ballon_contre", "contre_ruck_pression",
+                "aer_def_plus", "aer_def_neutre", "aer_def_moins"),
+    "ruck": ("ce_plus", "ce_neutre", "ce_moins", "aer_off_plus", "aer_off_neutre", "aer_off_moins"),
+}
+
+
+def _grille_nouvelle(totaux_par_table):
+    """Vrai si les totaux ({table: {clé: valeur}}) contiennent au moins une action de la nouvelle grille."""
+    return any((totaux_par_table.get(t) or {}).get(k) for t, cles in GRILLE_NOUVELLE_CLES.items() for k in cles)
+
+
+def _grille_drapeaux(totaux_par_table):
+    """{'nouvelle', 'rucks', 'aerien'} : ce que les totaux ({table: {clé: valeur}}) contiennent de la nouvelle grille."""
+    a = totaux_par_table.get("attack") or {}
+    d = totaux_par_table.get("defense") or {}
+    u = totaux_par_table.get("ruck") or {}
+    return {
+        "nouvelle": _grille_nouvelle(totaux_par_table),
+        "rucks": any(a.get(k) for k in GRILLE_NOUVELLE_CLES["attack"] if k.startswith(("soutien_", "cartouche_"))),
+        "aerien": any(d.get(k) for k in ("aer_def_plus", "aer_def_neutre", "aer_def_moins"))
+                  or any(u.get(k) for k in ("aer_off_plus", "aer_off_neutre", "aer_off_moins")),
+    }
+
+
+def _spec_selon_grille(spec, drapeaux):
+    """Spec d'une diapo réduite aux groupes et colonnes qui s'appliquent (condition 'si', voir ci-dessus).
+    None si la diapo entière ne s'applique pas."""
+    def garde(x):
+        cond = x.get("si")
+        if not cond:
+            return True
+        if cond.startswith("non:"):
+            return not drapeaux.get(cond[4:])
+        return bool(drapeaux.get(cond))
+    if not garde(spec):
+        return None
+    groupes = []
+    for g in spec["groups"]:
+        if garde(g):
+            cols = [c for c in g["cols"] if garde(c)]
+            if cols:
+                groupes.append({**g, "cols": cols})
+    return {**spec, "groups": groupes} if groupes else None
+
+
 def _detail_derives(table, ligne):
     """Copie d'une ligne joueur complétée des champs calculés qu'affichent les colonnes de JOUEURS_SLIDES :
     plaquages réussis (dominant + neutre + passif) et tirs au but en « réussis/tentés »."""
     src = dict(ligne or {})
+    if table == "attack":
+        # Page Rucks : part de soutiens « + » parmi les soutiens qualifiés, idem pour les cartouches.
+        sp = sum(src.get(k, 0) or 0 for k in ("soutien_1er_plus", "soutien_2eme_plus", "soutien_3plus_plus"))
+        sm = sum(src.get(k, 0) or 0 for k in ("soutien_1er_moins", "soutien_2eme_moins", "soutien_3plus_moins"))
+        src["soutien_total"] = sum(src.get(k, 0) or 0 for k in ("soutien_1er", "soutien_2eme", "soutien_3plus"))
+        src["soutien_q_pct"] = _pct(sp, sp + sm)
+        cp, cm = src.get("cartouche_plus", 0) or 0, src.get("cartouche_moins", 0) or 0
+        src["cartouche_pct"] = _pct(cp, cp + cm)
     if table == "defense":
         src["plaquage_reussis"] = (src.get("plaquage_dominant", 0) + src.get("plaquage_neutre", 0)
                                    + src.get("plaquage_passif", 0))
@@ -2066,12 +2180,16 @@ def _detail_derives(table, ligne):
     return src
 
 
-def _joueurs_detail_slides(bilan_slide, player_cards, tables, avg=False):
+def _joueurs_detail_slides(bilan_slide, player_cards, tables, avg=False, specs=None):
     """Une diapo par secteur (attaque / défense / conquête) avec les mêmes joueurs, dans
     le même ordre et avec les mêmes n° / poste / nom que la diapo BILAN. Un joueur sans
     action dans un secteur garde sa ligne (cases « · »)."""
     slides = []
-    for spec in JOUEURS_SLIDES:
+    drapeaux = _grille_drapeaux({k: t.get("totals") for k, t in tables.items()})
+    for spec in (JOUEURS_SLIDES if specs is None else specs):
+        spec = _spec_selon_grille(spec, drapeaux)
+        if spec is None:
+            continue
         by_name = {r["name"]: r for r in tables[spec["table"]]["rows"]}
         cols = [c for g in spec["groups"] for c in g["cols"]]
         rows = []
@@ -2089,6 +2207,10 @@ def _joueurs_detail_slides(bilan_slide, player_cards, tables, avg=False):
             tot["contact_pct"] = _pct(t("contact_plus"), t("contact_plus") + t("contact_neutre") + t("contact_minus"))
             passes = sum(float(r.get("passes") or 0) for r in by_name.values())
             tot["passe_pct"] = _pct(t("passe_plus") + t("passe_neutre"), passes)
+            sp = t("soutien_1er_plus") + t("soutien_2eme_plus") + t("soutien_3plus_plus")
+            sm = t("soutien_1er_moins") + t("soutien_2eme_moins") + t("soutien_3plus_moins")
+            tot["soutien_q_pct"] = _pct(sp, sp + sm)
+            tot["cartouche_pct"] = _pct(t("cartouche_plus"), t("cartouche_plus") + t("cartouche_moins"))
         elif spec["table"] == "defense":
             tot["plaquage_pct"] = _pct(t("plaquage_reussis"), t("plaquage_tentes"))
         elif spec["table"] == "ruck":
@@ -2122,8 +2244,14 @@ def match_rapport_pdf(match_id):
     return render_template("match_rapport_pdf.html", match=match, pages=pages)
 
 
+@app.route("/match/<int:match_id>/rucks")
+def match_rucks(match_id):
+    """Page Rucks d'un match : qualité des soutiens par rang d'arrivée et des cartouches (grille 2026-27)."""
+    return match_joueurs(match_id, seulement="rucks")
+
+
 @app.route("/match/<int:match_id>/joueurs")
-def match_joueurs(match_id):
+def match_joueurs(match_id, seulement=None):
     match = _get_match_or_404(match_id)
     if _no_instances_guard(match):
         flash("Ce match a été importé avant la mise à jour détaillée par secteur : réimporte le fichier XML pour voir cette page.", "error")
@@ -2156,9 +2284,17 @@ def match_joueurs(match_id):
     bilan_table = {**bilan_table, "rows": order_rows_by_reference_order(bilan_table["rows"], ordered_names)}
     bilan_slide = _bilan_slide(player_cards, composition, match.get("player_match_stats"))
     detail_slides = _joueurs_detail_slides(bilan_slide, player_cards,
-                                           {"attack": attack_table, "defense": defense_table, "ruck": ruck_table})
+                                           {"attack": attack_table, "defense": defense_table, "ruck": ruck_table},
+                                           specs=[RUCKS_SLIDE] if seulement == "rucks" else None)
     activity_slide = _activity_slide(bilan_slide, player_cards, compute_player_activity(match["instances"]))
+    # Contrôle du codage (admin) : seulement pour un match codé avec la nouvelle grille, où chaque action
+    # doit avoir sa qualité ; dans l'ancienne grille, une action sans qualité était un « = » voulu.
+    controle = []
+    if session.get("is_admin") and not seulement and _grille_nouvelle(
+            {"attack": attack_table.get("totals"), "defense": defense_table.get("totals"), "ruck": ruck_table.get("totals")}):
+        controle = _parser.controle_codage(match["instances"])
     return render_template("match_joueurs.html", match=match, attack_table=attack_table, bilan_slide=bilan_slide,
+                           seulement=seulement, controle=controle,
                            detail_slides=detail_slides, activity_slide=activity_slide,
                            defense_table=defense_table, ruck_table=ruck_table,
                            bilan_table=bilan_table,
@@ -4694,9 +4830,15 @@ def _match_infos(m):
     return {k: (v["minutes"], v["poste"]) for k, v in _match_infos_full(m).items()}
 
 
+@app.route("/season/rucks")
+def season_rucks():
+    """Page Rucks de la saison : qualité des soutiens et des cartouches, cumulée sur les matchs sélectionnés."""
+    return season_joueurs(seulement="rucks")
+
+
 @app.route("/season/joueurs")
-def season_joueurs():
-    selected, ctx = _season_common("joueurs")
+def season_joueurs(seulement=None):
+    selected, ctx = _season_common("rucks" if seulement == "rucks" else "joueurs")
     tabs = _season_player_tables(selected)
     attack_table, defense_table = tabs["attack"], tabs["defense"]
     ruck_table, bilan_table = tabs["ruck"], tabs["bilan"]
@@ -4727,7 +4869,8 @@ def season_joueurs():
         k = c["name"].strip().casefold()
         r["fiche"] = k if k in fiches else None
     detail_slides = _joueurs_detail_slides(bilan_slide, player_cards,
-                                           {"attack": attack_table, "defense": defense_table, "ruck": ruck_table})
+                                           {"attack": attack_table, "defense": defense_table, "ruck": ruck_table},
+                                           specs=[RUCKS_SLIDE] if seulement == "rucks" else None)
     for sl in detail_slides:
         for r in sl["rows"]:
             r["number"] = None
@@ -4735,7 +4878,7 @@ def season_joueurs():
     for r in activity_slide["rows"]:
         r["number"] = None
     return render_template("season_joueurs.html", bilan_slide=bilan_slide, detail_slides=detail_slides,
-                           activity_slide=activity_slide, player_baselines={}, **ctx)
+                           activity_slide=activity_slide, player_baselines={}, seulement=seulement, **ctx)
 
 
 # ---- Comparateur de deux joueurs du même poste (radar) ---------------------------------
@@ -6252,8 +6395,12 @@ def _fiche_stats(j, selected):
         return not v or (c["kind"] == "fam" and not v[1])
 
     total_lignes = {k: _fusion_lignes([l.get(k) for _m, l in matchs]) for k in ("bilan", "attack", "defense", "ruck")}
+    drapeaux = _grille_drapeaux(total_lignes)
     blocs = []
-    for spec in [FICHE_BILAN] + JOUEURS_SLIDES:
+    for spec in [FICHE_BILAN] + JOUEURS_SLIDES + [RUCKS_SLIDE]:
+        spec = _spec_selon_grille(spec, drapeaux)
+        if spec is None:
+            continue
         total = valeurs(spec, total_lignes)
         groupes = [{**g, "color": _SLIDE_GROUP_COLORS[i % 3]} for i, g in enumerate(spec["groups"])
                    if any(not vide(c, total.get(c["key"])) for c in g["cols"])]
