@@ -2671,6 +2671,9 @@ NG_CONTROLE_QUALITE = [
     ("Duel aérien déf.", "JEU AERIENS", "DUELS AERIENS DEF", ("JEU AERIENS DEF", "JEU AERIENS"), {"+", "=", "-"}),
     ("Duel aérien off.", "JEU AERIENS", "DUELS AERIENS OFF", ("JEU AERIENS OFF", "JEU AERIENS"), {"+", "=", "-"}),
 ]
+# Actions dont l'absence de qualité est normale : prise en touche non réalisée (le sauteur saute mais le
+# lancer ne lui permet pas d'attraper) et mêlée rejouée. Elles ne sont pas signalées.
+NG_SANS_QUALITE_NORMAL = {"Prise en touche", "Mêlée off.", "Mêlée déf."}
 # Groupes de labels connus sur un code de joueur (les autres sont signalés : rien n'est ignoré en silence).
 NG_GROUPES_CONNUS = ({"", "JOUEURS OFF", "SNIPERS", "CHASSEUR", "COMBATTANT", "DISCIPLINES", "CHRONO", "CONTACT",
                       "CONTACTS", "PASSES", "OFFLOAD", "DEF BATTUS", "SOUTIENS", "PERTES DE BALLES", "BREAK", "SCORE",
@@ -2708,7 +2711,8 @@ def controle_codage(instances):
                 continue
             if n > 1 and groupe not in ("SOUTIENS",):
                 ligne("doublon", inst, f"{libelle} posé {n} fois sur la même instance (compté une seule fois)")
-            if not any(q in admises for gq in groupes_q for q in g.get(gq, ())):
+            if libelle not in NG_SANS_QUALITE_NORMAL and not any(
+                    q in admises for gq in groupes_q for q in g.get(gq, ())):
                 ligne("sans_qualite", inst, f"{libelle} sans qualité")
         if "SOUTIENS OFF" in g.get("SOUTIENS", ()) and not (set(g["SOUTIENS"]) & {"1ER", "2EME", "3+"}):
             ligne("sans_qualite", inst, "Soutien sans rang (1er / 2e / 3+)")
