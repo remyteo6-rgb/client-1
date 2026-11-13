@@ -2703,8 +2703,7 @@ def controle_codage(instances):
             continue
         g = _ng_groupes(inst)
         if not inst.get("labels"):
-            ligne("sans_label", inst, "Instance sans aucun label")
-            continue
+            continue  # instance posée seulement pour montrer l'image aux coachs : normal, pas signalée
         for libelle, groupe, texte, groupes_q, admises in NG_CONTROLE_QUALITE:
             n = g.get(groupe, []).count(texte)
             if not n:
