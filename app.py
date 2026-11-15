@@ -2046,6 +2046,10 @@ JOUEURS_SLIDES = [
             {"key": "jap_moins", "label": "JAP −", "kind": "neg"},
             {"key": "coup_envoi", "label": "Coups d'envoi", "kind": "num"},
             {"key": "recep_ce", "label": "Récep. CE", "kind": "num"}]},
+        {"label": "Pénaltouche", "si": "nouvelle", "cols": [
+            {"key": "pt_plus", "label": "+", "kind": "pos"},
+            {"key": "pt_neutre", "label": "=", "kind": "num"},
+            {"key": "pt_moins", "label": "−", "kind": "neg"}]},
         {"label": "Réception", "cols": [
             {"key": "rce_plus", "label": "+", "kind": "pos"},
             {"key": "rce_neutre", "label": "=", "kind": "num"},

@@ -2610,11 +2610,17 @@ def _traduire_instance(inst):
         action("Reception CE")
         qualite("RCE", ["RECEPTION CE"])
     jap = g.get("JAP", [])
-    if jap or any(grp in g for grp in NG_JAP_GROUPES):
+    pt = "PENALTOUCHE" in jap or "PENALTOUCHE" in g
+    # Pénaltouche = une action à part (jamais comptée dans le jeu au pied) : son libellé et sa qualité
+    # (groupe « Pénaltouche » du XML) sont lus tels quels par compute_player_ruck_table.
+    if pt:
+        action("Pénaltouche")
+    jap = [t for t in jap if t != "PENALTOUCHE"]
+    if jap or any(grp in g for grp in NG_JAP_GROUPES if grp != "PENALTOUCHE"):
         action("JAP")
         if not any(q in jap for q in NG_QUALITES):
             vus = []
-            for grp in NG_JAP_GROUPES:
+            for grp in (x for x in NG_JAP_GROUPES if x != "PENALTOUCHE"):
                 for t in g.get(grp, ()):
                     t = "-" if t in NG_JAP_NEGATIFS else t
                     if t in NG_QUALITES and t not in vus:
@@ -4005,6 +4011,7 @@ def compute_player_ruck_table(instances):
                       "rce_plus": 0, "rce_neutre": 0, "rce_minus": 0,
                       "duels_aer_plus": 0, "duels_aer_neutre": 0, "duels_aer_moins": 0,
                       "jap_plus": 0, "jap_neutre": 0, "jap_moins": 0,
+                      "pt": 0, "pt_plus": 0, "pt_neutre": 0, "pt_moins": 0,
                       "essai": 0, "transfo_reussies": 0, "transfo_tentees": 0,
                       "penalite_reussies": 0, "penalite_tentees": 0,
                       "drop_reussis": 0, "drop_tentes": 0, "chasses": 0,
@@ -4125,6 +4132,17 @@ def compute_player_ruck_table(instances):
             if "CONQUETE" in disc_vals:
                 row["faute_conquete"] += 1
         jap_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "JAP"}
+        if "PENALTOUCHE" in jap_vals or "PENALTOUCHE" in off_vals:
+            # Pénaltouche : suivie à part du jeu au pied (qualité + / = / − ; « Raté » = touche non trouvée).
+            pt_vals = {_normalize_tag(l["text"]) for l in i["labels"] if _normalize_tag(l["group"]) == "PENALTOUCHE"}
+            row["pt"] += 1
+            if "+" in pt_vals:
+                row["pt_plus"] += 1
+            elif "-" in pt_vals or pt_vals & NG_JAP_NEGATIFS:
+                row["pt_moins"] += 1
+            elif "=" in pt_vals:
+                row["pt_neutre"] += 1
+            jap_vals.discard("PENALTOUCHE")
         if "JAP" in off_vals or jap_vals:
             row["jap"] += 1
             if "+" in jap_vals:
@@ -4296,7 +4314,7 @@ def compute_player_bilan_table(instances, attack_table=None, defense_table=None,
                      + a["def_battu"] + a["soutien_1er"] + a["break"]
                      + d["plaquage_dominant"] + d["combattant_plus"] + d["chasseur_plus"]
                      + d["ballons_recuperes"]
-                     + u["rce_plus"] + u["duels_aer_plus"] + u.get("jap_plus", 0)
+                     + u["rce_plus"] + u["duels_aer_plus"] + u.get("jap_plus", 0) + u.get("pt_plus", 0)
                      + u["essai"] + u["transfo_reussies"]
                      # Grille 2026-27 : un Effort (action sans ballon) et un ballon contré comptent en
                      # positif (règle de Téo pour l'Effort), comme un coup d'envoi +.
@@ -4304,11 +4322,11 @@ def compute_player_bilan_table(instances, attack_table=None, defense_table=None,
         neutres = (a["contact_neutre"] + a["passe_neutre"] + a["offload_neutre"]
                    + a["soutien_2eme"]
                    + d["plaquage_neutre"] + d["combattant_neutre"] + d["chasseur_neutre"]
-                   + u["rce_neutre"] + u["duels_aer_neutre"] + u.get("jap_neutre", 0) + u.get("ce_neutre", 0))
+                   + u["rce_neutre"] + u["duels_aer_neutre"] + u.get("jap_neutre", 0) + u.get("pt_neutre", 0) + u.get("ce_neutre", 0))
         negatives = (a["contact_minus"] + a["passe_minus"] + a["offload_minus"]
                      + a["pdb"] + a["penalite_off"] + a["penalite_def"] + a.get("penalite_autre", 0)
                      + d["plaquage_rate"] + d["combattant_minus"] + d["chasseur_minus"]
-                     + u["transfo_tentees"] - u["transfo_reussies"] + u.get("jap_moins", 0)
+                     + u["transfo_tentees"] - u["transfo_reussies"] + u.get("jap_moins", 0) + u.get("pt_moins", 0)
                      # Grille 2026-27 : passe ratée, erreur défensive, coup d'envoi -.
                      + a.get("passe_ratee", 0) + d.get("erreur_def", 0) + u.get("ce_moins", 0))
 
@@ -4528,6 +4546,7 @@ def _zero_ruck_row(name):
         "rce_plus": 0, "rce_neutre": 0, "rce_minus": 0, "rce_total": 0,
         "duels_aer_plus": 0, "duels_aer_neutre": 0, "duels_aer_moins": 0, "duels_aer_total": 0,
         "jap_plus": 0, "jap_neutre": 0, "jap_moins": 0, "chasses": 0, "chasses_match": 0,
+        "pt": 0, "pt_plus": 0, "pt_neutre": 0, "pt_moins": 0,
         "essai": 0, "transfo_reussies": 0, "transfo_tentees": 0,
         "penalite_reussies": 0, "penalite_tentees": 0, "drop_reussis": 0, "drop_tentes": 0,
         "points": 0,
