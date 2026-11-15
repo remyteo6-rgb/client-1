@@ -33,6 +33,83 @@
 </div>
 {% endmacro %}
 
+
+
+{# Diapos de détail (attaque / défense / conquête) : même mise en page que la diapo BILAN,
+   colonnes décrites dans JOUEURS_SLIDES (app.py), une colonne par chiffre (+ / = / −). #}
+
+{% if seulement == 'rucks' and not detail_slides %}
+<div class="card"><p>La qualité des soutiens et des cartouches n'est pas codée sur ce match : elle arrive avec la nouvelle grille de codage.</p></div>
+{% endif %}
+{% for sl in detail_slides %}
+<div class="report-board bjr-report bjr-detail">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">{{ sl.title }}</span>
+    </div>
+    <div class="bjr-panel">
+        <table class="bjr-table">
+            <colgroup>
+                <col class="bjr-c-num"><col class="bjr-c-poste"><col class="bjr-c-nom">
+                {% for c in sl.cols %}<col class="{{ 'bjr-c-xw' if (c.label.split()|map('length')|max) > 8 else ('bjr-c-wide' if (c.label|length > 4 or c.kind == 'pct') else 'bjr-c-sm') }}">{% endfor %}
+            </colgroup>
+            <thead>
+                <tr class="bjr-groups">
+                    <th colspan="3" class="bjr-g-joueur">Joueur</th>
+                    {% for g in sl.groups %}<th colspan="{{ g.cols|length }}" class="bjr-g-{{ g.color }}">{{ g.label }}</th>{% endfor %}
+                </tr>
+                <tr class="bjr-cols">
+                    <th colspan="2" class="bjr-left">Poste</th><th class="bjr-left">Nom</th>
+                    {% for g in sl.groups %}{% for c in g.cols %}<th class="{{ 'bjr-gstart' if loop.first }}{{ ' bjr-sign' if c.label in ['+', '=', '−'] }}">{{ c.label }}</th>{% endfor %}{% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in sl.rows %}
+                {% set pb = (player_baselines or {}).get(r.name) or {} %}
+                <tr{% if r.number and r.number|int > 15 %} class="bjr-bench"{% endif %}>
+                    <td class="bjr-num">{% if r.number %}<span>{{ r.number }}</span>{% endif %}</td>
+                    <td class="bjr-poste">{{ r.poste }}</td>
+                    <td class="bjr-nom">{{ r.nom }}</td>
+                    {% for g in sl.groups %}{% for c in g.cols %}
+                    {% set v = r.v[c.key] %}
+                    {% set gs = ' bjr-gstart' if loop.first else '' %}
+                    {% if c.kind == 'pct' %}
+                    <td class="bjr-pct{{ gs }}{{ ' bjr-low' if r.low and c.key == 'plaquage_pct' }}">{% if v is not none %}{{ v }}%{% if c.cmp %}{% set base = (pb.get(c.cmp[0]) or {}).get(c.cmp[1]) %}{{ kpi_arrow(v, base, true, '%') }}{% endif %}{% else %}<span class="bjr-dot">·</span>{% endif %}</td>
+                    {% elif v %}
+                    <td class="{{ 'bjr-pos' if c.kind == 'pos' else ('bjr-neg' if c.kind == 'neg' else '') }}{{ gs }}">{{ v }}{% if c.cmp %}{% set base = (pb.get(c.cmp[0]) or {}).get(c.cmp[1]) %}{{ kpi_arrow(v, base, true) }}{% endif %}</td>
+                    {% else %}
+                    <td class="bjr-zero{{ gs }}">·</td>
+                    {% endif %}
+                    {% endfor %}{% endfor %}
+                </tr>
+            {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="2"></td>
+                    <td class="bjr-nom">Total équipe</td>
+                    {% for g in sl.groups %}{% for c in g.cols %}
+                    {% set v = sl.total.get(c.key) %}
+                    <td class="{{ 'bjr-gstart' if loop.first }}">{% if c.kind == 'pct' %}{{ (v ~ '%') if v is not none else '·' }}{% else %}{{ v if v else '·' }}{% endif %}</td>
+                    {% endfor %}{% endfor %}
+                </tr>
+                            <tr class="bjr-foot-pct">
+                    <td colspan="2"></td>
+                    <td class="bjr-nom">% du critère</td>
+                    {% for g in sl.groups %}
+                    {% set gsum = namespace(t=0) %}
+                    {% for c in g.cols %}{% if c.label in ['+', '=', '−', 'Raté'] %}{% set gsum.t = gsum.t + (sl.total.get(c.key) or 0) %}{% endif %}{% endfor %}
+                    {% for c in g.cols %}
+                    <td class="{{ 'bjr-gstart' if loop.first }}">{% if c.label in ['+', '=', '−', 'Raté'] and gsum.t %}{{ ((sl.total.get(c.key) or 0) / gsum.t * 100)|round|int }}%{% else %}·{% endif %}</td>
+                    {% endfor %}{% endfor %}
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% endfor %}
+
+<div class="bjr-synthese-sep no-print">Synthèse du match</div>
 {# Diapo « BILAN » : même mise en page que le rapport du staff — n° de la compo, poste,
    nom, minutes, volume, bilan +/=/- et barre de répartition. Calculs : _bilan_slide (app.py). #}
 {% if not seulement %}
@@ -65,7 +142,7 @@
             </thead>
             <tbody>
             {% for r in bilan_slide.rows %}
-                <tr>
+                <tr{% if r.number and r.number|int > 15 %} class="bjr-bench"{% endif %}>
                     <td class="bjr-num">{% if r.number %}<span>{{ r.number }}</span>{% endif %}</td>
                     <td class="bjr-poste">{{ r.poste }}</td>
                     <td class="bjr-nom">{{ r.nom }}</td>
@@ -96,70 +173,8 @@
 </div>
 
 {% include "_joueurs_activite.html" %}
+{% endif %}
 
-{# Diapos de détail (attaque / défense / conquête) : même mise en page que la diapo BILAN,
-   colonnes décrites dans JOUEURS_SLIDES (app.py), une colonne par chiffre (+ / = / −). #}
-{% endif %}
-{% if seulement == 'rucks' and not detail_slides %}
-<div class="card"><p>La qualité des soutiens et des cartouches n'est pas codée sur ce match : elle arrive avec la nouvelle grille de codage.</p></div>
-{% endif %}
-{% for sl in detail_slides %}
-<div class="report-board bjr-report bjr-detail">
-    <div class="report-head">
-        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
-        <span class="report-title">{{ sl.title }}</span>
-    </div>
-    <div class="bjr-panel">
-        <table class="bjr-table">
-            <colgroup>
-                <col class="bjr-c-num"><col class="bjr-c-poste"><col class="bjr-c-nom">
-                {% for c in sl.cols %}<col class="{{ 'bjr-c-xw' if (c.label.split()|map('length')|max) > 8 else ('bjr-c-wide' if (c.label|length > 4 or c.kind == 'pct') else 'bjr-c-sm') }}">{% endfor %}
-            </colgroup>
-            <thead>
-                <tr class="bjr-groups">
-                    <th colspan="3" class="bjr-g-joueur">Joueur</th>
-                    {% for g in sl.groups %}<th colspan="{{ g.cols|length }}" class="bjr-g-{{ g.color }}">{{ g.label }}</th>{% endfor %}
-                </tr>
-                <tr class="bjr-cols">
-                    <th colspan="2" class="bjr-left">Poste</th><th class="bjr-left">Nom</th>
-                    {% for g in sl.groups %}{% for c in g.cols %}<th class="{{ 'bjr-gstart' if loop.first }}{{ ' bjr-sign' if c.label in ['+', '=', '−'] }}">{{ c.label }}</th>{% endfor %}{% endfor %}
-                </tr>
-            </thead>
-            <tbody>
-            {% for r in sl.rows %}
-                {% set pb = (player_baselines or {}).get(r.name) or {} %}
-                <tr>
-                    <td class="bjr-num">{% if r.number %}<span>{{ r.number }}</span>{% endif %}</td>
-                    <td class="bjr-poste">{{ r.poste }}</td>
-                    <td class="bjr-nom">{{ r.nom }}</td>
-                    {% for g in sl.groups %}{% for c in g.cols %}
-                    {% set v = r.v[c.key] %}
-                    {% set gs = ' bjr-gstart' if loop.first else '' %}
-                    {% if c.kind == 'pct' %}
-                    <td class="bjr-pct{{ gs }}{{ ' bjr-low' if r.low and c.key == 'plaquage_pct' }}">{% if v is not none %}{{ v }}%{% if c.cmp %}{% set base = (pb.get(c.cmp[0]) or {}).get(c.cmp[1]) %}{{ kpi_arrow(v, base, true, '%') }}{% endif %}{% else %}<span class="bjr-dot">·</span>{% endif %}</td>
-                    {% elif v %}
-                    <td class="{{ 'bjr-pos' if c.kind == 'pos' else ('bjr-neg' if c.kind == 'neg' else '') }}{{ gs }}">{{ v }}{% if c.cmp %}{% set base = (pb.get(c.cmp[0]) or {}).get(c.cmp[1]) %}{{ kpi_arrow(v, base, true) }}{% endif %}</td>
-                    {% else %}
-                    <td class="bjr-zero{{ gs }}">·</td>
-                    {% endif %}
-                    {% endfor %}{% endfor %}
-                </tr>
-            {% endfor %}
-            </tbody>
-            <tfoot>
-                <tr>
-                    <td colspan="2"></td>
-                    <td class="bjr-nom">Total équipe</td>
-                    {% for g in sl.groups %}{% for c in g.cols %}
-                    {% set v = sl.total.get(c.key) %}
-                    <td class="{{ 'bjr-gstart' if loop.first }}">{% if c.kind == 'pct' %}{{ (v ~ '%') if v is not none else '·' }}{% else %}{{ v if v else '·' }}{% endif %}</td>
-                    {% endfor %}{% endfor %}
-                </tr>
-            </tfoot>
-        </table>
-    </div>
-</div>
-{% endfor %}
 
 {% if controle %}
 <details class="card no-print chg-saisie ctl-codage">

@@ -3878,3 +3878,12 @@ html.vs-on .vs.vs { display: inline-block; }
 .sjp-table tr.sjp-sel td { background: #f6e9ee; }
 .sjp-table tr.sjp-sel td.sjp-l { box-shadow: inset 3px 0 0 var(--accent-dark); }
 @media print { .sjp-aide, .sjp-reset { display: none; } .sjp-pick { border-bottom: 0; } }
+
+/* Page Joueurs : tableaux de détail d'abord, synthèse ensuite ; remplaçants grisés ; ligne « % du critère » */
+.bjr-table tbody tr.bjr-bench td { color: #8b8f9a; }
+.bjr-table tbody tr.bjr-bench td.bjr-nom { color: #6d717d; font-weight: 700; }
+.bjr-table tbody tr.bjr-bench .bjr-num span { background: #a9aab4; }
+.bjr-table tfoot tr.bjr-foot-pct td { background: #2b3556; font-size: 13px; font-weight: 600; height: 26px; border-top: 0; color: #dfe3ee; }
+.bjr-table tfoot tr.bjr-foot-pct .bjr-nom { font-size: 12px; letter-spacing: 1.2px; }
+.bjr-table tfoot tr.bjr-foot-pct .bjr-zero { color: #7f88a6; }
+.bjr-synthese-sep { margin: 26px 0 -6px; font-weight: 800; letter-spacing: 1.6px; text-transform: uppercase; font-size: .85rem; color: var(--bg-header, #530d34); }
