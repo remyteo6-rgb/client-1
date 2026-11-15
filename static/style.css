@@ -2725,12 +2725,16 @@ span.dis-crest {
 .dis-cat-reasons { display: flex; flex-direction: column; font-size: .72rem; font-style: italic; line-height: 1.35; }
 .dis-suivi { background: #fff; border: 1.5px solid #c9a3ad; }
 .dis-suivi .dis-block-head { border-radius: 6px 6px 0 0; }
-.dis-suivi-svg { display: block; width: 100%; height: 150px; }
-.dis-line-own { stroke: #7d3653; stroke-width: 2.5; stroke-dasharray: 2 5; }
-circle.dis-line-own, circle.dis-line-adv { fill: #fff; stroke-width: 4; stroke-dasharray: none; }
-.dis-line-adv { stroke: #111; stroke-width: 2.5; stroke-dasharray: 2 5; }
-.dis-line-own-txt { fill: #7d3653; font-size: 15px; font-weight: 800; font-style: italic; }
-.dis-line-adv-txt { fill: #111; font-size: 15px; font-weight: 800; font-style: italic; }
+.dis-suivi-svg { display: block; width: 100%; height: 175px; }
+.dis-line-own { stroke: #7d3653; stroke-width: 3; opacity: .9; }
+.dis-line-adv { stroke: #111; stroke-width: 3; opacity: .9; }
+circle.dis-line-own { fill: #7d3653; stroke: #fff; stroke-width: 3; opacity: 1; }
+circle.dis-line-adv { fill: #111; stroke: #fff; stroke-width: 3; opacity: 1; }
+.dis-line-own-txt, .dis-line-adv-txt { font-size: 18px; font-weight: 800; paint-order: stroke; stroke: #fff; stroke-width: 5px; stroke-linejoin: round; }
+.dis-line-own-txt { fill: #7d3653; }
+.dis-line-adv-txt { fill: #111; }
+.dis-leg text { fill: #333; font-size: 13px; font-weight: 700; }
+.dis-suivi-cur { fill: rgba(125,54,83,.08); }
 .dis-suivi-name { fill: #555; font-size: 12px; font-weight: 700; }
 .dis-suivi-name.is-current { fill: var(--bg-header); }
 .dis-notes { margin-top: 12px; }

@@ -1,0 +1,34 @@
+{# Courbe « Fautes suivi » : nos fautes (violet) et celles de l'adversaire (noir), match après match.
+   Variable : suivi. Les chiffres se placent selon l'ordre des deux courbes (le plus haut au-dessus),
+   donc jamais l'un sur l'autre, même quand les courbes se croisent. #}
+{% set n = suivi|length %}
+{% set maxs = [suivi|map(attribute='own')|max if n else 1, suivi|map(attribute='adverse')|max if n else 1, 1]|max %}
+{% set step = 130 %}
+{% set width = [n * step, 700]|max %}
+{% macro yv(v, mx) %}{{ 130 - (v / mx) * 80 }}{% endmacro %}
+<svg class="dis-suivi-svg" viewBox="0 0 {{ width }} 200" preserveAspectRatio="xMinYMid meet" role="img" aria-label="Fautes match après match : UBB et adversaire">
+    <g class="dis-leg" transform="translate({{ width - 190 }} 0)">
+        <circle class="dis-line-own" cx="22" cy="14" r="6"/><text x="34" y="19">UBB</text>
+        <circle class="dis-line-adv" cx="92" cy="14" r="6"/><text x="104" y="19">Adversaire</text>
+    </g>
+    {% for m in suivi %}{% if m.current %}
+    <rect class="dis-suivi-cur" x="{{ 40 + loop.index0 * step - 52 }}" y="30" width="104" height="168" rx="8"/>
+    {% endif %}{% endfor %}
+    {% for side, cls in [('adverse', 'dis-line-adv'), ('own', 'dis-line-own')] %}
+    <polyline class="{{ cls }}" fill="none" points="{% for m in suivi %}{{ 40 + loop.index0 * step }},{{ yv(m[side], maxs) }} {% endfor %}"/>
+    {% endfor %}
+    {% for m in suivi %}
+    {% set x = 40 + loop.index0 * step %}
+    {% set egal = m.own == m.adverse %}
+    <circle class="dis-line-adv" cx="{{ x }}" cy="{{ yv(m.adverse, maxs) }}" r="{{ 10 if egal else 7 }}"/>
+    <circle class="dis-line-own" cx="{{ x }}" cy="{{ yv(m.own, maxs) }}" r="{{ 6 if egal else 7 }}"/>
+    {% set own_haut = m.own >= m.adverse %}
+    <text class="dis-line-own-txt" x="{{ x }}" y="{{ yv(m.own, maxs)|float + (-17 if own_haut else 28) }}" text-anchor="middle">{{ m.own }}</text>
+    <text class="dis-line-adv-txt" x="{{ x }}" y="{{ yv(m.adverse, maxs)|float + (28 if own_haut else -17) }}" text-anchor="middle">{{ m.adverse }}</text>
+    {% if m.crest %}
+    <image data-ini="{{ m.short }}" href="{{ m.crest }}" x="{{ x - 17 }}" y="160" width="34" height="34" preserveAspectRatio="xMidYMid meet"/>
+    {% else %}
+    <text class="dis-suivi-name{{ ' is-current' if m.current else '' }}" x="{{ x }}" y="182" text-anchor="middle">{{ m.short }}</text>
+    {% endif %}
+    {% endfor %}
+</svg>

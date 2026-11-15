@@ -92,27 +92,7 @@
 
             <div class="dis-block dis-suivi">
                 <div class="dis-block-head">Fautes suivi (matchs sélectionnés)</div>
-                {% set n = suivi|length %}
-                {% set maxs = [suivi|map(attribute='own')|max if n else 1, suivi|map(attribute='adverse')|max if n else 1, 1]|max %}
-                {% set step = 130 %}
-                {% set width = [n * step, 700]|max %}
-                <svg class="dis-suivi-svg" viewBox="0 0 {{ width }} 175" preserveAspectRatio="xMinYMid meet" role="img" aria-label="Fautes match après match">
-                    {% macro yv(v) %}{{ 106 - (v / maxs) * 76 }}{% endmacro %}
-                    {% for side, cls in [('own', 'dis-line-own'), ('adverse', 'dis-line-adv')] %}
-                    <polyline class="{{ cls }}" fill="none" points="{% for m in suivi %}{{ 40 + loop.index0 * step }},{{ yv(m[side]) }} {% endfor %}"/>
-                    {% for m in suivi %}
-                    <circle class="{{ cls }}" cx="{{ 40 + loop.index0 * step }}" cy="{{ yv(m[side]) }}" r="7"/>
-                    <text class="{{ cls }}-txt" x="{{ 40 + loop.index0 * step }}" y="{{ yv(m[side])|float + (-14 if side == 'own' else 24) }}" text-anchor="middle">{{ m[side] }}</text>
-                    {% endfor %}
-                    {% endfor %}
-                    {% for m in suivi %}
-                    {% if m.crest %}
-                    <image data-ini="{{ m.short }}" href="{{ m.crest }}" x="{{ 40 + loop.index0 * step - 17 }}" y="138" width="34" height="34" preserveAspectRatio="xMidYMid meet"/>
-                    {% else %}
-                    <text class="dis-suivi-name{{ ' is-current' if m.current else '' }}" x="{{ 40 + loop.index0 * step }}" y="162" text-anchor="middle">{{ m.short }}</text>
-                    {% endif %}
-                    {% endfor %}
-                </svg>
+                {% include "_discipline_suivi_chart.html" %}
             </div>
         </div>
     </div>
