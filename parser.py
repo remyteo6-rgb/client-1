@@ -1077,7 +1077,9 @@ def compute_new_convention_overview(instances):
         elif _new_convention_code_match(tokens, ["TOUCHES"], adv_token):
             found = True
             touches[side].append(inst)
-        elif _new_convention_code_match(tokens, ["MELEES"], adv_token):
+        elif (_new_convention_code_match(tokens, ["MELEES"], adv_token)
+              or _new_convention_code_match(tokens, ["MELEE"], adv_token)):
+            # « Mêlée » au singulier (codage d'un analyste extérieur) = même chose que « Mêlées ».
             found = True
             melees[side].append(inst)
         elif _new_convention_code_match(tokens, ["DISCIPLINES"], adv_token):
