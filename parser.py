@@ -2839,7 +2839,7 @@ def compute_player_attack_table(instances):
                       # à part, hors qualité), offloads « Super » / « Perdu », type du défenseur battu,
                       # qualité + / - de chaque soutien (par rang) et des cartouches.
                       "passe_ratee": 0, "passe_break": 0, "passe_decisive": 0,
-                      "offload_super": 0, "offload_perdu": 0,
+                      "offload_super": 0, "offload_perdu": 0, "offload_garde_plus": 0, "offload_garde_moins": 0,
                       "def_battu_ring": 0, "def_battu_cordes": 0,
                       "soutien_1er_plus": 0, "soutien_1er_moins": 0, "soutien_2eme_plus": 0,
                       "soutien_2eme_moins": 0, "soutien_3plus_plus": 0, "soutien_3plus_moins": 0,
@@ -2898,10 +2898,14 @@ def compute_player_attack_table(instances):
                 row["offload_plus"] += 1
                 if "SUPER" in o:
                     row["offload_super"] += 1
+                elif "+ GARDE" in o:
+                    row["offload_garde_plus"] += 1
             elif o & {"-", "- GARDE", "PERDU"}:
                 row["offload_minus"] += 1
                 if "PERDU" in o:
                     row["offload_perdu"] += 1
+                elif "- GARDE" in o:
+                    row["offload_garde_moins"] += 1
             else:
                 row["offload_neutre"] += 1
         sq = groups.get("SOUTIENS", set())

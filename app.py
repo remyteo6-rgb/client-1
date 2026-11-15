@@ -1960,10 +1960,16 @@ JOUEURS_SLIDES = [
         {"label": "Hors qualité", "si": "nouvelle", "cols": [
             {"key": "passe_break", "label": "Passes break", "kind": "pos"},
             {"key": "passe_decisive", "label": "Décisives", "kind": "pos"}]},
-        {"label": "Offload", "cols": [
+        {"label": "Offload", "si": "non:offload_nv", "cols": [
             {"key": "offload_plus", "label": "+", "kind": "pos"},
             {"key": "offload_neutre", "label": "=", "kind": "num"},
             {"key": "offload_minus", "label": "−", "kind": "neg"}]},
+        # Nouvelle grille : Super, + gardé, − gardé, Raté (offload perdu).
+        {"label": "Offload", "si": "offload_nv", "cols": [
+            {"key": "offload_super", "label": "Super", "kind": "pos"},
+            {"key": "offload_garde_plus", "label": "+ gardé", "kind": "pos"},
+            {"key": "offload_garde_moins", "label": "− gardé", "kind": "neg"},
+            {"key": "offload_perdu", "label": "Raté", "kind": "neg"}]},
         # Quand la qualité des soutiens est codée, soutiens et cartouches ont leur page (Rucks).
         {"label": "Soutien", "si": "non:rucks", "cols": [
             {"key": "soutien_1er", "label": "1er", "kind": "pos"},
@@ -2133,6 +2139,8 @@ def _grille_drapeaux(totaux_par_table):
     return {
         "nouvelle": _grille_nouvelle(totaux_par_table),
         "rucks": any(a.get(k) for k in GRILLE_NOUVELLE_CLES["attack"] if k.startswith(("soutien_", "cartouche_"))),
+        # Offload codé avec Super / + gardé / − gardé / Perdu : colonnes propres à cette écriture.
+        "offload_nv": any(a.get(k) for k in ("offload_super", "offload_garde_plus", "offload_garde_moins", "offload_perdu")),
         "aerien": any(d.get(k) for k in ("aer_def_plus", "aer_def_neutre", "aer_def_moins"))
                   or any(u.get(k) for k in ("aer_off_plus", "aer_off_neutre", "aer_off_moins")),
     }
