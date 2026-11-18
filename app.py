@@ -5148,7 +5148,7 @@ VS_DEFS = {
     "zg_total": (True, 1, ""), "zg_perdus": (False, 1, ""), "zg_eff": (True, 0, " %"), "zg_ppe": (True, 2, ""),
     "def_essais": (False, 1, ""), "def_franchi": (False, 1, ""),
     "dz_entrees": (False, 1, ""), "dz_recup": (True, 1, ""), "dz_eff": (False, 0, " %"), "dz_ppe": (False, 2, ""),
-    "touches_pct": (True, 0, " %"), "mel_off_pct": (True, 0, " %"), "mel_def_pct": (True, 0, " %"),
+    "touches_pct": (True, 0, " %"), "mel_off_pct": (True, 0, " %"), "mel_def_pct": (False, 0, " %"),
     "discipline": (False, 1, ""),
     # Zone Gold adverse (nos ballons récupérés chez eux = bon pour nous)
     "zga_total": (False, 1, ""), "zga_perdus": (True, 1, ""), "zga_eff": (False, 0, " %"), "zga_ppe": (False, 2, ""),

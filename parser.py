@@ -1803,7 +1803,7 @@ def _melee_cote(tokens, adv_token):
 
 
 def compute_melees_page(instances):
-    """Mêlées du match : résultat (de NOTRE point de vue), TQB, mêlées rejouées et pénalités
+    """Mêlées du match : résultat (du point de vue de l'équipe qui introduit), TQB, mêlées rejouées et pénalités
     rattachées. Renvoie None si aucune mêlée n'est taguée."""
     adv_token = _detect_adverse_token(instances)
     melees, disc_own, disc_adv, touches = [], [], [], []
@@ -1862,8 +1862,9 @@ def compute_melees_page(instances):
         gagne_prefixe = "GAGNE" in vals or "GAGNEE" in vals
         perdu_prefixe = "PERDU" in vals or "PERDUE" in vals
         brut = True if gagne_prefixe else (False if perdu_prefixe else None)
-        # Sur une mêlée adverse, « Gagné » veut dire qu'EUX sortent le ballon : pour nous c'est perdu.
-        resultat = brut if cote == "off" else (None if brut is None else not brut)
+        # Résultat du point de vue de l'équipe qui introduit : sur leur mêlée, « gagnée » = EUX sortent le
+        # ballon (leur pourcentage, directement comparable au nôtre ; c'est aussi le chiffre de la Review).
+        resultat = brut
         tqb = True if "TQB +" in vals else (False if "TQB -" in vals else None)
         p = pen.get(n - 1) or {}
         st = stats[cote]

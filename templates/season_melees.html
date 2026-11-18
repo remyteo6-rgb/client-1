@@ -42,7 +42,7 @@
     </div>
     <div class="sty-two sty-cols">
         {{ bloc(cumul.off, 'MÊLÉE OFFENSIVE · NOTRE INTRODUCTION', 'Gagnée = on sort le ballon.', 'sty-ban-n') }}
-        {{ bloc(cumul['def'], 'MÊLÉE DÉFENSIVE · LEUR INTRODUCTION', 'Gagnée = on les empêche de sortir un ballon jouable.', 'sty-ban-adv') }}
+        {{ bloc(cumul['def'], 'MÊLÉE ADVERSE · LEUR INTRODUCTION', 'Résultat de leur côté : gagnée = ils sortent le ballon (comparable à notre pourcentage).', 'sty-ban-adv') }}
     </div>
     {% for c, titre, cls in (('off', 'NOS INTRODUCTIONS · MATCH PAR MATCH', 'sty-ban-n'), ('def', 'LEURS INTRODUCTIONS · MATCH PAR MATCH', 'sty-ban-adv')) %}
     <div class="sf-panel" style="margin-top:14px;">
@@ -78,7 +78,7 @@
 </div>
 
 <div class="card no-print mel-notes">
-    <p class="subtitle">« Gagné » est lu du point de vue de l'équipe qui a l'introduction : sur une mêlée adverse, « Gagné » veut dire qu'ils sortent le ballon, donc une mêlée défensive perdue pour nous.
+    <p class="subtitle">« Gagné » est lu du point de vue de l'équipe qui a l'introduction : sur une mêlée adverse, « Gagné » veut dire qu'ils sortent le ballon : le pourcentage affiché est donc le leur, comparable au nôtre. Ce qu'ils gagnent, nous le perdons.
         Une mêlée sans descripteur est comptée comme <strong>rejouée</strong> et n'entre pas dans le pourcentage de conquête.</p>
     <p class="subtitle"><strong>Pénalités.</strong> Concédées : nos codes Disciplines marqués « Conquête » dont la mêlée est l'action de conquête la plus proche (moins de 25 s).
         Récupérées : les pénalités adverses n'ont aucun descripteur dans le XML, elles sont rattachées par le temps seul — <strong>à lire comme une estimation</strong>.
