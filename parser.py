@@ -1823,7 +1823,11 @@ def compute_melees_page(instances):
                 conquete_taguee = conquete_taguee or "CONQUETE" in textes
                 disc_own.append((inst, "CONQUETE" in textes))
             elif tokens[0] in ("ADV", "ADVERSE") or (adv_token and tokens[0] == adv_token):
-                disc_adv.append((inst, False))
+                # Comme pour nous : seule une pénalité marquée « Conquête » (ou « Scrum Penalty » dans le
+                # codage de l'analyste écossais) vient d'une mêlée ; une faute au ruck juste après ne compte pas.
+                scrum = "SCRUM PENALTY" in {_normalize_tag(l.get("text")) for l in inst.get("labels") or []
+                                            if _normalize_tag(l.get("group")) == "PENALTY"}
+                disc_adv.append((inst, "CONQUETE" in textes or scrum))
     if not melees:
         return None
     melees.sort(key=lambda c_i: c_i[1].get("start") or 0)
@@ -1849,7 +1853,9 @@ def compute_melees_page(instances):
         k = rattacher(inst)
         if k is not None:
             pen.setdefault(k, {})["contre"] = True
-    for inst, _c in disc_adv:
+    for inst, conquete in disc_adv:
+        if not conquete:
+            continue        # règle de Téo : seule une pénalité « Conquête » (même moment que la mêlée) s'affiche
         k = rattacher(inst)
         if k is not None:
             pen.setdefault(k, {})["pour"] = True

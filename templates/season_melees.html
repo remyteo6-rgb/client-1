@@ -81,7 +81,7 @@
     <p class="subtitle">« Gagné » est lu du point de vue de l'équipe qui a l'introduction : sur une mêlée adverse, « Gagné » veut dire qu'ils sortent le ballon : le pourcentage affiché est donc le leur, comparable au nôtre. Ce qu'ils gagnent, nous le perdons.
         Une mêlée sans descripteur est comptée comme <strong>rejouée</strong> et n'entre pas dans le pourcentage de conquête.</p>
     <p class="subtitle"><strong>Pénalités.</strong> Concédées : nos codes Disciplines marqués « Conquête » dont la mêlée est l'action de conquête la plus proche (moins de 25 s).
-        Récupérées : les pénalités adverses n'ont aucun descripteur dans le XML, elles sont rattachées par le temps seul — <strong>à lire comme une estimation</strong>.
+        Récupérées : les codes Disciplines adverses marqués « Conquête » (ou « Scrum Penalty ») au même moment que la mêlée ; une faute au ruck juste après n'est pas une pénalité de mêlée.
         {% if sans_conquete %}<br>{{ icons.warning() }} Aucune pénalité marquée « Conquête » dans : {{ sans_conquete|join(', ') }}. Les pénalités concédées sur mêlée y sont comptées à zéro.{% endif %}</p>
 </div>
 {% endif %}
