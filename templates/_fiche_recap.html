@@ -46,17 +46,16 @@
         {% endif %}
     </div>
 
-    {# Spécialité : seulement pour les joueurs qui ont ces stats en plus des autres (lanceur de touche, buteur), quel que soit leur poste. #}
-    {% set spe = (conquete or [])|selectattr('label', 'in', ['Lancé', 'Réussite au but'])|list %}
-    {% if spe %}
+    {# Spécialité : chiffres clés du poste, plus lancers / réussite au but pour qui en a (quel que soit le poste). #}
+    {% if specialite %}
     <div class="fr-pan fr-spe">
-        <div class="fr-ph">Spécialité</div>
+        <div class="fr-ph">Spécialité · {{ libelles.get(j.poste, j.poste) if j.poste else 'joueur' }}</div>
         <div class="fr-spe-b">
-            {% for c in spe %}
+            {% for c in specialite %}
             <div class="fr-spe-k">
-                <span class="fr-kl">{{ 'Lancers en touche' if c.label == 'Lancé' else 'Réussite au but' }}</span>
-                <span class="fr-spe-v {{ 'fr-pos' if c.pct >= 80 else ('fr-neg' if c.pct < 50 else '') }}">{{ c.pct }}%</span>
-                <span class="fr-spe-s">{{ c.ok }} / {{ c.tot }}{% if c.label == 'Lancé' %} lancers gagnés{% endif %}{% if c.detail %} · {{ c.detail }}{% endif %}</span>
+                <span class="fr-kl">{{ c.label }}</span>
+                <span class="fr-spe-v {{ 'fr-pos' if c.pct is not none and c.pct >= 80 else ('fr-neg' if c.pct is not none and c.pct < 50 else '') }}">{{ c.value }}</span>
+                {% if c.sub %}<span class="fr-spe-s">{{ c.sub }}</span>{% endif %}
             </div>
             {% endfor %}
         </div>

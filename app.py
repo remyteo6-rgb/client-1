@@ -6299,6 +6299,85 @@ def _conquete_pied(joues):
     return out
 
 
+# Bandeau « Spécialité » de la fiche récap : 3-4 chiffres clés selon le poste du joueur (toutes ses stats restent
+# affichées dessous). Chaque entrée : (libellé, type, clés). Les lancers en touche et la réussite au but s'ajoutent
+# à part (_conquete_pied), pour tout joueur qui en a, quel que soit son poste.
+_SPE_POSTE = {
+    "Pilier": [("Plaquages réussis", "pct", "defense", "plaquage_reussis", "plaquage_tentes"),
+               ("Contacts +", "pctk", "attaque", "contact_pct", "contact_plus"),
+               ("Mêlées off. gagnées", "num", "conquete", "melee_off_gagnee"),
+               ("Contre-rucks gagnés", "num", "defense2", "contre_ruck")],
+    "Talonneur": [("Plaquages réussis", "pct", "defense", "plaquage_reussis", "plaquage_tentes"),
+                  ("Contacts +", "pctk", "attaque", "contact_pct", "contact_plus"),
+                  ("Mêlées off. gagnées", "num", "conquete", "melee_off_gagnee")],
+    "2ème ligne": [("Sauteur +", "pct2", "conquete", "sauteur_plus", "sauteur_moins"),
+                   ("TQB +", "pct2", "conquete", "tqb_plus", "tqb_moins"),
+                   ("Plaquages réussis", "pct", "defense", "plaquage_reussis", "plaquage_tentes"),
+                   ("Contre-rucks gagnés", "num", "defense2", "contre_ruck")],
+    "3ème ligne aile": [("Plaquages réussis", "pct", "defense", "plaquage_reussis", "plaquage_tentes"),
+                        ("Contacts +", "pctk", "attaque", "contact_pct", "contact_plus"),
+                        ("Ballons récupérés", "num", "defense", "ballons_recuperes"),
+                        ("Défenseurs battus", "num", "attaque", "def_battu")],
+    "3ème ligne centre": [("Plaquages réussis", "pct", "defense", "plaquage_reussis", "plaquage_tentes"),
+                          ("Contacts +", "pctk", "attaque", "contact_pct", "contact_plus"),
+                          ("Ballons récupérés", "num", "defense", "ballons_recuperes"),
+                          ("Défenseurs battus", "num", "attaque", "def_battu")],
+    "9": [("Passes propres", "pctk", "attaque", "passe_pct", "passe_plus"),
+          ("Jeu au pied +", "num", "jeu_au_pied", "jap_plus"),
+          ("Plaquages réussis", "pct", "defense", "plaquage_reussis", "plaquage_tentes")],
+    "10": [("Passes propres", "pctk", "attaque", "passe_pct", "passe_plus"),
+           ("Jeu au pied +", "num", "jeu_au_pied", "jap_plus"),
+           ("Plaquages réussis", "pct", "defense", "plaquage_reussis", "plaquage_tentes"),
+           ("Défenseurs battus", "num", "attaque", "def_battu")],
+    "12-13": [("Contacts +", "pctk", "attaque", "contact_pct", "contact_plus"),
+              ("Défenseurs battus", "num", "attaque", "def_battu"),
+              ("Plaquages réussis", "pct", "defense", "plaquage_reussis", "plaquage_tentes"),
+              ("Passes propres", "pctk", "attaque", "passe_pct", "passe_plus")],
+    "11-14": [("Défenseurs battus", "num", "attaque", "def_battu"),
+              ("Breaks", "num", "attaque", "break"),
+              ("Essais", "num", "jeu_au_pied", "essai"),
+              ("Réceptions +", "num", "jeu_au_pied", "rce_plus")],
+    "15": [("Défenseurs battus", "num", "attaque", "def_battu"),
+           ("Breaks", "num", "attaque", "break"),
+           ("Jeu au pied +", "num", "jeu_au_pied", "jap_plus"),
+           ("Réceptions +", "num", "jeu_au_pied", "rce_plus")],
+}
+
+
+def _specialite(j, stats, conquete):
+    """Cartes du bandeau Spécialité : chiffres clés du poste + lancers / réussite au but si le joueur en a."""
+    bd = {b["key"]: b.get("total") or {} for b in (stats or [])}
+
+    def val(blk, key):
+        v = (bd.get(blk) or {}).get(key)
+        return float(v) if isinstance(v, (int, float)) else (float(v) if v not in (None, "") and str(v).replace(".", "", 1).isdigit() else None)
+
+    cartes = []
+    for spec in _SPE_POSTE.get(j.get("poste") or "", []):
+        lab, kind, blk = spec[0], spec[1], spec[2]
+        if kind == "num":
+            v = val(blk, spec[3])
+            cartes.append({"label": lab, "value": f"{int(v)}" if v is not None else "0", "sub": "", "pct": None})
+        elif kind == "pct":
+            ok, tent = val(blk, spec[3]) or 0, val(blk, spec[4]) or 0
+            if tent:
+                cartes.append({"label": lab, "value": f"{round(100 * ok / tent)}%", "sub": f"{int(ok)} / {int(tent)}", "pct": round(100 * ok / tent)})
+        elif kind == "pct2":
+            ok, ko = val(blk, spec[3]) or 0, val(blk, spec[4]) or 0
+            if ok + ko:
+                cartes.append({"label": lab, "value": f"{round(100 * ok / (ok + ko))}%", "sub": f"{int(ok)} / {int(ok + ko)}", "pct": round(100 * ok / (ok + ko))})
+        elif kind == "pctk":
+            p = val(blk, spec[3])
+            if p is not None:
+                cartes.append({"label": lab, "value": f"{int(p)}%", "sub": "", "pct": int(p)})
+    for c in (conquete or []):
+        if c["label"] in ("Lancé", "Réussite au but"):
+            lab = "Lancers en touche" if c["label"] == "Lancé" else "Réussite au but"
+            sub = f"{c['ok']} / {c['tot']}" + (f" · {c['detail']}" if c.get("detail") else "")
+            cartes.insert(0, {"label": lab, "value": f"{c['pct']}%", "sub": sub, "pct": c["pct"]})
+    return cartes
+
+
 def _points_cartons(joues):
     """Points marqués (essai 5, transfo 2, pénalité 3, drop 3) et cartons sur la saison."""
     r = _fusion_lignes([x["rows"].get("ruck") for x in joues]) or {}
@@ -6442,15 +6521,19 @@ def season_joueur(key):
     joues.sort(key=lambda x: (x.get("date") or "9999", x.get("id") or 0))
     for x in joues:
         x["tf"] = _temps_forts(x)
+    stats_j = _fiche_stats(j, selected)
+    conq_j = _conquete_pied(joues)
+    spe_j = _specialite(j, stats_j, conq_j)
     if request.args.get("vue") == "recap":
         # Fiche récap : toutes les familles codées sur une seule page, prête à être exportée en PDF
         # et envoyée au joueur. Mêmes chiffres que « Toutes ses stats » (même fonction source).
         return render_template("season_joueur_recap.html", j=j, joues=joues, nb_matchs=len(joues),
-                               stats=_fiche_stats(j, selected), libelles=PROFIL_LIBELLE, conquete=_conquete_pied(joues),
+                               stats=stats_j, libelles=PROFIL_LIBELLE, conquete=conq_j,
+                               specialite=spe_j,
                                display_name=_joueur_nom_affiche, **ctx)
     return render_template("season_joueur.html", j=j, radar=radar, joues=joues, nb_matchs=len(joues),
-                           stats=_fiche_stats(j, selected),
-                           tendance=_tendance(j["evo"]), axes=_axes_travail(j, radar), fiab=_fiabilite(j, joues), conquete=_conquete_pied(joues), pc=_points_cartons(joues),
+                           stats=stats_j, specialite=spe_j,
+                           tendance=_tendance(j["evo"]), axes=_axes_travail(j, radar), fiab=_fiabilite(j, joues), conquete=conq_j, pc=_points_cartons(joues),
                            ret_forts=_retenu_radar(radar)[0], ret_faibles=_retenu_radar(radar)[1],
                            libelles=PROFIL_LIBELLE, display_name=_joueur_nom_affiche,
                            min_minutes=bareme.MIN_MINUTES, **ctx)
