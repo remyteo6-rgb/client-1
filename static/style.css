@@ -3927,7 +3927,27 @@ html.vs-on .vs.vs { display: inline-block; }
 .fr-cv.fr-z { color: rgba(42,23,18,.35); background: #f4eeea; border-color: #e6dcd5; }
 .fr-cv.fr-x { background: #efe6e0; border-color: #d9cdc5; color: var(--bg-header); }
 .fr-foot { font-size: 12px; color: var(--text-secondary); margin: 0; }
+/* Écran large : 3 colonnes (attaque | défense | reste) pour tenir sans scroller ; impression : retour en A4 portrait */
+.fr-grid { display: grid; grid-template-columns: 1fr; gap: 18px; align-items: start; }
+.fr-stack { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.fr-grid > .fr-pan { min-width: 0; }
+@media screen and (min-width: 1100px) {
+    .fr-sheet { max-width: none; gap: 10px; }
+    .fr-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .fr-stack { gap: 12px; }
+    .fr-logo { height: 64px; }
+    .fr-id { padding: 8px 16px; } .fr-name { font-size: 38px; } .fr-kv { font-size: 34px; } .fr-kpi { padding: 8px; width: 104px; }
+    .fr-ph { font-size: 16px; padding: 5px 12px; }
+    .fr-pb { padding: 8px 10px 10px; gap: 6px; }
+    .fr-fl { width: 130px; font-size: 12px; padding: 2px 6px; }
+    .fr-cl { font-size: 11px; } .fr-cv { font-size: 18px; padding: 2px 5px; } .fr-fc { gap: 4px; } .fr-f { gap: 6px; }
+    .fr-c { min-width: 34px; }
+    .fr-donuts { padding: 6px 12px; } .fr-foot { display: none; }
+}
 @page recap { size: A4 portrait; margin: 8mm; }
 @media print {
     .fr-sheet { width: 880px; max-width: none; zoom: .83; margin: 0; }
+    .fr-grid { grid-template-columns: 1fr 1fr; gap: 18px; }
+    .fr-grid .fr-stack { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; align-items: flex-start; gap: 18px; }
+    .fr-grid .fr-stack > .fr-pan { flex: 1 1 380px; }
 }

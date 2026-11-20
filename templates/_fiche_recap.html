@@ -31,11 +31,11 @@
         <div class="fr-id">
             <span class="fr-poste">{{ libelles.get(j.poste, j.poste) if j.poste else 'Sans poste' }}</span>
             <h2 class="fr-name">{{ display_name(j.name) }}</h2>
-            <span class="fr-sub">{{ nb_matchs }} match{{ 's' if nb_matchs != 1 }} · {{ j.minutes }} min{% if joues %} · {{ joues|map(attribute='opponent')|join(', ') }}{% endif %}</span>
+            <span class="fr-sub">{{ nb_matchs }} match{{ 's' if nb_matchs != 1 }}{% if joues %} · {{ joues|map(attribute='opponent')|join(', ') }}{% endif %}</span>
         </div>
         <div class="fr-kpi fr-kpi-dark"><span class="fr-kl">Note</span><span class="fr-kv">{{ j.note if j.note is not none else '—' }}</span></div>
         {% if bil %}
-        <div class="fr-kpi"><span class="fr-kl">Actions codées</span><span class="fr-kv">{{ bt.actions_codees }}</span></div>
+        <div class="fr-kpi"><span class="fr-kl">Minutes jouées</span><span class="fr-kv">{{ j.minutes }}</span></div>
         {% set pos = bt.positives or 0 %}{% set neu = bt.neutres or 0 %}{% set neg = bt.negatives or 0 %}{% set tt = pos + neu + neg %}
         <div class="fr-bilan">
             <span class="fr-kl">Bilan global · net <b class="{{ 'fr-pos' if pos - neg >= 0 else 'fr-neg' }}">{{ '%+d'|format(pos - neg) }}</b></span>
@@ -65,18 +65,12 @@
 
     {% set att = [bd.get('attaque'), bd.get('rucks')]|select|list %}
     {% set dfn = [bd.get('defense'), bd.get('defense2')]|select|list %}
-    {% if att or dfn %}
-    <div class="fr-cols">
+    {% set bas = [(bd.get('conquete'), 'Conquête'), (bd.get('jeu_au_pied'), 'Jeu au pied et marque'), (bd.get('discipline'), 'Discipline')]|selectattr(0)|list %}
+    <div class="fr-grid">
         {% if att %}<div class="fr-pan"><div class="fr-ph">Attaque et soutien</div><div class="fr-pb">{% for b in att %}{{ fr_bloc(b) }}{% endfor %}</div></div>{% endif %}
         {% if dfn %}<div class="fr-pan"><div class="fr-ph">Défense</div><div class="fr-pb">{% for b in dfn %}{{ fr_bloc(b) }}{% endfor %}</div></div>{% endif %}
+        {% if bas %}<div class="fr-stack">{% for b, titre in bas %}<div class="fr-pan"><div class="fr-ph">{{ titre }}</div><div class="fr-pb">{{ fr_bloc(b) }}</div></div>{% endfor %}</div>{% endif %}
     </div>
-    {% endif %}
-    {% set bas = [(bd.get('conquete'), 'Conquête'), (bd.get('jeu_au_pied'), 'Jeu au pied et marque'), (bd.get('discipline'), 'Discipline')]|selectattr(0)|list %}
-    {% if bas %}
-    <div class="fr-cols">
-        {% for b, titre in bas %}<div class="fr-pan"><div class="fr-ph">{{ titre }}</div><div class="fr-pb">{{ fr_bloc(b) }}</div></div>{% endfor %}
-    </div>
-    {% endif %}
     <p class="fr-foot">Valeurs cumulées sur les matchs sélectionnés. Les lignes sans aucune action codée sont masquées ; dans une ligne affichée, 0 = aucune action. Vert = positif, rouge = négatif.</p>
 </div>
 {% endif %}
