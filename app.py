@@ -198,6 +198,49 @@ def securite_en_tetes(response):
     return response
 
 
+_COMPRESSIBLE = ("text/html", "text/css", "text/plain", "text/csv", "application/json", "application/javascript",
+                 "text/javascript", "image/svg+xml", "application/xml", "text/xml")
+_STATIC_GZ = {}   # (chemin, date de modification, taille) -> contenu compressé : le CSS/JS ne se recompresse pas à chaque visite
+
+
+@app.after_request
+def compresser_reponse(response):
+    """Compresse en gzip les pages et fichiers texte (HTML 400 à 700 Ko, CSS 365 Ko) quand le navigateur
+    l'accepte : ~5 à 8 fois moins de données à transférer. Ne change aucun chiffre ni aucun contenu."""
+    try:
+        if (response.status_code != 200 or response.headers.get("Content-Encoding")
+                or "gzip" not in (request.headers.get("Accept-Encoding") or "").lower()
+                or (response.mimetype or "") not in _COMPRESSIBLE or response.is_streamed and not response.direct_passthrough
+                or request.method == "HEAD" or "Content-Range" in response.headers):
+            return response
+        statique = request.endpoint == "static"
+        if response.direct_passthrough:
+            if not statique:
+                return response
+            response.direct_passthrough = False
+        data = response.get_data()
+        if len(data) < 800:
+            return response
+        if statique:
+            cle = (request.path, response.headers.get("Last-Modified"), len(data))
+            blob = _STATIC_GZ.get(cle)
+            if blob is None:
+                blob = gzip.compress(data, compresslevel=6)
+                if len(_STATIC_GZ) < 64:
+                    _STATIC_GZ[cle] = blob
+        else:
+            blob = gzip.compress(data, compresslevel=5)
+        if len(blob) >= len(data):
+            return response
+        response.set_data(blob)
+        response.headers["Content-Encoding"] = "gzip"
+        response.headers["Content-Length"] = str(len(blob))
+        response.headers.add("Vary", "Accept-Encoding")
+    except Exception:
+        pass
+    return response
+
+
 @app.before_request
 def require_login_everywhere():
     if request.endpoint is None or request.endpoint in PUBLIC_ENDPOINTS:
