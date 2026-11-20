@@ -33,7 +33,6 @@
             <h2 class="fr-name">{{ display_name(j.name) }}</h2>
             <span class="fr-sub">{% if joues %}{{ joues|map(attribute='opponent')|join(', ') }}{% endif %}</span>
         </div>
-        <div class="fr-kpi fr-kpi-dark"><span class="fr-kl">Note</span><span class="fr-kv">{{ j.note if j.note is not none else '—' }}</span></div>
         {% if bil %}
         <div class="fr-kpi"><span class="fr-kl">Matchs joués</span><span class="fr-kv">{{ nb_matchs }}</span></div>
         <div class="fr-kpi"><span class="fr-kl">Minutes jouées</span><span class="fr-kv">{{ j.minutes }}</span></div>

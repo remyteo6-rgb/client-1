@@ -3952,7 +3952,10 @@ html.vs-on .vs.vs { display: inline-block; }
 .fr-spe-s { font-size: 14px; color: var(--text-secondary); }
 @page recap { size: A4 portrait; margin: 8mm; }
 @media print {
-    .fr-sheet { width: 880px; max-width: none; zoom: .77; margin: 0; }
+    /* La règle d'impression des diapos (plus haut) force html/body/main à 1280 px : sur la fiche, le
+       navigateur réduisait tout d'un tiers. On la neutralise ici. */
+    html:has(.fr-sheet), body:has(.fr-sheet), body:has(.fr-sheet) main.page { width: auto !important; max-width: none !important; }
+    .fr-sheet { width: 1100px; max-width: none; zoom: .665; margin: 0; }
     .fr-grid { grid-template-columns: 1fr 1fr; gap: 18px; }
     .fr-grid .fr-stack { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; align-items: flex-start; gap: 18px; }
     .fr-grid .fr-stack > .fr-pan { flex: 1 1 380px; }
