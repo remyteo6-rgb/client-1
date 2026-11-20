@@ -3980,7 +3980,7 @@ html.vs-on .vs.vs { display: inline-block; }
 .rv-k-own { color: var(--rv-own); white-space: nowrap; } .rv-k-adv { color: var(--rv-adv); white-space: nowrap; }
 .rv-pie { text-align: center; font-size: .68rem; font-weight: 700; color: #6a5a60; line-height: 1.1; }
 .rv-pie svg { display: block; margin: 0 auto 1px; }
-.rv-pie text { font-size: 13px; font-weight: 800; fill: #1a1010; }
+.rv-pie text { font-size: 15px; font-weight: 800; fill: #1a1010; }
 .rv-pitch { width: 100%; height: auto; display: block; }
 .rv-bar-t { font-size: 12px; font-weight: 800; fill: #1a1010; }
 .rv-zone-t { font-size: 11px; font-weight: 800; letter-spacing: 1px; fill: #2a1712; }
