@@ -3944,6 +3944,12 @@ html.vs-on .vs.vs { display: inline-block; }
     .fr-c { min-width: 34px; }
     .fr-donuts { padding: 6px 12px; } .fr-foot { display: none; }
 }
+/* Bandeau Spécialité (lancers, réussite au but) : seulement pour qui a ces stats */
+.fr-spe-b { display: flex; flex-wrap: wrap; gap: 14px 48px; padding: 10px 18px; align-items: center; }
+.fr-spe-k { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.fr-spe-v { font: 400 40px/1 var(--font-impact); color: var(--bg-header); }
+.fr-spe-v.fr-pos { color: var(--positive); } .fr-spe-v.fr-neg { color: var(--negative); }
+.fr-spe-s { font-size: 14px; color: var(--text-secondary); }
 @page recap { size: A4 portrait; margin: 8mm; }
 @media print {
     .fr-sheet { width: 880px; max-width: none; zoom: .83; margin: 0; }

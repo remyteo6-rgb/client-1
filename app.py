@@ -6446,7 +6446,7 @@ def season_joueur(key):
         # Fiche récap : toutes les familles codées sur une seule page, prête à être exportée en PDF
         # et envoyée au joueur. Mêmes chiffres que « Toutes ses stats » (même fonction source).
         return render_template("season_joueur_recap.html", j=j, joues=joues, nb_matchs=len(joues),
-                               stats=_fiche_stats(j, selected), libelles=PROFIL_LIBELLE,
+                               stats=_fiche_stats(j, selected), libelles=PROFIL_LIBELLE, conquete=_conquete_pied(joues),
                                display_name=_joueur_nom_affiche, **ctx)
     return render_template("season_joueur.html", j=j, radar=radar, joues=joues, nb_matchs=len(joues),
                            stats=_fiche_stats(j, selected),
