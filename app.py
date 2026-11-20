@@ -569,6 +569,31 @@ def _match_nav_options():
     return out
 
 
+def _slide_tag(match, avec_score=True):
+    """Texte de la ligne commune en haut des diapos : « UBB 12 – 47 ÉCOSSE · J5 · 21/09/2026 » (vide si le match n'a pas de score)."""
+    try:
+        key = ("_slide_tag", match["id"], avec_score)
+        if key in g.__dict__:
+            return g.__dict__[key]
+        own, adv, *_ = _resolve_match_score(match)
+        own_team = match["own_team"] or ""
+        abbr = "UBB" if "bordeaux" in own_team.lower() else own_team[:3].upper()
+        parts = [f"{abbr} {own if own is not None else '—'} – {adv if adv is not None else '—'} {(match['opponent'] or '').upper()}"] if avec_score else []
+        journee = (match.get("journee") or "").strip()
+        if journee:
+            parts.append(journee)
+        d = match.get("match_date")
+        if d:
+            s = d.strftime("%d/%m/%Y") if hasattr(d, "strftime") else str(d)[:10]
+            if len(s) == 10 and s[4] == "-":
+                s = f"{s[8:10]}/{s[5:7]}/{s[0:4]}"
+            parts.append(s)
+        g.__dict__[key] = " · ".join(parts)
+        return g.__dict__[key]
+    except Exception:
+        return ""
+
+
 @app.context_processor
 def inject_logged_in():
     ctx = {
@@ -580,7 +605,7 @@ def inject_logged_in():
         "user_email": session.get("user_email", ""),
         "club_name": CLUB_NAME, "club_full_name": CLUB_FULL_NAME,
         "asset_version": ASSET_VERSION,
-        "match_nav_options": _match_nav_options, "match_title": match_title, "match_parts": match_parts, "backup_status": backup_status, "match_todo": match_todo,
+        "match_nav_options": _match_nav_options, "slide_tag": _slide_tag, "match_title": match_title, "match_parts": match_parts, "backup_status": backup_status, "match_todo": match_todo,
     }
     # Liste légère (id + nom) de tous les joueurs, pour la recherche rapide dans la barre
     # du haut (voir _match_subnav.html) — disponible sur toutes les pages plutôt que la
@@ -2304,7 +2329,26 @@ def match_rapport_pdf(match_id):
     """Rapport complet d'un match en une seule suite de diapos 16/9 (ouvre la fenêtre d'enregistrement en PDF)."""
     match = _get_match_or_404(match_id)
     pages = [{"url": url_for(ep, match_id=match_id), "label": lab} for ep, lab in RAPPORT_PDF_PAGES]
-    return render_template("match_rapport_pdf.html", match=match, pages=pages)
+    # Pages de garde (couverture et fin) : générées ici, pas dans une page du rapport.
+    try:
+        own, adv, *_ = _resolve_match_score(match)
+    except Exception:
+        own = adv = None
+    assets = _review_assets(match)
+    d = match.get("match_date")
+    date_txt = (d.strftime("%d/%m/%Y") if hasattr(d, "strftime") else (f"{str(d)[8:10]}/{str(d)[5:7]}/{str(d)[0:4]}" if d else ""))
+    own_team = match["own_team"] or ""
+    cover = {
+        "own_name": own_team, "opponent": match["opponent"] or "",
+        "own_abbr": "UBB" if "bordeaux" in own_team.lower() else own_team[:3].upper(),
+        "own": own if own is not None else "—", "adverse": adv if adv is not None else "—",
+        "own_crest": assets["own_crest"], "adverse_crest": assets["adverse_crest"],
+        "journee": (match.get("journee") or "").strip(), "date": date_txt,
+        "venue": ("À l'extérieur" if (match.get("venue") or "").strip().lower().startswith("ext") else
+                  ("À domicile" if (match.get("venue") or "").strip() else "")),
+        "club": CLUB_FULL_NAME,
+    }
+    return render_template("match_rapport_pdf.html", match=match, pages=pages, cover=cover)
 
 
 @app.route("/match/<int:match_id>/rucks")

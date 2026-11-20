@@ -2,6 +2,21 @@
 {% block title %}Rapport complet — {{ match_title(match) }}{% endblock %}
 {% set active = 'overview' %}
 {% block content %}
+{% macro garde(kind) %}
+<section class="rp-page rp-garde"><div class="report-slide"><div class="report-board slide-garde"><div class="report-inner">
+    <div class="garde-band"><span>{{ cover.own_name|upper }}</span><span>{{ 'RAPPORT DE MATCH' if kind == 'cover' else 'FIN DU RAPPORT' }}</span></div>
+    <div class="garde-body">
+        <div class="garde-teams">
+            <img class="garde-crest" src="{{ cover.own_crest }}" alt="{{ cover.own_name }}">
+            <div class="garde-score"><b>{{ cover.own }}</b><i>–</i><b>{{ cover.adverse }}</b></div>
+            {% if cover.adverse_crest %}<img class="garde-crest" src="{{ cover.adverse_crest }}" alt="{{ cover.opponent }}">{% else %}<span class="garde-crest garde-crest-ini">{{ (cover.opponent or '?')[0]|upper }}</span>{% endif %}
+        </div>
+        <div class="garde-title">{{ cover.own_abbr }} <i>vs</i> {{ cover.opponent|upper }}</div>
+        <div class="garde-sub">{{ [cover.journee, cover.date, cover.venue]|select|join(' · ') }}</div>
+    </div>
+</div></div></div></section>
+{% endmacro %}
+
 <div class="rp-bar no-print">
     <div>
         <h1>Rapport complet — {{ match_title(match) }}</h1>
@@ -19,6 +34,7 @@
 <script>
 (function () {
     var PAGES = {{ pages|tojson }};
+    var GARDE = {{ {'cover': garde('cover'), 'end': garde('end')}|tojson }};
     var box = document.getElementById('rp-slides'), status = document.getElementById('rp-status'), btn = document.getElementById('rp-print');
     var resultats = new Array(PAGES.length), faits = 0, suivant = 0, COUPLES = 1;   /* une page à la fois : le serveur n'a que 4 fils, des chargements en parallèle font expirer les pages lourdes */
 
@@ -75,6 +91,8 @@
     Promise.all(travailleurs).then(function () {
         var n = 0;
         var recap = [], manque = [];
+        function garde(html) { var w = document.createElement('div'); w.innerHTML = html; var s = w.firstElementChild; box.appendChild(s); n++; }
+        garde(GARDE.cover);
         resultats.forEach(function (lst, idx) {
             var nb = (lst || []).length;
             (lst || []).forEach(function (s) {
@@ -83,6 +101,7 @@
             recap.push(PAGES[idx].label + ' : ' + nb);
             if (!nb) manque.push(PAGES[idx].label);
         });
+        garde(GARDE.end);
         status.textContent = n ? n + ' diapos prêtes.' : 'Aucune diapo trouvée pour ce match.';
         var r = document.getElementById('rp-recap');
         if (r) { r.textContent = 'Contenu : ' + recap.join(' · ') + (manque.length ? '  —  SANS DIAPO : ' + manque.join(', ') + ' (page sans données ou non chargée : recharge cette page pour réessayer)' : ''); r.classList.toggle('rp-recap-warn', manque.length > 0); }

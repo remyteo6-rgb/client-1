@@ -1901,8 +1901,8 @@ body.demo-mode .demo-blur {
 .review-board {
     --rv-own: #5b1c2e;          /* bordeaux (barres, valeurs UBB) */
     --rv-own-text: #7a1e33;
-    --rv-adv: #3f5ca6;          /* bleu (barres, valeurs adverses) */
-    --rv-adv-text: #2f4a94;
+    --rv-adv: var(--adv);
+    --rv-adv-text: var(--adv-text);
     --rv-line: #1d1d1d;
     --rv-cond: 'Oswald', 'Barlow Condensed', 'Arial Narrow', sans-serif;
 }
@@ -1919,7 +1919,7 @@ span.review-crest {
     border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.25);
 }
 .review-crest-own { background: var(--bg-header); }
-.review-crest-adverse { background: #0d5f96; }
+.review-crest-adverse { background: var(--adv); }
 
 .review-scoreboard {
     display: grid; grid-template-columns: 1fr 1fr; align-items: center;
@@ -2593,7 +2593,7 @@ span.review-crest {
     background: var(--bg-header); color: #fff; padding: 9px 16px;
     font-size: 1.05rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
 }
-.zg-head-adv { background: #1d3557; }
+.zg-head-adv { background: var(--adv); }
 .zg-table { width: 100%; border-collapse: collapse; font-size: .78rem; }
 .zg-table thead th {
     background: #ede6dc; color: #555; font-weight: 700; font-size: .66rem; letter-spacing: .4px;
@@ -2615,13 +2615,13 @@ span.review-crest {
     display: flex; justify-content: space-between; padding: 10px 26px 0;
     font-size: 1.05rem; font-weight: 800; color: var(--bg-header);
 }
-.zg-adv { color: #1d3557; }
+.zg-adv { color: var(--adv-text); }
 .zg-comp-row {
     display: grid; grid-template-columns: 1fr 1.7fr 1fr; align-items: center;
     padding: 26px 10px; text-align: center;
 }
 .zg-comp-row strong { font-size: 2.3rem; font-weight: 800; color: var(--bg-header); }
-.zg-comp-row strong.zg-adv { color: #1d3557; }
+.zg-comp-row strong.zg-adv { color: var(--adv-text); }
 .zg-comp-row span { font-size: 1rem; font-weight: 700; color: #1b1b1b; white-space: nowrap; }
 .zg-comp-alt { background: #f7f2ec; }
 .zg-notes { margin-top: 12px; }
@@ -2678,7 +2678,7 @@ span.dis-crest {
     color: #fff; font-weight: 800; font-size: 1.5rem; border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.25);
 }
 .dis-crest-own { background: var(--bg-header); }
-.dis-crest-adverse { background: #1d3557; }
+.dis-crest-adverse { background: var(--adv); }
 .dis-score-value { font-size: 3.2rem; font-weight: 800; font-style: italic; color: #1b1b1b; letter-spacing: 1px; }
 .dis-board { display: grid; grid-template-columns: 1fr 1.05fr; gap: 22px; align-items: stretch; margin-top: 6px; }
 .dis-panel { background: #fff; border: 1.5px solid #c9a3ad; border-radius: 10px; padding: 8px 16px; color: #1b1b1b; }
@@ -2711,7 +2711,7 @@ span.dis-crest {
 .dis-bar b { font-size: 1rem; padding-top: 4px; color: #1b1b1b; }
 .dis-bar-own { background: #7d3653; }
 .dis-bar-own b { color: #fff; }
-.dis-bar-adv { background: #8b8b8b; }
+.dis-bar-adv { background: var(--adv); }
 .dis-period-label { text-align: center; font-weight: 800; font-style: italic; font-size: 1rem; margin-top: 4px; }
 .dis-cats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 0 4px; }
 .dis-cat { display: flex; flex-direction: column; align-items: center; text-align: center; min-width: 0; }
@@ -2727,12 +2727,12 @@ span.dis-crest {
 .dis-suivi .dis-block-head { border-radius: 6px 6px 0 0; }
 .dis-suivi-svg { display: block; width: 100%; height: 175px; }
 .dis-line-own { stroke: #7d3653; stroke-width: 3; opacity: .9; }
-.dis-line-adv { stroke: #111; stroke-width: 3; opacity: .9; }
+.dis-line-adv { stroke: var(--adv); stroke-width: 3; opacity: .9; }
 circle.dis-line-own { fill: #7d3653; stroke: #fff; stroke-width: 3; opacity: 1; }
-circle.dis-line-adv { fill: #111; stroke: #fff; stroke-width: 3; opacity: 1; }
+circle.dis-line-adv { fill: var(--adv); stroke: #fff; stroke-width: 3; opacity: 1; }
 .dis-line-own-txt, .dis-line-adv-txt { font-size: 18px; font-weight: 800; paint-order: stroke; stroke: #fff; stroke-width: 5px; stroke-linejoin: round; }
 .dis-line-own-txt { fill: #7d3653; }
-.dis-line-adv-txt { fill: #111; }
+.dis-line-adv-txt { fill: var(--adv-text); }
 .dis-leg text { fill: #333; font-size: 13px; font-weight: 700; }
 .dis-suivi-cur { fill: rgba(125,54,83,.08); }
 .dis-suivi-name { fill: #555; font-size: 12px; font-weight: 700; }
@@ -3387,7 +3387,7 @@ select.subnav-match-select option { color:#222; background:#fff; }
 .sty-dn-t { flex:1; border-collapse:collapse; font-size:13px; } .sty-dn-t td { padding:4px 6px; border-bottom:1px solid #e3e5ea; } .sty-dn-t td:nth-child(2) { font-weight:800; text-align:right; width:34px; } .sty-dn-t td:nth-child(3) { color:#666; text-align:right; width:58px; }
 .sty-sw { display:inline-block; width:11px; height:11px; border-radius:2px; margin-right:8px; vertical-align:-1px; }
 .sty-ban { color:#fff; font-family:var(--font-display); font-weight:700; letter-spacing:1px; text-align:center; padding:8px; font-size:17px; }
-.sty-ban-g { background:#3f8a4f; } .sty-ban-r { background:#c4453a; } .sty-ban-n { background:#530d34; } .sty-ban-adv { background:#6c7280; }
+.sty-ban-g { background:#3f8a4f; } .sty-ban-r { background:#c4453a; } .sty-ban-n { background:#530d34; } .sty-ban-adv { background:var(--adv); }
 .sty-bigtot { padding:12px 16px 0; font-size:15px; color:#444; } .sty-bigtot strong { font-size:26px; color:#1b2540; font-family:var(--font-display); }
 .sty-cols { padding:0; gap:14px; margin-bottom:14px; }
 .sty-obsbox { margin-top:0; }
@@ -3586,8 +3586,8 @@ body.slide-fs-on { overflow: hidden; }
 
 /* Charte du Bilan saison uniquement : UBB = bordeaux, adversaire = anthracite neutre, or = chiffres mis en avant,
    vert / rouge = bon / mauvais. Le reste du site garde ses couleurs. */
-.cr-ubb { background: #6b1a2b; } .cr-adv { background: #5b6472; }
-.sty-ban-adv { background: #5b6472; }
+.cr-ubb { background: #6b1a2b; } .cr-adv { background: var(--adv); }
+.sty-ban-adv { background: var(--adv); }
 .rd-fam-txt { font-size: 13px; font-weight: 800; letter-spacing: .14em; font-family: var(--font-display, inherit); }
 .cr-stats > div.cr-chrono { grid-column: 1 / -1; background: #fbf3e4; } .cr-chrono strong { color: #b8730f; }
 .cr-lecture { margin: 12px 14px 0; font-size: 14px; font-weight: 700; color: #1b2540; line-height: 1.45; }
@@ -3967,7 +3967,7 @@ html.vs-on .vs.vs { display: inline-block; }
 .slide-legend { margin: 8px 0 0; text-align: center; font: 600 15px var(--font-display); letter-spacing: .04em; color: var(--text-secondary); }
 
 /* ---- Page REVIEW : terrains Possession / Occupation (gauche) + tableau COMPARATIF (droite) ---- */
-.review-board { --rv-own: #7b1b46; --rv-own-text: #7b1b46; --rv-adv: #6b7a8f; --rv-adv-text: #55657c; }
+.review-board { --rv-own: #7b1b46; --rv-own-text: #7b1b46; }
 .review-body.rv-body { grid-template-columns: 480px 1fr; gap: 18px; align-items: stretch; justify-content: stretch; }
 .report-slide .review-body.rv-body { grid-template-columns: 480px 1fr; gap: 18px; }
 .rv-left { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
@@ -3991,3 +3991,31 @@ html.vs-on .vs.vs { display: inline-block; }
 .rv-compare .review-rows { flex: 1; box-shadow: none; border-radius: 0; }
 .rv-compare .review-row { flex: 1; }
 @media (max-width: 900px) { .review-body.rv-body { grid-template-columns: 1fr; } }
+
+/* ---- Charte commune des diapos du rapport : Oswald partout, une seule couleur pour l'adversaire ---- */
+:root { --adv: #6b7a8f; --adv-text: #55657c; --font-slide: 'Oswald', 'Barlow Condensed', 'Arial Narrow', sans-serif; }
+.report-slide, .report-slide *, .review-board, .review-board *, .report-board, .report-board * { font-family: var(--font-slide) !important; }
+
+/* Ligne commune en haut de chaque diapo : blason + titre à gauche, rappel du match à droite. */
+.slide-matchtag {
+    margin-left: auto; white-space: nowrap;
+    font-size: 1.35rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--bg-header); background: rgba(255,255,255,.72);
+    padding: 5px 18px 6px; border-radius: 6px; box-shadow: 0 1px 4px rgba(83,13,52,.12);
+}
+.review-head-right { display: flex; justify-content: flex-end; }
+
+/* Pages de garde du rapport complet (couverture et fin) */
+.slide-garde .report-inner { display: flex; flex-direction: column; height: 100%; }
+.garde-band { background: var(--bg-header); color: #fff; display: flex; justify-content: space-between; align-items: center; padding: 18px 40px; font-size: 1.5rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
+.garde-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; }
+.garde-teams { display: flex; align-items: center; gap: 56px; }
+.garde-crest { width: 190px; height: 190px; object-fit: contain; }
+span.garde-crest-ini { display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--adv); color: #fff; font-size: 5rem; font-weight: 700; }
+.garde-score { display: flex; align-items: center; gap: 22px; background: rgba(255,255,255,.78); border: 2px solid #8a8a8a; border-radius: 14px; padding: 8px 46px 12px; }
+.garde-score b { font-size: 6.5rem; font-weight: 600; line-height: 1.05; color: #1b1b1b; }
+.garde-score i { font-size: 4rem; font-style: normal; color: #8a8a8a; }
+.garde-title { font-size: 3.4rem; font-weight: 700; letter-spacing: .06em; color: var(--bg-header); }
+.garde-title i { font-style: normal; font-weight: 400; color: #8a7a80; font-size: 2rem; margin: 0 8px; }
+.garde-sub { font-size: 1.6rem; font-weight: 500; letter-spacing: .08em; color: #55464c; text-transform: uppercase; }
+.def-bar-adv { background: var(--adv); }

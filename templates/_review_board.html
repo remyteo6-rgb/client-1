@@ -60,7 +60,7 @@
         </div>
         {% endif %}
     </div>
-        <div class="review-head-right"></div>
+        <div class="review-head-right">{% set tag = slide_tag(match, false) if match else '' %}{% if tag %}<span class="slide-matchtag">{{ tag }}</span>{% endif %}</div>
     </div>
 
     {# Terrain : une carte Possession et une carte Occupation à gauche, le tableau COMPARATIF à droite.

@@ -7,7 +7,7 @@
 {% include "_pwa_head.html" %}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Anton&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ asset_version }}">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2/dist/chartjs-plugin-datalabels.min.js"></script>
@@ -19,7 +19,7 @@
 if (window.Chart) { Chart.defaults.color = '#2a1712'; }
 </script>
 </head>
-<body data-demo-forced="{{ 'true' if demo_forced else 'false' }}">
+<body data-demo-forced="{{ 'true' if demo_forced else 'false' }}"{% if match is defined and match and match is mapping %} data-slide-tag="{{ slide_tag(match) }}"{% endif %}>
 <img src="{{ url_for('static', filename='logo.png') }}" class="body-watermark no-print" alt="">
 {% include "_match_subnav.html" %}
 <main class="page">
@@ -67,6 +67,15 @@ if (window.Chart) { Chart.defaults.color = '#2a1712'; }
                 inner.appendChild(node);
             });
             board.appendChild(inner);
+            /* Ligne commune : rappel du match (score, adversaire, date) à droite du titre, sur chaque diapo. */
+            var tag = document.body.getAttribute('data-slide-tag');
+            var head = inner.querySelector('.report-head');
+            if (tag && head && !head.querySelector('.slide-matchtag') && !head.querySelector('.dis-score')) {
+                var s = document.createElement('span');
+                s.className = 'slide-matchtag';
+                s.textContent = tag;
+                head.appendChild(s);
+            }
         });
     }
     var enCours = false;
