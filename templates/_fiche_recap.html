@@ -62,24 +62,6 @@
     </div>
     {% endif %}
 
-    {% if bil %}
-    {% set fams = [] %}
-    {% for c in bil.cols if c.kind == 'fam' %}{% set v = bt[c.key] %}{% if v and v[1] and fams.append((c.label, v[0], v[1])) %}{% endif %}{% endfor %}
-    {% if fams %}
-    <div class="fr-pan">
-        <div class="fr-ph">Réussite par famille</div>
-        <div class="fr-donuts">
-            {% for lab, ok, tot in fams %}{% set p = ok / tot * 100 %}
-            <div class="fr-donut">
-                <svg width="88" height="88" viewBox="0 0 120 120" role="img" aria-label="{{ lab }} {{ p|round|int }} pour cent"><circle cx="60" cy="60" r="44" fill="none" stroke="#e8d9d1" stroke-width="16"/><circle cx="60" cy="60" r="44" fill="none" stroke="{{ '#1f7a3d' if p >= 80 else ('#c0392b' if p < 50 else '#f9a240') }}" stroke-width="16" stroke-dasharray="{{ (276.46 * p / 100)|round(1) }} 276.46" transform="rotate(-90 60 60)"/><text x="60" y="68" text-anchor="middle" font-family="Anton,sans-serif" font-size="26" fill="#2a1712">{{ p|round|int }}%</text></svg>
-                <div><div class="fr-kl">{{ lab }}</div><div class="fr-dv">{{ ok }} / {{ tot }}</div></div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-    {% endif %}
-
     {% set att = [bd.get('attaque'), bd.get('rucks')]|select|list %}
     {% set dfn = [bd.get('defense'), bd.get('defense2')]|select|list %}
     {% set bas = [(bd.get('conquete'), 'Conquête'), (bd.get('jeu_au_pied'), 'Jeu au pied et marque'), (bd.get('discipline'), 'Discipline')]|selectattr(0)|list %}

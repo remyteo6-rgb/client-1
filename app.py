@@ -6439,10 +6439,6 @@ FICHE_BILAN = {"key": "bilan", "title": "BILAN", "table": "bilan", "groups": [
         {"key": "positives", "label": "Positives", "kind": "pos"},
         {"key": "neutres", "label": "Neutres", "kind": "num"},
         {"key": "negatives", "label": "Négatives", "kind": "neg"}]},
-    {"label": "Réussite par famille", "cols": [
-        {"key": "fam_contact", "label": "Contacts +", "kind": "fam"},
-        {"key": "fam_passes", "label": "Passes propres", "kind": "fam"},
-        {"key": "fam_plaquages", "label": "Plaquages réussis", "kind": "fam"}]},
 ]}
 
 
