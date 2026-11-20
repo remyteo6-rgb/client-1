@@ -3961,10 +3961,7 @@ html.vs-on .vs.vs { display: inline-block; }
     .fr-grid .fr-stack > .fr-pan { flex: 1 1 380px; }
 }
 
-/* Évolution du score au fil du match (page match, sous la vue d'ensemble) */
-.score-timeline h2 { margin: 0 0 4px; }
-.st-list { display: flex; flex-wrap: wrap; gap: 6px 8px; margin-top: 10px; }
-.st-chip { font: 700 14px var(--font-display); letter-spacing: .02em; padding: 3px 9px; border-radius: var(--radius); border: 1px solid var(--bg-card-border); background: var(--bg-card); color: var(--text-primary); }
-.st-chip i { font-style: normal; color: var(--text-secondary); margin-left: 4px; }
-.st-chip.st-own { border-left: 4px solid #7b1b46; } .st-chip.st-adverse { border-left: 4px solid #6b7a8f; }
-@media print { .score-timeline { break-inside: avoid; } }
+/* Diapos Évolution du score et Momentum (page match) : courbe seule, centrée dans le cadre 16/9 */
+.slide-chart { padding: 10px 36px 0; }
+.slide-chart svg { display: block; width: 100%; height: auto; }
+.slide-legend { margin: 8px 0 0; text-align: center; font: 600 15px var(--font-display); letter-spacing: .04em; color: var(--text-secondary); }

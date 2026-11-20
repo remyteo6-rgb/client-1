@@ -107,13 +107,27 @@
 {% if review %}
 {% include "_review_board.html" %}
 
+{# Deux diapos 16/9 (format Keynote) : évolution du score, puis courbe momentum. Le rapport complet les reprend automatiquement. #}
 {% if score_timeline_svg %}
-<div class="card section-block score-timeline">
-    <h2>Évolution du score</h2>
-    <p class="subtitle">Score cumulé au fil du temps de jeu (mi-temps retirée). E essai · T transformation · P pénalité · D drop. Passe la souris sur une pastille pour le détail.</p>
-    {{ score_timeline_svg | safe }}
-    <div class="st-list">
-        {% for e in score_timeline.events %}<span class="st-chip st-{{ e.side }}"><b>{{ e.minute|int }}'</b> {{ 'UBB' if e.side == 'own' else match['opponent'] }} · {{ e.nom }} +{{ e.points }} <i>{{ e.own }}-{{ e.adverse }}</i></span>{% endfor %}
+<div class="report-board">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">Évolution du score</span>
+    </div>
+    <div class="slide-chart">
+        {{ score_timeline_svg | safe }}
+        <p class="slide-legend"><b>E</b> essai · <b>T</b> transformation · <b>P</b> pénalité · <b>D</b> drop · mi-temps retirée de l'axe</p>
+    </div>
+</div>
+{% endif %}
+{% if momentum_svg %}
+<div class="report-board">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">Momentum · UBB {{ momentum.score_pour }} – {{ momentum.score_contre }} {{ match['opponent'] }}</span>
+    </div>
+    <div class="slide-chart">
+        {{ momentum_svg | safe }}
     </div>
 </div>
 {% endif %}

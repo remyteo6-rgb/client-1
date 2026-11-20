@@ -956,7 +956,7 @@ def render_score_timeline_svg(r, adverse_name="Adversaire"):
     """Courbe en escalier du score cumulé (UBB en bordeaux, adversaire en gris-bleu), marqueurs E / T / P / D
     sur chaque action, mi-temps en pointillé. Rendu côté serveur, sans bibliothèque."""
     from html import escape
-    W, H, L, R, T, B = 1000, 300, 46, 28, 30, 42
+    W, H, L, R, T, B = 1000, 400, 46, 28, 34, 42
     dur = r["duree"]
     ymax = max(10, max(r["own"], r["adverse"]))
     ymax = int(math.ceil(ymax / 5.0) * 5)
