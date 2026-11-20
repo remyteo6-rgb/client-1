@@ -3887,3 +3887,47 @@ html.vs-on .vs.vs { display: inline-block; }
 .bjr-table tfoot tr.bjr-foot-pct .bjr-nom { font-size: 12px; letter-spacing: 1.2px; }
 .bjr-table tfoot tr.bjr-foot-pct .bjr-zero { color: #7f88a6; }
 .bjr-synthese-sep { margin: 26px 0 -6px; font-weight: 800; letter-spacing: 1.6px; text-transform: uppercase; font-size: .85rem; color: var(--bg-header, #530d34); }
+
+/* ---- Fiche récap d'un joueur (/season/joueur/<nom>?vue=recap) : toutes les familles codées sur une page,
+   à exporter en PDF et à envoyer au joueur. ---- */
+.fr-sheet { width: 100%; max-width: 1100px; margin: 0 auto 24px; display: flex; flex-direction: column; gap: 18px; font-family: var(--font-body); page: recap; }
+.fr-top { display: flex; flex-wrap: wrap; gap: 14px; align-items: stretch; }
+.fr-logo { height: 96px; width: auto; align-self: center; }
+.fr-id { flex: 1 1 280px; min-width: 0; background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: var(--radius); padding: 14px 20px; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+.fr-poste { font: 700 15px var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+.fr-name { font: 400 50px/1.05 var(--font-impact); color: var(--bg-header); letter-spacing: .01em; margin: 0; }
+.fr-sub { font-size: 13px; color: var(--text-secondary); }
+.fr-kpi { width: 118px; background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: var(--radius); padding: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.fr-kpi-dark { background: var(--bg-header); border-color: var(--bg-header); }
+.fr-kpi-dark .fr-kl { color: var(--accent-gold); } .fr-kpi-dark .fr-kv { color: #fff; }
+.fr-kl { font: 700 13px var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--text-secondary); }
+.fr-kv { font: 400 44px/1.05 var(--font-impact); color: var(--bg-header); }
+.fr-bilan { flex: 1 1 220px; max-width: 300px; background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: var(--radius); padding: 12px 16px; display: flex; flex-direction: column; justify-content: center; gap: 7px; }
+.fr-pos { color: var(--positive); } .fr-neg { color: var(--negative); }
+.fr-bar { display: flex; height: 28px; border-radius: var(--radius); overflow: hidden; font: 800 17px var(--font-display); color: #fff; }
+.fr-bar span { display: flex; align-items: center; justify-content: center; min-width: 0; }
+.fr-b-p { background: var(--positive); } .fr-b-n { background: #b9a89f; } .fr-b-m { background: var(--negative); }
+.fr-bar-leg { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); }
+.fr-pan { flex: 1 1 0; min-width: 0; background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: var(--radius); }
+.fr-ph { background: var(--accent-dark); color: #fff; font: 800 20px var(--font-display); letter-spacing: .1em; text-transform: uppercase; padding: 8px 16px; }
+.fr-pb { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
+.fr-cols { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+.fr-cols > .fr-pan { flex: 1 1 380px; }
+.fr-donuts { display: flex; flex-wrap: wrap; gap: 14px 40px; padding: 12px 16px; align-items: center; justify-content: space-around; }
+.fr-donut { display: flex; gap: 12px; align-items: center; }
+.fr-dv { font: 400 24px var(--font-impact); color: var(--bg-header); }
+.fr-f { display: flex; gap: 10px; align-items: stretch; }
+.fr-fl { width: 140px; flex-shrink: 0; font: 700 14px/1.1 var(--font-display); text-transform: uppercase; letter-spacing: .02em; font-size: 14px; overflow-wrap: anywhere; min-width: 0; color: var(--bg-header); background: var(--bg-card); border: 2px solid var(--accent); border-radius: var(--radius); padding: 4px 8px; display: flex; align-items: center; }
+.fr-fc { display: flex; gap: 6px; flex-wrap: wrap; flex: 1 1 auto; min-width: 0; }
+.fr-c { display: flex; flex-direction: column; gap: 2px; min-width: 44px; }
+.fr-cl { font: 700 12px var(--font-display); letter-spacing: .05em; text-transform: uppercase; color: var(--text-secondary); text-align: center; white-space: nowrap; }
+.fr-cv { font: 800 21px/1.1 var(--font-display); color: var(--text-primary); background: #fbe3c4; border: 1px solid #e9b877; border-radius: var(--radius); padding: 3px 6px; text-align: center; }
+.fr-cv small { font-size: 12px; font-weight: 700; color: var(--text-secondary); }
+.fr-cv.fr-p { color: var(--positive); } .fr-cv.fr-n { color: var(--negative); }
+.fr-cv.fr-z { color: rgba(42,23,18,.35); background: #f4eeea; border-color: #e6dcd5; }
+.fr-cv.fr-x { background: #efe6e0; border-color: #d9cdc5; color: var(--bg-header); }
+.fr-foot { font-size: 12px; color: var(--text-secondary); margin: 0; }
+@page recap { size: A4 portrait; margin: 8mm; }
+@media print {
+    .fr-sheet { width: 900px; max-width: none; zoom: .81; margin: 0; }
+}

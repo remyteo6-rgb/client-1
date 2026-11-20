@@ -25,6 +25,7 @@
 {% include "_season_select.html" %}
 {% if stats %}
 <nav class="fj-nav no-print">
+    <a href="{{ url_for('season_joueur', key=j.key, m=season_selected_ids, vue='recap') }}" title="Toutes ses stats sur une page, à exporter en PDF et à envoyer au joueur"><strong>Fiche récap à envoyer</strong></a>
     <a href="#fj-profil">Profil</a>
     <a href="#fj-stats">Toutes ses stats</a>
     {% for b in stats %}<a class="fj-nav-sub" href="#fj-{{ b.key }}">{{ b.title|capitalize }}</a>{% endfor %}

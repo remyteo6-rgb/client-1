@@ -6442,6 +6442,12 @@ def season_joueur(key):
     joues.sort(key=lambda x: (x.get("date") or "9999", x.get("id") or 0))
     for x in joues:
         x["tf"] = _temps_forts(x)
+    if request.args.get("vue") == "recap":
+        # Fiche récap : toutes les familles codées sur une seule page, prête à être exportée en PDF
+        # et envoyée au joueur. Mêmes chiffres que « Toutes ses stats » (même fonction source).
+        return render_template("season_joueur_recap.html", j=j, joues=joues, nb_matchs=len(joues),
+                               stats=_fiche_stats(j, selected), libelles=PROFIL_LIBELLE,
+                               display_name=_joueur_nom_affiche, **ctx)
     return render_template("season_joueur.html", j=j, radar=radar, joues=joues, nb_matchs=len(joues),
                            stats=_fiche_stats(j, selected),
                            tendance=_tendance(j["evo"]), axes=_axes_travail(j, radar), fiab=_fiabilite(j, joues), conquete=_conquete_pied(joues), pc=_points_cartons(joues),
