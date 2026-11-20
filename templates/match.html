@@ -107,6 +107,17 @@
 {% if review %}
 {% include "_review_board.html" %}
 
+{% if score_timeline_svg %}
+<div class="card section-block score-timeline">
+    <h2>Évolution du score</h2>
+    <p class="subtitle">Score cumulé au fil du temps de jeu (mi-temps retirée). E essai · T transformation · P pénalité · D drop. Passe la souris sur une pastille pour le détail.</p>
+    {{ score_timeline_svg | safe }}
+    <div class="st-list">
+        {% for e in score_timeline.events %}<span class="st-chip st-{{ e.side }}"><b>{{ e.minute|int }}'</b> {{ 'UBB' if e.side == 'own' else match['opponent'] }} · {{ e.nom }} +{{ e.points }} <i>{{ e.own }}-{{ e.adverse }}</i></span>{% endfor %}
+    </div>
+</div>
+{% endif %}
+
 {% if score_needs_manual and session.get('is_admin') %}
 <div class="card no-print" style="border-left:4px solid var(--accent-gold);">
     <p class="subtitle">{{ icons.warning() }} Score du match non renseigné — le REVIEW affichera les points dès que tu l'auras saisi.

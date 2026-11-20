@@ -902,6 +902,101 @@ def compute_new_convention_score(instances):
     return {"own": points["own"], "adverse": points["adverse"], "detail": detail}
 
 
+# ---- Évolution du score au fil du match (timeline sous la vue d'ensemble) -----------------------------
+SCORE_KIND_LABEL = {"tries": ("E", "Essai"), "conversions": ("T", "Transformation"),
+                    "penalties": ("P", "Pénalité"), "drops": ("D", "Drop")}
+
+
+def compute_score_timeline(instances):
+    """Évolution du score au fil du temps de jeu : une ligne par action qui marque (essai, transformation,
+    pénalité, drop réussis), avec le score cumulé de chaque équipe. Mêmes événements que
+    compute_new_convention_score (_scoring_events), donc le même score final. Le temps est en minutes de
+    jeu : la mi-temps (plus long silence du fichier, 4 min minimum) est retirée de l'axe. None si le match
+    n'a aucune action de score codée."""
+    adv_token = _detect_adverse_token(instances)
+    events = [e for e in _scoring_events(instances, adv_token) if e["points"] > 0]
+    if not events:
+        return None
+    events.sort(key=lambda e: e["start"])
+    debut = min((i.get("start") or 0) for i in instances if i.get("start") is not None) if instances else 0
+    fin = max((i.get("end") or i.get("start") or 0) for i in instances) if instances else 0
+    # mi-temps : plus long trou entre deux actions (instances courtes), comme _momentum_periodes
+    actions = sorted([(i.get("start") or 0, i.get("end") or i.get("start") or 0) for i in instances
+                      if (i.get("end") or 0) - (i.get("start") or 0) < 240 and i.get("start") is not None])
+    f1 = d2 = None
+    if actions:
+        fin_max = actions[0][1]
+        trous = []
+        for s, e in actions[1:]:
+            if s - fin_max >= 240:
+                trous.append((s - fin_max, fin_max, s))
+            fin_max = max(fin_max, e)
+        if trous:
+            _, f1, d2 = max(trous)
+
+    def minute(t):
+        if f1 is None or t <= f1:
+            return max(0.0, (t - debut) / 60.0)
+        return (f1 - debut) / 60.0 + max(0.0, (t - d2) / 60.0)
+
+    duree = minute(fin)
+    score = {"own": 0, "adverse": 0}
+    out = []
+    for e in events:
+        score[e["side"]] += e["points"]
+        sigle, nom = SCORE_KIND_LABEL[e["kind"]]
+        out.append({"minute": round(minute(e["start"]), 1), "side": e["side"], "kind": e["kind"],
+                    "sigle": sigle, "nom": nom, "points": e["points"],
+                    "own": score["own"], "adverse": score["adverse"]})
+    return {"events": out, "duree": max(80.0, duree), "mi_temps": round((f1 - debut) / 60.0, 1) if f1 is not None else None,
+            "own": score["own"], "adverse": score["adverse"]}
+
+
+def render_score_timeline_svg(r, adverse_name="Adversaire"):
+    """Courbe en escalier du score cumulé (UBB en bordeaux, adversaire en gris-bleu), marqueurs E / T / P / D
+    sur chaque action, mi-temps en pointillé. Rendu côté serveur, sans bibliothèque."""
+    from html import escape
+    W, H, L, R, T, B = 1000, 300, 46, 28, 30, 42
+    dur = r["duree"]
+    ymax = max(10, max(r["own"], r["adverse"]))
+    ymax = int(math.ceil(ymax / 5.0) * 5)
+    X = lambda m: L + (W - L - R) * m / dur
+    Y = lambda v: T + (H - T - B) * (1 - v / float(ymax))
+    parts = [f'<svg viewBox="0 0 {W} {H}" width="100%" role="img" aria-label="Évolution du score au fil du match" '
+             f'style="max-width:100%;height:auto;font-family:\'Barlow Condensed\',sans-serif">']
+    for v in range(0, ymax + 1, 5 if ymax <= 40 else 10):
+        parts.append(f'<line x1="{L}" x2="{W-R}" y1="{Y(v):.1f}" y2="{Y(v):.1f}" stroke="#e8d9d1"/>'
+                     f'<text x="{L-8}" y="{Y(v)+4:.1f}" text-anchor="end" font-size="12" fill="#7a6a63">{v}</text>')
+    for m in range(0, int(dur) + 1, 10):
+        parts.append(f'<text x="{X(m):.1f}" y="{H-18}" text-anchor="middle" font-size="12" fill="#7a6a63">{m}\'</text>')
+    if r.get("mi_temps"):
+        x = X(r["mi_temps"])
+        parts.append(f'<line x1="{x:.1f}" x2="{x:.1f}" y1="{T-6}" y2="{H-B}" stroke="#a5305f" stroke-dasharray="5 4"/>'
+                     f'<text x="{x:.1f}" y="{T-12}" text-anchor="middle" font-size="12" font-weight="700" fill="#a5305f">MI-TEMPS</text>')
+    for side, col, w in (("adverse", "#6b7a8f", 3), ("own", "#7b1b46", 4)):
+        pts, cur, last_x = [f"{X(0):.1f},{Y(0):.1f}"], 0, X(0)
+        for e in r["events"]:
+            if e["side"] != side:
+                continue
+            pts.append(f"{X(e['minute']):.1f},{Y(cur):.1f}")
+            cur = e[side]
+            pts.append(f"{X(e['minute']):.1f},{Y(cur):.1f}")
+        pts.append(f"{X(dur):.1f},{Y(cur):.1f}")
+        parts.append(f'<polyline points="{" ".join(pts)}" fill="none" stroke="{col}" stroke-width="{w}" stroke-linejoin="round"/>')
+    for e in r["events"]:
+        col = "#7b1b46" if e["side"] == "own" else "#6b7a8f"
+        cx, cy = X(e["minute"]), Y(e[e["side"]])
+        qui = "UBB" if e["side"] == "own" else adverse_name
+        parts.append(f'<g><title>{escape(str(int(e["minute"])))}\' · {escape(qui)} · {e["nom"]} (+{e["points"]}) · {e["own"]}-{e["adverse"]}</title>'
+                     f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="10" fill="{col}" stroke="#fff" stroke-width="2"/>'
+                     f'<text x="{cx:.1f}" y="{cy+4:.1f}" text-anchor="middle" font-size="12" font-weight="800" fill="#fff">{e["sigle"]}</text></g>')
+    parts.append(f'<text x="{W-R}" y="{Y(r["own"])-14:.1f}" text-anchor="end" font-size="20" font-weight="800" fill="#7b1b46">UBB {r["own"]}</text>')
+    dy = Y(r["adverse"]) + (24 if abs(Y(r["adverse"]) - Y(r["own"])) < 26 else -14)
+    parts.append(f'<text x="{W-R}" y="{dy:.1f}" text-anchor="end" font-size="20" font-weight="800" fill="#6b7a8f">{escape(adverse_name)} {r["adverse"]}</text>')
+    parts.append("</svg>")
+    return "".join(parts)
+
+
 def _new_convention_code_match(tokens, suffix_tokens, adv_token=None):
     """Vrai si un code normalisé (déjà splitté en tokens) est bien 'UBB <suffixe>' ou
     '<Adverse> <suffixe>' (mot générique 'ADV'/'ADVERSE', ou le vrai nom de l'adversaire

@@ -44,7 +44,7 @@ from parser import (
     compute_player_season_baselines, build_player_cards, order_rows_by_reference_order,
     composition_ordered_names, _composition_name_score, _name_key,
     player_row_order,
-    compute_momentum, render_momentum_svg,
+    compute_momentum, render_momentum_svg, compute_score_timeline, render_score_timeline_svg,
     compute_melees_page,
     compute_zone_gold_log, compute_new_convention_tries, compute_new_convention_score,
     compute_new_convention_overview, compute_csc, compute_bilan_attaque, gold_points_par_entree_matchs,
@@ -1781,11 +1781,19 @@ def match_detail(match_id):
         momentum = compute_momentum(match["instances"], libelle=match["opponent"])
         if momentum:
             momentum_svg = render_momentum_svg(momentum)
+    score_timeline = score_timeline_svg = None
+    try:
+        score_timeline = compute_score_timeline(match["instances"])
+        if score_timeline:
+            score_timeline_svg = render_score_timeline_svg(score_timeline, adverse_name=match["opponent"] or "Adversaire")
+    except Exception:
+        score_timeline = score_timeline_svg = None
     return render_template(
         "match.html", match=match, sections=sections, top_players=top_players,
         highlights=highlights, radar=radar, score=score, phase_timing=phase_timing,
         phase_icons=PHASE_ICONS, phase_help=PHASE_HELP, dashboard=dashboard,
         baseline=baseline, momentum=momentum, momentum_svg=momentum_svg,
+        score_timeline=score_timeline, score_timeline_svg=score_timeline_svg,
         score_source=score_source, score_needs_manual=score_needs_manual,
         manual=match.get("manual_stats") or {},
         discipline_override=discipline_override, plaquage_override=plaquage_override,
