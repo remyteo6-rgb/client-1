@@ -4,97 +4,18 @@
 {% block title %}Fiche récap — {{ display_name(j.name) }}{% endblock %}
 {# Fiche récap d'un joueur : toutes les familles codées sur une page (mêmes données que « Toutes ses stats »).
    Une famille sans aucune action sur la période est masquée ; « · » = zéro dans une famille visible. #}
-{% macro fr_cell(c, v) %}
-{% if c.kind == 'fam' %}
-{% if v and v[1] %}{% set p = (v[0] / v[1] * 100)|round|int %}<div class="fr-c"><div class="fr-cl">{{ c.label }}</div><div class="fr-cv fr-x">{{ p }}% <small>{{ v[0] }}/{{ v[1] }}</small></div></div>{% else %}<div class="fr-c"><div class="fr-cl">{{ c.label }}</div><div class="fr-cv fr-z">0</div></div>{% endif %}
-{% elif c.kind == 'pct' %}
-<div class="fr-c"><div class="fr-cl">{{ c.label }}</div>{% if v is not none %}<div class="fr-cv fr-x">{{ v }}%</div>{% else %}<div class="fr-cv fr-z">0</div>{% endif %}</div>
-{% elif v %}
-<div class="fr-c"><div class="fr-cl">{{ c.label }}</div><div class="fr-cv{{ ' fr-p' if c.kind == 'pos' else (' fr-n' if c.kind == 'neg' else '') }}">{{ v|nb }}</div></div>
-{% else %}
-<div class="fr-c"><div class="fr-cl">{{ c.label }}</div><div class="fr-cv fr-z">0</div></div>
-{% endif %}
-{% endmacro %}
-{# Une cellule « a une valeur » si elle n'est pas nulle : une ligne entière sans action est masquée, mais dans une ligne affichée les zéros restent visibles. #}
-{% macro fr_has(c, v) %}{% if c.kind == 'fam' %}{% if v and v[1] %}1{% endif %}{% elif c.kind == 'pct' %}{% if v is not none %}1{% endif %}{% elif v %}1{% endif %}{% endmacro %}
-{% macro fr_bloc(b) %}
-{% for g in b.groups %}
-{% set ns = namespace(n=0) %}{% for c in g.cols %}{% if fr_has(c, b.total[c.key])|trim %}{% set ns.n = ns.n + 1 %}{% endif %}{% endfor %}
-{% if ns.n %}<div class="fr-f"><div class="fr-fl">{{ g.label }}</div><div class="fr-fc">{% for c in g.cols %}{{ fr_cell(c, b.total[c.key]) }}{% endfor %}</div></div>{% endif %}
-{% endfor %}
-{% endmacro %}
 {% block content %}
-{% set bd = {} %}{% for b in stats %}{% if bd.update({b.key: b}) %}{% endif %}{% endfor %}
-{% set bil = bd.get('bilan') %}
-{% set bt = bil.total if bil else {} %}
 <div class="page-header no-print">
     <div>
         <h1>{{ icons.users() }} Fiche récap · {{ display_name(j.name) }}</h1>
         <p class="subtitle">
             <button type="button" class="btn btn-secondary" style="float:right" onclick="window.print()">Exporter en PDF (à envoyer au joueur)</button>
-            <a href="{{ url_for('season_joueur', key=j.key, m=season_selected_ids) }}">← Retour à sa fiche complète</a>
+            <a href="{{ url_for('season_joueur', key=j.key, m=season_selected_ids) }}">← Retour à sa fiche</a>
             · Dans la fenêtre d'impression, choisis « Enregistrer au format PDF ».
         </p>
     </div>
 </div>
 {% include "_season_select.html" %}
-
-{% if not stats %}
-<div class="card section-block"><p class="nt-sub">Aucune action codée pour ce joueur sur les matchs sélectionnés.</p></div>
-{% else %}
-<div class="fr-sheet">
-    <div class="fr-top">
-        <img class="fr-logo" src="{{ url_for('static', filename='logo.png') }}" alt="">
-        <div class="fr-id">
-            <span class="fr-poste">{{ libelles.get(j.poste, j.poste) if j.poste else 'Sans poste' }}</span>
-            <h2 class="fr-name">{{ display_name(j.name) }}</h2>
-            <span class="fr-sub">{{ nb_matchs }} match{{ 's' if nb_matchs != 1 }} · {{ j.minutes }} min{% if joues %} · {{ joues|map(attribute='opponent')|join(', ') }}{% endif %}</span>
-        </div>
-        <div class="fr-kpi fr-kpi-dark"><span class="fr-kl">Note</span><span class="fr-kv">{{ j.note if j.note is not none else '—' }}</span></div>
-        {% if bil %}
-        <div class="fr-kpi"><span class="fr-kl">Actions codées</span><span class="fr-kv">{{ bt.actions_codees }}</span></div>
-        {% set pos = bt.positives or 0 %}{% set neu = bt.neutres or 0 %}{% set neg = bt.negatives or 0 %}{% set tt = pos + neu + neg %}
-        <div class="fr-bilan">
-            <span class="fr-kl">Bilan global · net <b class="{{ 'fr-pos' if pos - neg >= 0 else 'fr-neg' }}">{{ '%+d'|format(pos - neg) }}</b></span>
-            {% if tt %}<div class="fr-bar"><span class="fr-b-p" style="width:{{ (100 * pos / tt)|round(1) }}%">{{ pos if pos else '' }}</span><span class="fr-b-n" style="width:{{ (100 * neu / tt)|round(1) }}%">{{ neu if neu else '' }}</span><span class="fr-b-m" style="width:{{ (100 * neg / tt)|round(1) }}%">{{ neg if neg else '' }}</span></div>
-            <div class="fr-bar-leg"><span>positives</span><span>neutres</span><span>négatives</span></div>{% endif %}
-        </div>
-        {% endif %}
-    </div>
-
-    {% if bil %}
-    {% set fams = [] %}
-    {% for c in bil.cols if c.kind == 'fam' %}{% set v = bt[c.key] %}{% if v and v[1] and fams.append((c.label, v[0], v[1])) %}{% endif %}{% endfor %}
-    {% if fams %}
-    <div class="fr-pan">
-        <div class="fr-ph">Réussite par famille</div>
-        <div class="fr-donuts">
-            {% for lab, ok, tot in fams %}{% set p = ok / tot * 100 %}
-            <div class="fr-donut">
-                <svg width="88" height="88" viewBox="0 0 120 120" role="img" aria-label="{{ lab }} {{ p|round|int }} pour cent"><circle cx="60" cy="60" r="44" fill="none" stroke="#e8d9d1" stroke-width="16"/><circle cx="60" cy="60" r="44" fill="none" stroke="{{ '#1f7a3d' if p >= 80 else ('#c0392b' if p < 50 else '#f9a240') }}" stroke-width="16" stroke-dasharray="{{ (276.46 * p / 100)|round(1) }} 276.46" transform="rotate(-90 60 60)"/><text x="60" y="68" text-anchor="middle" font-family="Anton,sans-serif" font-size="26" fill="#2a1712">{{ p|round|int }}%</text></svg>
-                <div><div class="fr-kl">{{ lab }}</div><div class="fr-dv">{{ ok }} / {{ tot }}</div></div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-    {% endif %}
-
-    {% set att = [bd.get('attaque'), bd.get('rucks')]|select|list %}
-    {% set dfn = [bd.get('defense'), bd.get('defense2')]|select|list %}
-    {% if att or dfn %}
-    <div class="fr-cols">
-        {% if att %}<div class="fr-pan"><div class="fr-ph">Attaque et soutien</div><div class="fr-pb">{% for b in att %}{{ fr_bloc(b) }}{% endfor %}</div></div>{% endif %}
-        {% if dfn %}<div class="fr-pan"><div class="fr-ph">Défense</div><div class="fr-pb">{% for b in dfn %}{{ fr_bloc(b) }}{% endfor %}</div></div>{% endif %}
-    </div>
-    {% endif %}
-    {% set bas = [(bd.get('conquete'), 'Conquête'), (bd.get('jeu_au_pied'), 'Jeu au pied et marque'), (bd.get('discipline'), 'Discipline')]|selectattr(0)|list %}
-    {% if bas %}
-    <div class="fr-cols">
-        {% for b, titre in bas %}<div class="fr-pan"><div class="fr-ph">{{ titre }}</div><div class="fr-pb">{{ fr_bloc(b) }}</div></div>{% endfor %}
-    </div>
-    {% endif %}
-    <p class="fr-foot">Valeurs cumulées sur les matchs sélectionnés. Les lignes sans aucune action codée sont masquées ; dans une ligne affichée, 0 = aucune action. Vert = positif, rouge = négatif.</p>
-</div>
-{% endif %}
+{% include "_fiche_recap.html" %}
+{% if request.args.get('print') %}<script>window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 400); });</script>{% endif %}
 {% endblock %}

@@ -25,11 +25,10 @@
 {% include "_season_select.html" %}
 {% if stats %}
 <nav class="fj-nav no-print">
-    <a href="{{ url_for('season_joueur', key=j.key, m=season_selected_ids, vue='recap') }}" title="Toutes ses stats sur une page, à exporter en PDF et à envoyer au joueur"><strong>Fiche récap à envoyer</strong></a>
     <a href="#fj-profil">Profil</a>
-    <a href="#fj-stats">Toutes ses stats</a>
-    {% for b in stats %}<a class="fj-nav-sub" href="#fj-{{ b.key }}">{{ b.title|capitalize }}</a>{% endfor %}
+    <a href="#fj-stats">Fiche récap</a>
     <a href="#fj-matchs">Match par match</a>
+    <a href="{{ url_for('season_joueur', key=j.key, m=season_selected_ids, vue='recap', print=1) }}" target="_blank" rel="noopener" title="Ouvre la fiche récap et lance l'export en PDF, à envoyer au joueur"><strong>Exporter en PDF</strong></a>
 </nav>
 {% endif %}
 
@@ -113,56 +112,9 @@
 </div>
 {% endif %}
 
-{% if stats %}
 <section class="fj-stats" id="fj-stats">
-    <h2 class="fj-h2">Toutes ses stats <small>{{ display_name(j.name) }} · une ligne par match, total en bas</small></h2>
-    <p class="nt-sub fj-note">Mêmes chiffres que la page Joueurs, pour ce joueur seulement. Les blocs sans aucune action sur les matchs sélectionnés sont masqués.</p>
-    {% for b in stats %}
-    <div class="bil-panel fj-bloc" id="fj-{{ b.key }}">
-        <div class="bil-panel-head">{{ b.title|capitalize }}</div>
-        <div class="m-scroll bjr-detail fj-scroll">
-        <table class="bjr-table fj-table">
-            <colgroup>
-                <col class="fj-c-match"><col class="fj-c-min">
-                {% for c in b.cols %}<col class="{{ 'fj-c-fam' if c.kind == 'fam' else ('bjr-c-xw' if (c.label.split()|map('length')|max) > 8 else ('bjr-c-wide' if (c.label|length > 4 or c.kind == 'pct') else 'bjr-c-sm')) }}">{% endfor %}
-                <col>
-            </colgroup>
-            <thead>
-                <tr class="bjr-groups">
-                    <th colspan="2" class="bjr-g-joueur">Match</th>
-                    {% for g in b.groups %}<th colspan="{{ g.cols|length }}" class="bjr-g-{{ g.color }}">{{ g.label }}</th>{% endfor %}
-                    <th class="fj-fill"></th>
-                </tr>
-                <tr class="bjr-cols">
-                    <th class="bjr-left">Adversaire</th><th>Min.</th>
-                    {% for g in b.groups %}{% for c in g.cols %}<th class="{{ 'bjr-gstart' if loop.first }}{{ ' bjr-sign' if c.label in ['+', '=', '−'] }}">{{ c.label }}</th>{% endfor %}{% endfor %}
-                    <th class="fj-fill"></th>
-                </tr>
-            </thead>
-            <tbody>
-            {% for r in b.rows %}
-                <tr>
-                    <td class="bjr-nom fj-match"><a href="{{ url_for('match_joueurs', match_id=r.id) }}">{{ ('J' ~ r.journee ~ ' · ') if r.journee }}{{ r.opponent }}</a>{% if r.amical %} <span class="fj-tag">Amical</span>{% endif %}{% if r.date %}<small>{{ r.date }}</small>{% endif %}</td>
-                    <td class="bjr-min">{{ r.minutes if r.minutes else '·' }}</td>
-                    {% for g in b.groups %}{% for c in g.cols %}{{ fj_cell(c, r.v[c.key], ' bjr-gstart' if loop.first else '', r.low) }}{% endfor %}{% endfor %}
-                    <td class="fj-fill"></td>
-                </tr>
-            {% endfor %}
-            </tbody>
-            <tfoot>
-                <tr>
-                    <td class="bjr-nom">Total · {{ b.rows|length }} match{{ 's' if b.rows|length > 1 }}</td>
-                    <td>{{ b.rows|sum(attribute='minutes') if b.rows|selectattr('minutes')|list else '·' }}</td>
-                    {% for g in b.groups %}{% for c in g.cols %}{{ fj_cell(c, b.total[c.key], ' bjr-gstart' if loop.first else '', false, true) }}{% endfor %}{% endfor %}
-                    <td class="fj-fill"></td>
-                </tr>
-            </tfoot>
-        </table>
-        </div>
-    </div>
-    {% endfor %}
+{% include "_fiche_recap.html" %}
 </section>
-{% endif %}
 
 {% if radar and radar.criteres %}
 <div class="bil-panel" style="margin-top:18px;">
