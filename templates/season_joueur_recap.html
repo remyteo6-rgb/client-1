@@ -15,9 +15,12 @@
 <div class="fr-c"><div class="fr-cl">{{ c.label }}</div><div class="fr-cv fr-z">·</div></div>
 {% endif %}
 {% endmacro %}
+{# Une cellule « a une valeur » si elle n'est pas nulle : on n'affiche que ce qui s'est passé, pour une lecture plus légère. #}
+{% macro fr_has(c, v) %}{% if c.kind == 'fam' %}{% if v and v[1] %}1{% endif %}{% elif c.kind == 'pct' %}{% if v is not none %}1{% endif %}{% elif v %}1{% endif %}{% endmacro %}
 {% macro fr_bloc(b) %}
 {% for g in b.groups %}
-<div class="fr-f"><div class="fr-fl">{{ g.label }}</div><div class="fr-fc">{% for c in g.cols %}{{ fr_cell(c, b.total[c.key]) }}{% endfor %}</div></div>
+{% set ns = namespace(n=0) %}{% for c in g.cols %}{% if fr_has(c, b.total[c.key])|trim %}{% set ns.n = ns.n + 1 %}{% endif %}{% endfor %}
+{% if ns.n %}<div class="fr-f"><div class="fr-fl">{{ g.label }}</div><div class="fr-fc">{% for c in g.cols %}{% if fr_has(c, b.total[c.key])|trim %}{{ fr_cell(c, b.total[c.key]) }}{% endif %}{% endfor %}</div></div>{% endif %}
 {% endfor %}
 {% endmacro %}
 {% block content %}
@@ -91,7 +94,7 @@
         {% for b, titre in bas %}<div class="fr-pan"><div class="fr-ph">{{ titre }}</div><div class="fr-pb">{{ fr_bloc(b) }}</div></div>{% endfor %}
     </div>
     {% endif %}
-    <p class="fr-foot">Valeurs cumulées sur les matchs sélectionnés. Une famille sans action codée est masquée ; « · » = zéro. Vert = positif, rouge = négatif.</p>
+    <p class="fr-foot">Valeurs cumulées sur les matchs sélectionnés. Seules les actions codées sont affichées. Vert = positif, rouge = négatif.</p>
 </div>
 {% endif %}
 {% endblock %}
