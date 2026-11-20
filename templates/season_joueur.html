@@ -32,6 +32,8 @@
 </nav>
 {% endif %}
 
+{# À l'impression (bouton Exporter en PDF), seule la fiche récap sort ; le reste de la page est masqué. #}
+<div class="no-print">
 <section class="pj-hero" id="fj-profil">
     <div class="pj-id">
         <span class="pj-poste">{{ libelles.get(j.poste, j.poste) if j.poste else 'Sans poste' }}</span>
@@ -112,9 +114,11 @@
 </div>
 {% endif %}
 
+</div>
 <section class="fj-stats" id="fj-stats">
 {% include "_fiche_recap.html" %}
 </section>
+<div class="no-print">
 
 {% if radar and radar.criteres %}
 <div class="bil-panel" style="margin-top:18px;">
@@ -156,5 +160,6 @@
     {% if j.evo|length > 1 %}
     <div class="nt-evo" title="Note match par match" style="margin:14px 16px;">{% for e in j.evo %}<div class="nt-evo-col" title="{{ e.label }} · {{ e.minutes }} min · {{ e.note }}"><span class="nt-evo-bar {{ 'nt-top' if e.note >= 6.5 else ('nt-ok' if e.note >= 5 else ('nt-mid' if e.note >= 3.5 else 'nt-low')) }}" style="height: {{ (e.note * 10)|round|int }}%;"></span><span class="nt-evo-val">{{ e.note }}</span><span class="nt-evo-lab">{{ e.label[:9] }}</span></div>{% endfor %}</div>
     {% endif %}
+</div>
 </div>
 {% endblock %}
