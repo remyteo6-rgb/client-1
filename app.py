@@ -2822,6 +2822,41 @@ def _review_background_url():
     return None
 
 
+def _review_terrains(overview_new):
+    """Données des deux terrains de la page Review (Possession / Occupation) : temps par zone
+    de chaque équipe, plus la part de l'UBB par tranche de 20 minutes. None si le match n'a
+    pas de zones taguées."""
+    poss, occ = overview_new.get("possession") or {}, overview_new.get("occupation") or {}
+    zp, zo = poss.get("zones"), occ.get("zones")
+    if not zp or not zo or not (sum(zp["own"].values()) + sum(zp["adverse"].values())):
+        return None
+    ordre = ("ROUGE", "COP", "RUMBLE", "GOLD")
+
+    def _hauteurs(valeurs):
+        mx = max(valeurs) or 1
+        return [round(v / mx, 3) for v in valeurs]
+
+    ps = [(zp["own"].get(z) or 0, zp["adverse"].get(z) or 0) for z in ordre]
+    h = _hauteurs([v for pair in ps for v in pair])
+    possession = [{"zone": z, "own": _mmss(o), "adverse": _mmss(a), "own_h": h[2 * i], "adverse_h": h[2 * i + 1]}
+                  for i, (z, (o, a)) in enumerate(zip(ordre, ps))]
+    os_ = [zo.get(z) or 0 for z in ordre]
+    ho = _hauteurs(os_)
+    occupation = [{"zone": z, "t": _mmss(s), "h": ho[i], "side": "own" if z in ("RUMBLE", "GOLD") else "adverse"}
+                  for i, (z, s) in enumerate(zip(ordre, os_))]
+
+    def _quarts(bloc):
+        out = []
+        for lab in ("0-20", "20-40", "40-60", "60-80"):
+            q = ((bloc.get("by_period") or bloc.get("by_quarter_est") or {})).get(lab)
+            out.append({"label": lab, "pct": q["own_pct"] if q else None})
+        return out
+
+    est = not (poss.get("by_period") and occ.get("by_period"))
+    return {"possession": possession, "occupation": occupation, "quarts_estimes": est,
+            "poss_quarts": _quarts(poss), "occ_quarts": _quarts(occ)}
+
+
 def _build_review(overview_new, score, zone_gold):
     """Tableau de synthèse façon page "REVIEW" du rapport vidéo : les 8 lignes
     comparatives, plus les barres possession et occupation. Renvoie None si le match
@@ -2857,7 +2892,8 @@ def _build_review(overview_new, score, zone_gold):
         _pair("ESSAIS", score["own_tries"] if score else None,
               score["adverse_tries"] if score else None, 0),
         _pair("BREAK", overview_new["break"]["own"], overview_new["break"]["adverse"], 0),
-        _pair("OFFLOAD", overview_new["offload"]["own"], overview_new["offload"]["adverse"], 0),
+        # Offloads adverses non codés (pas de ligne adversaire dans la convention) : « — », pas un faux 0.
+        _pair("OFFLOAD", overview_new["offload"]["own"], None, 0),
         # Points par entrée : même calcul que la page Zone Gold (essais + transfos +
         # pénalités / drops « 22 »), et plus le score total du match ÷ entrées.
         _pair("POINTS/22", gold_own.get("points_par_entree"), gold_adv.get("points_par_entree"),
@@ -2865,6 +2901,7 @@ def _build_review(overview_new, score, zone_gold):
     ]
     return {
         "rows": rows,
+        "terrains": _review_terrains(overview_new),
         "possession": overview_new["possession"],
         "occupation": overview_new["occupation"],
         # Temps de jeu effectif (mm:ss), affiché au centre du bandeau de score. Absent si le

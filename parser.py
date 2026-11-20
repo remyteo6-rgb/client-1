@@ -907,6 +907,32 @@ SCORE_KIND_LABEL = {"tries": ("E", "Essai"), "conversions": ("T", "Transformatio
                     "penalties": ("P", "Pénalité"), "drops": ("D", "Drop")}
 
 
+def _game_minute_fn(instances):
+    """Renvoie (minute, debut, fin, mi_temps_debut) : une fonction qui convertit un temps vidéo (s) en
+    minutes de jeu, la mi-temps (plus long silence du fichier, 4 min minimum) étant retirée de l'axe."""
+    debut = min((i.get("start") or 0) for i in instances if i.get("start") is not None) if instances else 0
+    fin = max((i.get("end") or i.get("start") or 0) for i in instances) if instances else 0
+    actions = sorted([(i.get("start") or 0, i.get("end") or i.get("start") or 0) for i in instances
+                      if (i.get("end") or 0) - (i.get("start") or 0) < 240 and i.get("start") is not None])
+    f1 = d2 = None
+    if actions:
+        fin_max = actions[0][1]
+        trous = []
+        for s, e in actions[1:]:
+            if s - fin_max >= 240:
+                trous.append((s - fin_max, fin_max, s))
+            fin_max = max(fin_max, e)
+        if trous:
+            _, f1, d2 = max(trous)
+
+    def minute(t):
+        if f1 is None or t <= f1:
+            return max(0.0, (t - debut) / 60.0)
+        return (f1 - debut) / 60.0 + max(0.0, (t - d2) / 60.0)
+
+    return minute, debut, fin, f1
+
+
 def compute_score_timeline(instances):
     """Évolution du score au fil du temps de jeu : une ligne par action qui marque (essai, transformation,
     pénalité, drop réussis), avec le score cumulé de chaque équipe. Mêmes événements que
@@ -1017,6 +1043,10 @@ def _new_convention_code_match(tokens, suffix_tokens, adv_token=None):
 # le suffixe "A" et sont donc inversées (GOLD A / RUMBLE A = dans notre camp).
 ZONE_OWN_HALF = {"ROUGE", "COP"}
 ZONE_ADVERSE_HALF = {"RUMBLE", "GOLD"}
+# Les quatre zones dans l'ordre de notre sens d'attaque (de notre ligne vers celle de l'adversaire),
+# et leur équivalent vu du camp adverse (leur Gold = nos 22 m = notre Rouge).
+ZONES_TERRAIN = ("ROUGE", "COP", "RUMBLE", "GOLD")
+ZONE_MIROIR = {"GOLD": "ROUGE", "RUMBLE": "COP", "COP": "RUMBLE", "ROUGE": "GOLD"}
 
 # Groupe de labels porté par les codes joueurs, qui recense leurs actions (passes,
 # contacts, offloads, pénalités concédées, essais...). C'est la source qui fait foi
@@ -1125,6 +1155,18 @@ def compute_new_convention_overview(instances):
     possession_periods = defaultdict(lambda: {"own": 0.0, "adverse": 0.0})
     occupation = {"own": 0.0, "adverse": 0.0}
     occupation_periods = defaultdict(lambda: {"own": 0.0, "adverse": 0.0})
+    # Temps par zone, pour les terrains de la page Review. Possession : zone vue du camp de
+    # l'équipe qui a le ballon (les codes de zone nus suivent la possession UBB, les codes
+    # préfixés / suffixés « A » celle de l'adversaire : vérifié sur les 4 matchs). Occupation :
+    # tranche du terrain vue de notre camp (une zone de l'adversaire est ramenée à son
+    # équivalent côté UBB : leur Gold = notre Rouge).
+    zone_poss = {"own": defaultdict(float), "adverse": defaultdict(float)}
+    zone_band = defaultdict(float)
+    # Repli quand le fichier n'a pas de label « Chrono » : tranche estimée d'après l'horloge de jeu.
+    _minute_q = _game_minute_fn(instances)[0] if instances else None
+    poss_q_est = defaultdict(lambda: {"own": 0.0, "adverse": 0.0})
+    occ_q_est = defaultdict(lambda: {"own": 0.0, "adverse": 0.0})
+    _qlab = lambda inst: ("0-20", "20-40", "40-60", "60-80")[min(3, int(_minute_q(inst.get("start") or 0) // 20))]
     bip_durations = []
     found = False
     adv_token = _detect_adverse_token(instances)
@@ -1157,6 +1199,12 @@ def compute_new_convention_overview(instances):
             found = True
             seconds = max(inst.get("duration") or 0, 0)
             occupation[zone_side] += seconds
+            occ_q_est[_qlab(inst)][zone_side] += seconds
+            _zt = [t for t in tokens if t in (ZONE_OWN_HALF | ZONE_ADVERSE_HALF)]
+            if _zt:
+                _vue_adverse = len(tokens) == 2  # suffixe « A » ou préfixe adverse
+                zone_poss["adverse" if _vue_adverse else "own"][_zt[0]] += seconds
+                zone_band[ZONE_MIROIR[_zt[0]] if _vue_adverse else _zt[0]] += seconds
             period = _new_convention_period(inst)
             if period:
                 occupation_periods[period][zone_side] += seconds
@@ -1166,6 +1214,8 @@ def compute_new_convention_overview(instances):
             found = True
             seconds = max(inst.get("duration") or 0, 0)
             possession[side] += seconds
+            if side:
+                poss_q_est[_qlab(inst)][side] += seconds
             period = _new_convention_period(inst)
             if period:
                 possession_periods[period][side] += seconds
@@ -1293,8 +1343,10 @@ def compute_new_convention_overview(instances):
             "pct_match": round(bip_total / MATCH_DURATION_REF_SECONDS * 100) if bip_total else 0,
             "sequences": _bucket_durations(bip_durations) if bip_durations else None,
         },
-        "possession": _share(possession, possession_periods),
-        "occupation": _share(occupation, occupation_periods),
+        "possession": dict(_share(possession, possession_periods), by_quarter_est=_share(possession, poss_q_est)["by_period"], zones={
+            side: {z: round(zone_poss[side].get(z, 0.0)) for z in ZONES_TERRAIN} for side in ("own", "adverse")}),
+        "occupation": dict(_share(occupation, occupation_periods), by_quarter_est=_share(occupation, occ_q_est)["by_period"], zones={
+            z: round(zone_band.get(z, 0.0)) for z in ZONES_TERRAIN}),
         "plaquage": {
             "reussis": snipers_ok, "rates": snipers_rates, "total": snipers_total,
             "pct": round(100 * snipers_ok / snipers_total, 1) if snipers_total else None,

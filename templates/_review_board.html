@@ -63,20 +63,89 @@
         <div class="review-head-right"></div>
     </div>
 
-    <div class="review-body">
-        <div class="review-side review-panel">
-            <h2>POSSESSION</h2>
-            <div class="review-vsplit">
-                <span class="review-vsplit-own" style="flex-grow:{{ poss_own }}">{{ poss_own|round|int }}%</span>
-                <span class="review-vsplit-adverse" style="flex-grow:{{ poss_adv }}">{{ poss_adv|round|int }}%</span>
+    {# Terrain : une carte Possession et une carte Occupation à gauche, le tableau COMPARATIF à droite.
+       Le % global est dans le bandeau de la carte ; les anneaux donnent la part de l'équipe par tranche
+       de 20 minutes, le terrain le temps passé dans chaque zone (dans notre sens d'attaque). #}
+    {% macro pies(quarts) %}
+        <div class="rv-pies">
+            <div class="rv-pies-legend">Part {{ own_abbr }} par tranche{{ ' (estimée)' if review.terrains and review.terrains.quarts_estimes else '' }}<br><span class="rv-k-own">■ {{ own_abbr }}</span> <span class="rv-k-adv">■ ADV</span></div>
+            {% for q in quarts %}
+            <div class="rv-pie">
+                <svg viewBox="0 0 64 64" width="54" height="54">
+                    <circle cx="32" cy="32" r="22" fill="none" stroke="var(--rv-adv)" stroke-width="11"/>
+                    {% if q.pct is not none %}
+                    <circle cx="32" cy="32" r="22" fill="none" stroke="var(--rv-own)" stroke-width="11"
+                            stroke-dasharray="{{ (138.23 * q.pct / 100)|round(1) }} 138.23" transform="rotate(-90 32 32)"/>
+                    <text x="32" y="36" text-anchor="middle">{{ q.pct }}%</text>
+                    {% else %}<text x="32" y="36" text-anchor="middle">—</text>{% endif %}
+                </svg>
+                <span>{{ q.label }}</span>
             </div>
-            <div class="review-legend">
-                <div><b>{{ own_abbr }}</b><i class="review-legend-own"></i></div>
-                <div><b>ADV</b><i class="review-legend-adverse"></i></div>
+            {% endfor %}
+        </div>
+    {% endmacro %}
+
+    {# Terrain en SVG (420 x 138) : 4 zones dans notre sens d'attaque, une ou deux barres par zone. #}
+    {% macro terrain(zones, mode) %}
+        <svg class="rv-pitch" viewBox="0 0 420 138" preserveAspectRatio="xMidYMid meet">
+            <rect width="420" height="138" rx="6" fill="#eef3ea" stroke="#cfd8c8" stroke-width="2"/>
+            {% for z in zones %}
+            {% set x = 10 + loop.index0 * 100 %}
+            {% if loop.index0 is even %}<rect x="{{ x }}" y="6" width="100" height="126" fill="#e3ecdd"/>{% endif %}
+            <line x1="{{ x }}" y1="6" x2="{{ x }}" y2="132" stroke="#fff" stroke-width="2"/>
+            {% if mode == 'possession' %}
+                {% set ho = (62 * z.own_h)|round(1) %}{% set ha = (62 * z.adverse_h)|round(1) %}
+                <rect x="{{ x + 14 }}" y="{{ 100 - ho }}" width="34" height="{{ ho }}" rx="3" fill="var(--rv-own)"/>
+                <text x="{{ x + 31 }}" y="{{ 96 - ho }}" text-anchor="middle" class="rv-bar-t">{{ z.own }}</text>
+                <rect x="{{ x + 52 }}" y="{{ 100 - ha }}" width="34" height="{{ ha }}" rx="3" fill="var(--rv-adv)"/>
+                <text x="{{ x + 69 }}" y="{{ 96 - ha }}" text-anchor="middle" class="rv-bar-t">{{ z.adverse }}</text>
+            {% else %}
+                {% set h = (62 * z.h)|round(1) %}
+                <rect x="{{ x + 28 }}" y="{{ 100 - h }}" width="44" height="{{ h }}" rx="3" fill="{{ 'var(--rv-own)' if z.side == 'own' else 'var(--rv-adv)' }}"/>
+                <text x="{{ x + 50 }}" y="{{ 96 - h }}" text-anchor="middle" class="rv-bar-t">{{ z.t }}</text>
+            {% endif %}
+            <text x="{{ x + 50 }}" y="115" text-anchor="middle" class="rv-zone-t">{{ z.zone }}</text>
+            {% endfor %}
+            <line x1="10" y1="6" x2="10" y2="132" stroke="#530d34" stroke-width="4"/>
+            <line x1="410" y1="6" x2="410" y2="132" stroke="#530d34" stroke-width="4"/>
+            <line x1="60" y1="129" x2="360" y2="129" stroke="#2a1712" stroke-width="2" stroke-linecap="round"/>
+            <path d="M360 129 l-7 -4 v8z" fill="#2a1712"/>
+        </svg>
+    {% endmacro %}
+
+    <div class="review-body rv-body">
+        <div class="rv-left">
+            <div class="rv-card">
+                <div class="rv-card-head"><span>POSSESSION</span><span>{{ own_abbr }} {{ poss_own|round|int }} %</span></div>
+                <div class="rv-card-body">
+                    {% if review.terrains %}
+                    {{ pies(review.terrains.poss_quarts) }}
+                    {{ terrain(review.terrains.possession, 'possession') }}
+                    {% else %}
+                    <div class="review-vsplit rv-vsplit-flat">
+                        <span class="review-vsplit-own" style="flex-grow:{{ poss_own }}">{{ poss_own|round|int }}%</span>
+                        <span class="review-vsplit-adverse" style="flex-grow:{{ poss_adv }}">{{ poss_adv|round|int }}%</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="rv-card">
+                <div class="rv-card-head"><span>OCCUPATION</span><span>{{ own_abbr }} {{ occ_own|round|int }} %</span></div>
+                <div class="rv-card-body">
+                    {% if review.terrains %}
+                    {{ pies(review.terrains.occ_quarts) }}
+                    {{ terrain(review.terrains.occupation, 'occupation') }}
+                    {% else %}
+                    <div class="review-vsplit rv-vsplit-flat">
+                        <span class="review-vsplit-own" style="flex-grow:{{ occ_own }}">{{ occ_own|round|int }}%</span>
+                        <span class="review-vsplit-adverse" style="flex-grow:{{ occ_adv }}">{{ occ_adv|round|int }}%</span>
+                    </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
 
-        <div class="review-compare">
+        <div class="review-compare rv-compare">
             <div class="review-compare-title">COMPARATIF</div>
             <div class="review-compare-teams">
                 <span class="review-teamtag-own">{{ own_abbr }}</span>
@@ -91,18 +160,6 @@
                     <div class="review-cell review-cell-adverse">{{ row.adverse }}</div>
                 </div>
                 {% endfor %}
-            </div>
-        </div>
-
-        <div class="review-side review-panel">
-            <h2>OCCUPATION</h2>
-            <div class="review-vsplit">
-                <span class="review-vsplit-own" style="flex-grow:{{ occ_own }}">{{ occ_own|round|int }}%</span>
-                <span class="review-vsplit-adverse" style="flex-grow:{{ occ_adv }}">{{ occ_adv|round|int }}%</span>
-            </div>
-            <div class="review-legend">
-                <div><b>{{ own_abbr }}</b><i class="review-legend-own"></i></div>
-                <div><b>ADV</b><i class="review-legend-adverse"></i></div>
             </div>
         </div>
     </div>
