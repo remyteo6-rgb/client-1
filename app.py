@@ -570,15 +570,14 @@ def _match_nav_options():
 
 
 def _slide_tag(match, avec_score=True):
-    """Texte de la ligne commune en haut des diapos : « UBB 12 – 47 ÉCOSSE · J5 · 21/09/2026 » (vide si le match n'a pas de score)."""
+    """Texte de la ligne commune en haut des diapos : « UBB vs ÉCOSSE · J5 · 21/09/2026 » (sans le score : il figure sur Review et sur la couverture). avec_score=False : journée et date seulement."""
     try:
         key = ("_slide_tag", match["id"], avec_score)
         if key in g.__dict__:
             return g.__dict__[key]
-        own, adv, *_ = _resolve_match_score(match)
         own_team = match["own_team"] or ""
         abbr = "UBB" if "bordeaux" in own_team.lower() else own_team[:3].upper()
-        parts = [f"{abbr} {own if own is not None else '—'} – {adv if adv is not None else '—'} {(match['opponent'] or '').upper()}"] if avec_score else []
+        parts = [f"{abbr} vs {(match['opponent'] or '').upper()}"] if avec_score else []
         journee = (match.get("journee") or "").strip()
         if journee:
             parts.append(journee)
