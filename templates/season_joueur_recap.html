@@ -6,21 +6,21 @@
    Une famille sans aucune action sur la période est masquée ; « · » = zéro dans une famille visible. #}
 {% macro fr_cell(c, v) %}
 {% if c.kind == 'fam' %}
-{% if v and v[1] %}{% set p = (v[0] / v[1] * 100)|round|int %}<div class="fr-c"><div class="fr-cl">{{ c.label }}</div><div class="fr-cv fr-x">{{ p }}% <small>{{ v[0] }}/{{ v[1] }}</small></div></div>{% else %}<div class="fr-c"><div class="fr-cl">{{ c.label }}</div><div class="fr-cv fr-z">·</div></div>{% endif %}
+{% if v and v[1] %}{% set p = (v[0] / v[1] * 100)|round|int %}<div class="fr-c"><div class="fr-cl">{{ c.label }}</div><div class="fr-cv fr-x">{{ p }}% <small>{{ v[0] }}/{{ v[1] }}</small></div></div>{% else %}<div class="fr-c"><div class="fr-cl">{{ c.label }}</div><div class="fr-cv fr-z">0</div></div>{% endif %}
 {% elif c.kind == 'pct' %}
-<div class="fr-c"><div class="fr-cl">{{ c.label }}</div>{% if v is not none %}<div class="fr-cv fr-x">{{ v }}%</div>{% else %}<div class="fr-cv fr-z">·</div>{% endif %}</div>
+<div class="fr-c"><div class="fr-cl">{{ c.label }}</div>{% if v is not none %}<div class="fr-cv fr-x">{{ v }}%</div>{% else %}<div class="fr-cv fr-z">0</div>{% endif %}</div>
 {% elif v %}
 <div class="fr-c"><div class="fr-cl">{{ c.label }}</div><div class="fr-cv{{ ' fr-p' if c.kind == 'pos' else (' fr-n' if c.kind == 'neg' else '') }}">{{ v|nb }}</div></div>
 {% else %}
-<div class="fr-c"><div class="fr-cl">{{ c.label }}</div><div class="fr-cv fr-z">·</div></div>
+<div class="fr-c"><div class="fr-cl">{{ c.label }}</div><div class="fr-cv fr-z">0</div></div>
 {% endif %}
 {% endmacro %}
-{# Une cellule « a une valeur » si elle n'est pas nulle : on n'affiche que ce qui s'est passé, pour une lecture plus légère. #}
+{# Une cellule « a une valeur » si elle n'est pas nulle : une ligne entière sans action est masquée, mais dans une ligne affichée les zéros restent visibles. #}
 {% macro fr_has(c, v) %}{% if c.kind == 'fam' %}{% if v and v[1] %}1{% endif %}{% elif c.kind == 'pct' %}{% if v is not none %}1{% endif %}{% elif v %}1{% endif %}{% endmacro %}
 {% macro fr_bloc(b) %}
 {% for g in b.groups %}
 {% set ns = namespace(n=0) %}{% for c in g.cols %}{% if fr_has(c, b.total[c.key])|trim %}{% set ns.n = ns.n + 1 %}{% endif %}{% endfor %}
-{% if ns.n %}<div class="fr-f"><div class="fr-fl">{{ g.label }}</div><div class="fr-fc">{% for c in g.cols %}{% if fr_has(c, b.total[c.key])|trim %}{{ fr_cell(c, b.total[c.key]) }}{% endif %}{% endfor %}</div></div>{% endif %}
+{% if ns.n %}<div class="fr-f"><div class="fr-fl">{{ g.label }}</div><div class="fr-fc">{% for c in g.cols %}{{ fr_cell(c, b.total[c.key]) }}{% endfor %}</div></div>{% endif %}
 {% endfor %}
 {% endmacro %}
 {% block content %}
@@ -94,7 +94,7 @@
         {% for b, titre in bas %}<div class="fr-pan"><div class="fr-ph">{{ titre }}</div><div class="fr-pb">{{ fr_bloc(b) }}</div></div>{% endfor %}
     </div>
     {% endif %}
-    <p class="fr-foot">Valeurs cumulées sur les matchs sélectionnés. Seules les actions codées sont affichées. Vert = positif, rouge = négatif.</p>
+    <p class="fr-foot">Valeurs cumulées sur les matchs sélectionnés. Les lignes sans aucune action codée sont masquées ; dans une ligne affichée, 0 = aucune action. Vert = positif, rouge = négatif.</p>
 </div>
 {% endif %}
 {% endblock %}

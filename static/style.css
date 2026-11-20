@@ -3929,5 +3929,5 @@ html.vs-on .vs.vs { display: inline-block; }
 .fr-foot { font-size: 12px; color: var(--text-secondary); margin: 0; }
 @page recap { size: A4 portrait; margin: 8mm; }
 @media print {
-    .fr-sheet { width: 830px; max-width: none; zoom: .88; margin: 0; }
+    .fr-sheet { width: 880px; max-width: none; zoom: .83; margin: 0; }
 }
