@@ -731,6 +731,27 @@ CONVERSION_WINDOW = 240
 SCORE_DEFAULT_POINTS = {"conversions": 2, "penalties": 3, "drops": 3}
 
 
+# Descripteur « réussi » / « raté » posé sur un coup de pied au but (n'importe quel groupe de labels).
+KICK_OK_LABELS = {"REUSSI", "REUSSIE", "REUSSITE", "REUSSIS", "REUSSIES", "OK", "+"}
+KICK_KO_LABELS = {"RATE", "RATEE", "RATES", "RATEES", "MANQUE", "MANQUEE", "LOUPE", "LOUPEE", "NON REUSSI", "NON REUSSIE",
+                  "ECHEC", "ECHOUE", "-"}
+
+
+def _kick_result_label(inst):
+    """True / False si l'instance porte un descripteur réussi / raté (hors label Points), sinon None.
+    En cas de descripteurs contradictoires, le raté l'emporte."""
+    ok = ko = False
+    for lab in inst.get("labels") or []:
+        if _normalize_tag(lab.get("group")) == "POINTS":
+            continue
+        txt = _normalize_tag(lab.get("text"))
+        if txt in KICK_KO_LABELS:
+            ko = True
+        elif txt in KICK_OK_LABELS:
+            ok = True
+    return False if ko else (True if ok else None)
+
+
 def _points_label(inst):
     """Valeur numérique du label 'Points' d'une instance (ex: 2, 3, 0), ou None."""
     for lab in inst.get("labels") or []:
@@ -768,10 +789,12 @@ def _scoring_events(instances, adv_token=None):
         else:
             value = _points_label(inst)
             if value is None:
-                value = SCORE_DEFAULT_POINTS[kind]
+                res = _kick_result_label(inst)
+                value = SCORE_DEFAULT_POINTS[kind] if res is not False else 0
         events.append({"side": side, "kind": kind, "points": max(value, 0),
                        "start": inst.get("start") or 0, "end": inst.get("end") or inst.get("start") or 0,
-                       "inst": inst})
+                       "inst": inst, "explicite": kind == "tries" or _points_label(inst) is not None
+                       or _kick_result_label(inst) is not None})
     # Codage « <équipe> Points » avec un label Points en toutes lettres (Try / Conversion / Penalty / Drop),
     # celui de l'analyste écossais sur UBB-Écosse (novembre 2026) : seuls les points MARQUÉS y sont
     # tagués. Les essais ne sont repris de là que si l'équipe n'a aucun code « Essai », pour ne pas
@@ -798,6 +821,34 @@ def _scoring_events(instances, adv_token=None):
                            "start": inst.get("start") or 0, "end": inst.get("end") or inst.get("start") or 0,
                            "inst": inst})
     events.sort(key=lambda e: e["start"])
+    # Repli : le descripteur réussi / raté est posé sur l'instance du botteur (Joueurs Off : Transformations /
+    # Pénalité / Drop) et non sur la ligne d'équipe. On ne touche qu'aux coups de pied sans information explicite.
+    joueurs = _new_convention_player_names(instances)
+    mots = {"conversions": {"TRANSFORMATION", "TRANSFORMATIONS", "TRANSFO", "TRANSFOS"},
+            "penalties": PLAYER_ACTION_PENALTY, "drops": {"DROP", "DROPS"}}
+    deja = set()
+    for e in events:
+        if e["kind"] == "tries" or e.get("explicite") or e["side"] != "own":
+            continue
+        meilleur = None
+        for idx, inst in enumerate(instances):
+            if idx in deja or _normalize_tag(inst.get("code_raw")) not in joueurs:
+                continue
+            textes = {_normalize_tag(l.get("text")) for l in inst.get("labels") or []}
+            if not (textes & mots[e["kind"]]):
+                continue
+            res = _kick_result_label(inst)
+            if res is None:
+                continue
+            s, f = inst.get("start") or 0, inst.get("end") or inst.get("start") or 0
+            ecart = max(e["start"] - f, s - e["end"], 0)
+            if ecart <= KICK_MATCH_WINDOW and (meilleur is None or ecart < meilleur[0]):
+                meilleur = (ecart, idx, res)
+        if meilleur:
+            deja.add(meilleur[1])
+            if meilleur[2] is False:
+                e["points"] = 0
+            e["explicite"] = True
     # Essai transformé sans code Transfo : quand l'essai porte le label « Points » = 7
     # (5 + 2) et qu'aucun code Transfo de la même équipe ne le suit avant l'essai suivant,
     # on ajoute la transformation (2 points). Agen-UBB : 2e essai d'Agen tagué « 7 » sans
