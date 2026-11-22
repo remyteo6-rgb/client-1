@@ -6,13 +6,13 @@
 {% macro marqueurs_cote(m, side) %}
 <div class="pres-col pres-col-{{ side }}">
     {% if m %}
-    {% for cle, titre, tent in (('essais', 'Essais', none), ('penalites', 'Pénalités', m.pen_tent), ('drops', 'Drops', m.drop_tent)) %}
+    {% for cle, titre, tent, bot in (('essais', 'Essais', none, none), ('penalites', 'Pénalités', m.pen_tent, m.pen_bot), ('drops', 'Drops', m.drop_tent, none)) %}
     {% if m[cle] or tent %}
-    <div class="pres-bloc"><div class="pres-bloc-t">{{ titre }} · {% if tent %}{{ m[cle]|length }}/{{ tent }}{% else %}{{ m[cle]|length }}{% endif %}</div>
+    <div class="pres-bloc"><div class="pres-bloc-t">{{ titre }} · {% if bot %}{% for b in bot %}{{ b.nom }} {{ b.ok }}/{{ b.tot }}{% if not loop.last %} · {% endif %}{% endfor %}{% elif tent %}{{ m[cle]|length }}/{{ tent }}{% else %}{{ m[cle]|length }}{% endif %}</div>
         {% if m[cle] %}<div class="pres-mks">{% for x in m[cle] %}<span class="pres-mk">{% if x.joueur %}<b>{{ x.joueur }}</b> {% endif %}{{ x.minute }}'</span>{% endfor %}</div>{% endif %}</div>
     {% endif %}
     {% endfor %}
-    {% if m.transfos[1] %}<div class="pres-bloc"><div class="pres-bloc-t">Transformations · {{ m.transfos[0] }}/{{ m.transfos[1] }}</div></div>{% endif %}
+    {% if m.transfos[1] %}<div class="pres-bloc"><div class="pres-bloc-t">Transformations · {% if m.transfo_bot %}{% for b in m.transfo_bot %}{{ b.nom }} {{ b.ok }}/{{ b.tot }}{% if not loop.last %} · {% endif %}{% endfor %}{% else %}{{ m.transfos[0] }}/{{ m.transfos[1] }}{% endif %}</div></div>{% endif %}
     {% else %}<div class="pres-vide">Marqueurs non disponibles</div>{% endif %}
 </div>
 {% endmacro %}

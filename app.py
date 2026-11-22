@@ -4017,6 +4017,15 @@ def match_presentation(match_id):
             tl = None
         if tl and tl["events"]:
             tous = _parser._scoring_events(match["instances"], _parser._detect_adverse_token(match["instances"]))
+            def _botteurs(evts):
+                """Réussis/tentés par botteur (UBB seulement ; l'adversaire n'est pas tagué joueur par joueur)."""
+                par = {}
+                for e in evts:
+                    nom = _parser._scorer_name(match["instances"], e)
+                    if not nom:
+                        return []
+                    r = par.setdefault(nom, [0, 0]); r[1] += 1; r[0] += 1 if e["points"] else 0
+                return [{"nom": _joueur_nom_affiche(n), "ok": v[0], "tot": v[1]} for n, v in par.items()]
             for side in ("own", "adverse"):
                 evs = [e for e in tl["events"] if e["side"] == side]
                 item = lambda e: {"minute": int(e["minute"]) + 1 if e["minute"] % 1 else int(e["minute"]),
@@ -4031,6 +4040,7 @@ def match_presentation(match_id):
                     "transfos": (sum(1 for e in transfos if e["points"]), len(transfos)),
                     # tentées au but (réussies / tentées), manquées comprises
                     "pen_tent": sum(1 for e in tous if e["side"] == side and e["kind"] == "penalties"),
+                    "transfo_bot": _botteurs(transfos), "pen_bot": _botteurs([e for e in tous if e["side"] == side and e["kind"] == "penalties"]),
                     "drop_tent": sum(1 for e in tous if e["side"] == side and e["kind"] == "drops"),
                 }
     d = match.get("match_date")

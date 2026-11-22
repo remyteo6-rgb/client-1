@@ -984,6 +984,29 @@ def _game_minute_fn(instances):
     return minute, debut, fin, f1
 
 
+def _scorer_name(instances, e, joueurs=None, mots=None):
+    """Joueur UBB qui porte le label correspondant (Essais, Pénalité, Transformations…) juste autour de l'action
+    de score e : le plus proche dans la fenêtre [-10 s ; +70 s]. L'adversaire n'est pas tagué joueur par joueur :
+    None."""
+    if e["side"] != "own":
+        return None
+    joueurs = joueurs if joueurs is not None else _new_convention_player_names(instances)
+    mots = mots or {"tries": {"ESSAI", "ESSAIS"}, "penalties": {"PENALITE", "PENALITES"},
+                    "conversions": {"TRANSFO", "TRANSFOS", "TRANSFORMATION", "TRANSFORMATIONS", "CONVERSION", "CONVERSIONS"}, "drops": {"DROP"}}
+    meilleur = None
+    for inst in instances:
+        code = (inst.get("code_raw") or "").strip()
+        if _normalize_tag(code) not in joueurs:
+            continue
+        ecart = (inst.get("start") or 0) - e["start"]
+        if not -10 <= ecart <= 70:
+            continue
+        if any(_normalize_tag(l.get("text")) in mots[e["kind"]] for l in inst.get("labels") or []):
+            if meilleur is None or abs(ecart) < meilleur[0]:
+                meilleur = (abs(ecart), code)
+    return meilleur[1] if meilleur else None
+
+
 def compute_score_timeline(instances):
     """Évolution du score au fil du temps de jeu : une ligne par action qui marque (essai, transformation,
     pénalité, drop réussis), avec le score cumulé de chaque équipe. Mêmes événements que
@@ -1021,25 +1044,10 @@ def compute_score_timeline(instances):
     out = []
     joueurs = _new_convention_player_names(instances)
     mots = {"tries": {"ESSAI", "ESSAIS"}, "penalties": {"PENALITE", "PENALITES"},
-            "conversions": {"TRANSFO", "TRANSFORMATION", "CONVERSION"}, "drops": {"DROP"}}
+            "conversions": {"TRANSFO", "TRANSFOS", "TRANSFORMATION", "TRANSFORMATIONS", "CONVERSION", "CONVERSIONS"}, "drops": {"DROP"}}
 
     def marqueur(e):
-        """Joueur UBB qui porte le label correspondant (Essais, Pénalité…) juste autour de l'action : le plus proche
-        dans la fenêtre [-10 s ; +70 s]. L'adversaire n'est pas tagué joueur par joueur : None."""
-        if e["side"] != "own":
-            return None
-        meilleur = None
-        for inst in instances:
-            code = (inst.get("code_raw") or "").strip()
-            if _normalize_tag(code) not in joueurs:
-                continue
-            ecart = (inst.get("start") or 0) - e["start"]
-            if not -10 <= ecart <= 70:
-                continue
-            if any(_normalize_tag(l.get("text")) in mots[e["kind"]] for l in inst.get("labels") or []):
-                if meilleur is None or abs(ecart) < meilleur[0]:
-                    meilleur = (abs(ecart), code)
-        return meilleur[1] if meilleur else None
+        return _scorer_name(instances, e, joueurs, mots)
 
     for e in events:
         score[e["side"]] += e["points"]
