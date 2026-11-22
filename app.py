@@ -4016,16 +4016,22 @@ def match_presentation(match_id):
         except Exception:
             tl = None
         if tl and tl["events"]:
+            tous = _parser._scoring_events(match["instances"], _parser._detect_adverse_token(match["instances"]))
             for side in ("own", "adverse"):
                 evs = [e for e in tl["events"] if e["side"] == side]
                 item = lambda e: {"minute": int(e["minute"]) + 1 if e["minute"] % 1 else int(e["minute"]),
                                   "joueur": _joueur_nom_affiche(e["joueur"]) if e.get("joueur") else None}
-                transfos = [e for e in evs if e["kind"] == "conversions"]
+                # La courbe de score ignore les tirs manqués : les transformations tentées se lisent
+                # donc dans les événements de score complets (points = 0 pour un tir raté).
+                transfos = [e for e in tous if e["side"] == side and e["kind"] == "conversions"]
                 marqueurs[side] = {
                     "essais": [item(e) for e in evs if e["kind"] == "tries" and e["points"]],
                     "penalites": [item(e) for e in evs if e["kind"] == "penalties" and e["points"]],
                     "drops": [item(e) for e in evs if e["kind"] == "drops" and e["points"]],
                     "transfos": (sum(1 for e in transfos if e["points"]), len(transfos)),
+                    # tentées au but (réussies / tentées), manquées comprises
+                    "pen_tent": sum(1 for e in tous if e["side"] == side and e["kind"] == "penalties"),
+                    "drop_tent": sum(1 for e in tous if e["side"] == side and e["kind"] == "drops"),
                 }
     d = match.get("match_date")
     date_txt = d.strftime("%d/%m/%Y") if hasattr(d, "strftime") else (f"{str(d)[8:10]}/{str(d)[5:7]}/{str(d)[0:4]}" if d else "")

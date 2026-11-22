@@ -6,10 +6,10 @@
 {% macro marqueurs_cote(m, side) %}
 <div class="pres-col pres-col-{{ side }}">
     {% if m %}
-    {% for cle, titre in (('essais', 'Essais'), ('penalites', 'Pénalités'), ('drops', 'Drops')) %}
-    {% if m[cle] %}
-    <div class="pres-bloc"><div class="pres-bloc-t">{{ titre }} · {{ m[cle]|length }}</div>
-        <div class="pres-mks">{% for x in m[cle] %}<span class="pres-mk">{% if x.joueur %}<b>{{ x.joueur }}</b> {% endif %}{{ x.minute }}'</span>{% endfor %}</div></div>
+    {% for cle, titre, tent in (('essais', 'Essais', none), ('penalites', 'Pénalités', m.pen_tent), ('drops', 'Drops', m.drop_tent)) %}
+    {% if m[cle] or tent %}
+    <div class="pres-bloc"><div class="pres-bloc-t">{{ titre }} · {% if tent %}{{ m[cle]|length }}/{{ tent }}{% else %}{{ m[cle]|length }}{% endif %}</div>
+        {% if m[cle] %}<div class="pres-mks">{% for x in m[cle] %}<span class="pres-mk">{% if x.joueur %}<b>{{ x.joueur }}</b> {% endif %}{{ x.minute }}'</span>{% endfor %}</div>{% endif %}</div>
     {% endif %}
     {% endfor %}
     {% if m.transfos[1] %}<div class="pres-bloc"><div class="pres-bloc-t">Transformations · {{ m.transfos[0] }}/{{ m.transfos[1] }}</div></div>{% endif %}
