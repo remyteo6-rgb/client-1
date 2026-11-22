@@ -2010,6 +2010,7 @@ def compute_touches_page(instances, manual=None):
 # Pénalités : croisement avec les codes Disciplines. Nos pénalités portent un descripteur
 # (Off / Def / Conquête) : « Conquête » + mêlée la plus proche = pénalité concédée sur mêlée.
 # Les pénalités adverses n'ont aucun descripteur : elles sont rattachées par le temps seul.
+MELEE_FENETRE_TARD = 60.0   # repli : pénalité codée longtemps après la mêlée (pénalité jouée vite)
 MELEE_FENETRE = 25.0   # secondes entre le début de la mêlée et celui du code Discipline
 
 
@@ -2053,15 +2054,22 @@ def compute_melees_page(instances):
     melees.sort(key=lambda c_i: c_i[1].get("start") or 0)
     debut = lambda i: float(i.get("start") or 0)
 
-    def rattacher(inst):
-        """Mêlée la plus proche du code Discipline, si elle est plus proche qu'une touche."""
+    def rattacher(inst, deja=()):
+        """Mêlée la plus proche du code Discipline, si elle est plus proche qu'une touche.
+        Repli : pénalité codée tard (jeu rapide) → dernière mêlée qui la précède à moins de
+        MELEE_FENETRE_TARD s, non encore pénalisée, sans touche plus proche."""
         if not melees:
             return None
         t = debut(inst)
         k = min(range(len(melees)), key=lambda j: abs(t - debut(melees[j][1])))
         ecart = abs(t - debut(melees[k][1]))
         if ecart > MELEE_FENETRE:
-            return None
+            avant = [j for j in range(len(melees)) if 0 <= t - debut(melees[j][1]) <= MELEE_FENETRE_TARD
+                     and j not in deja]
+            if not avant:
+                return None
+            k = max(avant, key=lambda j: debut(melees[j][1]))
+            ecart = t - debut(melees[k][1])
         if touches and min(abs(t - debut(x)) for x in touches) < ecart:
             return None      # la pénalité colle à une touche, pas à une mêlée
         return k
@@ -2070,13 +2078,13 @@ def compute_melees_page(instances):
     for inst, conquete in disc_own:
         if not conquete:
             continue        # règle de Téo : seules les pénalités « Conquête » viennent d'une mêlée ou d'une touche
-        k = rattacher(inst)
+        k = rattacher(inst, deja=set(pen))
         if k is not None:
             pen.setdefault(k, {})["contre"] = True
     for inst, conquete in disc_adv:
         if not conquete:
             continue        # règle de Téo : seule une pénalité « Conquête » (même moment que la mêlée) s'affiche
-        k = rattacher(inst)
+        k = rattacher(inst, deja=set(pen))
         if k is not None:
             pen.setdefault(k, {})["pour"] = True
 
