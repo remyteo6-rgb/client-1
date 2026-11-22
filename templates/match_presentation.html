@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Présentation — {{ match_title(match) }}{% endblock %}
+{% set active = 'presentation' %}
+{% block content %}
+{# Première diapo du rapport : score, blasons et marqueurs. L'adversaire n'est pas tagué joueur par joueur : ses marqueurs n'ont que la minute. #}
+{% macro marqueurs_cote(m, side) %}
+<div class="pres-col pres-col-{{ side }}">
+    {% if m %}
+    {% for cle, titre in (('essais', 'Essais'), ('penalites', 'Pénalités'), ('drops', 'Drops')) %}
+    {% if m[cle] %}
+    <div class="pres-bloc"><div class="pres-bloc-t">{{ titre }} · {{ m[cle]|length }}</div>
+        <div class="pres-mks">{% for x in m[cle] %}<span class="pres-mk">{% if x.joueur %}<b>{{ x.joueur }}</b> {% endif %}{{ x.minute }}'</span>{% endfor %}</div></div>
+    {% endif %}
+    {% endfor %}
+    {% if m.transfos[1] %}<div class="pres-bloc"><div class="pres-bloc-t">Transformations · {{ m.transfos[0] }}/{{ m.transfos[1] }}</div></div>{% endif %}
+    {% else %}<div class="pres-vide">Marqueurs non disponibles</div>{% endif %}
+</div>
+{% endmacro %}
+
+<div class="report-board pres-board">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">Présentation</span>
+    </div>
+    <div class="pres-main">
+        <div class="pres-teams">
+            <div class="pres-team">
+                <img class="pres-crest" src="{{ assets.own_crest }}" alt="{{ match['own_team'] }}">
+                <div class="pres-name">{{ match['own_team'] }}</div>
+            </div>
+            <div class="pres-score"><b>{{ own if own is not none else '—' }}</b><i>–</i><b>{{ adverse if adverse is not none else '—' }}</b></div>
+            <div class="pres-team">
+                {% if assets.adverse_crest %}<img class="pres-crest" src="{{ assets.adverse_crest }}" alt="{{ match['opponent'] }}">{% else %}<span class="pres-crest pres-crest-ini">{{ (match['opponent'] or '?')[0]|upper }}</span>{% endif %}
+                <div class="pres-name">{{ match['opponent'] }}</div>
+            </div>
+        </div>
+        <div class="pres-marq">
+            {{ marqueurs_cote(marqueurs.own, 'own') }}
+            {{ marqueurs_cote(marqueurs.adverse, 'adverse') }}
+        </div>
+    </div>
+</div>
+{% endblock %}

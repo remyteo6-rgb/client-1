@@ -968,11 +968,33 @@ def compute_score_timeline(instances):
     duree = minute(fin)
     score = {"own": 0, "adverse": 0}
     out = []
+    joueurs = _new_convention_player_names(instances)
+    mots = {"tries": {"ESSAI", "ESSAIS"}, "penalties": {"PENALITE", "PENALITES"},
+            "conversions": {"TRANSFO", "TRANSFORMATION", "CONVERSION"}, "drops": {"DROP"}}
+
+    def marqueur(e):
+        """Joueur UBB qui porte le label correspondant (Essais, Pénalité…) juste autour de l'action : le plus proche
+        dans la fenêtre [-10 s ; +70 s]. L'adversaire n'est pas tagué joueur par joueur : None."""
+        if e["side"] != "own":
+            return None
+        meilleur = None
+        for inst in instances:
+            code = (inst.get("code_raw") or "").strip()
+            if _normalize_tag(code) not in joueurs:
+                continue
+            ecart = (inst.get("start") or 0) - e["start"]
+            if not -10 <= ecart <= 70:
+                continue
+            if any(_normalize_tag(l.get("text")) in mots[e["kind"]] for l in inst.get("labels") or []):
+                if meilleur is None or abs(ecart) < meilleur[0]:
+                    meilleur = (abs(ecart), code)
+        return meilleur[1] if meilleur else None
+
     for e in events:
         score[e["side"]] += e["points"]
         sigle, nom = SCORE_KIND_LABEL[e["kind"]]
         out.append({"minute": round(minute(e["start"]), 1), "side": e["side"], "kind": e["kind"],
-                    "sigle": sigle, "nom": nom, "points": e["points"],
+                    "sigle": sigle, "nom": nom, "points": e["points"], "joueur": marqueur(e),
                     "own": score["own"], "adverse": score["adverse"]})
     return {"events": out, "duree": max(80.0, duree), "mi_temps": round((f1 - debut) / 60.0, 1) if f1 is not None else None,
             "own": score["own"], "adverse": score["adverse"]}

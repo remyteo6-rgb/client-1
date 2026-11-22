@@ -4019,3 +4019,26 @@ span.garde-crest-ini { display: flex; align-items: center; justify-content: cent
 .garde-title i { font-style: normal; font-weight: 400; color: #8a7a80; font-size: 2rem; margin: 0 8px; }
 .garde-sub { font-size: 1.6rem; font-weight: 500; letter-spacing: .08em; color: #55464c; text-transform: uppercase; }
 .def-bar-adv { background: var(--adv); }
+
+/* Page Présentation : score, blasons, marqueurs */
+.pres-main { display: flex; flex-direction: column; gap: 22px; padding: 26px 40px 0; }
+.pres-teams { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 30px; }
+.pres-team { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.pres-crest { width: 210px; height: 210px; object-fit: contain; }
+span.pres-crest-ini { display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--adv); color: #fff; font-size: 7rem; font-weight: 700; }
+.pres-name { font-size: 2rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--bg-header); }
+.pres-score { display: flex; align-items: center; gap: 24px; background: rgba(255,255,255,.82); border: 2px solid #8a8a8a; border-radius: 16px; padding: 6px 54px 12px; box-shadow: 0 2px 10px rgba(83,13,52,.14); }
+.pres-score b { font-size: 9rem; font-weight: 600; line-height: 1.05; color: #1b1b1b; }
+.pres-score i { font-size: 5rem; font-style: normal; color: #8a8a8a; }
+.pres-marq { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+.pres-col { background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(83,13,52,.14); overflow: hidden; min-height: 120px; }
+.pres-col-own { border-top: 8px solid var(--bg-header); }
+.pres-col-adverse { border-top: 8px solid var(--adv); }
+.pres-bloc { padding: 10px 18px 8px; border-bottom: 1px solid #eee4dc; }
+.pres-bloc:last-child { border-bottom: 0; }
+.pres-bloc-t { font-size: 1.1rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #6b5a60; margin-bottom: 6px; }
+.pres-mks { display: flex; flex-wrap: wrap; gap: 8px; }
+.pres-mk { font-size: 1.35rem; font-weight: 500; background: #f6eee3; border-radius: 6px; padding: 3px 12px 4px; color: #2a1712; }
+.pres-mk b { font-weight: 700; color: var(--bg-header); }
+.pres-col-adverse .pres-mk b { color: var(--adv-text); }
+.pres-vide { padding: 24px; text-align: center; color: #8a7a80; font-size: 1.2rem; }

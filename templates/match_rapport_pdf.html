@@ -92,7 +92,6 @@
         var n = 0;
         var recap = [], manque = [];
         function garde(html) { var w = document.createElement('div'); w.innerHTML = html; var s = w.firstElementChild; box.appendChild(s); n++; }
-        garde(GARDE.cover);
         resultats.forEach(function (lst, idx) {
             var nb = (lst || []).length;
             (lst || []).forEach(function (s) {

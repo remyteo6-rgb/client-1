@@ -2315,7 +2315,7 @@ def _joueurs_detail_slides(bilan_slide, player_cards, tables, avg=False, specs=N
 
 
 # Ordre des diapos du PDF « rapport complet » : l'ordre des onglets du rapport (nom de la route de chaque page).
-RAPPORT_PDF_PAGES = [("match_detail", "Vue d'ensemble"), ("match_bilan_attaque", "Bilan attaque"),
+RAPPORT_PDF_PAGES = [("match_presentation", "Présentation"), ("match_detail", "Vue d'ensemble"), ("match_bilan_attaque", "Bilan attaque"),
                      ("match_zone_gold", "Zone Gold"), ("match_surfeurs", "Surfeurs"),
                      ("match_possessions", "Nos possessions"), ("match_bilan_defense", "Bilan défense"),
                      ("match_csc", "CSC"), ("match_discipline", "Discipline"), ("match_touches", "Touches"),
@@ -3996,6 +3996,38 @@ def season_melees():
         st["par_match"] = round(st["jouees"] / len(rows), 1) if rows else 0
     return render_template("season_melees.html", rows=rows, cumul=cumul, fmt=_avg_fmt,
                            sans_conquete=sans_conquete, **ctx)
+
+
+@app.route("/match/<int:match_id>/presentation")
+def match_presentation(match_id):
+    """Première page du rapport : le score, les deux blasons et les marqueurs (essais, pénalités, drops, transformations)."""
+    match = _get_match_or_404(match_id)
+    try:
+        own, adv, *_ = _resolve_match_score(match)
+    except Exception:
+        own = adv = None
+    marqueurs = {"own": None, "adverse": None}
+    if match.get("instances"):
+        try:
+            tl = compute_score_timeline(match["instances"])
+        except Exception:
+            tl = None
+        if tl and tl["events"]:
+            for side in ("own", "adverse"):
+                evs = [e for e in tl["events"] if e["side"] == side]
+                item = lambda e: {"minute": int(e["minute"]) + 1 if e["minute"] % 1 else int(e["minute"]),
+                                  "joueur": _joueur_nom_affiche(e["joueur"]) if e.get("joueur") else None}
+                transfos = [e for e in evs if e["kind"] == "conversions"]
+                marqueurs[side] = {
+                    "essais": [item(e) for e in evs if e["kind"] == "tries" and e["points"]],
+                    "penalites": [item(e) for e in evs if e["kind"] == "penalties" and e["points"]],
+                    "drops": [item(e) for e in evs if e["kind"] == "drops" and e["points"]],
+                    "transfos": (sum(1 for e in transfos if e["points"]), len(transfos)),
+                }
+    d = match.get("match_date")
+    date_txt = d.strftime("%d/%m/%Y") if hasattr(d, "strftime") else (f"{str(d)[8:10]}/{str(d)[5:7]}/{str(d)[0:4]}" if d else "")
+    return render_template("match_presentation.html", match=match, own=own, adverse=adv, marqueurs=marqueurs,
+                           assets=_review_assets(match), date_txt=date_txt)
 
 
 @app.route("/match/<int:match_id>/csc")
