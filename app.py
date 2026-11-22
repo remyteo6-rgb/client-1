@@ -2883,10 +2883,13 @@ def _review_terrains(overview_new):
     h = _hauteurs([v for pair in ps for v in pair])
     possession = [{"zone": z, "own": _mmss(o), "adverse": _mmss(a), "own_h": h[2 * i], "adverse_h": h[2 * i + 1]}
                   for i, (z, (o, a)) in enumerate(zip(ordre, ps))]
-    os_ = [zo.get(z) or 0 for z in ordre]
-    ho = _hauteurs(os_)
-    occupation = [{"zone": z, "t": _mmss(s), "h": ho[i], "side": "own" if z in ("RUMBLE", "GOLD") else "adverse"}
-                  for i, (z, s) in enumerate(zip(ordre, os_))]
+    # Occupation vue de chaque équipe : temps passé par le ballon dans chaque zone, dans le sens d'attaque
+    # de l'équipe (la zone de l'adversaire est ramenée à son équivalent : leur Gold = notre Rouge).
+    miroir = {"GOLD": "ROUGE", "RUMBLE": "COP", "COP": "RUMBLE", "ROUGE": "GOLD"}
+    os_ = [(zo.get(z) or 0, zo.get(miroir[z]) or 0) for z in ordre]
+    ho = _hauteurs([v for pair in os_ for v in pair])
+    occupation = [{"zone": z, "own": _mmss(o), "adverse": _mmss(a_), "own_h": ho[2 * i], "adverse_h": ho[2 * i + 1]}
+                  for i, (z, (o, a_)) in enumerate(zip(ordre, os_))]
 
     def _quarts(bloc):
         out = []

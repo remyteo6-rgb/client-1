@@ -134,7 +134,7 @@
                 <div class="rv-card-body">
                     {% if review.terrains %}
                     {{ pies(review.terrains.occ_quarts) }}
-                    {{ terrain(review.terrains.occupation, 'occupation') }}
+                    {{ terrain(review.terrains.occupation, 'possession') }}
                     {% else %}
                     <div class="review-vsplit rv-vsplit-flat">
                         <span class="review-vsplit-own" style="flex-grow:{{ occ_own }}">{{ occ_own|round|int }}%</span>
