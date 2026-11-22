@@ -19,13 +19,6 @@
             <div class="jap-filter"><label>Joueur <select id="jap-filter-player"><option value="">Tous</option></select></label></div>
             <div class="jap-total" id="jap-total"></div>
         </div>
-        <div class="sf-panel" style="margin-top:12px;">
-            <div class="sf-panel-head">PAR TYPE</div>
-            <table class="stat-table zebra-table tch-perf tch-zone">
-                <thead><tr><th>Type</th><th>Nb</th><th>Long.</th><th>Gain</th><th>Susp.</th><th>Récup.</th></tr></thead>
-                <tbody id="jap-bytype"></tbody>
-            </table>
-        </div>
     </div>
 </div>
 
@@ -146,14 +139,6 @@ window.VS = {{ vs_json("jap_total", "jap_gain", "jap_gain_moy") }};
             b.type = 'button'; b.style.setProperty('--c', t[2]);
             b.appendChild(el('i')); b.appendChild(document.createTextNode(t[1] + ' · ' + n));
             b.onclick = function () { fType = fType === t[0] ? '' : t[0]; refresh(); }; tb.appendChild(b);
-        });
-        // par type
-        var bt = document.getElementById('jap-bytype'); bt.innerHTML = '';
-        TYPES.forEach(function (t) {
-            var l = vis.filter(function (x) { return x.type === t[0]; });
-            if (!l.length) return;
-            var tr = el('tr'); [t[1], l.length, fmt(moy(l, metres)).replace('+', ''), fmt(moy(l, gain)), susp(l), recup(l)].forEach(function (v) { tr.appendChild(el('td', null, v)); });
-            bt.appendChild(tr);
         });
         // par joueur : une ligne par joueur, une colonne par type
         var by = {};

@@ -4042,3 +4042,24 @@ span.pres-crest-ini { display: flex; align-items: center; justify-content: cente
 .pres-mk b { font-weight: 700; color: var(--bg-header); }
 .pres-col-adverse .pres-mk b { color: var(--adv-text); }
 .pres-vide { padding: 24px; text-align: center; color: #8a7a80; font-size: 1.2rem; }
+
+/* Jeu au pied : panneau unique, équilibré (puces en 2 colonnes, joueur, chiffres clés), aligné sur la hauteur des terrains */
+.jap-wrap { align-items:stretch; }
+.jap-right { display:flex; flex-direction:column; }
+.jap-right .sf-panel { flex:1; display:flex; flex-direction:column; }
+.jap-right .jap-types { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; padding:14px 14px 6px; flex:1; align-content:space-evenly; }
+.jap-right .jap-chip { justify-content:flex-start; padding:7px 12px; font-size:.95rem; }
+.jap-right .jap-filter { padding:8px 14px 12px; display:flex; align-items:center; gap:8px; }
+.jap-right .jap-filter label { display:flex; align-items:center; gap:10px; width:100%; }
+.jap-right .jap-filter select { flex:1; margin-left:0; padding:7px 8px; }
+.jap-right .jap-total { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; padding:0 14px 14px; }
+.jap-right .jap-total strong { font-size:1.3rem; white-space:nowrap; }
+.jap-right .jap-total span { font-size:.68rem; }
+.jap-wrap { grid-template-columns:minmax(0, 620px) minmax(0, 1fr); gap:24px; }
+.jap-left { min-width:0; }
+.jap-left .tir-foot { white-space:normal; }
+@media (max-width: 700px) { .jap-wrap { grid-template-columns:minmax(0, 1fr); } }
+.jap-wrap { grid-template-columns:minmax(0, 700px) minmax(0, 1fr); }
+.jap-half { flex:0 1 335px; }
+@media (max-width: 700px) { .jap-wrap { grid-template-columns:minmax(0, 1fr); } }
+.jap-right { align-items:stretch; }
