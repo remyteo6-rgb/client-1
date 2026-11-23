@@ -984,6 +984,71 @@ def _game_minute_fn(instances):
     return minute, debut, fin, f1
 
 
+RUCK_ZONES_ORDRE = ("ROUGE", "COP", "RUMBLE", "GOLD")      # de nos 22 m vers ceux de l'adversaire
+RUCK_ZONE_GAP = 4.5       # s : deux soutiens codés à moins de 4,5 s se rapportent au même ruck
+
+
+def compute_ruck_zones(instances):
+    """Soutiens par ruck et rang d'arrivée de chaque joueur, par zone du terrain.
+
+    Un ruck = les instances joueur portant « Soutiens : 1er / 2eme / 3+ » regroupées dans le temps (écart < 4,5 s) ;
+    un nouveau ruck démarre dès qu'un 1er ou un 2eme apparaît une seconde fois. Zone = zone de possession UBB
+    (code de zone nu : GOLD / RUMBLE / COP / ROUGE) qui couvre le début du ruck. Le porteur et les cartouches
+    ne comptent pas : « joueurs impliqués » = soutiens codés. None si aucun soutien n'est codé."""
+    joueurs = _new_convention_player_names(instances)
+    zones = []
+    for i in instances:
+        mots = _normalize_tag(i.get("code_raw")).split()
+        if len(mots) == 1 and mots[0] in RUCK_ZONES_ORDRE:
+            zones.append((i.get("start") or 0, i.get("end") or i.get("start") or 0, mots[0]))
+    soutiens = []
+    for i in instances:
+        code = (i.get("code_raw") or "").strip()
+        if _normalize_tag(code) not in joueurs:
+            continue
+        rangs = {_normalize_tag(l.get("text")) for l in i.get("labels") or []
+                 if _normalize_tag(l.get("group")) == "SOUTIENS"}
+        rang = next((r for r in ("1ER", "2EME", "3+") if r in rangs), None)
+        if rang:
+            soutiens.append((i.get("start") or 0, code, rang))
+    if not soutiens:
+        return None
+    soutiens.sort()
+    rucks = []
+    for s in soutiens:
+        cur = rucks[-1] if rucks else None
+        if (cur and s[0] - cur[-1][0] <= RUCK_ZONE_GAP and s[0] - cur[0][0] <= 10
+                and not (s[2] in ("1ER", "2EME") and any(x[2] == s[2] for x in cur))):
+            cur.append(s)
+        else:
+            rucks.append([s])
+
+    def zone_de(t):
+        tr = [z for a, b, z in zones if a - 1 <= t <= b + 1]
+        return max(set(tr), key=tr.count) if tr else None
+
+    par_zone = {z: {"rucks": 0, "soutiens": 0} for z in RUCK_ZONES_ORDRE}
+    joueurs_zone = {}
+    sans_zone = 0
+    for r in rucks:
+        z = zone_de(r[0][0])
+        if not z:
+            sans_zone += 1
+            continue
+        par_zone[z]["rucks"] += 1
+        par_zone[z]["soutiens"] += len({x[1] for x in r})
+        for _, code, rang in r:
+            cle = {"1ER": 1, "2EME": 2, "3+": 3}[rang]
+            d = joueurs_zone.setdefault(code, {zz: [0, 0, 0] for zz in RUCK_ZONES_ORDRE})
+            d[z][cle - 1] += 1
+    for z, v in par_zone.items():
+        v["moyenne"] = round(v["soutiens"] / v["rucks"], 1) if v["rucks"] else None
+    tot_r = sum(v["rucks"] for v in par_zone.values())
+    tot_s = sum(v["soutiens"] for v in par_zone.values())
+    return {"zones": par_zone, "joueurs": joueurs_zone, "rucks": len(rucks), "sans_zone": sans_zone,
+            "moyenne": round(tot_s / tot_r, 1) if tot_r else None}
+
+
 def _scorer_name(instances, e, joueurs=None, mots=None):
     """Joueur UBB qui porte le label correspondant (Essais, Pénalité, Transformations…) juste autour de l'action
     de score e : le plus proche dans la fenêtre [-10 s ; +70 s]. L'adversaire n'est pas tagué joueur par joueur :

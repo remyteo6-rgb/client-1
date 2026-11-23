@@ -4070,3 +4070,23 @@ span.pres-crest-ini { display: flex; align-items: center; justify-content: cente
 .dis-split { white-space:nowrap; }
 .dis-in-split { width:30px; padding:2px 0; text-align:center; margin:0 1px; }
 .dis-in-split::placeholder { font-size:.62rem; color:#a99ca3; }
+
+/* Rucks par zone */
+.rz-body { display:grid; grid-template-columns:300px minmax(0,1fr); gap:20px; padding:16px 18px; }
+.rz-cap { font-size:.8rem; letter-spacing:.06em; text-transform:uppercase; color:#6a5560; margin-bottom:8px; }
+.rz-zone { display:grid; grid-template-columns:76px 52px 1fr 66px; align-items:center; gap:8px; padding:9px 0; border-bottom:1px solid #eadfe4; }
+.rz-zname { font-weight:700; color:#530d34; text-transform:uppercase; letter-spacing:.04em; }
+.rz-zval { font-size:1.6rem; font-weight:700; color:#1d1d1f; text-align:right; }
+.rz-zbar { height:10px; background:#efe6ea; border-radius:5px; overflow:hidden; }
+.rz-zbar i { display:block; height:100%; background:#7b1b46; border-radius:5px; }
+.rz-zn { font-size:.8rem; color:#6a5560; text-align:right; }
+.rz-note { font-size:.72rem; color:#8a7a82; margin-top:12px; line-height:1.35; }
+.rz-table td, .rz-table th { text-align:center; }
+.rz-table td.bjr-nom, .rz-table th.bjr-left { text-align:left; }
+.rz-v { font-weight:700; color:#530d34; }
+.rz-table .bjr-g-neutre { background:#3d4a5c; color:#fff; }
+@media (max-width: 800px) { .rz-body { grid-template-columns:minmax(0,1fr); } }
+.rz-table { table-layout:fixed; }
+.rz-table td.bjr-nom, .rz-table th.bjr-left { width:150px; max-width:none; overflow:visible; text-overflow:clip; }
+.rz-zone { padding:14px 0; }
+.rz-zval { font-size:1.9rem; }

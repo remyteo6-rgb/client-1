@@ -109,6 +109,45 @@
 </div>
 {% endfor %}
 
+{% if seulement == 'rucks' and ruck_zones %}
+{% set rz = ruck_zones %}
+<div class="report-board bjr-report rz-board">
+    <div class="report-head">
+        <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
+        <span class="report-title">Rucks par zone</span>
+        <span class="report-sub">{{ rz.rucks }} rucks · {{ rz.moyenne if rz.moyenne is not none else '—' }} soutiens par ruck en moyenne</span>
+    </div>
+    <div class="rz-body">
+        <div class="rz-zones">
+            <div class="rz-cap">Soutiens par ruck, selon la zone</div>
+            {% for z in rz.ordre %}{% set v = rz.zones[z] %}
+            <div class="rz-zone">
+                <div class="rz-zname">{{ z|title }}</div>
+                <div class="rz-zval">{{ v.moyenne if v.moyenne is not none else '—' }}</div>
+                <div class="rz-zbar"><i style="width: {{ ((v.moyenne or 0) / 3 * 100)|round|int if v.moyenne else 0 }}%"></i></div>
+                <div class="rz-zn">{{ v.rucks }} ruck{{ 's' if v.rucks > 1 }}</div>
+            </div>
+            {% endfor %}
+            <p class="rz-note">Soutiens codés « 1er / 2e / 3+ » regroupés dans le temps : le porteur et les cartouches ne comptent pas. Zone = zone de possession UBB au début du ruck{% if rz.sans_zone %} ({{ rz.sans_zone }} ruck{{ 's' if rz.sans_zone > 1 }} sans zone, non comptés){% endif %}.</p>
+        </div>
+        <div class="rz-joueurs">
+            <table class="bjr-table rz-table">
+                <thead>
+                    <tr class="bjr-groups"><th class="bjr-g-joueur">Joueur</th>{% for z in rz.ordre %}<th colspan="3" class="bjr-g-neutre">{{ z|title }}</th>{% endfor %}</tr>
+                    <tr class="bjr-cols"><th class="bjr-left">Nom</th>{% for z in rz.ordre %}<th class="bjr-gstart">1er</th><th>2e</th><th>3+</th>{% endfor %}</tr>
+                </thead>
+                <tbody>
+                {% for r in rz.rows %}
+                    <tr><td class="bjr-nom">{{ r.nom }}</td>
+                    {% for z in rz.ordre %}{% for k in r.zones[z] %}<td class="{{ 'bjr-gstart ' if loop.first }}{{ 'rz-v' if k else 'bjr-zero' }}">{{ k if k else '·' }}</td>{% endfor %}{% endfor %}</tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="bjr-synthese-sep no-print">Synthèse du match</div>
 {# Diapo « BILAN » : même mise en page que le rapport du staff — n° de la compo, poste,
    nom, minutes, volume, bilan +/=/- et barre de répartition. Calculs : _bilan_slide (app.py). #}

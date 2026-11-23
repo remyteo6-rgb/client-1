@@ -2399,7 +2399,19 @@ def match_joueurs(match_id, seulement=None):
     if session.get("is_admin") and not seulement and _grille_nouvelle(
             {"attack": attack_table.get("totals"), "defense": defense_table.get("totals"), "ruck": ruck_table.get("totals")}):
         controle = _parser.controle_codage(match["instances"])
+    ruck_zones = None
+    if seulement == "rucks":
+        rz = _parser.compute_ruck_zones(match["instances"])
+        if rz:
+            noms = [r["name"] for r in ruck_table["rows"]]
+            rows = []
+            for r in order_rows_by_reference_order([{"name": n} for n in rz["joueurs"] if n], ordered_names):
+                rows.append({"nom": _joueur_nom_affiche(r["name"]), "zones": rz["joueurs"][r["name"]],
+                             "total": sum(sum(v) for v in rz["joueurs"][r["name"]].values())})
+            rz = {**rz, "rows": rows, "ordre": _parser.RUCK_ZONES_ORDRE}
+            ruck_zones = rz
     return render_template("match_joueurs.html", match=match, attack_table=attack_table, bilan_slide=bilan_slide,
+                           ruck_zones=ruck_zones,
                            seulement=seulement, controle=controle,
                            detail_slides=detail_slides, activity_slide=activity_slide,
                            defense_table=defense_table, ruck_table=ruck_table,
