@@ -52,8 +52,9 @@
                     <th>{{ r.name }}</th>
                     {% endif %}
                     {% if is_admin %}
-                    <td class="dis-num"><input class="dis-in dis-in-num" type="number" min="0" max="9" inputmode="numeric"
-                        value="{{ r.fautes or '' }}" placeholder="" data-field="fautes" aria-label="Fautes de {{ r.name }}"></td>
+                    <td class="dis-num dis-split">
+                        {% for k, lib in (('off', 'Off'), ('def', 'Déf'), ('autre', 'Conq')) %}<input class="dis-in dis-in-num dis-in-split" type="number" min="0" max="20" inputmode="numeric"
+                            value="{{ r.split[k] or '' }}" placeholder="{{ lib }}" data-split="{{ k }}" aria-label="Fautes {{ lib }} de {{ r.name }}" title="{{ lib }}">{% endfor %}</td>
                     <td class="dis-card-col"><button type="button" class="dis-card-btn" data-carton="{{ r.carton }}"
                         title="Cliquer : aucun → carton jaune → carton rouge" aria-label="Carton de {{ r.name }}">
                         <span class="dis-card{{ ' dis-card-red' if r.carton == 'R' else '' }}{{ ' dis-card-none' if not r.carton else '' }}"></span></button></td>
@@ -175,7 +176,15 @@ function preparePrint() { setTimeout(() => window.print(), 100); }
         if (el.tagName === 'INPUT') el.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
     }
     document.querySelectorAll('.dis-table tbody tr[data-key]').forEach(function (tr) {
-        tr.querySelectorAll('.dis-in').forEach(function (el) { bind(el, 'player', tr.dataset.key); });
+        tr.querySelectorAll('.dis-in:not(.dis-in-split)').forEach(function (el) { bind(el, 'player', tr.dataset.key); });
+        var parts = tr.querySelectorAll('.dis-in-split');
+        parts.forEach(function (el) {
+            el.addEventListener('change', function () {
+                var v = {}; parts.forEach(function (x) { v[x.dataset.split] = parseInt(x.value, 10) || 0; });
+                save('player', tr.dataset.key, 'split', v);
+            });
+            el.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
+        });
         var grp = tr.querySelector('.dis-grp-btn');
         if (grp) grp.addEventListener('click', function () {
             var next = grp.dataset.groupe === 'avants' ? '3/4' : 'avants';

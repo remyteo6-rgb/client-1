@@ -3616,13 +3616,13 @@ def match_discipline_save(match_id):
     value = payload.get("value")
     manual = match.get("manual_stats") or {}
     disc = manual.setdefault("discipline", {})
-    if kind == "player" and key and field in ("fautes", "raison", "carton", "groupe"):
+    if kind == "player" and key and field in ("fautes", "raison", "carton", "groupe", "split"):
         entry = disc.setdefault("players", {}).setdefault(key, {})
     elif kind == "category" and key in ("Attack", "Defence", "Set Piece", "Other") and field in ("count", "reasons"):
         entry = disc.setdefault("categories", {}).setdefault(key, {})
     else:
         abort(400)
-    if field in ("fautes", "count"):
+    if field in ("fautes", "count") and field != "split":
         try:
             # Case vidée = 0 faute (c'est ainsi qu'elle s'affiche), pas « valeur du XML ».
             entry[field] = max(0, int(value)) if str(value).strip() != "" else 0
@@ -3630,6 +3630,16 @@ def match_discipline_save(match_id):
             abort(400)
         if entry[field] is None:
             entry.pop(field)
+    elif field == "split":
+        # Fautes du joueur par type : {off, def, autre} (« autre » = colonne Conquête de la diapo). Le total
+        # du joueur est leur somme ; la saisie d'un total seul (champ « fautes ») n'est plus utilisée.
+        if not isinstance(value, dict):
+            abort(400)
+        try:
+            entry["split"] = {k: max(0, min(20, int(value.get(k) or 0))) for k in ("off", "def", "autre")}
+        except (TypeError, ValueError):
+            abort(400)
+        entry.pop("fautes", None)
     elif field == "carton":
         entry[field] = value if value in ("", "J", "R") else ""
     elif field == "groupe":

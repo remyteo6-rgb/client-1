@@ -1815,7 +1815,8 @@ def _compute_discipline_calcul(instances, row_order=None, cards=None, compositio
                     used.add(best)
                     _t, code, groups = candidates[best]
                     reasons = _reasons_of(groups) + treasons
-                    _count_fault(code, groups, reasons, tcat)
+                    # Catégorie vague du code d'équipe (« Autres ») : le label « Disciplines Off / Def » du joueur prime.
+                    _count_fault(code, groups, reasons, None if tcat == "Other" else tcat)
                     _count_category(groups, reasons, tcat)
                 elif tcat:
                     # Faute sans joueur rapproché : sa catégorie compte quand même pour l'équipe.
@@ -1882,6 +1883,11 @@ def _compute_discipline_calcul(instances, row_order=None, cards=None, compositio
                 take = min(split[k], -delta)
                 split[k] -= take
                 delta += take
+        ms = man.get("split")
+        if isinstance(ms, dict):
+            # Répartition saisie à la main (Off / Déf / Conquête) : elle fait foi, le total en est la somme.
+            split = {k: int(ms.get(k) or 0) for k in ("off", "def", "autre")}
+            fautes = sum(split.values())
         rows.append({"key": key, "name": display, "code": code, "fautes": fautes, "fautes_auto": fautes_auto,
                      "raison": raison, "carton": carton, "groupe": groupe, "split": split})
 
