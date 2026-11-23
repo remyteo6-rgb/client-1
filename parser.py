@@ -1635,6 +1635,10 @@ def _best_match(name, candidates, threshold=0.8):
     best, score = None, 0
     for cand in candidates:
         ratio = difflib.SequenceMatcher(None, key, _name_key(cand)).ratio()
+        ta, tb = key.split(), _name_key(cand).split()
+        court, long_ = (ta, tb) if len(ta) <= len(tb) else (tb, ta)
+        if len(court) >= 2 and set(court) <= set(long_):
+            ratio = max(ratio, 0.9)   # « LE NAOUR » / « Perdigon Le Naour »
         if ratio > score:
             best, score = cand, ratio
     return best if score >= threshold else None
@@ -4675,6 +4679,12 @@ def _composition_name_score(comp_name, xml_name):
     direct = difflib.SequenceMatcher(None, a, b).ratio()
     sorted_tokens = difflib.SequenceMatcher(None, " ".join(sorted(a.split())), " ".join(sorted(b.split()))).ratio()
     score = max(direct, sorted_tokens)
+    # Nom de famille composé écrit en entier d'un côté, partiellement de l'autre (« Perdigon Le Naour » /
+    # code XML « LE NAOUR ») : tous les mots du plus court (au moins 2) figurent dans le plus long.
+    ta, tb = a.split(), b.split()
+    court, long_ = (ta, tb) if len(ta) <= len(tb) else (tb, ta)
+    if len(court) >= 2 and set(court) <= set(long_):
+        score = max(score, 0.9)
     if ini_c and ini_c == ini_x:
         score = min(1.0, score + 0.001)
     return score
