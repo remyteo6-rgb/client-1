@@ -9,7 +9,7 @@
 <div class="page-header no-print">
     <div>
         <h1>Rucks — {{ match['own_team'] }}</h1>
-        <p class="subtitle">Qualité du soutien selon le rang d'arrivée au ruck (1er, 2e, 3e et plus), puis des cartouches. « + » = soutien efficace, « − » = soutien raté. « % + » = part des « + » parmi les soutiens qualifiés.</p>
+        <p class="subtitle">Combien de joueurs sont impliqués par ruck selon la zone du terrain, leur efficacité (« + » parmi les soutiens qualifiés, cartouches comprises) et le rang d'arrivée de chaque joueur. Le détail individuel des soutiens et des cartouches est dans l'onglet Joueurs.</p>
     </div>
     <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
@@ -17,7 +17,7 @@
 <div class="page-header no-print">
     <div>
         <h1>{{ icons.users() }} Joueurs — {{ match['own_team'] }}</h1>
-        <p class="subtitle">Bilan individuel du match, dans l'ordre de la composition. Puis le détail par secteur : attaque, défense, conquête et jeu au pied.</p>
+        <p class="subtitle">Bilan individuel du match, dans l'ordre de la composition. Puis le détail par secteur : attaque, défense, conquête, jeu au pied et rucks.</p>
     </div>
     <button class="btn btn-secondary" onclick="preparePrint()">{{ icons.print() }} Imprimer / Exporter PDF</button>
 </div>
@@ -38,8 +38,8 @@
 {# Diapos de détail (attaque / défense / conquête) : même mise en page que la diapo BILAN,
    colonnes décrites dans JOUEURS_SLIDES (app.py), une colonne par chiffre (+ / = / −). #}
 
-{% if seulement == 'rucks' and not detail_slides %}
-<div class="card"><p>La qualité des soutiens et des cartouches n'est pas codée sur ce match : elle arrive avec la nouvelle grille de codage.</p></div>
+{% if seulement == 'rucks' and not ruck_zones %}
+<div class="card"><p>Les soutiens (1er / 2e / 3+) et les cartouches ne sont pas codés sur ce match : cette page arrive avec la nouvelle grille de codage.</p></div>
 {% endif %}
 {% for sl in detail_slides %}
 <div class="report-board bjr-report bjr-detail">

@@ -2389,9 +2389,11 @@ def match_joueurs(match_id, seulement=None):
     ruck_table = {**ruck_table, "rows": order_rows_by_reference_order(ruck_table["rows"], ordered_names)}
     bilan_table = {**bilan_table, "rows": order_rows_by_reference_order(bilan_table["rows"], ordered_names)}
     bilan_slide = _bilan_slide(player_cards, composition, match.get("player_match_stats"))
+    # Page Rucks du match = seulement « Rucks par zone » ; le détail individuel des rucks (soutiens par rang,
+    # cartouches) est dans la page Joueurs, après les autres secteurs.
     detail_slides = _joueurs_detail_slides(bilan_slide, player_cards,
                                            {"attack": attack_table, "defense": defense_table, "ruck": ruck_table},
-                                           specs=[RUCKS_SLIDE] if seulement == "rucks" else None)
+                                           specs=[] if seulement == "rucks" else JOUEURS_SLIDES + [RUCKS_SLIDE])
     activity_slide = _activity_slide(bilan_slide, player_cards, compute_player_activity(match["instances"]))
     # Contrôle du codage (admin) : seulement pour un match codé avec la nouvelle grille, où chaque action
     # doit avoir sa qualité ; dans l'ancienne grille, une action sans qualité était un « = » voulu.
