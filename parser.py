@@ -1006,15 +1006,23 @@ def compute_ruck_zones(instances):
         code = (i.get("code_raw") or "").strip()
         if _normalize_tag(code) not in joueurs:
             continue
-        rangs = {_normalize_tag(l.get("text")) for l in i.get("labels") or []
-                 if _normalize_tag(l.get("group")) == "SOUTIENS"}
-        # Qualité : « + » ou « - » du groupe Soutiens (None = non qualifié).
-        q = "+" if "+" in rangs else ("-" if ("-" in rangs or "−" in rangs) else None)
-        rang = next((r for r in ("1ER", "2EME", "3+") if r in rangs), None)
-        if rang is None and "CARTOUCHES" in rangs:
-            rang = "CART"        # la cartouche est un soutien : elle compte dans le ruck et dans l'efficacité
-        if rang:
-            soutiens.append((i.get("start") or 0, code, rang, q))
+        # Mêmes lectures que la diapo individuelle (compute_player_attack_table) : rangs et « Cartouches » dans le
+        # groupe Joueurs Off, qualité « + » / « - » dans le groupe Soutiens.
+        off = {_normalize_tag(l.get("text")) for l in i.get("labels") or []
+               if _normalize_tag(l.get("group")) == "JOUEURS OFF"}
+        sq = {_normalize_tag(l.get("text")) for l in i.get("labels") or []
+              if _normalize_tag(l.get("group")) == "SOUTIENS"}
+        liste = [r for r in ("1ER", "2EME", "3+") if r in off] if "SOUTIENS OFF" in off else []
+        cart = "CARTOUCHES" in off
+        q = "+" if "+" in sq else ("-" if "-" in sq else None)
+        if not liste and cart:
+            liste = ["CART"]       # la cartouche est un soutien : elle compte dans le ruck et dans l'efficacité
+            if "CARTOUCHES" not in sq:
+                q = None
+        for k, rang in enumerate(liste):
+            # Le dernier élément signale une instance portant à la fois un rang et « Cartouches » : comptée aux
+            # deux endroits (comme dans la diapo individuelle), mais une seule fois dans l'efficacité.
+            soutiens.append((i.get("start") or 0, code, rang, q, cart and rang != "CART" and k == 0))
     if not soutiens:
         return None
     soutiens.sort()
@@ -1031,7 +1039,13 @@ def compute_ruck_zones(instances):
 
     def zone_de(t):
         tr = [z for a, b, z in zones if a - 1 <= t <= b + 1]
-        return max(set(tr), key=tr.count) if tr else None
+        if tr:
+            return max(set(tr), key=tr.count)
+        # Aucune zone codée à cet instant : la zone codée la plus proche (à moins de 12 s) sert de repli.
+        proche = min(zones, key=lambda x: min(abs(t - x[0]), abs(t - x[1])), default=None)
+        if proche and min(abs(t - proche[0]), abs(t - proche[1])) <= 12:
+            return proche[2]
+        return None
 
     par_zone = {z: {"rucks": 0, "soutiens": 0, "plus": 0, "moins": 0, "cart": 0, "cart_plus": 0, "cart_moins": 0}
                 for z in RUCK_ZONES_ORDRE}
@@ -1044,7 +1058,7 @@ def compute_ruck_zones(instances):
             continue
         par_zone[z]["rucks"] += 1
         par_zone[z]["soutiens"] += len({x[1] for x in r})
-        for _, code, rang, q in r:
+        for _, code, rang, q, aussi_cart in r:
             d = joueurs_zone.setdefault(code, {zz: [0] * 8 for zz in RUCK_ZONES_ORDRE})
             if rang == "CART":
                 d[z][5] += 1
@@ -1057,6 +1071,15 @@ def compute_ruck_zones(instances):
                     par_zone[z]["cart_moins"] += 1
             else:
                 d[z][{"1ER": 0, "2EME": 1, "3+": 2}[rang]] += 1
+                if aussi_cart:
+                    d[z][5] += 1
+                    par_zone[z]["cart"] += 1
+                    if q == "+":
+                        d[z][6] += 1
+                        par_zone[z]["cart_plus"] += 1
+                    elif q == "-":
+                        d[z][7] += 1
+                        par_zone[z]["cart_moins"] += 1
             # efficacité = tous les soutiens qualifiés, cartouches comprises
             if q == "+":
                 d[z][3] += 1
