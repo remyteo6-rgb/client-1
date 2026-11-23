@@ -993,7 +993,7 @@ def compute_ruck_zones(instances):
 
     Un ruck = les instances joueur portant « Soutiens : 1er / 2eme / 3+ » regroupées dans le temps (écart < 4,5 s) ;
     un nouveau ruck démarre dès qu'un 1er ou un 2eme apparaît une seconde fois. Zone = zone de possession UBB
-    (code de zone nu : GOLD / RUMBLE / COP / ROUGE) qui couvre le début du ruck. Le porteur et les cartouches
+    (code de zone nu : GOLD / RUMBLE / COP / ROUGE) qui couvre le début du ruck. Les cartouches comptent comme des soutiens ; le porteur
     ne comptent pas : « joueurs impliqués » = soutiens codés. None si aucun soutien n'est codé."""
     joueurs = _new_convention_player_names(instances)
     zones = []
@@ -1001,7 +1001,7 @@ def compute_ruck_zones(instances):
         mots = _normalize_tag(i.get("code_raw")).split()
         if len(mots) == 1 and mots[0] in RUCK_ZONES_ORDRE:
             zones.append((i.get("start") or 0, i.get("end") or i.get("start") or 0, mots[0]))
-    soutiens, cartouches = [], []
+    soutiens = []
     for i in instances:
         code = (i.get("code_raw") or "").strip()
         if _normalize_tag(code) not in joueurs:
@@ -1010,13 +1010,12 @@ def compute_ruck_zones(instances):
                  if _normalize_tag(l.get("group")) == "SOUTIENS"}
         # Qualité : « + » ou « - » du groupe Soutiens (None = non qualifié).
         q = "+" if "+" in rangs else ("-" if ("-" in rangs or "−" in rangs) else None)
-        if "CARTOUCHES" in rangs:
-            cartouches.append((i.get("start") or 0, code, q))
-            continue
         rang = next((r for r in ("1ER", "2EME", "3+") if r in rangs), None)
+        if rang is None and "CARTOUCHES" in rangs:
+            rang = "CART"        # la cartouche est un soutien : elle compte dans le ruck et dans l'efficacité
         if rang:
             soutiens.append((i.get("start") or 0, code, rang, q))
-    if not soutiens and not cartouches:
+    if not soutiens:
         return None
     soutiens.sort()
     rucks = []
@@ -1044,28 +1043,25 @@ def compute_ruck_zones(instances):
         par_zone[z]["rucks"] += 1
         par_zone[z]["soutiens"] += len({x[1] for x in r})
         for _, code, rang, q in r:
-            cle = {"1ER": 1, "2EME": 2, "3+": 3}[rang]
             d = joueurs_zone.setdefault(code, {zz: [0] * 8 for zz in RUCK_ZONES_ORDRE})
-            d[z][cle - 1] += 1
+            if rang == "CART":
+                d[z][5] += 1
+                par_zone[z]["cart"] += 1
+                if q == "+":
+                    d[z][6] += 1
+                    par_zone[z]["cart_plus"] += 1
+                elif q == "-":
+                    d[z][7] += 1
+                    par_zone[z]["cart_moins"] += 1
+            else:
+                d[z][{"1ER": 0, "2EME": 1, "3+": 2}[rang]] += 1
+            # efficacité = tous les soutiens qualifiés, cartouches comprises
             if q == "+":
                 d[z][3] += 1
                 par_zone[z]["plus"] += 1
             elif q == "-":
                 d[z][4] += 1
                 par_zone[z]["moins"] += 1
-    for t, code, q in cartouches:
-        z = zone_de(t)
-        if not z:
-            continue
-        d = joueurs_zone.setdefault(code, {zz: [0] * 8 for zz in RUCK_ZONES_ORDRE})
-        d[z][5] += 1
-        par_zone[z]["cart"] += 1
-        if q == "+":
-            d[z][6] += 1
-            par_zone[z]["cart_plus"] += 1
-        elif q == "-":
-            d[z][7] += 1
-            par_zone[z]["cart_moins"] += 1
     for z, v in par_zone.items():
         v["moyenne"] = round(v["soutiens"] / v["rucks"], 1) if v["rucks"] else None
         q = v["plus"] + v["moins"]

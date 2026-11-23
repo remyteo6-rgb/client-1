@@ -115,27 +115,27 @@
     <div class="report-head">
         <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
         <span class="report-title">Rucks par zone</span>
-        <span class="report-sub">{{ rz.rucks }} rucks · {{ rz.moyenne if rz.moyenne is not none else '—' }} soutiens par ruck{% if rz.efficacite is not none %} ({{ rz.efficacite }} % de +){% endif %} · {{ rz.cartouches }} cartouches{% if rz.cart_eff is not none %} ({{ rz.cart_eff }} % de +){% endif %}</span>
+        <span class="report-sub">{{ rz.rucks }} rucks · {{ rz.moyenne if rz.moyenne is not none else '—' }} soutiens par ruck (cartouches comprises){% if rz.efficacite is not none %} · efficacité {{ rz.efficacite }} % de +{% endif %}</span>
     </div>
     <div class="rz-body">
         <div class="rz-zones">
-            <div class="rz-cap">Soutiens par ruck (efficacité = part de « + ») et cartouches, selon la zone</div>
+            <div class="rz-cap">Soutiens par ruck et efficacité, selon la zone</div>
             {% for z in rz.ordre %}{% set v = rz.zones[z] %}
             <div class="rz-zone">
                 <div class="rz-zname">{{ z|title }}</div>
                 <div class="rz-zval">{{ v.moyenne if v.moyenne is not none else '—' }}</div>
                 <div class="rz-zbar"><i style="width: {{ ((v.moyenne or 0) / 3 * 100)|round|int if v.moyenne else 0 }}%"></i></div>
                 <div class="rz-zn">{{ v.rucks }} ruck{{ 's' if v.rucks > 1 }}<br><b class="rz-eff" title="{{ v.plus }} « + » sur {{ v.plus + v.moins }} soutiens qualifiés">{% if v.efficacite is not none %}{{ v.efficacite }} % +{% else %}—{% endif %}</b></div>
-                <div class="rz-cart">Cartouches <b>{{ v.cart }}</b>{% if v.cart_eff is not none %} · <span class="rz-eff" title="{{ v.cart_plus }} « + » sur {{ v.cart_plus + v.cart_moins }} qualifiées">{{ v.cart_eff }} % +</span>{% endif %}</div>
+                <div class="rz-cart">dont cartouches <b>{{ v.cart }}</b>{% if v.cart_eff is not none %} · <span class="rz-eff" title="{{ v.cart_plus }} « + » sur {{ v.cart_plus + v.cart_moins }} qualifiées">{{ v.cart_eff }} % +</span>{% endif %}</div>
             </div>
             {% endfor %}
-            <p class="rz-note">Soutiens codés « 1er / 2e / 3+ » regroupés dans le temps : le porteur ne compte pas ; les cartouches (quand elles sont qualifiées « + » / « − ») sont comptées à part. Zone = zone de possession UBB au début du ruck{% if rz.sans_zone %} ({{ rz.sans_zone }} ruck{{ 's' if rz.sans_zone > 1 }} sans zone, non comptés){% endif %}.</p>
+            <p class="rz-note">Soutiens codés « 1er / 2e / 3+ » regroupés dans le temps : les cartouches comptent comme des soutiens ; le porteur ne compte pas. Efficacité = part de « + » parmi les soutiens qualifiés. Zone = zone de possession UBB au début du ruck{% if rz.sans_zone %} ({{ rz.sans_zone }} ruck{{ 's' if rz.sans_zone > 1 }} sans zone, non comptés){% endif %}.</p>
         </div>
         <div class="rz-joueurs">
             <table class="bjr-table rz-table">
                 <thead>
                     <tr class="bjr-groups"><th class="bjr-g-joueur">Joueur</th>{% for z in rz.ordre %}<th colspan="5" class="bjr-g-neutre">{{ z|title }}</th>{% endfor %}</tr>
-                    <tr class="bjr-cols"><th class="bjr-left">Nom</th>{% for z in rz.ordre %}<th class="bjr-gstart">1er</th><th>2e</th><th>3+</th><th title="Part de soutiens « + »">Eff.</th><th title="Cartouches (part de « + »)">Cart.</th>{% endfor %}</tr>
+                    <tr class="bjr-cols"><th class="bjr-left">Nom</th>{% for z in rz.ordre %}<th class="bjr-gstart">1er</th><th>2e</th><th>3+</th><th title="Part de soutiens « + », cartouches comprises">Eff.</th><th title="Cartouches (dont part de « + »)">Cart.</th>{% endfor %}</tr>
                 </thead>
                 <tbody>
                 {% for r in rz.rows %}
