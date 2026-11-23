@@ -135,14 +135,15 @@
             <table class="bjr-table rz-table">
                 <thead>
                     <tr class="bjr-groups"><th class="bjr-g-joueur">Joueur</th>{% for z in rz.ordre %}<th colspan="5" class="bjr-g-neutre">{{ z|title }}</th>{% endfor %}</tr>
-                    <tr class="bjr-cols"><th class="bjr-left">Nom</th>{% for z in rz.ordre %}<th class="bjr-gstart">1er</th><th>2e</th><th>3+</th><th title="Part de soutiens « + », cartouches comprises">Eff.</th><th title="Cartouches (dont part de « + »)">Cart.</th>{% endfor %}</tr>
+                    <tr class="bjr-cols"><th class="bjr-left">Nom</th>{% for z in rz.ordre %}<th class="bjr-gstart" title="Cartouches (dont part de « + »)">Cart.</th><th>1er</th><th>2e</th><th>3+</th><th title="Part de « + » sur tous les soutiens qualifiés, cartouches comprises">Eff.</th>{% endfor %}</tr>
                 </thead>
                 <tbody>
                 {% for r in rz.rows %}
                     <tr><td class="bjr-nom">{{ r.nom }}</td>
-                    {% for z in rz.ordre %}{% set c = r.zones[z] %}{% for k in c[:3] %}<td class="{{ 'bjr-gstart ' if loop.first }}{{ 'rz-v' if k else 'bjr-zero' }}">{{ k if k else '·' }}</td>{% endfor %}
-                    {% set q = c[3] + c[4] %}<td class="{{ 'rz-e' if q else 'bjr-zero' }}{{ ' rz-e-bad' if q and c[3] / q < 0.5 }}" title="{{ c[3] }} « + » / {{ c[4] }} « − »">{{ ((100 * c[3] / q)|round|int ~ '%') if q else '·' }}</td>
-                    {% set qc = c[6] + c[7] %}<td class="{{ 'rz-e' if c[5] else 'bjr-zero' }}{{ ' rz-e-bad' if qc and c[6] / qc < 0.5 }}" title="{{ c[6] }} « + » / {{ c[7] }} « − »">{% if c[5] %}{{ c[5] }}{% if qc %}<small> {{ ((100 * c[6] / qc)|round|int) }}%</small>{% endif %}{% else %}·{% endif %}</td>{% endfor %}</tr>
+                    {% for z in rz.ordre %}{% set c = r.zones[z] %}{% set qc = c[6] + c[7] %}
+                    <td class="bjr-gstart {{ 'rz-e' if c[5] else 'bjr-zero' }}{{ ' rz-e-bad' if qc and c[6] / qc < 0.5 }}" title="{{ c[6] }} « + » / {{ c[7] }} « − »">{% if c[5] %}{{ c[5] }}{% if qc %}<small> {{ ((100 * c[6] / qc)|round|int) }}%</small>{% endif %}{% else %}·{% endif %}</td>
+                    {% for k in c[:3] %}<td class="{{ 'rz-v' if k else 'bjr-zero' }}">{{ k if k else '·' }}</td>{% endfor %}
+                    {% set q = c[3] + c[4] %}<td class="{{ 'rz-e' if q else 'bjr-zero' }}{{ ' rz-e-bad' if q and c[3] / q < 0.5 }}" title="{{ c[3] }} « + » / {{ c[4] }} « − » (cartouches comprises)">{{ ((100 * c[3] / q)|round|int ~ '%') if q else '·' }}</td>{% endfor %}</tr>
                 {% endfor %}
                 </tbody>
             </table>

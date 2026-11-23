@@ -1072,14 +1072,19 @@ def compute_ruck_zones(instances):
             else:
                 d[z][{"1ER": 0, "2EME": 1, "3+": 2}[rang]] += 1
                 if aussi_cart:
+                    # La même instance est aussi une cartouche : une action de plus, avec sa qualité, dans l'efficacité.
                     d[z][5] += 1
                     par_zone[z]["cart"] += 1
                     if q == "+":
                         d[z][6] += 1
+                        d[z][3] += 1
                         par_zone[z]["cart_plus"] += 1
+                        par_zone[z]["plus"] += 1
                     elif q == "-":
                         d[z][7] += 1
+                        d[z][4] += 1
                         par_zone[z]["cart_moins"] += 1
+                        par_zone[z]["moins"] += 1
             # efficacité = tous les soutiens qualifiés, cartouches comprises
             if q == "+":
                 d[z][3] += 1
