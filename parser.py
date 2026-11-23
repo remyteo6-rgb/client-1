@@ -992,7 +992,7 @@ def compute_ruck_zones(instances):
     """Soutiens par ruck et rang d'arrivée de chaque joueur, par zone du terrain.
 
     Un ruck = les instances joueur portant « Soutiens : 1er / 2eme / 3+ » regroupées dans le temps (écart < 4,5 s) ;
-    un nouveau ruck démarre dès qu'un 1er ou un 2eme apparaît une seconde fois. Zone = zone de possession UBB
+    un nouveau ruck démarre dès qu'un 1er ou un 2eme apparaît une seconde fois, ou qu'une cartouche arrive (une double cartouche = un seul ruck). Zone = zone de possession UBB
     (code de zone nu : GOLD / RUMBLE / COP / ROUGE) qui couvre le début du ruck. Les cartouches comptent comme des soutiens ; le porteur
     ne comptent pas : « joueurs impliqués » = soutiens codés. None si aucun soutien n'est codé."""
     joueurs = _new_convention_player_names(instances)
@@ -1021,7 +1021,9 @@ def compute_ruck_zones(instances):
     rucks = []
     for s in soutiens:
         cur = rucks[-1] if rucks else None
-        if (cur and s[0] - cur[-1][0] <= RUCK_ZONE_GAP and s[0] - cur[0][0] <= 10
+        # Une cartouche déclenche un ruck ; une double cartouche (deux cartouches quasi simultanées) reste un seul ruck.
+        coupe_cart = s[2] == "CART" and cur and (any(x[2] != "CART" for x in cur) or s[0] - cur[0][0] > 2.0)
+        if (cur and not coupe_cart and s[0] - cur[-1][0] <= RUCK_ZONE_GAP and s[0] - cur[0][0] <= 10
                 and not (s[2] in ("1ER", "2EME") and any(x[2] == s[2] for x in cur))):
             cur.append(s)
         else:
