@@ -1001,17 +1001,22 @@ def compute_ruck_zones(instances):
         mots = _normalize_tag(i.get("code_raw")).split()
         if len(mots) == 1 and mots[0] in RUCK_ZONES_ORDRE:
             zones.append((i.get("start") or 0, i.get("end") or i.get("start") or 0, mots[0]))
-    soutiens = []
+    soutiens, cartouches = [], []
     for i in instances:
         code = (i.get("code_raw") or "").strip()
         if _normalize_tag(code) not in joueurs:
             continue
         rangs = {_normalize_tag(l.get("text")) for l in i.get("labels") or []
                  if _normalize_tag(l.get("group")) == "SOUTIENS"}
+        # Qualité : « + » ou « - » du groupe Soutiens (None = non qualifié).
+        q = "+" if "+" in rangs else ("-" if ("-" in rangs or "−" in rangs) else None)
+        if "CARTOUCHES" in rangs:
+            cartouches.append((i.get("start") or 0, code, q))
+            continue
         rang = next((r for r in ("1ER", "2EME", "3+") if r in rangs), None)
         if rang:
-            soutiens.append((i.get("start") or 0, code, rang))
-    if not soutiens:
+            soutiens.append((i.get("start") or 0, code, rang, q))
+    if not soutiens and not cartouches:
         return None
     soutiens.sort()
     rucks = []
@@ -1027,7 +1032,8 @@ def compute_ruck_zones(instances):
         tr = [z for a, b, z in zones if a - 1 <= t <= b + 1]
         return max(set(tr), key=tr.count) if tr else None
 
-    par_zone = {z: {"rucks": 0, "soutiens": 0} for z in RUCK_ZONES_ORDRE}
+    par_zone = {z: {"rucks": 0, "soutiens": 0, "plus": 0, "moins": 0, "cart": 0, "cart_plus": 0, "cart_moins": 0}
+                for z in RUCK_ZONES_ORDRE}
     joueurs_zone = {}
     sans_zone = 0
     for r in rucks:
@@ -1037,16 +1043,44 @@ def compute_ruck_zones(instances):
             continue
         par_zone[z]["rucks"] += 1
         par_zone[z]["soutiens"] += len({x[1] for x in r})
-        for _, code, rang in r:
+        for _, code, rang, q in r:
             cle = {"1ER": 1, "2EME": 2, "3+": 3}[rang]
-            d = joueurs_zone.setdefault(code, {zz: [0, 0, 0] for zz in RUCK_ZONES_ORDRE})
+            d = joueurs_zone.setdefault(code, {zz: [0] * 8 for zz in RUCK_ZONES_ORDRE})
             d[z][cle - 1] += 1
+            if q == "+":
+                d[z][3] += 1
+                par_zone[z]["plus"] += 1
+            elif q == "-":
+                d[z][4] += 1
+                par_zone[z]["moins"] += 1
+    for t, code, q in cartouches:
+        z = zone_de(t)
+        if not z:
+            continue
+        d = joueurs_zone.setdefault(code, {zz: [0] * 8 for zz in RUCK_ZONES_ORDRE})
+        d[z][5] += 1
+        par_zone[z]["cart"] += 1
+        if q == "+":
+            d[z][6] += 1
+            par_zone[z]["cart_plus"] += 1
+        elif q == "-":
+            d[z][7] += 1
+            par_zone[z]["cart_moins"] += 1
     for z, v in par_zone.items():
         v["moyenne"] = round(v["soutiens"] / v["rucks"], 1) if v["rucks"] else None
+        q = v["plus"] + v["moins"]
+        v["efficacite"] = round(100 * v["plus"] / q) if q else None
+        qc = v["cart_plus"] + v["cart_moins"]
+        v["cart_eff"] = round(100 * v["cart_plus"] / qc) if qc else None
     tot_r = sum(v["rucks"] for v in par_zone.values())
     tot_s = sum(v["soutiens"] for v in par_zone.values())
+    plus = sum(v["plus"] for v in par_zone.values()); moins = sum(v["moins"] for v in par_zone.values())
+    cp = sum(v["cart_plus"] for v in par_zone.values()); cm = sum(v["cart_moins"] for v in par_zone.values())
     return {"zones": par_zone, "joueurs": joueurs_zone, "rucks": len(rucks), "sans_zone": sans_zone,
-            "moyenne": round(tot_s / tot_r, 1) if tot_r else None}
+            "moyenne": round(tot_s / tot_r, 1) if tot_r else None,
+            "efficacite": round(100 * plus / (plus + moins)) if plus + moins else None,
+            "cartouches": sum(v["cart"] for v in par_zone.values()),
+            "cart_eff": round(100 * cp / (cp + cm)) if cp + cm else None}
 
 
 def _scorer_name(instances, e, joueurs=None, mots=None):

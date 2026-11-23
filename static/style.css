@@ -4090,3 +4090,13 @@ span.pres-crest-ini { display: flex; align-items: center; justify-content: cente
 .rz-table td.bjr-nom, .rz-table th.bjr-left { width:150px; max-width:none; overflow:visible; text-overflow:clip; }
 .rz-zone { padding:14px 0; }
 .rz-zval { font-size:1.9rem; }
+.rz-zone { grid-template-columns:70px 48px 1fr 62px; }
+.rz-cart { grid-column:1 / -1; font-size:.78rem; color:#6a5560; }
+.rz-cart b { color:#1d1d1f; }
+.rz-eff { color:#2f7d3a; font-size:.85rem; }
+.rz-e { font-size:.74rem; color:#2f7d3a; font-weight:700; }
+.rz-e small { font-weight:600; font-size:.62rem; }
+.rz-e-bad { color:#b3382c; }
+.rz-table th { font-size:.66rem; }
+.rz-table th.bjr-g-joueur { width:130px; }
+.rz-table td.bjr-nom, .rz-table th.bjr-left { width:130px; font-size:.85rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

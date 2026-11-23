@@ -2407,7 +2407,7 @@ def match_joueurs(match_id, seulement=None):
             rows = []
             for r in order_rows_by_reference_order([{"name": n} for n in rz["joueurs"] if n], ordered_names):
                 rows.append({"nom": _joueur_nom_affiche(r["name"]), "zones": rz["joueurs"][r["name"]],
-                             "total": sum(sum(v) for v in rz["joueurs"][r["name"]].values())})
+                             "total": sum(sum(v[:3]) + v[5] for v in rz["joueurs"][r["name"]].values())})
             rz = {**rz, "rows": rows, "ordre": _parser.RUCK_ZONES_ORDRE}
             ruck_zones = rz
     return render_template("match_joueurs.html", match=match, attack_table=attack_table, bilan_slide=bilan_slide,

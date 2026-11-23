@@ -115,31 +115,34 @@
     <div class="report-head">
         <img class="report-head-crest" src="{{ url_for('static', filename='logo.png') }}" alt="{{ match['own_team'] }}">
         <span class="report-title">Rucks par zone</span>
-        <span class="report-sub">{{ rz.rucks }} rucks · {{ rz.moyenne if rz.moyenne is not none else '—' }} soutiens par ruck en moyenne</span>
+        <span class="report-sub">{{ rz.rucks }} rucks · {{ rz.moyenne if rz.moyenne is not none else '—' }} soutiens par ruck{% if rz.efficacite is not none %} ({{ rz.efficacite }} % de +){% endif %} · {{ rz.cartouches }} cartouches{% if rz.cart_eff is not none %} ({{ rz.cart_eff }} % de +){% endif %}</span>
     </div>
     <div class="rz-body">
         <div class="rz-zones">
-            <div class="rz-cap">Soutiens par ruck, selon la zone</div>
+            <div class="rz-cap">Soutiens par ruck (efficacité = part de « + ») et cartouches, selon la zone</div>
             {% for z in rz.ordre %}{% set v = rz.zones[z] %}
             <div class="rz-zone">
                 <div class="rz-zname">{{ z|title }}</div>
                 <div class="rz-zval">{{ v.moyenne if v.moyenne is not none else '—' }}</div>
                 <div class="rz-zbar"><i style="width: {{ ((v.moyenne or 0) / 3 * 100)|round|int if v.moyenne else 0 }}%"></i></div>
-                <div class="rz-zn">{{ v.rucks }} ruck{{ 's' if v.rucks > 1 }}</div>
+                <div class="rz-zn">{{ v.rucks }} ruck{{ 's' if v.rucks > 1 }}<br><b class="rz-eff" title="{{ v.plus }} « + » sur {{ v.plus + v.moins }} soutiens qualifiés">{% if v.efficacite is not none %}{{ v.efficacite }} % +{% else %}—{% endif %}</b></div>
+                <div class="rz-cart">Cartouches <b>{{ v.cart }}</b>{% if v.cart_eff is not none %} · <span class="rz-eff" title="{{ v.cart_plus }} « + » sur {{ v.cart_plus + v.cart_moins }} qualifiées">{{ v.cart_eff }} % +</span>{% endif %}</div>
             </div>
             {% endfor %}
-            <p class="rz-note">Soutiens codés « 1er / 2e / 3+ » regroupés dans le temps : le porteur et les cartouches ne comptent pas. Zone = zone de possession UBB au début du ruck{% if rz.sans_zone %} ({{ rz.sans_zone }} ruck{{ 's' if rz.sans_zone > 1 }} sans zone, non comptés){% endif %}.</p>
+            <p class="rz-note">Soutiens codés « 1er / 2e / 3+ » regroupés dans le temps : le porteur ne compte pas ; les cartouches (quand elles sont qualifiées « + » / « − ») sont comptées à part. Zone = zone de possession UBB au début du ruck{% if rz.sans_zone %} ({{ rz.sans_zone }} ruck{{ 's' if rz.sans_zone > 1 }} sans zone, non comptés){% endif %}.</p>
         </div>
         <div class="rz-joueurs">
             <table class="bjr-table rz-table">
                 <thead>
-                    <tr class="bjr-groups"><th class="bjr-g-joueur">Joueur</th>{% for z in rz.ordre %}<th colspan="3" class="bjr-g-neutre">{{ z|title }}</th>{% endfor %}</tr>
-                    <tr class="bjr-cols"><th class="bjr-left">Nom</th>{% for z in rz.ordre %}<th class="bjr-gstart">1er</th><th>2e</th><th>3+</th>{% endfor %}</tr>
+                    <tr class="bjr-groups"><th class="bjr-g-joueur">Joueur</th>{% for z in rz.ordre %}<th colspan="5" class="bjr-g-neutre">{{ z|title }}</th>{% endfor %}</tr>
+                    <tr class="bjr-cols"><th class="bjr-left">Nom</th>{% for z in rz.ordre %}<th class="bjr-gstart">1er</th><th>2e</th><th>3+</th><th title="Part de soutiens « + »">Eff.</th><th title="Cartouches (part de « + »)">Cart.</th>{% endfor %}</tr>
                 </thead>
                 <tbody>
                 {% for r in rz.rows %}
                     <tr><td class="bjr-nom">{{ r.nom }}</td>
-                    {% for z in rz.ordre %}{% for k in r.zones[z] %}<td class="{{ 'bjr-gstart ' if loop.first }}{{ 'rz-v' if k else 'bjr-zero' }}">{{ k if k else '·' }}</td>{% endfor %}{% endfor %}</tr>
+                    {% for z in rz.ordre %}{% set c = r.zones[z] %}{% for k in c[:3] %}<td class="{{ 'bjr-gstart ' if loop.first }}{{ 'rz-v' if k else 'bjr-zero' }}">{{ k if k else '·' }}</td>{% endfor %}
+                    {% set q = c[3] + c[4] %}<td class="{{ 'rz-e' if q else 'bjr-zero' }}{{ ' rz-e-bad' if q and c[3] / q < 0.5 }}" title="{{ c[3] }} « + » / {{ c[4] }} « − »">{{ ((100 * c[3] / q)|round|int ~ '%') if q else '·' }}</td>
+                    {% set qc = c[6] + c[7] %}<td class="{{ 'rz-e' if c[5] else 'bjr-zero' }}{{ ' rz-e-bad' if qc and c[6] / qc < 0.5 }}" title="{{ c[6] }} « + » / {{ c[7] }} « − »">{% if c[5] %}{{ c[5] }}{% if qc %}<small> {{ ((100 * c[6] / qc)|round|int) }}%</small>{% endif %}{% else %}·{% endif %}</td>{% endfor %}</tr>
                 {% endfor %}
                 </tbody>
             </table>
