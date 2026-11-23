@@ -2431,6 +2431,19 @@ def _ch_rapprocher(texte, noms):
             sc = _composition_name_score(cand, n)
             if sc > score:
                 best, score = n, sc
+    if score >= 0.8:
+        return best
+    # Nom tronqué par l'outil GPS (« PERDIGON LE … ») : on le retrouve dans l'effectif (« Perdigon Le Naour »)
+    # puis on rapproche ce nom complet des codes du XML (« LE NAOUR »).
+    debut = _name_key(texte.replace("…", " ").replace(".", " "))
+    if len(debut) >= 6:
+        for noms_poste in SQUAD_ROSTER.values():
+            for r in noms_poste:
+                if _name_key(r).startswith(debut):
+                    for n in noms:
+                        sc = _composition_name_score(r, n)
+                        if sc > score:
+                            best, score = n, sc
     return best if score >= 0.8 else None
 
 
@@ -2439,6 +2452,24 @@ def _parser_chasses_colle(texte, noms_xml):
     colonne « > 24 » (« 4/6 » = 4 chasses sur 6 au-dessus du seuil) ; sinon on compte les Vmax de
     chaque chasse de la ligne (la moyenne en fin de ligne est reconnue et écartée).
     Renvoie ({code joueur: {"n": chasses, "rapides": au-dessus du seuil}}, lignes non rapprochées)."""
+    # Capture d'écran lue dans le navigateur : « NOM <tab> % ». Seul le pourcentage de chasses au-dessus du seuil
+    # est connu (pas le nombre de chasses) : il est combiné au nombre de chasses codées dans le XML.
+    lignes = [l for l in texte.splitlines() if l.strip()]
+    if lignes and (_ch_cellules(lignes[0]) + [""])[1].replace(" ", "") == "%%>%d" % CHASSE_SEUIL_KMH:
+        out, inconnus = {}, []
+        for ligne in lignes[1:]:
+            cells = _ch_cellules(ligne)
+            if len(cells) < 2:
+                continue
+            m = re.fullmatch(r"(\d{1,3})\s*%?", cells[1].strip())
+            if not m or int(m.group(1)) > 100:
+                continue
+            nom = _ch_rapprocher(cells[0], noms_xml)
+            if not nom:
+                inconnus.append(cells[0])
+                continue
+            out[nom.strip().casefold()] = {"n": 0, "rapides": 0, "pct": int(m.group(1))}
+        return out, inconnus
     col_seuil = None
     for ligne in texte.splitlines():
         cells = _ch_cellules(ligne)
@@ -2495,8 +2526,12 @@ def _injecter_chasses(m, cle_joueur, rows):
         return rows
     out = dict(rows)
     ruck = dict(out.get("ruck") or {})
-    ruck["chasses"] = saisie.get("n") or 0
-    ruck["chasses_rapides"] = saisie.get("rapides") or 0
+    if saisie.get("pct") is not None:
+        # Pourcentage seul (capture d'écran) : on garde le nombre de chasses codées dans le XML.
+        ruck["chasses_rapides"] = (ruck.get("chasses") or 0) * saisie["pct"] / 100.0
+    else:
+        ruck["chasses"] = saisie.get("n") or 0
+        ruck["chasses_rapides"] = saisie.get("rapides") or 0
     ruck["chasses_gps"] = 1
     ruck["chasses_match"] = max(ruck.get("chasses_match") or 0, 1)
     out["ruck"] = ruck
@@ -2528,7 +2563,10 @@ def match_chasses_saisie(match_id):
     db.execute("UPDATE matches SET manual_stats_json = %s WHERE id = %s", (json.dumps(manual), match_id))
     db.commit()
     tot = sum(v["n"] for v in data.values())
-    msg = f"Chasses GPS enregistrées : {len(data)} joueurs, {tot} chasses dont {sum(v['rapides'] for v in data.values())} au-dessus de {CHASSE_SEUIL_KMH} km/h."
+    if any("pct" in v for v in data.values()):
+        msg = f"Chasses ≥ {CHASSE_SEUIL_KMH} km/h enregistrées (en %) : {len(data)} joueurs."
+    else:
+        msg = f"Chasses GPS enregistrées : {len(data)} joueurs, {tot} chasses dont {sum(v['rapides'] for v in data.values())} au-dessus de {CHASSE_SEUIL_KMH} km/h."
     if inconnus:
         msg += " Joueurs non reconnus (ignorés) : " + ", ".join(inconnus[:6]) + "."
     flash(msg, "success" if not inconnus else "error")

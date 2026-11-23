@@ -4063,3 +4063,6 @@ span.pres-crest-ini { display: flex; align-items: center; justify-content: cente
 .jap-half { flex:0 1 335px; }
 @media (max-width: 700px) { .jap-wrap { grid-template-columns:minmax(0, 1fr); } }
 .jap-right { align-items:stretch; }
+.chg-capture { margin:8px 0 12px; padding:10px 12px; border:1px dashed #b7a0ac; border-radius:8px; background:#faf6f8; }
+.chg-capture:focus { outline:2px solid #7b1b46; }
+.chg-capture input[type=file] { margin:0 8px; }
