@@ -1117,6 +1117,10 @@ def init_db():
         db.execute("ALTER TABLE matches ADD COLUMN score_ht TEXT")
     if "match_type" not in cols:
         db.execute("ALTER TABLE matches ADD COLUMN match_type TEXT DEFAULT 'championnat'")
+    if "hudl_url" not in cols:
+        db.execute("ALTER TABLE matches ADD COLUMN hudl_url TEXT")
+    if "hudl_offset" not in cols:
+        db.execute("ALTER TABLE matches ADD COLUMN hudl_offset INTEGER DEFAULT 0")
     db.execute("""
         CREATE TABLE IF NOT EXISTS training_sessions (
             id SERIAL PRIMARY KEY,
@@ -1451,7 +1455,8 @@ def upload():
         ),
     )
     match_id = cur.fetchone()["id"]
-    db.execute("UPDATE matches SET match_type = %s WHERE id = %s", (_type_match(request.form.get("match_type")), match_id))
+    db.execute("UPDATE matches SET match_type = %s, hudl_url = %s WHERE id = %s",
+               (_type_match(request.form.get("match_type")), _hudl_url(request.form.get("hudl_url")), match_id))
     db.commit()
     flash("Match importé avec succès.", "success")
     if _apply_compo_prevue(db, match_id):
@@ -1520,7 +1525,8 @@ def upload_ubb():
         ),
     )
     match_id = cur.fetchone()["id"]
-    db.execute("UPDATE matches SET match_type = %s WHERE id = %s", (_type_match(request.form.get("match_type")), match_id))
+    db.execute("UPDATE matches SET match_type = %s, hudl_url = %s WHERE id = %s",
+               (_type_match(request.form.get("match_type")), _hudl_url(request.form.get("hudl_url")), match_id))
     db.commit()
     flash("Match UBB importé avec succès.", "success")
     if _apply_compo_prevue(db, match_id):
@@ -1627,6 +1633,31 @@ def _vider_memos_parser(exc=None):
     """Fin de requête : on libère les résultats mémorisés par le parseur (références aux instances)."""
     import parser as _parser_mod
     _parser_mod.vider_memos()
+
+
+def _hudl_url(valeur):
+    """Lien Hudl du match : accepté seulement s'il commence par https:// (sinon vide)."""
+    v = (valeur or "").strip()
+    return v if v.lower().startswith("https://") else None
+
+
+def _hudl_offset(valeur):
+    """Décalage en secondes entre le temps du XML et celui de la vidéo Hudl (peut être négatif)."""
+    try:
+        return max(-7200, min(7200, int(str(valeur).strip())))
+    except (TypeError, ValueError):
+        return 0
+
+
+@app.template_filter("tps_video")
+def _tps_video(sec, decalage=0):
+    """Secondes → « 47:12 » (ou « 1:02:05 »), décalage Hudl compris."""
+    try:
+        s = max(0, int(round(float(sec) + float(decalage or 0))))
+    except (TypeError, ValueError):
+        return ""
+    h, m, s = s // 3600, (s % 3600) // 60, s % 60
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
 
 def _get_match_or_404(match_id):
@@ -4637,12 +4668,13 @@ def match_edit_info(match_id):
         flash("Les deux équipes sont obligatoires.", "error")
         return redirect(request.referrer or url_for("index"))
     db.execute(
-        "UPDATE matches SET own_team = %s, opponent = %s, match_date = %s, competition = %s, venue = %s, journee = %s, match_type = %s WHERE id = %s",
+        "UPDATE matches SET own_team = %s, opponent = %s, match_date = %s, competition = %s, venue = %s, journee = %s, match_type = %s, hudl_url = %s, hudl_offset = %s WHERE id = %s",
         (own, opp, (request.form.get("match_date") or "").strip() or None,
          (request.form.get("competition") or "").strip() or None,
          (request.form.get("venue") or "").strip() or None,
          (request.form.get("journee") or "").strip() or None,
-         _type_match(request.form.get("match_type")), match_id),
+         _type_match(request.form.get("match_type")), _hudl_url(request.form.get("hudl_url")),
+         _hudl_offset(request.form.get("hudl_offset")), match_id),
     )
     db.commit()
     flash("Match modifié.", "success")

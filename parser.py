@@ -1847,10 +1847,12 @@ def _compute_discipline_calcul(instances, row_order=None, cards=None, compositio
         gs = DISCIPLINE_CATEGORY_GROUPS | ({"DISCIPLINES"} if team_code else set())
         return _discipline_category({_normalize_tag(t) for g in gs for t in groups.get(g, [])})
 
-    def _count_fault(code, groups, reasons, cat=None):
+    def _count_fault(code, groups, reasons, cat=None, t=None):
         row = players.setdefault(code, {"fautes": 0, "reasons": Counter(), "yellow": 0, "red": 0,
-                                        "off": 0, "def": 0, "autre": 0})
+                                        "off": 0, "def": 0, "autre": 0, "temps": []})
         row["fautes"] += 1
+        if t is not None:
+            row["temps"].append(float(t))
         # Ventilation pour la fiche individuelle : catégorie de la faute d'équipe, à défaut
         # le label « Disciplines Off / Def » posé sur le joueur ; sinon « autres ».
         if cat is None:
@@ -1898,7 +1900,7 @@ def _compute_discipline_calcul(instances, row_order=None, cards=None, compositio
             team_faults_with_player += 1
             reasons = _reasons_of(groups)
             _cat1 = _category_of(groups, team_code=True)
-            _count_fault(fautif, groups, reasons, _cat1)
+            _count_fault(fautif, groups, reasons, _cat1, inst.get("start"))
             _count_category(groups, reasons, _cat1)
 
     # 2) Sinon (fichiers actuels) : les labels Disciplines posés sur les codes joueurs,
@@ -1941,7 +1943,7 @@ def _compute_discipline_calcul(instances, row_order=None, cards=None, compositio
                     _t, code, groups = candidates[best]
                     reasons = _reasons_of(groups) + treasons
                     # Catégorie vague du code d'équipe (« Autres ») : le label « Disciplines Off / Def » du joueur prime.
-                    _count_fault(code, groups, reasons, None if tcat == "Other" else tcat)
+                    _count_fault(code, groups, reasons, None if tcat == "Other" else tcat, t0)
                     _count_category(groups, reasons, tcat)
                 elif tcat:
                     # Faute sans joueur rapproché : sa catégorie compte quand même pour l'équipe.
@@ -1952,7 +1954,7 @@ def _compute_discipline_calcul(instances, row_order=None, cards=None, compositio
             for k in sorted(used):
                 _t, code, groups = candidates[k]
                 reasons = _reasons_of(groups)
-                _count_fault(code, groups, reasons)
+                _count_fault(code, groups, reasons, None, _t)
                 _count_category(groups, reasons)
         team_faults_paired = len(used)
 
@@ -2014,7 +2016,8 @@ def _compute_discipline_calcul(instances, row_order=None, cards=None, compositio
             split = {k: int(ms.get(k) or 0) for k in ("off", "def", "autre")}
             fautes = sum(split.values())
         rows.append({"key": key, "name": display, "code": code, "fautes": fautes, "fautes_auto": fautes_auto,
-                     "raison": raison, "carton": carton, "groupe": groupe, "split": split})
+                     "raison": raison, "carton": carton, "groupe": groupe, "split": split,
+                     "temps": sorted((auto or {}).get("temps") or [])})
 
     cats = []
     for label, _k in DISCIPLINE_CATEGORIES:

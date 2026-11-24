@@ -147,6 +147,24 @@
         <span id="disStatus" class="zg-status" role="status"></span></p>
     {% endif %}
 </div>
+    {% set fautes_video = data.rows|selectattr('temps')|list %}
+    {% if fautes_video %}
+    <div class="dis-video">
+        <h3>Revoir les fautes en vidéo</h3>
+        {% if match.get('hudl_url') %}
+        <p class="subtitle"><a class="btn btn-secondary" href="{{ match['hudl_url'] }}" target="_blank" rel="noopener">Ouvrir la vidéo Hudl</a>
+            Place-toi à la minute indiquée dans le lecteur.{% if match.get('hudl_offset') %} (Décalage appliqué : {{ match['hudl_offset'] }} s.){% endif %}</p>
+        {% elif is_admin %}
+        <p class="subtitle">Ajoute le lien Hudl du match avec « Modifier le titre » pour avoir le bouton d'ouverture de la vidéo.</p>
+        {% endif %}
+        <ul class="dis-video-list">
+            {% for r in fautes_video %}
+            <li><strong>{{ r.name }}</strong> :
+                {% for t in r.temps %}<span class="dis-video-t">{{ t|tps_video(match.get('hudl_offset') or 0) }}</span>{% endfor %}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
 
 {% endif %}
 

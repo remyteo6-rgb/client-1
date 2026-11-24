@@ -4100,3 +4100,9 @@ span.pres-crest-ini { display: flex; align-items: center; justify-content: cente
 .rz-table th { font-size:.66rem; }
 .rz-table th.bjr-g-joueur { width:130px; }
 .rz-table td.bjr-nom, .rz-table th.bjr-left { width:130px; font-size:.85rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* Discipline : revoir les fautes en vidéo */
+.dis-video{max-width:1280px;margin:18px auto 0;padding:14px 18px;background:#fff;border:1px solid #e3d8de;border-radius:10px}
+.dis-video h3{margin:0 0 6px;font-family:Oswald,sans-serif;letter-spacing:.04em;color:#530d34}
+.dis-video-list{list-style:none;margin:8px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:6px 18px}
+.dis-video-t{display:inline-block;margin:0 4px 0 6px;padding:1px 7px;border-radius:10px;background:#f3e7ed;color:#530d34;font-variant-numeric:tabular-nums}
