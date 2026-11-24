@@ -147,8 +147,8 @@
         <span id="disStatus" class="zg-status" role="status"></span></p>
     {% endif %}
 </div>
-    {% set fautes_video = data.rows|selectattr('temps')|list %}
-    {% if fautes_video %}
+    {% set evts = data.evenements %}
+    {% if evts %}
     <div class="dis-video">
         <h3>Revoir les fautes en vidéo</h3>
         {% if match.get('hudl_url') %}
@@ -158,9 +158,8 @@
         <p class="subtitle">Ajoute le lien Hudl du match avec « Modifier le titre » pour avoir le bouton d'ouverture de la vidéo.</p>
         {% endif %}
         <ul class="dis-video-list">
-            {% for r in fautes_video %}
-            <li><strong>{{ r.name }}</strong> :
-                {% for t in r.temps %}<span class="dis-video-t">{{ t|tps_video(match.get('hudl_offset') or 0) }}</span>{% endfor %}</li>
+            {% for e in evts %}
+            <li><span class="dis-video-t">{{ e.t|tps_video(match.get('hudl_offset') or 0) }}</span> {{ e.type or 'Faute' }} — <strong>{{ e.joueur or 'joueur non renseigné' }}</strong></li>
             {% endfor %}
         </ul>
     </div>

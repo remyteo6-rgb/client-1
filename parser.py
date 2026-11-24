@@ -2029,7 +2029,20 @@ def _compute_discipline_calcul(instances, row_order=None, cards=None, compositio
                      "reasons_text": reasons_txt,
                      "reasons": [l.strip() for l in (reasons_txt or "").splitlines() if l.strip()]})
 
+    # Toutes les fautes d'équipe (codes « UBB Disciplines »), avec le joueur quand il est rattaché.
+    evenements = []
+    for inst in instances:
+        if _normalize_tag(inst.get("code_raw")) != "UBB DISCIPLINES":
+            continue
+        t0 = inst.get("start") or 0
+        types = [(l.get("text") or "").strip() for l in inst.get("labels") or []
+                 if _normalize_tag(l.get("group")) == "DISCIPLINES" and (l.get("text") or "").strip()]
+        joueur = next((r["name"] for r in rows if any(abs(t - t0) < 0.5 for t in r.get("temps") or [])), None)
+        evenements.append({"t": float(t0), "type": " · ".join(types), "joueur": joueur})
+    evenements.sort(key=lambda e: e["t"])
+
     return {
+        "evenements": evenements,
         "team": team or {"own": None, "adverse": None},
         "par_periode": {side: {q: par_periode[side].get(q, 0) for q in POSSESSION_QUARTER_ORDER}
                         for side in ("own", "adverse")},
